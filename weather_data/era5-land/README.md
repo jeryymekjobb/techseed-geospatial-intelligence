@@ -30,9 +30,14 @@ Limitations:
   (for example 31.5 °C here and 34.4 °C at Sala A at 12 UTC on 4 August).
 - Precipitation is modelled and can differ from station measurements.
 
+`era5-land-fwi-spinup-2014.csv` has the same columns for 2014-05-01 – 2014-07-28
+at the grid points 59.9 N 16.1 E and 59.9 N 16.2 E. It is used only to run the
+Fire Weather Index codes in from the start of the season before the fire.
+
 Regenerate (needs the repository's `.venv` with `cdsapi` and `netCDF4`, a CDS
 token in `~/.cdsapirc` and the accepted dataset licence):
 
 ```bash
 .venv/bin/python tools/fetch_era5_land.py --area 60.1,15.8,59.7,16.5 --start 2014-07-29 --end 2014-08-14 --raw-dir /tmp/era5-land --out weather_data/era5-land/era5-land-vastmanland-2014.csv
+.venv/bin/python tools/fetch_era5_land.py --area 59.95,16.1,59.85,16.25 --start 2014-05-01 --end 2014-07-28 --raw-dir /tmp/era5-land-spinup --out weather_data/era5-land/era5-land-fwi-spinup-2014.csv
 ```

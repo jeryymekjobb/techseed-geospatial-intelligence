@@ -191,7 +191,11 @@ def simplify_collection(collection: dict[str, Any], tolerance: float) -> dict[st
 
 
 def fetch(bbox: tuple[float, float, float, float]) -> dict[str, Any]:
-    body = urlencode({"data": overpass_query(*bbox)}).encode("utf-8")
+    return fetch_query(overpass_query(*bbox))
+
+
+def fetch_query(query: str) -> dict[str, Any]:
+    body = urlencode({"data": query}).encode("utf-8")
     request = Request(OVERPASS_URL, data=body, headers={"User-Agent": USER_AGENT})
     with urlopen(request, timeout=240) as response:
         return json.load(response)
