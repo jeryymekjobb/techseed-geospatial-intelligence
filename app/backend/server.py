@@ -76,6 +76,31 @@ def weather() -> dict[str, Any]:
     return {"source": catalogue["source"], "stations": stations}
 
 
+@lru_cache(maxsize=1)
+def wind_field() -> dict[str, Any]:
+    """ERA5-Land 10 m wind per grid point and hour, compact: one list per hour, in point order."""
+    points: list[tuple[float, float]] = []
+    index: dict[tuple[float, float], int] = {}
+    hours: dict[str, dict[int, tuple[float, int, float]]] = {}
+    with scenario.WIND_FILE.open(encoding="utf-8", newline="") as stream:
+        for row in csv.DictReader(stream):
+            point = (float(row["latitude"]), float(row["longitude"]))
+            if point not in index:
+                index[point] = len(points)
+                points.append(point)
+            hours.setdefault(row["time_utc"], {})[index[point]] = (
+                float(row["wind_speed_ms"]), int(row["wind_from_deg"]), float(row["t2m_c"]),
+            )
+    times = sorted(hours)
+    return {
+        "source": scenario.ATTRIBUTION["era5_land"],
+        "points": [list(point) for point in points],
+        "times_utc": times,
+        # [speed m/s, direction the wind blows from in degrees, 2 m temperature °C] per point
+        "values": [[list(hours[moment][position]) for position in range(len(points))] for moment in times],
+    }
+
+
 def feature(item: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "Feature",
@@ -174,6 +199,8 @@ class Handler(BaseHTTPRequestHandler):
                 "features": [feature(item) for item in items],
                 "daily": daily_summary(items),
             })
+        elif path == "/api/wind":
+            self.send_json(wind_field())
         elif path == "/api/weather":
             self.send_json(weather())
         elif path == "/api/stream":

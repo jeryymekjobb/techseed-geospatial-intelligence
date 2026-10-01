@@ -164,3 +164,12 @@ def test_http_weather_endpoint(base_url: str) -> None:
 
     assert status == 200
     assert len(json.loads(body)["stations"]) == 2
+
+
+def test_wind_field_is_compact_and_matches_the_csv() -> None:
+    field = server.wind_field()
+
+    assert field["source"].startswith("Innehåller bearbetad information från Copernicus")
+    assert len(field["points"]) == 40 and len(field["times_utc"]) == 408
+    hour = field["times_utc"].index("2014-08-04T12:00:00Z")
+    assert field["values"][hour][field["points"].index([59.9, 16.2])] == [4.08, 136, 31.5]

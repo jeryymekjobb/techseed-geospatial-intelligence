@@ -51,6 +51,13 @@
         <svg id="timeline" class="timeline" role="img" aria-label="Antal detektioner per dygn"></svg>
       </section>
       <section>
+        <h2>Vind (ERA5-Land, modell)</h2>
+        <ul class="legend">
+          <li>Pilen pekar dit vinden blåser. Streck vid basen, avrundat till närmaste 2,5 m/s: kort 2,5 m/s, långt 5 m/s, triangel 25 m/s. Pil utan streck: 1–1,2 m/s. Ring: lugnt (under 1 m/s).</li>
+          <li id="wind-note" class="status"></li>
+        </ul>
+      </section>
+      <section>
         <h2>Hotspots</h2>
         <ul class="legend">
           <li><span class="swatch" style="background:#ff2a00"></span>senaste 12 timmarna</li>
@@ -67,6 +74,7 @@
     </aside>
   </main>
   <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+  <script src="/wind_barbs.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

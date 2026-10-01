@@ -12,6 +12,7 @@ FIRMS_FILES = [
 ]
 TERRAIN_FILE = REPO_ROOT / "app" / "layers" / "terrain-vastmanland.geojson"
 WEATHER_DIR = REPO_ROOT / "weather_data" / "smhi"
+WIND_FILE = REPO_ROOT / "weather_data" / "era5-land" / "era5-land-vastmanland-2014.csv"
 # Mean position of the FIRMS detections, used for station distances.
 FIRE_CENTRE = (59.89, 16.175)
 
@@ -30,4 +31,5 @@ ATTRIBUTION = {
     "osm": "© OpenStreetMap contributors (ODbL)",
     "lantmateriet": "© Lantmäteriet",
     "smhi": "SMHI öppna data (CC BY 4.0 SE), Sala A och Kloten A",
+    "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land), CC BY 4.0",
 }

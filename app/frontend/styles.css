@@ -23,6 +23,11 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .weather dl { display: grid; grid-template-columns: auto auto; gap: 1px 8px; margin: 0; font-size: 0.85rem; }
 .weather dt { color: var(--muted); }
 .weather dd { margin: 0; font-weight: 600; }
+.barb-icon { pointer-events: none; }
+.barb-icon svg { width: 40px; height: 40px; overflow: visible; pointer-events: auto; }
+.barb path, .barb circle { fill: none; stroke: #0b3d91; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.barb .halo { stroke: #fff; stroke-width: 3.5; opacity: 0.85; }
+.barb .pennant { fill: #0b3d91; }
 .legend { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
 .legend li { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid #0003; flex: none; }

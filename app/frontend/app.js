@@ -24,6 +24,9 @@ const COMPASS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "
 
 const state = {
   config: null,
+  wind: null,
+  windMarkers: [],
+  windHour: null,
   weather: null,
   weatherStation: null,
   daily: [],
@@ -215,6 +218,56 @@ function showWeather(clock) {
   arrow.style.transform = `rotate(${(observation.wind_dir_deg + 180) % 360}deg)`;
 }
 
+function windAt(clock) {
+  // The latest ERA5-Land hour at or before the playback clock.
+  const times = state.wind.times_utc;
+  let found = -1;
+  for (let index = 0; index < times.length && new Date(times[index]) <= clock; index += 1) found = index;
+  return found;
+}
+
+function showWind(clock) {
+  if (!state.wind) return;
+  const hour = windAt(clock);
+  if (hour === state.windHour) return;
+  state.windHour = hour;
+  state.windMarkers.forEach((marker, position) => {
+    const element = marker.getElement();
+    if (!element) return;
+    if (hour < 0) {
+      element.style.visibility = "hidden";
+      return;
+    }
+    const [speed, from, temperature] = state.wind.values[hour][position];
+    element.style.visibility = "visible";
+    element.innerHTML = windBarbSvg(speed);
+    element.firstChild.style.transform = `rotate(${(from + 180) % 360}deg)`;
+    const [lat, lon] = state.wind.points[position];
+    marker.setTooltipContent(
+      `ERA5-Land ${lat.toFixed(1)} N ${lon.toFixed(1)} E<br>${speed.toFixed(1)} m/s från ${compassPoint(from)} (${from}°), ${temperature} °C`
+      + `<br>${formatLocal(state.wind.times_utc[hour])}`,
+    );
+  });
+  $("wind-note").textContent = hour < 0 ? "Inga vinddata för tiden." : `Modellvärden för ${formatLocal(state.wind.times_utc[hour])}.`;
+}
+
+async function setupWind(view) {
+  try {
+    state.wind = await getJson("/api/wind");
+  } catch (error) {
+    $("wind-note").textContent = `Vinddata kunde inte laddas: ${error.message}.`;
+    return;
+  }
+  const layer = L.layerGroup();
+  const icon = L.divIcon({ className: "barb-icon", iconSize: [40, 40], iconAnchor: [20, 20], html: "" });
+  state.windMarkers = state.wind.points.map(([lat, lon]) => L.marker([lat, lon], { icon, keyboard: false })
+    .bindTooltip("", { direction: "top" }).addTo(layer));
+  view.overlays["Vind (ERA5-Land)"] = layer;
+  layer.addTo(view.map);
+  layer.on("add", () => { state.windHour = null; showWind(state.clock); });
+  view.map.attributionControl.addAttribution(state.config.attribution.era5_land);
+}
+
 async function setupWeather(view) {
   try {
     state.weather = await getJson("/api/weather");
@@ -247,6 +300,7 @@ function setClock(clock) {
   restyleHotspots(clock);
   drawTimeline(state.daily, clock);
   showWeather(clock);
+  showWind(clock);
 }
 
 function stopStream() {
@@ -319,6 +373,7 @@ async function main() {
   state.daily = summary.daily;
   await addTerrain(view, config);
   await setupWeather(view);
+  await setupWind(view);
   L.control.layers(view.baseLayers, view.overlays, { collapsed: false }).addTo(view.map);
   setClock(new Date(config.playback.start_utc));
   $("play").addEventListener("click", () => play(view));
