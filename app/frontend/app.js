@@ -259,7 +259,7 @@ async function setupWind(view) {
     return;
   }
   const layer = L.layerGroup();
-  const icon = L.divIcon({ className: "barb-icon", iconSize: [40, 40], iconAnchor: [20, 20], html: "" });
+  const icon = L.divIcon({ className: "barb-icon", iconSize: [56, 56], iconAnchor: [28, 28], html: "" });
   state.windMarkers = state.wind.points.map(([lat, lon]) => L.marker([lat, lon], { icon, keyboard: false })
     .bindTooltip("", { direction: "top" }).addTo(layer));
   view.overlays["Vind (ERA5-Land)"] = layer;
