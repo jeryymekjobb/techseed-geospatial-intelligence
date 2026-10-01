@@ -12,7 +12,8 @@ Exhibition prototype in two parts:
   the fire area with a margin, a terrain layer, FIRMS hotspots coloured by age and
   sized by fire radiative power, a daily timeline, playback controls and a
   weather panel (SMHI station observations) and thin wind arrows with speed
-  barbs (ERA5-Land model wind) that follow the playback clock.
+  barbs (ERA5-Land model wind) that follow the playback clock, and a fire-spread
+  forecast (model, large uncertainty) for the latest satellite pass.
 
 All fire data is **historical (2014) and replayed, not live**; the GUI says so.
 
@@ -42,6 +43,7 @@ version.
 | Terrain | OSM land use and natural areas via Overpass, `app/layers/terrain-vastmanland.geojson` | ODbL | **Current** OSM state, not 2014; fetched 2026-10-01, simplified about 10 m; regenerate with `tools/fetch_osm_terrain.py` |
 | Weather | SMHI Sala A (96560) and Kloten A (95540), hourly, `weather_data/smhi/` | CC BY 4.0 SE; name SMHI | Station measurements 29 and 52 km from the fire, not at the fire |
 | Wind arrows | ERA5-Land hourly 10 m wind, 0.1° grid, `weather_data/era5-land/` | CC BY 4.0; "Contains modified Copernicus Climate Change Service information" | Model reanalysis, 40 grid points; arrows point where the wind blows; barbs 2.5/5/25 m/s |
+| Forecast (model) | `app/backend/forecast.py`, `tools/fire_spread.py` | – | At each FIRMS pass: estimated front (hull of detections so far), observed spread between passes, FBP C-2 forecast with FWI from SMHI Sala A, weather held from the pass, calibrated against observed spread; band half to double the rate for 3/6/12/24 h; places inside the double-rate area within 24 h with a span, no exact times. Hindcast skill: `reports/2026-10-01-brandspridningsanalys-vastmanland-2014-claude-opus-5-5.md` |
 | Topowebb (optional) | Lantmäteriet Topografisk webbkarta Visning | CC0; access via Geotorget | Off until configured |
 | Property boundaries (optional) | Lantmäteriet Fastighetsindelning Visning (WMS) | Open data via Geotorget | Off until configured; choose the layers to show |
 

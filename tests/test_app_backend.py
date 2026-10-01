@@ -173,3 +173,10 @@ def test_wind_field_is_compact_and_matches_the_csv() -> None:
     assert len(field["points"]) == 40 and len(field["times_utc"]) == 408
     hour = field["times_utc"].index("2014-08-04T12:00:00Z")
     assert field["values"][hour][field["points"].index([59.9, 16.2])] == [4.08, 136, 31.5]
+
+
+def test_http_forecast_endpoint(base_url: str) -> None:
+    status, body = get(f"{base_url}/api/forecast")
+
+    data = json.loads(body)
+    assert status == 200 and data["states"] and data["report"].startswith("reports/")

@@ -16,6 +16,7 @@ const TERRAIN_COLORS = {
   "vatten": "#6fa8dc",
 };
 const AGE_COLORS = [[12, "#ff2a00"], [48, "#ff8c00"], [Infinity, "#7a1f1f"]];
+const clockTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const localTime = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short",
 });
@@ -24,6 +25,10 @@ const COMPASS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "
 
 const state = {
   config: null,
+  forecast: null,
+  forecastPass: undefined,
+  forecastHorizon: "6",
+  forecastLayer: null,
   wind: null,
   windMarkers: [],
   windHour: null,
@@ -268,6 +273,93 @@ async function setupWind(view) {
   view.map.attributionControl.addAttribution(state.config.attribution.era5_land);
 }
 
+function forecastStateAt(clock) {
+  // The latest pass at or before the playback clock; the forecast never looks ahead.
+  let found = null;
+  for (const item of state.forecast.states) {
+    if (new Date(item.pass_utc) > clock) break;
+    found = item;
+  }
+  return found;
+}
+
+function spreadArrowIcon(observedDeg, modelDeg) {
+  const arrow = (deg, cls) => (deg === null || deg === undefined ? "" :
+    `<g transform="rotate(${deg})"><path d="M0,0 L0,-30" class="${cls}"></path><path d="M-5,-24 L0,-34 L5,-24 Z" class="${cls}-head"></path></g>`);
+  return L.divIcon({
+    className: "spread-arrow", iconSize: [70, 70], iconAnchor: [35, 35],
+    html: `<svg viewBox="-35 -35 70 70">${arrow(modelDeg, "model")}${arrow(observedDeg, "observed")}</svg>`,
+  });
+}
+
+function km(value) {
+  return `${String(value).replace(".", ",")} km/h`;
+}
+
+function drawForecast(clock) {
+  if (!state.forecast || !state.forecastLayer) return;
+  const current = forecastStateAt(clock);
+  const key = `${current?.pass_utc}|${state.forecastHorizon}`;
+  const values = $("forecast-values");
+  if (current) {
+    const since = hoursBetween(clock, new Date(current.pass_utc));
+    const observed = current.observed_spread;
+    const model = current.model;
+    const weather = model.fire_weather;
+    values.innerHTML = [
+      ["Senaste passage", `${formatLocal(current.pass_utc)} (för ${since.toFixed(1).replace(".", ",")} h sedan)`],
+      ["Detektioner", `${current.detections_so_far} hittills`],
+      ["Observerat", observed ? `${km(observed.km_per_h)} mot ${observed.towards} (${clockTime.format(new Date(observed.from_utc))}–${clockTime.format(new Date(observed.to_utc))} mellan passager)` : "ingen mätbar spridning ännu"],
+      ["Modell, trolig", `${km(model.head_km_per_h.central)} mot ${model.towards} (spann ${km(model.head_km_per_h.low)}–${km(model.head_km_per_h.high)})`],
+      ["Kalibrering", `× ${String(model.calibration_factor).replace(".", ",")} mot observerad spridning`],
+      ["Brandväder", weather.fwi !== undefined ? `FWI ${weather.fwi}, BUI ${weather.bui}, ISI ${weather.isi} (SMHI Sala A)` : "saknas"],
+    ].map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
+  } else {
+    values.innerHTML = "<dt>Prognos</dt><dd>ingen satellitdetektion ännu</dd>";
+  }
+  if (key === state.forecastPass) return;
+  state.forecastPass = key;
+  const layer = state.forecastLayer;
+  layer.clearLayers();
+  if (!current) {
+    $("forecast-places").textContent = "";
+    return;
+  }
+  const bands = current.forecast[state.forecastHorizon];
+  L.polygon(bands.high, { color: "#b7950b", weight: 1, dashArray: "5 4", fillColor: "#ffd54a", fillOpacity: 0.18, interactive: false }).addTo(layer);
+  L.polygon(bands.central, { color: "#d35400", weight: 1.5, fillColor: "#ff8c00", fillOpacity: 0.25, interactive: false }).addTo(layer);
+  L.polygon(bands.low, { color: "#7a1f1f", weight: 1, dashArray: "3 3", fill: false, interactive: false }).addTo(layer);
+  L.polygon(current.front, { color: "#202020", weight: 2, fill: false, interactive: false }).addTo(layer);
+  L.marker(current.front_centre, {
+    icon: spreadArrowIcon(current.observed_spread?.towards_deg, current.model.towards_deg), interactive: false, keyboard: false,
+  }).addTo(layer);
+  for (const place of current.places_within_24h) {
+    L.circleMarker([place.latitude, place.longitude], { radius: 4, color: "#202020", weight: 1, fillColor: "#ffd54a", fillOpacity: 1 })
+      .bindTooltip(`${place.names.join(", ")}: inom ${place.span} (spann)`, { direction: "top" })
+      .addTo(layer);
+  }
+  const list = current.places_within_24h.slice(0, 6).map((place) => `${place.names[0]} ${place.span}`).join(", ");
+  $("forecast-places").textContent = current.places_within_24h_count
+    ? `Orter inom ytan för dubbel hastighet inom 24 h: ${current.places_within_24h_count}. Först: ${list}. Spannet är tid vid dubbel–halv hastighet.`
+    : "Inga orter inom ytan för dubbel hastighet inom 24 h.";
+}
+
+async function setupForecast(view) {
+  try {
+    state.forecast = await getJson("/api/forecast");
+  } catch (error) {
+    $("forecast-places").textContent = `Prognosen kunde inte laddas: ${error.message}.`;
+    return;
+  }
+  $("forecast-label").textContent = state.forecast.label;
+  state.forecastLayer = L.layerGroup().addTo(view.map);
+  view.overlays["Prognos (modell)"] = state.forecastLayer;
+  $("forecast-horizon").addEventListener("change", (event) => {
+    state.forecastHorizon = event.target.value;
+    drawForecast(state.clock);
+  });
+}
+
 async function setupWeather(view) {
   try {
     state.weather = await getJson("/api/weather");
@@ -301,6 +393,7 @@ function setClock(clock) {
   drawTimeline(state.daily, clock);
   showWeather(clock);
   showWind(clock);
+  drawForecast(clock);
 }
 
 function stopStream() {
@@ -374,6 +467,7 @@ async function main() {
   await addTerrain(view, config);
   await setupWeather(view);
   await setupWind(view);
+  await setupForecast(view);
   L.control.layers(view.baseLayers, view.overlays, { collapsed: false }).addTo(view.map);
   setClock(new Date(config.playback.start_utc));
   $("play").addEventListener("click", () => play(view));

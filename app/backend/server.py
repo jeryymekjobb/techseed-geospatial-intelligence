@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import lantmateriet, scenario
+from app.backend import forecast, lantmateriet, scenario
 from tools.firms_extract import daily_summary, select_detections
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
@@ -199,6 +199,8 @@ class Handler(BaseHTTPRequestHandler):
                 "features": [feature(item) for item in items],
                 "daily": daily_summary(items),
             })
+        elif path == "/api/forecast":
+            self.send_json(forecast.forecasts())
         elif path == "/api/wind":
             self.send_json(wind_field())
         elif path == "/api/weather":

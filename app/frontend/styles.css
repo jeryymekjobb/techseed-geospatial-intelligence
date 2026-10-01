@@ -28,6 +28,15 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .barb path, .barb circle { fill: none; stroke: #0b3d91; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
 .barb .halo { stroke: #fff; stroke-width: 3; opacity: 0.85; }
 .barb .pennant { fill: #0b3d91; }
+.forecast-label { margin: 2px 0 6px; padding: 3px 6px; border-left: 4px solid #b3261e; background: #fbe9e7; font-size: 0.8rem; font-weight: 600; }
+.forecast-values { display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; margin: 6px 0; font-size: 0.85rem; }
+.forecast-values dt { color: var(--muted); }
+.forecast-values dd { margin: 0; font-weight: 600; }
+.spread-arrow svg { width: 70px; height: 70px; overflow: visible; }
+.spread-arrow .observed { stroke: #b3261e; stroke-width: 3; fill: none; stroke-linecap: round; }
+.spread-arrow .observed-head { fill: #b3261e; }
+.spread-arrow .model { stroke: #d35400; stroke-width: 2; fill: none; stroke-dasharray: 4 3; }
+.spread-arrow .model-head { fill: #d35400; }
 .legend { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
 .legend li { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid #0003; flex: none; }

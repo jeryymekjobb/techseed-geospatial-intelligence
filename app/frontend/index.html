@@ -34,6 +34,26 @@
         <div id="counts" class="counts">0 detektioner visas</div>
         <div id="stream-status" class="status" aria-live="polite"></div>
       </section>
+      <section class="forecast-section">
+        <h2>Prognos (modell)</h2>
+        <div id="forecast-label" class="forecast-label">Modellprognos med stor osäkerhet – inte beslutsunderlag</div>
+        <label>Horisont
+          <select id="forecast-horizon">
+            <option value="3">3 timmar</option>
+            <option value="6" selected>6 timmar</option>
+            <option value="12">12 timmar</option>
+            <option value="24">24 timmar</option>
+          </select>
+        </label>
+        <dl id="forecast-values" class="forecast-values"></dl>
+        <ul class="legend">
+          <li><span class="swatch" style="background:none;border:2px solid #202020"></span>uppskattad brandfront (alla detektioner hittills)</li>
+          <li><span class="swatch" style="background:#ff8c0066;border:1px solid #d35400"></span>trolig spridning inom horisonten</li>
+          <li><span class="swatch" style="background:#ffd54a33;border:1px dashed #b7950b"></span>om branden går dubbelt så fort</li>
+          <li><span class="swatch" style="background:none;border:1px dashed #7a1f1f"></span>om branden går hälften så fort</li>
+        </ul>
+        <div id="forecast-places" class="status"></div>
+      </section>
       <section>
         <h2>Väder (SMHI)</h2>
         <label>Station <select id="weather-station"></select></label>
