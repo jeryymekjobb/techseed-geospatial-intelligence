@@ -194,14 +194,15 @@ def extract(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     with (output_dir / "hotspots.csv").open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=OUTPUT_COLUMNS)
+        writer = csv.DictWriter(stream, fieldnames=OUTPUT_COLUMNS, lineterminator="\n")
         writer.writeheader()
         writer.writerows(kept)
     (output_dir / "hotspots.geojson").write_text(json.dumps(geojson(kept), indent=1) + "\n", encoding="utf-8")
     summary = daily_summary(kept)
     with (output_dir / "daily_summary.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(
-            stream, fieldnames=["acq_date", "instrument", "detections", "frp_sum_mw", "frp_max_mw", "first_utc", "last_utc"]
+            stream, fieldnames=["acq_date", "instrument", "detections", "frp_sum_mw", "frp_max_mw", "first_utc", "last_utc"],
+            lineterminator="\n",
         )
         writer.writeheader()
         writer.writerows(summary)
