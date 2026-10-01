@@ -150,7 +150,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def stream(self, query: dict[str, str]) -> None:
         try:
-            speed = min(MAX_SPEED, max(MIN_SPEED, float(query.get("speed", 6 * 3600))))
+            speed = min(MAX_SPEED, max(MIN_SPEED, float(query.get("speed", 3600))))
             start = parse_utc(query["from"]) if query.get("from") else scenario.PLAYBACK_START
         except ValueError:
             self.send_json({"error": "invalid_playback_parameters"}, HTTPStatus.BAD_REQUEST)
