@@ -1,0 +1,4 @@
+# Only for tools/record_demo.py; the app itself uses the standard library.
+# python3 -m venv .venv && .venv/bin/pip install -r tools/requirements-record.txt
+# Uses the installed Google Chrome (channel "chrome"); ffmpeg is optional, for MP4.
+playwright==1.63.0

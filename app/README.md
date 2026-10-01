@@ -30,6 +30,23 @@ Open <http://127.0.0.1:8765/>. Options: `--host`, `--port`. In the browser,
 `?at=2014-08-04T12:00:00Z` shows the state at that UTC time (the playback
 continues from there).
 
+`?speed=10800` sets the playback speed in simulated seconds per second and
+`?horizon=6` the forecast horizon (3, 6, 12 or 24 hours).
+
+### Record a video
+
+`tools/record_demo.py` starts the backend itself, plays the GUI in a headless
+Google Chrome and saves a video (needs `.venv/bin/pip install -r
+tools/requirements-record.txt`):
+
+```bash
+.venv/bin/python -m tools.record_demo --start 2014-08-04T06:00:00Z --speed 10800 --horizon 6 --size 1920x1080 --out ~/Videos/brandkarta.webm
+```
+
+Without `--duration` it records until the playback ends. The WebM starts with the
+few seconds in which the page loads; with ffmpeg installed an MP4 is also written
+that starts with the playback.
+
 The OSM base map is loaded by the browser from `tile.openstreetmap.org`, so it
 needs internet access; offline tiles for the exhibition are not part of this
 version.

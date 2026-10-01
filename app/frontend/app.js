@@ -422,6 +422,7 @@ function play(view) {
     state.finished = true;
     stopStream();
     $("stream-status").textContent = "Uppspelningen är klar.";
+    document.body.dataset.playback = "finished";  // read by tools/record_demo.py
   });
   source.onerror = () => {
     // EventSource reconnects by itself; stop instead so the playback does not restart.
@@ -476,13 +477,26 @@ async function main() {
   $("speed").addEventListener("change", () => {
     if (state.source) { stopStream(); play(view); }
   });
-  // Kiosk options: ?show=all shows every detection, ?at=<ISO time> the state at that
-  // time (playback continues from there), ?autoplay=1 starts the playback.
-  const options = new URLSearchParams(window.location.search);
-  const at = options.get("at") ? new Date(options.get("at")) : null;
-  if (options.get("show") === "all") await showAll(view);
-  else if (at && !Number.isNaN(at.getTime())) await showUntil(view, at);
-  else if (options.get("autoplay") === "1") play(view);
+  // Kiosk options (kiosk.js): ?show=all, ?at=<ISO time>, ?autoplay=1, ?speed=, ?horizon=.
+  const options = parseKioskOptions(window.location.search);
+  if (options.speed) {
+    const select = $("speed");
+    if (![...select.options].some((option) => Number(option.value) === options.speed)) {
+      select.append(new Option(speedLabel(options.speed), String(options.speed)));
+    }
+    select.value = String(options.speed);
+  }
+  if (options.horizon) {
+    $("forecast-horizon").value = options.horizon;
+    state.forecastHorizon = options.horizon;
+    state.forecastPass = undefined;
+    drawForecast(state.clock);
+  }
+  if (options.showAll) await showAll(view);
+  else if (options.at) await showUntil(view, options.at);
+  // Autoplay continues from ?at= when both are given.
+  if (options.autoplay && !options.showAll) play(view);
+  document.body.dataset.ready = "true";
 }
 
 main().catch((error) => {
