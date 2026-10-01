@@ -143,9 +143,8 @@ def sha256_of(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def extract(
+def select_detections(
     inputs: list[Path],
-    output_dir: Path,
     *,
     start: date,
     end: date,
@@ -153,8 +152,8 @@ def extract(
     types: Iterable[str] = DEFAULT_TYPES,
     modis_min_confidence: int = DEFAULT_MODIS_MIN_CONFIDENCE,
     viirs_confidence: Iterable[str] = DEFAULT_VIIRS_CONFIDENCE,
-) -> dict[str, Any]:
-    """Write the extract files and return the metadata."""
+) -> tuple[list[dict[str, Any]], dict[str, int], int]:
+    """Kept detections in time order, exclusion counts by reason and the input row count."""
     filters = {
         "types": set(types),
         "modis_min_confidence": modis_min_confidence,
@@ -172,6 +171,26 @@ def extract(
             else:
                 kept.append(normalized(row))
     kept.sort(key=lambda item: (item["acq_datetime_utc"], item["instrument"], item["latitude"], item["longitude"]))
+    return kept, dict(sorted(excluded.items())), input_rows
+
+
+def extract(
+    inputs: list[Path],
+    output_dir: Path,
+    *,
+    start: date,
+    end: date,
+    bbox: tuple[float, float, float, float],
+    types: Iterable[str] = DEFAULT_TYPES,
+    modis_min_confidence: int = DEFAULT_MODIS_MIN_CONFIDENCE,
+    viirs_confidence: Iterable[str] = DEFAULT_VIIRS_CONFIDENCE,
+) -> dict[str, Any]:
+    """Write the extract files and return the metadata."""
+    kept, excluded, input_rows = select_detections(
+        inputs, start=start, end=end, bbox=bbox, types=types,
+        modis_min_confidence=modis_min_confidence, viirs_confidence=viirs_confidence,
+    )
+    filters = {"types": set(types), "viirs_confidence": {value.lower() for value in viirs_confidence}}
 
     output_dir.mkdir(parents=True, exist_ok=True)
     with (output_dir / "hotspots.csv").open("w", newline="", encoding="utf-8") as stream:
@@ -196,7 +215,7 @@ def extract(
             "modis_min_confidence": modis_min_confidence,
             "viirs_confidence": sorted(filters["viirs_confidence"]),
         },
-        "counts": {"input": input_rows, "kept": len(kept), "excluded": dict(sorted(excluded.items()))},
+        "counts": {"input": input_rows, "kept": len(kept), "excluded": excluded},
         "notes": [
             "Dates and times are UTC as delivered by FIRMS.",
             "A detection is a satellite pixel with a thermal anomaly, not a mapped fire perimeter.",
