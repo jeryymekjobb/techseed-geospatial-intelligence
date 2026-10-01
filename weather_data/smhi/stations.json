@@ -1,0 +1,92 @@
+{
+  "source": "SMHI öppna data, meteorologiska observationer (CC BY 4.0 SE); urval av period och sammanslagning av parametrar",
+  "api": "https://opendata-download-metobs.smhi.se/api/version/1.0",
+  "period_utc": {
+    "start": "2014-07-29",
+    "end": "2014-08-14"
+  },
+  "stations": [
+    {
+      "id": "96560",
+      "name": "Sala A",
+      "file": "sala-a-96560.csv",
+      "latitude": 59.9093,
+      "longitude": 16.6843,
+      "altitude_m": 56.575,
+      "parameters": {
+        "temp_c": {
+          "smhi_parameter": 1,
+          "unit": "celsius",
+          "measurement_height_m": "2.0"
+        },
+        "rh_pct": {
+          "smhi_parameter": 6,
+          "unit": "procent",
+          "measurement_height_m": "2.0"
+        },
+        "wind_speed_ms": {
+          "smhi_parameter": 4,
+          "unit": "meter per sekund",
+          "measurement_height_m": "10.0"
+        },
+        "wind_dir_deg": {
+          "smhi_parameter": 3,
+          "unit": "grader",
+          "measurement_height_m": "10.0"
+        },
+        "gust_ms": {
+          "smhi_parameter": 21,
+          "unit": "meter per sekund",
+          "measurement_height_m": "10.0"
+        },
+        "precip_mm": {
+          "smhi_parameter": 7,
+          "unit": "millimeter",
+          "measurement_height_m": "2.0"
+        }
+      },
+      "hours": 408
+    },
+    {
+      "id": "95540",
+      "name": "Kloten A",
+      "file": "kloten-a-95540.csv",
+      "latitude": 59.8703,
+      "longitude": 15.2522,
+      "altitude_m": 283.21,
+      "parameters": {
+        "temp_c": {
+          "smhi_parameter": 1,
+          "unit": "celsius",
+          "measurement_height_m": "2.0"
+        },
+        "rh_pct": {
+          "smhi_parameter": 6,
+          "unit": "procent",
+          "measurement_height_m": "2.0"
+        },
+        "wind_speed_ms": {
+          "smhi_parameter": 4,
+          "unit": "meter per sekund",
+          "measurement_height_m": "10.0"
+        },
+        "wind_dir_deg": {
+          "smhi_parameter": 3,
+          "unit": "grader",
+          "measurement_height_m": "10.0"
+        },
+        "gust_ms": {
+          "smhi_parameter": 21,
+          "unit": "meter per sekund",
+          "measurement_height_m": "10.0"
+        },
+        "precip_mm": {
+          "smhi_parameter": 7,
+          "unit": "millimeter",
+          "measurement_height_m": "2.0"
+        }
+      },
+      "hours": 408
+    }
+  ]
+}
