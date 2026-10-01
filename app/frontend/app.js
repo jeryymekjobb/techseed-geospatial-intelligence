@@ -20,8 +20,12 @@ const localTime = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short",
 });
 
+const COMPASS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "SV", "VSV", "V", "VNV", "NV", "NNV"];
+
 const state = {
   config: null,
+  weather: null,
+  weatherStation: null,
   daily: [],
   markers: [],
   source: null,
@@ -171,11 +175,78 @@ function drawTimeline(daily, clock) {
   svg.innerHTML = parts.join("");
 }
 
+function compassPoint(degrees) {
+  return COMPASS[Math.round(degrees / 22.5) % 16];
+}
+
+function observationAt(station, clock) {
+  // The latest hourly observation at or before the playback clock.
+  let found = null;
+  for (const observation of station.observations) {
+    if (new Date(observation.time_utc) > clock) break;
+    found = observation;
+  }
+  return found;
+}
+
+function showWeather(clock) {
+  const station = state.weather?.stations.find((item) => item.id === state.weatherStation);
+  if (!station) return;
+  const observation = observationAt(station, clock);
+  const values = $("weather-values");
+  const arrow = document.querySelector("#wind-arrow .arrow");
+  if (!observation) {
+    values.innerHTML = "<dt>Data</dt><dd>saknas för tiden</dd>";
+    arrow.style.visibility = "hidden";
+    return;
+  }
+  const calm = !observation.wind_speed_ms;
+  const wind = calm ? "lugnt" : `${observation.wind_speed_ms} m/s från ${compassPoint(observation.wind_dir_deg)} (${observation.wind_dir_deg}°)`;
+  values.innerHTML = [
+    ["Temperatur", `${observation.temp_c} °C`],
+    ["Luftfuktighet", `${observation.rh_pct} %`],
+    ["Vind", wind],
+    ["Byvind", `${observation.gust_ms} m/s`],
+    ["Nederbörd", `${observation.precip_mm} mm/h`],
+    ["Mätt", formatLocal(observation.time_utc)],
+  ].map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
+  // The arrow points where the wind blows to; SMHI gives where it comes from.
+  arrow.style.visibility = calm ? "hidden" : "visible";
+  arrow.style.transform = `rotate(${(observation.wind_dir_deg + 180) % 360}deg)`;
+}
+
+async function setupWeather(view) {
+  try {
+    state.weather = await getJson("/api/weather");
+  } catch (error) {
+    $("weather-note").textContent = `Väderdata kunde inte laddas: ${error.message}.`;
+    return;
+  }
+  const select = $("weather-station");
+  for (const station of state.weather.stations) {
+    const option = document.createElement("option");
+    option.value = station.id;
+    option.textContent = `${station.name} (${station.distance_km} km)`;
+    select.append(option);
+    L.circleMarker([station.latitude, station.longitude], {
+      radius: 6, color: "#1f5fa8", fillColor: "#fff", fillOpacity: 1, weight: 3,
+    }).bindTooltip(`SMHI ${station.name}`, { permanent: true, direction: "right" }).addTo(view.map);
+  }
+  state.weatherStation = state.weather.stations[0]?.id || null;
+  select.addEventListener("change", () => {
+    state.weatherStation = select.value;
+    showWeather(state.clock);
+  });
+  view.map.attributionControl.addAttribution(state.config.attribution.smhi);
+  $("weather-note").textContent = "Mätningar vid stationen, inte i brandområdet.";
+}
+
 function setClock(clock) {
   state.clock = clock;
   $("sim-time").textContent = formatLocal(clock.toISOString());
   restyleHotspots(clock);
   drawTimeline(state.daily, clock);
+  showWeather(clock);
 }
 
 function stopStream() {
@@ -223,12 +294,18 @@ function reset(view) {
   $("stream-status").textContent = "";
 }
 
-async function showAll(view) {
+async function showUntil(view, until) {
   reset(view);
   const collection = await getJson("/api/hotspots");
-  for (const feature of collection.features) addHotspot(view, feature);
-  state.finished = true;
-  setClock(new Date(state.config.playback.end_utc));
+  for (const feature of collection.features) {
+    if (new Date(feature.properties.acq_datetime_utc) <= until) addHotspot(view, feature);
+  }
+  state.finished = until >= new Date(state.config.playback.end_utc);
+  setClock(until);
+}
+
+async function showAll(view) {
+  await showUntil(view, new Date(state.config.playback.end_utc));
   $("stream-status").textContent = "Alla detektioner visas.";
 }
 
@@ -241,6 +318,7 @@ async function main() {
   const summary = await getJson("/api/hotspots");
   state.daily = summary.daily;
   await addTerrain(view, config);
+  await setupWeather(view);
   L.control.layers(view.baseLayers, view.overlays, { collapsed: false }).addTo(view.map);
   setClock(new Date(config.playback.start_utc));
   $("play").addEventListener("click", () => play(view));
@@ -249,9 +327,12 @@ async function main() {
   $("speed").addEventListener("change", () => {
     if (state.source) { stopStream(); play(view); }
   });
-  // Kiosk options: ?show=all shows every detection, ?autoplay=1 starts the playback.
+  // Kiosk options: ?show=all shows every detection, ?at=<ISO time> the state at that
+  // time (playback continues from there), ?autoplay=1 starts the playback.
   const options = new URLSearchParams(window.location.search);
+  const at = options.get("at") ? new Date(options.get("at")) : null;
   if (options.get("show") === "all") await showAll(view);
+  else if (at && !Number.isNaN(at.getTime())) await showUntil(view, at);
   else if (options.get("autoplay") === "1") play(view);
 }
 

@@ -35,6 +35,18 @@
         <div id="stream-status" class="status" aria-live="polite"></div>
       </section>
       <section>
+        <h2>Väder (SMHI)</h2>
+        <label>Station <select id="weather-station"></select></label>
+        <div id="weather" class="weather">
+          <svg id="wind-arrow" class="wind-arrow" viewBox="-20 -20 40 40" aria-hidden="true">
+            <circle r="18" class="dial"></circle>
+            <path d="M0,-14 L5,4 L0,0 L-5,4 Z" class="arrow"></path>
+          </svg>
+          <dl id="weather-values"></dl>
+        </div>
+        <div id="weather-note" class="status"></div>
+      </section>
+      <section>
         <h2>Detektioner per dygn (UTC)</h2>
         <svg id="timeline" class="timeline" role="img" aria-label="Antal detektioner per dygn"></svg>
       </section>

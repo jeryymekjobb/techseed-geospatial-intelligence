@@ -146,3 +146,21 @@ def test_http_stream_sends_server_sent_events_until_the_end(base_url: str) -> No
     assert text.count("event: hotspot") == 4  # two VIIRS detections each on 2014-08-09 and 2014-08-10
     assert text.rstrip().endswith('data: {"sim_time_utc": "2014-08-15T00:00:00Z"}')
     assert get(f"{base_url}/api/stream?speed=fast")[0] == 400
+
+
+def test_weather_has_both_stations_hourly_and_nearest_first() -> None:
+    data = server.weather()
+
+    assert data["source"].startswith("SMHI öppna data")
+    assert [(station["name"], station["distance_km"]) for station in data["stations"]] == [("Sala A", 28.5), ("Kloten A", 51.5)]
+    sala = data["stations"][0]["observations"]
+    assert len(sala) == 408
+    noon = next(row for row in sala if row["time_utc"] == "2014-08-04T12:00:00Z")
+    assert (noon["temp_c"], noon["rh_pct"], noon["wind_dir_deg"]) == (34.4, 27.0, 130.0)
+
+
+def test_http_weather_endpoint(base_url: str) -> None:
+    status, body = get(f"{base_url}/api/weather")
+
+    assert status == 200
+    assert len(json.loads(body)["stations"]) == 2

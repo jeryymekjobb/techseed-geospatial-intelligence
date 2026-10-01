@@ -14,7 +14,9 @@ Only the Python standard library is used.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
+import math
 import mimetypes
 import time
 from datetime import datetime, timedelta, timezone
@@ -39,6 +41,39 @@ def detections() -> tuple[dict[str, Any], ...]:
         scenario.FIRMS_FILES, start=scenario.PERIOD_START, end=scenario.PERIOD_END, bbox=scenario.FIRE_BBOX,
     )
     return tuple(kept)
+
+
+WEATHER_VALUES = ("temp_c", "rh_pct", "wind_speed_ms", "wind_dir_deg", "gust_ms", "precip_mm")
+
+
+def distance_km(latitude: float, longitude: float) -> float:
+    centre_lat, centre_lon = scenario.FIRE_CENTRE
+    dy = (latitude - centre_lat) * 111.2
+    dx = (longitude - centre_lon) * 111.2 * math.cos(math.radians(centre_lat))
+    return round(math.hypot(dx, dy), 1)
+
+
+@lru_cache(maxsize=1)
+def weather() -> dict[str, Any]:
+    """Hourly SMHI observations per station; values are numbers, missing values None."""
+    catalogue = json.loads((scenario.WEATHER_DIR / "stations.json").read_text(encoding="utf-8"))
+    stations = []
+    for station in catalogue["stations"]:
+        with (scenario.WEATHER_DIR / station["file"]).open(encoding="utf-8", newline="") as stream:
+            observations = [
+                {"time_utc": row["time_utc"], **{key: float(row[key]) if row[key] != "" else None for key in WEATHER_VALUES}}
+                for row in csv.DictReader(stream)
+            ]
+        stations.append({
+            "id": station["id"],
+            "name": station["name"],
+            "latitude": station["latitude"],
+            "longitude": station["longitude"],
+            "distance_km": distance_km(station["latitude"], station["longitude"]),
+            "observations": observations,
+        })
+    stations.sort(key=lambda station: station["distance_km"])
+    return {"source": catalogue["source"], "stations": stations}
 
 
 def feature(item: dict[str, Any]) -> dict[str, Any]:
@@ -139,6 +174,8 @@ class Handler(BaseHTTPRequestHandler):
                 "features": [feature(item) for item in items],
                 "daily": daily_summary(items),
             })
+        elif path == "/api/weather":
+            self.send_json(weather())
         elif path == "/api/stream":
             self.stream(query)
         elif path == "/api/layers/terrain":

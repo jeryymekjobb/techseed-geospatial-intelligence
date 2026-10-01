@@ -16,6 +16,13 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .timeline .bar { fill: #c8553d; }
 .timeline .cursor { stroke: var(--ink); stroke-width: 2; }
 .timeline text { font-size: 9px; fill: var(--muted); }
+.weather { display: flex; gap: 12px; align-items: center; margin-top: 6px; }
+.wind-arrow { width: 64px; height: 64px; flex: none; }
+.wind-arrow .dial { fill: #fff; stroke: #b8b4aa; }
+.wind-arrow .arrow { fill: #1f5fa8; transition: transform 0.2s; }
+.weather dl { display: grid; grid-template-columns: auto auto; gap: 1px 8px; margin: 0; font-size: 0.85rem; }
+.weather dt { color: var(--muted); }
+.weather dd { margin: 0; font-weight: 600; }
 .legend { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
 .legend li { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid #0003; flex: none; }

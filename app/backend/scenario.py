@@ -11,6 +11,9 @@ FIRMS_FILES = [
     REPO_ROOT / "satellite_data" / "firms" / "fire_archive_SV-C2_816008.csv",
 ]
 TERRAIN_FILE = REPO_ROOT / "app" / "layers" / "terrain-vastmanland.geojson"
+WEATHER_DIR = REPO_ROOT / "weather_data" / "smhi"
+# Mean position of the FIRMS detections, used for station distances.
+FIRE_CENTRE = (59.89, 16.175)
 
 TITLE = "Skogsbranden i Västmanland 2014"
 # FIRMS selection box; the detections of the fire lie within 59.83-60.01 N, 16.01-16.30 E.
@@ -26,4 +29,5 @@ ATTRIBUTION = {
     "firms": "NASA FIRMS, MODIS C6.1 och VIIRS S-NPP C2, arkivuttag 816007 och 816008",
     "osm": "© OpenStreetMap contributors (ODbL)",
     "lantmateriet": "© Lantmäteriet",
+    "smhi": "SMHI öppna data (CC BY 4.0 SE), Sala A och Kloten A",
 }
