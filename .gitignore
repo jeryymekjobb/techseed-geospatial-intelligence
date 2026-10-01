@@ -18,3 +18,6 @@ build/
 # Operating-system files
 .DS_Store
 Thumbs.db
+
+# Derived layers; regenerate with tools/firms_extract.py
+data/
