@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skogsbranden i Västmanland 2014</title>
+  <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="title">Skogsbranden i Västmanland 2014</h1>
+    <span id="data-label" class="data-label">Historiska data 2014 – uppspelning, inte live</span>
+  </header>
+  <main class="layout">
+    <div id="map" class="map" aria-label="Karta över brandområdet"></div>
+    <aside class="panel">
+      <section>
+        <h2>Uppspelning</h2>
+        <div id="sim-time" class="sim-time">–</div>
+        <div class="controls">
+          <button id="play" type="button">Spela</button>
+          <button id="reset" type="button">Återställ</button>
+          <button id="show-all" type="button">Visa alla</button>
+          <label>Hastighet
+            <select id="speed">
+              <option value="3600">1 timme/s</option>
+              <option value="21600" selected>6 timmar/s</option>
+              <option value="86400">1 dygn/s</option>
+            </select>
+          </label>
+        </div>
+        <div id="counts" class="counts">0 detektioner visas</div>
+        <div id="stream-status" class="status" aria-live="polite"></div>
+      </section>
+      <section>
+        <h2>Detektioner per dygn (UTC)</h2>
+        <svg id="timeline" class="timeline" role="img" aria-label="Antal detektioner per dygn"></svg>
+      </section>
+      <section>
+        <h2>Hotspots</h2>
+        <ul class="legend">
+          <li><span class="swatch" style="background:#ff2a00"></span>senaste 12 timmarna</li>
+          <li><span class="swatch" style="background:#ff8c00"></span>12–48 timmar</li>
+          <li><span class="swatch" style="background:#7a1f1f"></span>äldre</li>
+          <li>Storleken visar strålningseffekt (FRP). Ifylld: VIIRS 375 m, ring: MODIS 1 km.</li>
+        </ul>
+      </section>
+      <section>
+        <h2>Terräng (OSM, dagens läge)</h2>
+        <ul id="terrain-legend" class="legend"></ul>
+      </section>
+      <section id="layer-notes" class="notes"></section>
+    </aside>
+  </main>
+  <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
