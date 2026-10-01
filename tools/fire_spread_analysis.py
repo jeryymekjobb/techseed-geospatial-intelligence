@@ -61,6 +61,22 @@ def load_weather(paths: Sequence[Path]) -> list[fs.Weather]:
     return [rows[moment] for moment in sorted(rows)]
 
 
+def load_weather_smhi_csv(paths: Sequence[Path]) -> list[fs.Weather]:
+    """Hourly weather from merged station files written by tools/fetch_smhi_weather.py."""
+    rows: dict[datetime, fs.Weather] = {}
+    for path in paths:
+        with path.open(encoding="utf-8", newline="") as stream:
+            for row in csv.DictReader(stream):
+                if "" in (row["temp_c"], row["rh_pct"], row["wind_speed_ms"], row["wind_dir_deg"]):
+                    continue
+                moment = parse_time(row["time_utc"])
+                rows[moment] = fs.Weather(
+                    moment, float(row["temp_c"]), float(row["rh_pct"]), float(row["wind_speed_ms"]) * 3.6,
+                    float(row["wind_dir_deg"]), float(row["precip_mm"] or 0.0),
+                )
+    return [rows[moment] for moment in sorted(rows)]
+
+
 def load_weather_smhi(raw_dir: Path, station: str, start: datetime, end: datetime) -> list[fs.Weather]:
     """Hourly weather from SMHI archives saved by tools/fetch_smhi_weather.py --raw-dir."""
     from tools.fetch_smhi_weather import parse_archive
@@ -156,24 +172,10 @@ def mean_model_ros(start: datetime, end: datetime, weather: dict, fire_weather: 
     return statistics.mean(values) if values else 0.0
 
 
-def analyse(args: argparse.Namespace) -> dict[str, Any]:
-    kept, _, _ = select_detections(scenario.FIRMS_FILES, start=scenario.PERIOD_START, end=scenario.PERIOD_END, bbox=scenario.FIRE_BBOX)
-    projector = fs.Projector(*scenario.FIRE_CENTRE)
-    detections = [(parse_time(item["acq_datetime_utc"]), projector.xy(item["latitude"], item["longitude"])) for item in kept]
-    if args.weather_smhi:
-        hourly = load_weather_smhi(
-            args.weather_smhi, args.smhi_station,
-            datetime(2014, 5, 1, tzinfo=timezone.utc), datetime(2014, 8, 15, tzinfo=timezone.utc),
-        )
-    else:
-        hourly = load_weather(args.weather)
-    weather = {item.time: item for item in hourly}
-    fire_weather = fs.FireWeather(hourly).compute()
-    passes = fs.group_passes(detections)
-    cells = load_targets(args.targets, projector)
-    arrivals = observed_arrivals(cells, detections)
-
-    # Observed spread between consecutive passes.
+def observed_intervals(
+    passes: Sequence[fs.Pass], weather: dict[datetime, fs.Weather], fire_weather: fs.FireWeather
+) -> tuple[list[dict[str, Any]], list[list[fs.Point]]]:
+    """Observed spread between consecutive passes, and the cumulative front after each pass."""
     intervals = []
     cumulative: list[fs.Point] = []
     hulls = []
@@ -198,14 +200,41 @@ def analyse(args: argparse.Namespace) -> dict[str, Any]:
         cumulative.extend(current.points)
         hulls.append(fs.convex_hull(cumulative))
 
+    return intervals, hulls
+
+
+def calibration_factor(intervals: Sequence[dict[str, Any]], at: datetime) -> float:
+    """Median observed/model rate over the last 24 h before `at`; 1 without observations."""
+    ratios = [
+        item["observed_ros_m_per_h"] / item["model_ros_m_per_h"]
+        for item in intervals
+        if parse_time(item["end_utc"]) <= at and parse_time(item["end_utc"]) > at - timedelta(hours=24)
+        and item["observed_ros_m_per_h"] and item["model_ros_m_per_h"] > 0 and not item["short_interval"]
+    ]
+    return min(10.0, max(0.1, statistics.median(ratios))) if ratios else 1.0
+
+
+def analyse(args: argparse.Namespace) -> dict[str, Any]:
+    kept, _, _ = select_detections(scenario.FIRMS_FILES, start=scenario.PERIOD_START, end=scenario.PERIOD_END, bbox=scenario.FIRE_BBOX)
+    projector = fs.Projector(*scenario.FIRE_CENTRE)
+    detections = [(parse_time(item["acq_datetime_utc"]), projector.xy(item["latitude"], item["longitude"])) for item in kept]
+    if args.weather_smhi:
+        hourly = load_weather_smhi(
+            args.weather_smhi, args.smhi_station,
+            datetime(2014, 5, 1, tzinfo=timezone.utc), datetime(2014, 8, 15, tzinfo=timezone.utc),
+        )
+    else:
+        hourly = load_weather(args.weather)
+    weather = {item.time: item for item in hourly}
+    fire_weather = fs.FireWeather(hourly).compute()
+    passes = fs.group_passes(detections)
+    cells = load_targets(args.targets, projector)
+    arrivals = observed_arrivals(cells, detections)
+
+    intervals, hulls = observed_intervals(passes, weather, fire_weather)
+
     def calibration(at: datetime) -> float:
-        ratios = [
-            item["observed_ros_m_per_h"] / item["model_ros_m_per_h"]
-            for item in intervals
-            if parse_time(item["end_utc"]) <= at and parse_time(item["end_utc"]) > at - timedelta(hours=24)
-            and item["observed_ros_m_per_h"] and item["model_ros_m_per_h"] > 0 and not item["short_interval"]
-        ]
-        return min(10.0, max(0.1, statistics.median(ratios))) if ratios else 1.0
+        return calibration_factor(intervals, at)
 
     # Forecasts at every pass, compared with later detections and target arrivals.
     skill: dict[str, dict[str, dict[str, list[float]]]] = {}

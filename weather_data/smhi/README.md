@@ -41,8 +41,14 @@ Limitations:
 - Check SMHI's parameter descriptions for exactly which interval an hourly sum or
   maximum refers to before relying on the hour.
 
+`spinup/sala-a-96560.csv` has the same columns for Sala A, 2014-05-01 –
+2014-07-28 (2,134 hours; a few values are missing or marked `Y`, suspect, by
+SMHI). It runs the Fire Weather Index codes in from the start of the season for
+the fire-spread forecast.
+
 Regenerate with:
 
 ```bash
 python3 tools/fetch_smhi_weather.py 96560 95540 --start 2014-07-29 --end 2014-08-14 --out weather_data/smhi
+python3 tools/fetch_smhi_weather.py 96560 --start 2014-05-01 --end 2014-07-28 --out weather_data/smhi/spinup
 ```
