@@ -14,10 +14,12 @@ Only the Python standard library is used.
 from __future__ import annotations
 
 import argparse
+import bisect
 import csv
 import json
 import math
 import mimetypes
+import os
 import time
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -28,6 +30,7 @@ from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
 from app.backend import forecast, lantmateriet, scenario
+from app.backend.scenario_engine import CommandError, ScenarioEngine
 from tools.firms_extract import daily_summary, select_detections
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
@@ -101,6 +104,19 @@ def wind_field() -> dict[str, Any]:
     }
 
 
+@lru_cache(maxsize=1)
+def timed_features() -> tuple[list[datetime], list[dict[str, Any]]]:
+    """Detection times and features in time order, for slicing by the scenario clock."""
+    items = detections()
+    return [parse_utc(item["acq_datetime_utc"]) for item in items], [feature(item) for item in items]
+
+
+def features_between(after: datetime | None, until: datetime) -> list[dict[str, Any]]:
+    times, features = timed_features()
+    low = 0 if after is None else bisect.bisect_right(times, after)
+    return features[low:bisect.bisect_right(times, until)]
+
+
 def feature(item: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "Feature",
@@ -164,6 +180,10 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
 class Handler(BaseHTTPRequestHandler):
     server_version = "TechseedFireMap/0.1"
     settings = lantmateriet.Settings.from_environment()
+    # One shared scenario for every screen; tests give their handler its own engine.
+    engine = ScenarioEngine(scenario.PLAYBACK_START, scenario.PLAYBACK_END)
+    # When set, commands need this token in the X-Control-Token header (for a networked mission control).
+    control_token = os.environ.get("SCENARIO_CONTROL_TOKEN") or None
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - signature of the base class
         # Keep the console readable; query strings may carry map parameters only.
@@ -207,6 +227,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(weather())
         elif path == "/api/stream":
             self.stream(query)
+        elif path == "/api/scenario":
+            self.send_json(self.engine.snapshot())
+        elif path == "/api/scenario/stream":
+            self.scenario_stream()
         elif path == "/api/layers/terrain":
             self.send_bytes(scenario.TERRAIN_FILE.read_bytes(), "application/geo+json", "max-age=3600")
         elif path.startswith("/lm/"):
@@ -234,6 +258,61 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):
             # The GUI closes the stream to pause or restart the playback.
+            return
+
+    def do_POST(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
+        if urlsplit(self.path).path != "/api/scenario/command":
+            self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        if self.control_token and self.headers.get("X-Control-Token") != self.control_token:
+            self.send_json({"error": "control_token_required"}, HTTPStatus.FORBIDDEN)
+            return
+        length = int(self.headers.get("Content-Length") or 0)
+        if not 0 < length <= 4096:
+            self.send_json({"error": "invalid_command"}, HTTPStatus.BAD_REQUEST)
+            return
+        try:
+            body = json.loads(self.rfile.read(length))
+            snapshot = self.engine.command(
+                str(body.get("command")),
+                at=body.get("at"),
+                speed=float(body["speed"]) if body.get("speed") is not None else None,
+            )
+        except (ValueError, TypeError, AttributeError, CommandError) as exc:
+            self.send_json({"error": "invalid_command", "detail": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(snapshot)
+
+    def send_event(self, event: str, data: Any) -> None:
+        self.wfile.write(f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n".encode("utf-8"))
+
+    def scenario_stream(self) -> None:
+        """Follow the shared scenario: a full `sync` on connect and after jumps, then
+        `hotspot` events as the clock passes detections and a `state` event per tick."""
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        last_clock: datetime | None = None
+        last_jump = None
+        ended = False
+        try:
+            while True:
+                state = self.engine.snapshot()
+                clock = parse_utc(state["clock_utc"])
+                if last_jump != state["jump"] or (last_clock is not None and clock < last_clock):
+                    self.send_event("sync", {"state": state, "features": features_between(None, clock)})
+                else:
+                    for item in features_between(last_clock, clock):
+                        self.send_event("hotspot", item)
+                    self.send_event("state", state)
+                if state["finished"] and not ended:
+                    self.send_event("end", state)
+                ended = state["finished"]
+                last_clock, last_jump = clock, state["jump"]
+                self.wfile.flush()
+                time.sleep(TICK_SECONDS)
+        except (BrokenPipeError, ConnectionResetError):
             return
 
     def lantmateriet(self, path: str, query: dict[str, str]) -> None:

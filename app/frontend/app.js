@@ -36,7 +36,8 @@ const state = {
   weatherStation: null,
   daily: [],
   markers: [],
-  source: null,
+  playing: false,
+  controlToken: null,
   clock: null,
   finished: false,
 };
@@ -396,65 +397,70 @@ function setClock(clock) {
   drawForecast(clock);
 }
 
-function stopStream() {
-  if (state.source) state.source.close();
-  state.source = null;
-  $("play").textContent = "Spela";
-}
-
-function play(view) {
-  if (state.source) {
-    stopStream();
-    $("stream-status").textContent = "Pausad.";
-    return;
-  }
-  if (state.finished) reset(view);
-  const from = (state.clock || new Date(state.config.playback.start_utc)).toISOString();
-  const speed = $("speed").value;
-  const source = new EventSource(`/api/stream?speed=${speed}&from=${encodeURIComponent(from)}`);
-  state.source = source;
-  $("play").textContent = "Paus";
-  $("stream-status").textContent = "Tar emot detektioner från backend …";
-  source.addEventListener("hotspot", (event) => addHotspot(view, JSON.parse(event.data)));
-  source.addEventListener("clock", (event) => setClock(new Date(JSON.parse(event.data).sim_time_utc)));
-  source.addEventListener("end", (event) => {
-    setClock(new Date(JSON.parse(event.data).sim_time_utc));
-    state.finished = true;
-    stopStream();
-    $("stream-status").textContent = "Uppspelningen är klar.";
-    document.body.dataset.playback = "finished";  // read by tools/record_demo.py
+// The playback is shared: the backend holds one scenario clock that every screen
+// follows (/api/scenario/stream); the buttons send commands to it.
+async function command(name, extra = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (state.controlToken) headers["X-Control-Token"] = state.controlToken;
+  const response = await fetch("/api/scenario/command", {
+    method: "POST", headers, body: JSON.stringify({ command: name, ...extra }),
   });
-  source.onerror = () => {
-    // EventSource reconnects by itself; stop instead so the playback does not restart.
-    if (state.source === source && !state.finished) {
-      stopStream();
-      $("stream-status").textContent = "Strömmen avbröts. Tryck Spela för att fortsätta.";
-    }
-  };
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail || body.error || `HTTP ${response.status}`);
+  }
+  return response.json();
 }
 
-function reset(view) {
-  stopStream();
+function runCommand(name, extra) {
+  command(name, extra).catch((error) => {
+    $("stream-status").textContent = `Kommandot ${name} misslyckades: ${error.message}`;
+  });
+}
+
+function showSpeed(speed) {
+  const select = $("speed");
+  if (![...select.options].some((option) => Number(option.value) === speed)) {
+    select.append(new Option(speedLabel(speed), String(speed)));
+  }
+  select.value = String(speed);
+}
+
+function applyState(scenarioState) {
+  state.playing = scenarioState.playing;
+  state.finished = scenarioState.finished;
+  $("play").textContent = scenarioState.playing ? "Paus" : "Spela";
+  showSpeed(scenarioState.speed);
+  $("stream-status").textContent = scenarioState.finished
+    ? "Uppspelningen är klar."
+    : scenarioState.playing ? "Spelar upp – alla skärmar följer samma klocka." : "Pausad.";
+  // Read by tools/record_demo.py.
+  document.body.dataset.playback = scenarioState.finished ? "finished" : scenarioState.playing ? "playing" : "paused";
+  setClock(new Date(scenarioState.clock_utc));
+}
+
+function clearHotspots(view) {
   view.hotspots.clearLayers();
   state.markers = [];
-  state.finished = false;
-  setClock(new Date(state.config.playback.start_utc));
-  $("stream-status").textContent = "";
 }
 
-async function showUntil(view, until) {
-  reset(view);
-  const collection = await getJson("/api/hotspots");
-  for (const feature of collection.features) {
-    if (new Date(feature.properties.acq_datetime_utc) <= until) addHotspot(view, feature);
-  }
-  state.finished = until >= new Date(state.config.playback.end_utc);
-  setClock(until);
-}
-
-async function showAll(view) {
-  await showUntil(view, new Date(state.config.playback.end_utc));
-  $("stream-status").textContent = "Alla detektioner visas.";
+function connectScenario(view) {
+  return new Promise((resolve) => {
+    const source = new EventSource("/api/scenario/stream");
+    source.addEventListener("sync", (event) => {
+      const data = JSON.parse(event.data);
+      clearHotspots(view);
+      for (const feature of data.features) addHotspot(view, feature);
+      applyState(data.state);
+      resolve();
+    });
+    source.addEventListener("hotspot", (event) => addHotspot(view, JSON.parse(event.data)));
+    source.addEventListener("state", (event) => applyState(JSON.parse(event.data)));
+    source.onerror = () => {
+      // EventSource reconnects by itself and the backend then sends a new sync.
+      $("stream-status").textContent = "Anslutningen till backend bröts – försöker igen …";
+    };
+  });
 }
 
 async function main() {
@@ -471,31 +477,25 @@ async function main() {
   await setupForecast(view);
   L.control.layers(view.baseLayers, view.overlays, { collapsed: false }).addTo(view.map);
   setClock(new Date(config.playback.start_utc));
-  $("play").addEventListener("click", () => play(view));
-  $("reset").addEventListener("click", () => reset(view));
-  $("show-all").addEventListener("click", () => showAll(view));
-  $("speed").addEventListener("change", () => {
-    if (state.source) { stopStream(); play(view); }
-  });
+  state.controlToken = new URLSearchParams(window.location.search).get("token");
+  $("play").addEventListener("click", () => runCommand(state.playing ? "pause" : "play"));
+  $("reset").addEventListener("click", () => runCommand("reset"));
+  $("show-all").addEventListener("click", () => runCommand("seek", { at: config.playback.end_utc }));
+  $("speed").addEventListener("change", (event) => runCommand("speed", { speed: Number(event.target.value) }));
+  await connectScenario(view);
   // Kiosk options (kiosk.js): ?show=all, ?at=<ISO time>, ?autoplay=1, ?speed=, ?horizon=.
+  // Options that move the clock change the shared scenario for every screen.
   const options = parseKioskOptions(window.location.search);
-  if (options.speed) {
-    const select = $("speed");
-    if (![...select.options].some((option) => Number(option.value) === options.speed)) {
-      select.append(new Option(speedLabel(options.speed), String(options.speed)));
-    }
-    select.value = String(options.speed);
-  }
   if (options.horizon) {
     $("forecast-horizon").value = options.horizon;
     state.forecastHorizon = options.horizon;
     state.forecastPass = undefined;
     drawForecast(state.clock);
   }
-  if (options.showAll) await showAll(view);
-  else if (options.at) await showUntil(view, options.at);
-  // Autoplay continues from ?at= when both are given.
-  if (options.autoplay && !options.showAll) play(view);
+  if (options.speed) await command("speed", { speed: options.speed });
+  if (options.showAll) await command("seek", { at: config.playback.end_utc });
+  else if (options.at) await command("seek", { at: options.at.toISOString() });
+  if (options.autoplay && !options.showAll) await command("play");
   document.body.dataset.ready = "true";
 }
 
