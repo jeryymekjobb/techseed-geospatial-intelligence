@@ -34,6 +34,8 @@ from app.backend.scenario_engine import CommandError, ScenarioEngine
 from tools.firms_extract import daily_summary, select_detections
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
+# Cesium terrain built by tools/build_terrain.py (not versioned).
+TERRAIN_DIR = Path(__file__).resolve().parents[2] / "data" / "terrain"
 TICK_SECONDS = 0.25
 MIN_SPEED, MAX_SPEED = 60.0, 4 * 86400.0  # simulated seconds per real second
 
@@ -207,6 +209,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
         "layers": {
             "terrain": "/api/layers/terrain",
             "offline_tiles": offline_tiles.available(),
+            "terrain3d": (TERRAIN_DIR / "layer.json").is_file(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "lantmateriet_fastighet": settings.fastighet_enabled,
             "lantmateriet_fastighet_layers": settings.fastighet_layers if settings.fastighet_enabled else "",
@@ -276,6 +279,8 @@ class Handler(BaseHTTPRequestHandler):
             self.lantmateriet(path, query)
         elif path.startswith("/tiles/"):
             self.offline_tile(path)
+        elif path.startswith("/terrain/"):
+            self.terrain(path)
         else:
             self.static(path)
 
@@ -369,6 +374,24 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error": "offline_tiles_unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
             return
         self.send_bytes(body, content_type, "max-age=86400")
+
+    def terrain(self, path: str) -> None:
+        target = (TERRAIN_DIR / path.removeprefix("/terrain/")).resolve()
+        if not target.is_relative_to(TERRAIN_DIR.resolve()) or target.suffix not in {".json", ".terrain"} or not target.is_file():
+            self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        body = target.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        if target.suffix == ".terrain":
+            # ctb-tile writes the tiles gzipped; the browser unpacks them.
+            self.send_header("Content-Type", "application/vnd.quantized-mesh;extensions=octvertexnormals")
+            self.send_header("Content-Encoding", "gzip")
+        else:
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "max-age=86400")
+        self.end_headers()
+        self.wfile.write(body)
 
     def lantmateriet(self, path: str, query: dict[str, str]) -> None:
         parts = path.strip("/").split("/")

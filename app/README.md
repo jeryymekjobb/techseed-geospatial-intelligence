@@ -50,8 +50,20 @@ The script downloads pinned npm packages, checks their SHA-512 and unpacks them
 into `app/frontend/vendor/`. Open <http://127.0.0.1:8765/3d.html>; the button
 "Flyg till branden" (or `?fly=1`) flies the camera from space to the fire in about
 five seconds. The world imagery is Natural Earth II, shipped with Cesium; the fire
-area uses the offline map when the `tiles` service runs. Forecast, wind arrows,
-place names and terrain are not yet drawn in 3D.
+area uses the offline map when the `tiles` service runs. Forecast, wind arrows and
+place names are not yet drawn in 3D.
+
+The terrain comes from Copernicus DEM GLO-30 (30 m), built for the map area:
+
+```bash
+python3 -m tools.fetch_copernicus_dem   # four 1x1 degree tiles, about 100 MB, into data/dem/
+python3 -m tools.build_terrain          # cesium-terrain-builder in Docker -> data/terrain/ (about 12 MB)
+```
+
+The backend serves the terrain at `/terrain/` and the globe places the hotspots
+and stations on it. Without it the globe is flat. The tiles come from the public
+AWS open-data bucket without an account. The GUI shows the attribution required by
+the Copernicus DEM licence.
 
 ### Shared scenario and several screens
 

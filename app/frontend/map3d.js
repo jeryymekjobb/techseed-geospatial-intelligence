@@ -1,6 +1,7 @@
 // Cesium map adapter for the 3D globe (see panel.js for the interface). Runs without
-// Cesium ion: the world imagery is the Natural Earth II set shipped with Cesium, and
-// the fire area uses the same offline OSM tiles as the 2D map.
+// Cesium ion: the world imagery is the Natural Earth II set shipped with Cesium, the
+// fire area uses the same offline OSM tiles as the 2D map, and the terrain is built
+// from Copernicus DEM GLO-30 (tools/build_terrain.py).
 "use strict";
 
 // Camera route from space to the fire, about five seconds in total.
@@ -17,8 +18,15 @@ function cesiumColor(hex, alpha = 1) {
   return Cesium.Color.fromCssColorString(hex).withAlpha(alpha);
 }
 
+// Height of the hotspot points above the ground, so they are not hidden in the terrain.
+const HOTSPOT_LIFT_METRES = 5;
+
 async function createCesiumMap(config) {
+  const terrainProvider = config.layers.terrain3d
+    ? await Cesium.CesiumTerrainProvider.fromUrl("/terrain/", { requestVertexNormals: true })
+    : null;
   const viewer = new Cesium.Viewer("map", {
+    ...(terrainProvider ? { terrainProvider } : {}),
     baseLayer: Cesium.ImageryLayer.fromProviderAsync(
       Cesium.TileMapServiceImageryProvider.fromUrl(Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII")),
     ),
@@ -43,12 +51,37 @@ async function createCesiumMap(config) {
   } else {
     addNote("Offline-kartan är inte igång; 3D-globen visar bara Natural Earth II över brandområdet.");
   }
-  addNote("3D: prognos, vindpilar, ortnamn och terräng kommer i nästa steg.");
+  if (terrainProvider) {
+    addCredit(config.attribution.copernicus_dem);
+  } else {
+    addNote("3D-terrängen är inte byggd (tools/fetch_copernicus_dem.py och tools/build_terrain.py); globen är platt.");
+  }
+  addNote("3D: prognos, vindpilar och ortnamn kommer i nästa steg.");
   const home = Cesium.Rectangle.fromDegrees(west, south, east, north);
   viewer.camera.setView({ destination: home });
 
   const points = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection());
   let hotspots = [];
+  // Hotspots arrive one by one from the stream; their ground heights are looked up in batches.
+  let unplaced = [];
+  let placing = null;
+  const placeOnGround = () => {
+    if (!terrainProvider || placing) return;
+    placing = Promise.resolve().then(async () => {
+      while (unplaced.length) {
+        const batch = unplaced;
+        unplaced = [];
+        const positions = batch.map((point) => Cesium.Cartographic.fromCartesian(point.position));
+        await Cesium.sampleTerrainMostDetailed(terrainProvider, positions);
+        batch.forEach((point, index) => {
+          const ground = positions[index];
+          if (hotspots.includes(point)) {  // not cleared by a new sync meanwhile
+            point.position = Cesium.Cartesian3.fromRadians(ground.longitude, ground.latitude, (ground.height || 0) + HOTSPOT_LIFT_METRES);
+          }
+        });
+      }
+    }).finally(() => { placing = null; });
+  };
 
   const adapter = {
     viewer,
@@ -62,11 +95,15 @@ async function createCesiumMap(config) {
         viewer.entities.add({
           name: `SMHI ${station.name}`,
           position: Cesium.Cartesian3.fromDegrees(station.longitude, station.latitude),
-          point: { pixelSize: 10, color: cesiumColor("#ffffff"), outlineColor: cesiumColor("#1f5fa8"), outlineWidth: 3 },
+          point: {
+            pixelSize: 10, color: cesiumColor("#ffffff"), outlineColor: cesiumColor("#1f5fa8"), outlineWidth: 3,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
           label: {
             text: `SMHI ${station.name}`, font: "14px system-ui, sans-serif", fillColor: cesiumColor("#1b2430"),
             outlineColor: cesiumColor("#ffffff"), outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
             pixelOffset: new Cesium.Cartesian2(10, 0), horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
           description: `SMHI-station ${station.name}, ${station.distance_km} km från branden`,
         });
@@ -76,6 +113,7 @@ async function createCesiumMap(config) {
     clearHotspots() {
       points.removeAll();
       hotspots = [];
+      unplaced = [];
     },
 
     addHotspot(feature) {
@@ -93,6 +131,8 @@ async function createCesiumMap(config) {
       point.detectedAt = new Date(p.acq_datetime_utc);
       point.viirs = viirs;
       hotspots.push(point);
+      unplaced.push(point);
+      placeOnGround();
     },
 
     hotspotCount: () => hotspots.length,

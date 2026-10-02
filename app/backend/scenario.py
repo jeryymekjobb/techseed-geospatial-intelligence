@@ -32,4 +32,9 @@ ATTRIBUTION = {
     "lantmateriet": "© Lantmäteriet",
     "smhi": "SMHI öppna data (CC BY 4.0 SE), Sala A och Kloten A",
     "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land), CC BY 4.0",
+    # The Copernicus DEM licence's notice for modified data (the 3D terrain mesh).
+    "copernicus_dem": (
+        "produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 "
+        "provided under COPERNICUS by the European Union and ESA; all rights reserved"
+    ),
 }
