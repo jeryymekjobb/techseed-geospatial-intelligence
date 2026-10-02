@@ -19,5 +19,9 @@ build/
 .DS_Store
 Thumbs.db
 
+# Browser libraries for the 3D map; fetch with tools/fetch_web_vendor.py
+app/frontend/vendor/cesium-*/
+app/frontend/vendor/satellite.js-*/
+
 # Derived layers; regenerate with tools/firms_extract.py
 data/

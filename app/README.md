@@ -17,6 +17,10 @@ Exhibition prototype in two parts:
 
 All fire data is **historical (2014) and replayed, not live**; the GUI says so.
 
+The 2D map (`index.html`, `map2d.js`) and the 3D globe (`3d.html`, `map3d.js`,
+CesiumJS without Cesium ion) share the panel logic in `panel.js`; each map file is
+an adapter with the same interface.
+
 ## Run
 
 From the repository root:
@@ -32,6 +36,22 @@ continues from there).
 
 `?speed=10800` sets the playback speed in simulated seconds per second and
 `?horizon=6` the forecast horizon (3, 6, 12 or 24 hours).
+
+### 3D globe
+
+The 3D globe needs CesiumJS and satellite.js, which are not versioned. Fetch them
+once (and before an exhibition, so the page works offline):
+
+```bash
+python3 -m tools.fetch_web_vendor
+```
+
+The script downloads pinned npm packages, checks their SHA-512 and unpacks them
+into `app/frontend/vendor/`. Open <http://127.0.0.1:8765/3d.html>; the button
+"Flyg till branden" (or `?fly=1`) flies the camera from space to the fire in about
+five seconds. The world imagery is Natural Earth II, shipped with Cesium; the fire
+area uses the offline map when the `tiles` service runs. Forecast, wind arrows,
+place names and terrain are not yet drawn in 3D.
 
 ### Shared scenario and several screens
 

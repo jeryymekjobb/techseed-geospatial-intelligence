@@ -1,0 +1,380 @@
+// Map-independent part of the fire-map GUI: shared state, the side panel, the shared
+// scenario clock and kiosk options. A map adapter (map2d.js for Leaflet, map3d.js for
+// Cesium) draws the layers; startApp() wires the two together.
+"use strict";
+
+const TERRAIN_COLORS = {
+  "skog": "#3f7d3a",
+  "myr": "#9c8f5b",
+  "åker": "#e8d77a",
+  "öppen mark": "#c5d98a",
+  "buskmark": "#7fa36b",
+  "hed": "#b9a77a",
+  "berg i dagen": "#9a9a9a",
+  "bebyggelse": "#c9a0a0",
+  "industri": "#a8a8b8",
+  "täkt": "#b0a090",
+  "vatten": "#6fa8dc",
+};
+const AGE_COLORS = [[12, "#ff2a00"], [48, "#ff8c00"], [Infinity, "#7a1f1f"]];
+const COMPASS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "SV", "VSV", "V", "VNV", "NV", "NNV"];
+const clockTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const localTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short" });
+
+const state = {
+  config: null,
+  map: null,
+  forecast: null,
+  forecastPass: undefined,
+  forecastHorizon: "6",
+  wind: null,
+  windHour: null,
+  weather: null,
+  weatherStation: null,
+  daily: [],
+  playing: false,
+  controlToken: null,
+  clock: null,
+  finished: false,
+};
+
+const $ = (id) => document.getElementById(id);
+
+function hoursBetween(later, earlier) {
+  return (later - earlier) / 3600000;
+}
+
+function hotspotColor(detectedAt, clock) {
+  const age = hoursBetween(clock, detectedAt);
+  return AGE_COLORS.find(([limit]) => age < limit)[1];
+}
+
+function hotspotRadius(frp) {
+  return Math.min(14, 3 + Math.sqrt(Math.max(0, frp)) / 2);
+}
+
+function formatLocal(isoUtc) {
+  return `${localTime.format(new Date(isoUtc))} svensk tid`;
+}
+
+function km(value) {
+  return `${String(value).replace(".", ",")} km/h`;
+}
+
+function compassPoint(degrees) {
+  return COMPASS[Math.round(degrees / 22.5) % 16];
+}
+
+function hotspotPopup(p) {
+  return `<strong>${p.instrument} (${p.satellite})</strong><br>${formatLocal(p.acq_datetime_utc)}`
+    + `<br>${p.acq_datetime_utc} UTC<br>Konfidens: ${p.confidence}<br>FRP: ${p.frp} MW`;
+}
+
+function addNote(text) {
+  $("layer-notes").textContent = `${$("layer-notes").textContent} ${text}`.trim();
+}
+
+async function getJson(path) {
+  const response = await fetch(path);
+  if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
+  return response.json();
+}
+
+function drawTimeline(daily, clock) {
+  const svg = $("timeline");
+  const totals = new Map();
+  for (const row of daily) totals.set(row.acq_date, (totals.get(row.acq_date) || 0) + Number(row.detections));
+  const start = new Date(state.config.playback.start_utc);
+  const end = new Date(state.config.playback.end_utc);
+  const days = Math.round(hoursBetween(end, start) / 24);
+  const width = 300;
+  const height = 100;
+  const barWidth = width / days;
+  const max = Math.max(1, ...totals.values());
+  const parts = [];
+  for (let index = 0; index < days; index += 1) {
+    const day = new Date(start.getTime() + index * 86400000).toISOString().slice(0, 10);
+    const value = totals.get(day) || 0;
+    const barHeight = (value / max) * (height - 20);
+    parts.push(`<rect class="bar" x="${index * barWidth + 1}" y="${height - 14 - barHeight}" width="${barWidth - 2}" height="${barHeight}"><title>${day}: ${value}</title></rect>`);
+    if (index % 3 === 0) parts.push(`<text x="${index * barWidth + 1}" y="${height - 3}">${day.slice(5)}</text>`);
+  }
+  if (clock) {
+    const x = (hoursBetween(clock, start) / 24) * barWidth;
+    parts.push(`<line class="cursor" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`);
+  }
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = parts.join("");
+}
+
+function observationAt(station, clock) {
+  // The latest hourly observation at or before the playback clock.
+  let found = null;
+  for (const observation of station.observations) {
+    if (new Date(observation.time_utc) > clock) break;
+    found = observation;
+  }
+  return found;
+}
+
+function showWeather(clock) {
+  const station = state.weather?.stations.find((item) => item.id === state.weatherStation);
+  if (!station) return;
+  const observation = observationAt(station, clock);
+  const values = $("weather-values");
+  const arrow = document.querySelector("#wind-arrow .arrow");
+  if (!observation) {
+    values.innerHTML = "<dt>Data</dt><dd>saknas för tiden</dd>";
+    arrow.style.visibility = "hidden";
+    return;
+  }
+  const calm = !observation.wind_speed_ms;
+  const wind = calm ? "lugnt" : `${observation.wind_speed_ms} m/s från ${compassPoint(observation.wind_dir_deg)} (${observation.wind_dir_deg}°)`;
+  values.innerHTML = [
+    ["Temperatur", `${observation.temp_c} °C`],
+    ["Luftfuktighet", `${observation.rh_pct} %`],
+    ["Vind", wind],
+    ["Byvind", `${observation.gust_ms} m/s`],
+    ["Nederbörd", `${observation.precip_mm} mm/h`],
+    ["Mätt", formatLocal(observation.time_utc)],
+  ].map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
+  // The arrow points where the wind blows to; SMHI gives where it comes from.
+  arrow.style.visibility = calm ? "hidden" : "visible";
+  arrow.style.transform = `rotate(${(observation.wind_dir_deg + 180) % 360}deg)`;
+}
+
+function windAt(clock) {
+  // The latest ERA5-Land hour at or before the playback clock.
+  const times = state.wind.times_utc;
+  let found = -1;
+  for (let index = 0; index < times.length && new Date(times[index]) <= clock; index += 1) found = index;
+  return found;
+}
+
+function showWind(clock) {
+  if (!state.wind) return;
+  const hour = windAt(clock);
+  if (hour === state.windHour) return;
+  state.windHour = hour;
+  state.map.showWind(hour, state.wind);
+  $("wind-note").textContent = hour < 0 ? "Inga vinddata för tiden." : `Modellvärden för ${formatLocal(state.wind.times_utc[hour])}.`;
+}
+
+function windTooltip(position, hour) {
+  const [speed, from, temperature] = state.wind.values[hour][position];
+  const [lat, lon] = state.wind.points[position];
+  return `ERA5-Land ${lat.toFixed(1)} N ${lon.toFixed(1)} E<br>${speed.toFixed(1)} m/s från ${compassPoint(from)} (${from}°), ${temperature} °C`
+    + `<br>${formatLocal(state.wind.times_utc[hour])}`;
+}
+
+function forecastStateAt(clock) {
+  // The latest pass at or before the playback clock; the forecast never looks ahead.
+  let found = null;
+  for (const item of state.forecast.states) {
+    if (new Date(item.pass_utc) > clock) break;
+    found = item;
+  }
+  return found;
+}
+
+function drawForecast(clock) {
+  if (!state.forecast) return;
+  const current = forecastStateAt(clock);
+  const key = `${current?.pass_utc}|${state.forecastHorizon}`;
+  const values = $("forecast-values");
+  if (current) {
+    const since = hoursBetween(clock, new Date(current.pass_utc));
+    const observed = current.observed_spread;
+    const model = current.model;
+    const weather = model.fire_weather;
+    values.innerHTML = [
+      ["Senaste passage", `${formatLocal(current.pass_utc)} (för ${since.toFixed(1).replace(".", ",")} h sedan)`],
+      ["Detektioner", `${current.detections_so_far} hittills`],
+      ["Observerat", observed ? `${km(observed.km_per_h)} mot ${observed.towards} (${clockTime.format(new Date(observed.from_utc))}–${clockTime.format(new Date(observed.to_utc))} mellan passager)` : "ingen mätbar spridning ännu"],
+      ["Modell, trolig", `${km(model.head_km_per_h.central)} mot ${model.towards} (spann ${km(model.head_km_per_h.low)}–${km(model.head_km_per_h.high)})`],
+      ["Kalibrering", `× ${String(model.calibration_factor).replace(".", ",")} mot observerad spridning`],
+      ["Brandväder", weather.fwi !== undefined ? `FWI ${weather.fwi}, BUI ${weather.bui}, ISI ${weather.isi} (SMHI Sala A)` : "saknas"],
+    ].map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
+  } else {
+    values.innerHTML = "<dt>Prognos</dt><dd>ingen satellitdetektion ännu</dd>";
+  }
+  if (key === state.forecastPass) return;
+  state.forecastPass = key;
+  state.map.drawForecast(current, state.forecastHorizon);
+  if (!current) {
+    $("forecast-places").textContent = "";
+    return;
+  }
+  const list = current.places_within_24h.slice(0, 6).map((place) => `${place.names[0]} ${place.span}`).join(", ");
+  $("forecast-places").textContent = current.places_within_24h_count
+    ? `Orter inom ytan för dubbel hastighet inom 24 h: ${current.places_within_24h_count}. Först: ${list}. Spannet är tid vid dubbel–halv hastighet.`
+    : "Inga orter inom ytan för dubbel hastighet inom 24 h.";
+}
+
+function setClock(clock) {
+  state.clock = clock;
+  $("sim-time").textContent = formatLocal(clock.toISOString());
+  state.map.restyleHotspots(clock);
+  $("counts").textContent = `${state.map.hotspotCount()} detektioner visas`;
+  drawTimeline(state.daily, clock);
+  showWeather(clock);
+  showWind(clock);
+  drawForecast(clock);
+}
+
+// The playback is shared: the backend holds one scenario clock that every screen
+// follows (/api/scenario/stream); the buttons send commands to it.
+async function command(name, extra = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (state.controlToken) headers["X-Control-Token"] = state.controlToken;
+  const response = await fetch("/api/scenario/command", {
+    method: "POST", headers, body: JSON.stringify({ command: name, ...extra }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail || body.error || `HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
+function runCommand(name, extra) {
+  command(name, extra).catch((error) => {
+    $("stream-status").textContent = `Kommandot ${name} misslyckades: ${error.message}`;
+  });
+}
+
+function showSpeed(speed) {
+  const select = $("speed");
+  if (![...select.options].some((option) => Number(option.value) === speed)) {
+    select.append(new Option(speedLabel(speed), String(speed)));
+  }
+  select.value = String(speed);
+}
+
+function applyState(scenarioState) {
+  state.playing = scenarioState.playing;
+  state.finished = scenarioState.finished;
+  $("play").textContent = scenarioState.playing ? "Paus" : "Spela";
+  showSpeed(scenarioState.speed);
+  $("stream-status").textContent = scenarioState.finished
+    ? "Uppspelningen är klar."
+    : scenarioState.playing ? "Spelar upp – alla skärmar följer samma klocka." : "Pausad.";
+  // Read by tools/record_demo.py.
+  document.body.dataset.playback = scenarioState.finished ? "finished" : scenarioState.playing ? "playing" : "paused";
+  setClock(new Date(scenarioState.clock_utc));
+}
+
+function connectScenario() {
+  return new Promise((resolve) => {
+    const source = new EventSource("/api/scenario/stream");
+    source.addEventListener("sync", (event) => {
+      const data = JSON.parse(event.data);
+      state.map.clearHotspots();
+      for (const feature of data.features) state.map.addHotspot(feature);
+      applyState(data.state);
+      resolve();
+    });
+    source.addEventListener("hotspot", (event) => state.map.addHotspot(JSON.parse(event.data)));
+    source.addEventListener("state", (event) => applyState(JSON.parse(event.data)));
+    source.onerror = () => {
+      // EventSource reconnects by itself and the backend then sends a new sync.
+      $("stream-status").textContent = "Anslutningen till backend bröts – försöker igen …";
+    };
+  });
+}
+
+async function loadOptional(path, onError) {
+  try {
+    return await getJson(path);
+  } catch (error) {
+    onError(error);
+    return null;
+  }
+}
+
+// `createMap(config)` returns the map adapter: setup*/add*/draw*/show* methods used above.
+async function startApp(createMap) {
+  const config = await getJson("/api/config");
+  state.config = config;
+  $("title").textContent = config.title;
+  $("data-label").textContent = config.data_label;
+  state.map = await createMap(config);
+  const summary = await getJson("/api/hotspots");
+  state.daily = summary.daily;
+
+  const legend = $("terrain-legend");
+  for (const [name, color] of Object.entries(TERRAIN_COLORS)) {
+    const item = document.createElement("li");
+    item.innerHTML = `<span class="swatch" style="background:${color}"></span>${name}`;
+    legend.append(item);
+  }
+  const terrain = await loadOptional(config.layers.terrain, (error) => addNote(`Terränglagret kunde inte laddas: ${error.message}.`));
+  if (terrain) state.map.addTerrain(terrain);
+  if (state.map.wantsLabels()) {
+    const labels = await loadOptional("/api/layers/labels", (error) => addNote(`Ortnamnen kunde inte laddas: ${error.message}.`));
+    if (labels) state.map.addLabels(labels);
+  }
+
+  state.weather = await loadOptional("/api/weather", (error) => { $("weather-note").textContent = `Väderdata kunde inte laddas: ${error.message}.`; });
+  if (state.weather) {
+    const select = $("weather-station");
+    for (const station of state.weather.stations) {
+      select.append(new Option(`${station.name} (${station.distance_km} km)`, station.id));
+    }
+    state.map.addStations(state.weather.stations);
+    state.weatherStation = state.weather.stations[0]?.id || null;
+    select.addEventListener("change", () => {
+      state.weatherStation = select.value;
+      showWeather(state.clock);
+    });
+    state.map.addAttribution(config.attribution.smhi);
+    $("weather-note").textContent = "Mätningar vid stationen, inte i brandområdet.";
+  }
+
+  state.wind = await loadOptional("/api/wind", (error) => { $("wind-note").textContent = `Vinddata kunde inte laddas: ${error.message}.`; });
+  if (state.wind) {
+    state.map.setupWind(state.wind, () => { state.windHour = null; showWind(state.clock); });
+    state.map.addAttribution(config.attribution.era5_land);
+  }
+
+  state.forecast = await loadOptional("/api/forecast", (error) => { $("forecast-places").textContent = `Prognosen kunde inte laddas: ${error.message}.`; });
+  if (state.forecast) {
+    $("forecast-label").textContent = state.forecast.label;
+    state.map.setupForecast();
+    $("forecast-horizon").addEventListener("change", (event) => {
+      state.forecastHorizon = event.target.value;
+      drawForecast(state.clock);
+    });
+  }
+
+  state.map.finish();
+  setClock(new Date(config.playback.start_utc));
+  state.controlToken = new URLSearchParams(window.location.search).get("token");
+  $("play").addEventListener("click", () => runCommand(state.playing ? "pause" : "play"));
+  $("reset").addEventListener("click", () => runCommand("reset"));
+  $("show-all").addEventListener("click", () => runCommand("seek", { at: config.playback.end_utc }));
+  $("speed").addEventListener("change", (event) => runCommand("speed", { speed: Number(event.target.value) }));
+  await connectScenario();
+  // Kiosk options (kiosk.js): ?show=all, ?at=<ISO time>, ?autoplay=1, ?speed=, ?horizon=.
+  // Options that move the clock change the shared scenario for every screen.
+  const options = parseKioskOptions(window.location.search);
+  if (options.horizon) {
+    $("forecast-horizon").value = options.horizon;
+    state.forecastHorizon = options.horizon;
+    state.forecastPass = undefined;
+    drawForecast(state.clock);
+  }
+  if (options.speed) await command("speed", { speed: options.speed });
+  if (options.showAll) await command("seek", { at: config.playback.end_utc });
+  else if (options.at) await command("seek", { at: options.at.toISOString() });
+  if (options.autoplay && !options.showAll) await command("play");
+  document.body.dataset.ready = "true";
+  return options;
+}
+
+function startWithErrors(createMap) {
+  return startApp(createMap).catch((error) => {
+    $("stream-status").textContent = `Fel vid start: ${error.message}`;
+    throw error;
+  });
+}

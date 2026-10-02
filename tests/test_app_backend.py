@@ -56,6 +56,12 @@ def test_config_disables_lantmateriet_without_credentials() -> None:
     assert layers["lantmateriet_fastighet_layers"] == ""
 
 
+def test_config_gives_the_fire_centre_for_the_3d_camera() -> None:
+    settings = lantmateriet.Settings(None, None, "https://example.test/{z}/{x}/{y}", "https://example.test/wms", "boundaries")
+
+    assert server.config(settings)["fire_centre"] == [59.89, 16.175]
+
+
 class FakeResponse:
     def __init__(self, body: bytes) -> None:
         self.body = body

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skogsbranden i Västmanland 2014 – 3D</title>
+  <link rel="stylesheet" href="/vendor/cesium-1.146.0/Widgets/widgets.css">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="title">Skogsbranden i Västmanland 2014</h1>
+    <span id="data-label" class="data-label">Historiska data 2014 – uppspelning, inte live</span>
+    <a class="view-switch" href="/">2D-karta</a>
+  </header>
+  <main class="layout">
+    <div id="map" class="map" aria-label="3D-glob med brandområdet"></div>
+    <aside class="panel">
+      <section>
+        <h2>Uppspelning</h2>
+        <div class="controls"><button id="fly" type="button">Flyg till branden</button><button id="home" type="button">Översikt</button></div>
+        <div id="sim-time" class="sim-time">–</div>
+        <div class="controls">
+          <button id="play" type="button">Spela</button>
+          <button id="reset" type="button">Återställ</button>
+          <button id="show-all" type="button">Visa alla</button>
+          <label>Hastighet
+            <select id="speed">
+              <option value="1800">30 minuter/s</option>
+              <option value="3600" selected>1 timme/s</option>
+              <option value="10800">3 timmar/s</option>
+              <option value="43200">12 timmar/s</option>
+            </select>
+          </label>
+        </div>
+        <div id="counts" class="counts">0 detektioner visas</div>
+        <div id="stream-status" class="status" aria-live="polite"></div>
+      </section>
+      <section class="forecast-section">
+        <h2>Prognos (modell)</h2>
+        <div id="forecast-label" class="forecast-label">Modellprognos med stor osäkerhet – inte beslutsunderlag</div>
+        <label>Horisont
+          <select id="forecast-horizon">
+            <option value="3">3 timmar</option>
+            <option value="6" selected>6 timmar</option>
+            <option value="12">12 timmar</option>
+            <option value="24">24 timmar</option>
+          </select>
+        </label>
+        <dl id="forecast-values" class="forecast-values"></dl>
+        <ul class="legend">
+          <li><span class="swatch" style="background:none;border:2px solid #202020"></span>uppskattad brandfront (alla detektioner hittills)</li>
+          <li><span class="swatch" style="background:#ff8c0066;border:1px solid #d35400"></span>trolig spridning inom horisonten</li>
+          <li><span class="swatch" style="background:#ffd54a33;border:1px dashed #b7950b"></span>om branden går dubbelt så fort</li>
+          <li><span class="swatch" style="background:none;border:1px dashed #7a1f1f"></span>om branden går hälften så fort</li>
+        </ul>
+        <div id="forecast-places" class="status"></div>
+      </section>
+      <section>
+        <h2>Väder (SMHI)</h2>
+        <label>Station <select id="weather-station"></select></label>
+        <div id="weather" class="weather">
+          <svg id="wind-arrow" class="wind-arrow" viewBox="-20 -20 40 40" aria-hidden="true">
+            <circle r="18" class="dial"></circle>
+            <path d="M0,-14 L5,4 L0,0 L-5,4 Z" class="arrow"></path>
+          </svg>
+          <dl id="weather-values"></dl>
+        </div>
+        <div id="weather-note" class="status"></div>
+      </section>
+      <section>
+        <h2>Detektioner per dygn (UTC)</h2>
+        <svg id="timeline" class="timeline" role="img" aria-label="Antal detektioner per dygn"></svg>
+      </section>
+      <section>
+        <h2>Vind (ERA5-Land, modell)</h2>
+        <ul class="legend">
+          <li>Pilen pekar dit vinden blåser. Streck vid basen, avrundat till närmaste 2,5 m/s: kort 2,5 m/s, långt 5 m/s, triangel 25 m/s. Pil utan streck: 1–1,2 m/s. Ring: lugnt (under 1 m/s).</li>
+          <li id="wind-note" class="status"></li>
+        </ul>
+      </section>
+      <section>
+        <h2>Hotspots</h2>
+        <ul class="legend">
+          <li><span class="swatch" style="background:#ff2a00"></span>senaste 12 timmarna</li>
+          <li><span class="swatch" style="background:#ff8c00"></span>12–48 timmar</li>
+          <li><span class="swatch" style="background:#7a1f1f"></span>äldre</li>
+          <li>Storleken visar strålningseffekt (FRP). Ifylld: VIIRS 375 m, ring: MODIS 1 km.</li>
+        </ul>
+      </section>
+      <section>
+        <h2>Terräng (OSM, dagens läge)</h2>
+        <ul id="terrain-legend" class="legend"></ul>
+      </section>
+      <section id="layer-notes" class="notes"></section>
+    </aside>
+  </main>
+  <script>window.CESIUM_BASE_URL = "/vendor/cesium-1.146.0/";</script>
+  <script src="/vendor/cesium-1.146.0/Cesium.js"></script>
+  <script src="/wind_barbs.js"></script>
+  <script src="/kiosk.js"></script>
+  <script src="/panel.js"></script>
+  <script src="/map3d.js"></script>
+  <script src="/app3d.js"></script>
+</body>
+</html>

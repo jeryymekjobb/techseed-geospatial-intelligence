@@ -195,6 +195,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
         "title": scenario.TITLE,
         "data_label": "Historiska data 2014 – uppspelning, inte live",
         "view_bounds": [[min_lat, min_lon], [max_lat, max_lon]],
+        "fire_centre": list(scenario.FIRE_CENTRE),
         "fire_selection_bounds": [[fire[0], fire[2]], [fire[1], fire[3]]],
         "playback": {
             "start_utc": utc_text(scenario.PLAYBACK_START),
