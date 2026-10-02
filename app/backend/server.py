@@ -323,6 +323,7 @@ class Handler(BaseHTTPRequestHandler):
                 str(body.get("command")),
                 at=body.get("at"),
                 speed=float(body["speed"]) if body.get("speed") is not None else None,
+                target=str(body["target"]) if body.get("target") is not None else None,
             )
         except (ValueError, TypeError, AttributeError, CommandError) as exc:
             self.send_json({"error": "invalid_command", "detail": str(exc)}, HTTPStatus.BAD_REQUEST)
@@ -334,24 +335,31 @@ class Handler(BaseHTTPRequestHandler):
 
     def scenario_stream(self) -> None:
         """Follow the shared scenario: a full `sync` on connect and after jumps, then
-        `hotspot` events as the clock passes detections and a `state` event per tick."""
+        `hotspot` events as the clock passes detections, a `scenario_event` per new
+        mission-control event and a `state` event per tick."""
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         last_clock: datetime | None = None
         last_jump = None
+        last_seq = 0
         ended = False
         try:
             while True:
                 state = self.engine.snapshot()
                 clock = parse_utc(state["clock_utc"])
                 if last_jump != state["jump"] or (last_clock is not None and clock < last_clock):
+                    # The sync carries the events in its state, so they are not sent again.
                     self.send_event("sync", {"state": state, "features": features_between(None, clock)})
                 else:
                     for item in features_between(last_clock, clock):
                         self.send_event("hotspot", item)
+                    for event in state["events"]:
+                        if event["seq"] > last_seq:
+                            self.send_event("scenario_event", event)
                     self.send_event("state", state)
+                last_seq = state["events"][-1]["seq"] if state["events"] else last_seq
                 if state["finished"] and not ended:
                     self.send_event("end", state)
                 ended = state["finished"]

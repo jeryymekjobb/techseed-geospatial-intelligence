@@ -69,6 +69,71 @@ def test_invalid_commands_are_refused() -> None:
             scenario.command(name, **kwargs)
 
 
+def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> None:
+    scenario, fake = engine()
+
+    assert scenario.snapshot()["status"] == {
+        "satcom_up": True, "plus60": False, "god_view": False, "power_failure": False,
+        "failed_sensors": [], "closed_roads": [],
+    }
+    scenario.command("seek", at="2014-08-04T12:00:00Z")
+    scenario.command("satellite_detection")
+    scenario.command("satcom_failure")
+    scenario.command("sensor_failure", target="sensor-17")
+    scenario.command("sensor_failure", target="sensor-17")
+    scenario.command("road_closed", target="road-66")
+    scenario.command("plus60")
+    state = scenario.command("god_view")
+
+    assert [event["kind"] for event in state["events"]] == [
+        "satellite_detection", "satcom_failure", "sensor_failure", "sensor_failure", "road_closed", "plus60", "god_view",
+    ]
+    assert [event["seq"] for event in state["events"]] == [1, 2, 3, 4, 5, 6, 7]
+    assert all(event["clock_utc"] == "2014-08-04T12:00:00Z" for event in state["events"])
+    assert state["status"] == {
+        "satcom_up": False, "plus60": True, "god_view": True, "power_failure": False,
+        "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
+    }
+    # Toggles switch back, and SATCOM can be restored.
+    scenario.command("plus60")
+    scenario.command("satcom_restore")
+    status = scenario.command("power_failure")["status"]
+    assert status["satcom_up"] and not status["plus60"] and status["god_view"] and status["power_failure"]
+
+
+def test_events_take_the_time_of_the_running_clock() -> None:
+    scenario, fake = engine()
+
+    scenario.command("play")
+    fake.now += 5  # 5 s at 1 h/s
+    assert scenario.command("satellite_detection")["events"][-1]["clock_utc"] == "2014-07-31T05:00:00Z"
+
+
+def test_reset_clears_the_events_but_keeps_the_sequence_rising() -> None:
+    scenario, _ = engine()
+
+    scenario.command("satcom_failure")
+    scenario.command("god_view")
+    jump = scenario.snapshot()["jump"]
+    state = scenario.command("reset")
+    assert state["events"] == [] and state["status"]["satcom_up"] and not state["status"]["god_view"]
+    assert state["jump"] == jump + 1
+    assert scenario.command("plus60")["events"][0]["seq"] == 3
+
+
+def test_invalid_event_targets_are_refused_and_the_list_is_bounded() -> None:
+    scenario, _ = engine()
+
+    for target in ["", "Sensor 17", "x" * 65, "../etc"]:
+        with pytest.raises(CommandError):
+            scenario.command("sensor_failure", target=target)
+    assert scenario.snapshot()["events"] == []
+    for _ in range(150):
+        scenario.command("satellite_detection")
+    events = scenario.snapshot()["events"]
+    assert len(events) == 100 and events[-1]["seq"] == 150
+
+
 @pytest.fixture()
 def base_url():
     fake = FakeTime()
@@ -130,3 +195,46 @@ def test_every_screen_gets_the_same_sync(base_url: str) -> None:
     assert first[1]["state"]["clock_utc"] == second[1]["state"]["clock_utc"] == "2014-08-01T00:00:00Z"
     assert len(first[1]["features"]) == len(second[1]["features"]) > 0
     assert all(item["properties"]["acq_datetime_utc"] <= "2014-08-01T00:00:00Z" for item in first[1]["features"])
+
+
+def test_events_reach_every_screen(base_url: str) -> None:
+    first = first_events(f"{base_url}/api/scenario/stream", 1)[0]
+    assert first[0] == "sync" and first[1]["state"]["events"] == []
+
+    status, state = post(f"{base_url}/api/scenario/command", {"command": "sensor_failure", "target": "sensor-17"})
+    assert status == 200 and state["status"]["failed_sensors"] == ["sensor-17"]
+    assert post(f"{base_url}/api/scenario/command", {"command": "sensor_failure", "target": "Sensor 17"})[0] == 400
+
+    # A screen that connects now gets the event in its sync, not again as a scenario_event.
+    late = first_events(f"{base_url}/api/scenario/stream", 2)
+    assert late[0][0] == "sync" and late[0][1]["state"]["status"]["failed_sensors"] == ["sensor-17"]
+    assert late[1][0] == "state"
+
+
+def test_a_following_screen_gets_new_events_once(base_url: str) -> None:
+    received: list[tuple[str, dict]] = []
+    done = threading.Event()
+
+    def follow() -> None:
+        with urlopen(f"{base_url}/api/scenario/stream", timeout=10) as response:
+            name = None
+            for raw in response:
+                line = raw.decode("utf-8").rstrip("\n")
+                if line.startswith("event: "):
+                    name = line[7:]
+                elif line.startswith("data: "):
+                    received.append((name, json.loads(line[6:])))
+                    if name == "sync":
+                        done.set()
+                    if sum(1 for event, _ in received if event == "state") >= 6:
+                        return
+
+    thread = threading.Thread(target=follow, daemon=True)
+    thread.start()
+    assert done.wait(5)
+    post(f"{base_url}/api/scenario/command", {"command": "satcom_failure"})
+    thread.join(10)
+
+    events = [data for name, data in received if name == "scenario_event"]
+    assert [event["kind"] for event in events] == ["satcom_failure"]
+    assert received[-1][1]["status"]["satcom_up"] is False
