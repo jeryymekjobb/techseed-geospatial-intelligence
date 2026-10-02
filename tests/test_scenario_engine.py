@@ -206,9 +206,9 @@ def test_events_reach_every_screen(base_url: str) -> None:
     assert post(f"{base_url}/api/scenario/command", {"command": "sensor_failure", "target": "Sensor 17"})[0] == 400
 
     # A screen that connects now gets the event in its sync, not again as a scenario_event.
-    late = first_events(f"{base_url}/api/scenario/stream", 2)
+    late = first_events(f"{base_url}/api/scenario/stream", 4)
     assert late[0][0] == "sync" and late[0][1]["state"]["status"]["failed_sensors"] == ["sensor-17"]
-    assert late[1][0] == "state"
+    assert "state" in [name for name, _ in late] and "scenario_event" not in [name for name, _ in late]
 
 
 def test_a_following_screen_gets_new_events_once(base_url: str) -> None:

@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import forecast, iot, lantmateriet, offline_tiles, scenario
+from app.backend import forecast, iot, lantmateriet, offline_tiles, scenario, sensor_sim
 from app.backend.scenario_engine import CommandError, ScenarioEngine
 from tools.firms_extract import daily_summary, select_detections
 
@@ -141,6 +141,17 @@ def wind_field() -> dict[str, Any]:
         # [speed m/s, direction the wind blows from in degrees, 2 m temperature °C] per point
         "values": [[list(hours[moment][position]) for position in range(len(points))] for moment in times],
     }
+
+
+@lru_cache(maxsize=1)
+def synthetic_sensors() -> sensor_sim.SyntheticSensors:
+    items = [(parse_utc(item["acq_datetime_utc"]), item["latitude"], item["longitude"]) for item in detections()]
+    return sensor_sim.SyntheticSensors(items, wind_field(), scenario.FIRE_CENTRE)
+
+
+def synthetic_at(state: dict[str, Any]) -> dict[str, Any]:
+    """The synthetic sensors at the scenario clock, with mission control's sensor failures."""
+    return synthetic_sensors().at(parse_utc(state["clock_utc"]), state["status"]["failed_sensors"])
 
 
 @lru_cache(maxsize=1)
@@ -273,6 +284,9 @@ class Handler(BaseHTTPRequestHandler):
             self.stream(query)
         elif path == "/api/sensors":
             self.send_json(self.sensors.snapshot())
+        elif path == "/api/sensors/synthetic":
+            state = self.engine.snapshot()
+            self.send_json({**synthetic_at(state), "clock_utc": state["clock_utc"]})
         elif path == "/api/scenario":
             self.send_json(self.engine.snapshot())
         elif path == "/api/scenario/stream":
@@ -344,7 +358,9 @@ class Handler(BaseHTTPRequestHandler):
         `hotspot` events as the clock passes detections, a `scenario_event` per new
         mission-control event and a `state` event per tick. The real IoT nodes add a
         `sensor` event per new reading and a `sensor_health` event when a node goes
-        offline or comes back; they follow real time, not the scenario clock."""
+        offline or comes back; they follow real time, not the scenario clock. The
+        synthetic sensors in the fire area follow the scenario clock: a
+        `synthetic_sensors` event whenever their values change."""
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -354,6 +370,7 @@ class Handler(BaseHTTPRequestHandler):
         last_seq = 0
         last_reading = 0
         health: dict[tuple[str, str], bool] = {}
+        last_synthetic: dict[str, Any] | None = None
         ended = False
         try:
             while True:
@@ -371,6 +388,10 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_event("state", state)
                 last_seq = state["events"][-1]["seq"] if state["events"] else last_seq
                 last_reading, health = self.send_sensor_events(last_reading, health)
+                synthetic = synthetic_at(state)
+                if synthetic != last_synthetic:
+                    self.send_event("synthetic_sensors", {**synthetic, "clock_utc": state["clock_utc"]})
+                    last_synthetic = synthetic
                 if state["finished"] and not ended:
                     self.send_event("end", state)
                 ended = state["finished"]
