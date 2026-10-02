@@ -72,11 +72,18 @@ function setupMap(config) {
     preferCanvas: true, zoomSnap: 0.25, maxBounds: L.latLngBounds(config.view_bounds).pad(0.5),
   });
   map.fitBounds(config.view_bounds);
-  const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
-  }).addTo(map);
-  const baseLayers = { "OpenStreetMap": osm };
+  const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
+  const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: osmAttribution });
+  const baseLayers = {};
+  let offline = null;
+  if (config.layers.offline_tiles) {
+    // Local tiles (tools/build_offline_tiles.py, docker compose service "tiles"): no internet needed.
+    offline = L.tileLayer("/tiles/{z}/{x}/{y}.png", { maxZoom: 18, attribution: osmAttribution }).addTo(map);
+    baseLayers["Offline-karta (OSM, lokal)"] = offline;
+    baseLayers["OpenStreetMap (online)"] = osm;
+  } else {
+    baseLayers["OpenStreetMap (online)"] = osm.addTo(map);
+  }
   const overlays = {};
   const notes = [];
   if (config.layers.lantmateriet_topowebb) {
@@ -102,7 +109,48 @@ function setupMap(config) {
   overlays["Hotspots"] = hotspots;
   map.attributionControl.addAttribution(config.attribution.firms);
   $("layer-notes").textContent = notes.join(" ");
-  return { map, baseLayers, overlays, hotspots };
+  return { map, baseLayers, overlays, hotspots, offline };
+}
+
+// The offline tiles carry no text, so place and lake names are drawn here; the online
+// OSM map has its own names, so they show only with the offline map.
+async function addLabels(view) {
+  if (!view.offline) return;
+  let collection;
+  try {
+    collection = await getJson("/api/layers/labels");
+  } catch (error) {
+    $("layer-notes").textContent += ` Ortnamnen kunde inte laddas: ${error.message}.`;
+    return;
+  }
+  const pane = view.map.createPane("labels");
+  pane.style.zIndex = 450;
+  pane.style.pointerEvents = "none";
+  const markers = collection.features.map((feature) => {
+    const [lon, lat] = feature.geometry.coordinates;
+    const kind = feature.properties.kind;
+    const text = document.createElement("span");
+    text.textContent = feature.properties.name;  // OSM names are text, never markup
+    const icon = L.divIcon({ className: `map-label map-label-${kind}`, html: text.outerHTML, iconSize: [0, 0] });
+    const marker = L.marker([lat, lon], { icon, pane: "labels", interactive: false, keyboard: false });
+    marker.minZoom = feature.properties.min_zoom;
+    return marker;
+  });
+  const layer = L.layerGroup();
+  const update = () => {
+    const zoom = view.map.getZoom();
+    for (const marker of markers) {
+      const visible = zoom >= marker.minZoom;
+      if (visible && !layer.hasLayer(marker)) layer.addLayer(marker);
+      if (!visible && layer.hasLayer(marker)) layer.removeLayer(marker);
+    }
+  };
+  view.map.on("zoomend", update);
+  view.map.on("baselayerchange", (event) => {
+    if (event.layer === view.offline) layer.addTo(view.map); else layer.remove();
+  });
+  update();
+  layer.addTo(view.map);
 }
 
 async function addTerrain(view, config) {
@@ -472,6 +520,7 @@ async function main() {
   const summary = await getJson("/api/hotspots");
   state.daily = summary.daily;
   await addTerrain(view, config);
+  await addLabels(view);
   await setupWeather(view);
   await setupWind(view);
   await setupForecast(view);

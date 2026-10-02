@@ -33,6 +33,35 @@ continues from there).
 `?speed=10800` sets the playback speed in simulated seconds per second and
 `?horizon=6` the forecast horizon (3, 6, 12 or 24 hours).
 
+### Shared scenario and several screens
+
+The backend holds one scenario clock (`app/backend/scenario_engine.py`); every
+open GUI follows it through `/api/scenario/stream`, and the buttons send
+commands to `POST /api/scenario/command` (`play`, `pause`, `reset`, `seek` with
+`at`, `speed` with `speed`). A second screen on the network, for example a
+mission-control tablet, therefore shows the same moment. When the backend
+listens on the network (`--host 0.0.0.0`), set `SCENARIO_CONTROL_TOKEN` and open
+the GUI with `?token=<the token>` on screens that may control the scenario;
+others can only watch.
+
+### Offline map and PostGIS
+
+`docker-compose.yml` has two local services (127.0.0.1 only):
+
+```bash
+python3 -m tools.build_offline_tiles      # OSM extract -> data/tiles/vastmanland.mbtiles (needs data/osm/sweden-latest.osm.pbf)
+docker compose up -d tiles postgis
+python3 -m tools.load_postgis             # targets, terrain, detections, fronts and forecasts into PostGIS
+```
+
+With the `tiles` service running the GUI uses the offline map
+(`/tiles/{z}/{x}/{y}.png` through the backend) and draws place and lake names
+itself; without it, it falls back to OpenStreetMap online. The country extract
+comes from <https://download.openstreetmap.fr/extracts/europe/sweden-latest.osm.pbf>
+(about 930 MB, kept in the unversioned `data/osm/`); `data/tiles/SOURCE.json`
+records its SHA-256. PostGIS listens on 127.0.0.1:5433 (database and user
+`firemap`, local password `firemap-local` unless `FIREMAP_DB_PASSWORD` is set).
+
 ### Record a video
 
 `tools/record_demo.py` starts the backend itself, plays the GUI in a headless

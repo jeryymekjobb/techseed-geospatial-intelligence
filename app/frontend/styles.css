@@ -23,6 +23,11 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .weather dl { display: grid; grid-template-columns: auto auto; gap: 1px 8px; margin: 0; font-size: 0.85rem; }
 .weather dt { color: var(--muted); }
 .weather dd { margin: 0; font-weight: 600; }
+.map-label { font: 12px system-ui, sans-serif; color: #2b2b2b; }
+.map-label span { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
+.map-label-town { font-size: 16px; font-weight: 700; }
+.map-label-village { font-size: 14px; font-weight: 600; }
+.map-label-lake { font-style: italic; color: #1f5fa8; }
 .barb-icon { pointer-events: none; }
 .barb-icon svg { width: 56px; height: 56px; overflow: visible; pointer-events: auto; }
 .barb path, .barb circle { fill: none; stroke: #0b3d91; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }

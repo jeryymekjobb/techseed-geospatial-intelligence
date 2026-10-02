@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import forecast, lantmateriet, scenario
+from app.backend import forecast, lantmateriet, offline_tiles, scenario
 from app.backend.scenario_engine import CommandError, ScenarioEngine
 from tools.firms_extract import daily_summary, select_detections
 
@@ -77,6 +77,41 @@ def weather() -> dict[str, Any]:
         })
     stations.sort(key=lambda station: station["distance_km"])
     return {"source": catalogue["source"], "stations": stations}
+
+
+# Smallest zoom at which a name is shown, by OSM place type; lakes go by their area.
+LABEL_MIN_ZOOM = {"town": 7, "village": 9, "hamlet": 11, "neighbourhood": 12, "locality": 12, "isolated_dwelling": 13, "farm": 13}
+
+
+def _ring_area_km2(ring: list[list[float]]) -> float:
+    lat0 = sum(point[1] for point in ring) / len(ring)
+    kx, ky = 111.32 * math.cos(math.radians(lat0)), 110.54
+    return abs(sum(a[0] * kx * b[1] * ky - b[0] * kx * a[1] * ky for a, b in zip(ring, ring[1:] + ring[:1]))) / 2.0
+
+
+@lru_cache(maxsize=1)
+def labels() -> dict[str, Any]:
+    """Place names (OSM places) and lake names (named water areas) as label points."""
+    features = []
+    targets = json.loads((scenario.REPO_ROOT / "osm_data" / "targets-vastmanland.geojson").read_text(encoding="utf-8"))
+    for item in targets["features"]:
+        props = item["properties"]
+        if props["kind"] == "place" and props.get("name") and props["type"] in LABEL_MIN_ZOOM:
+            features.append({"type": "Feature", "geometry": item["geometry"],
+                             "properties": {"name": props["name"], "kind": props["type"], "min_zoom": LABEL_MIN_ZOOM[props["type"]]}})
+    terrain = json.loads(scenario.TERRAIN_FILE.read_text(encoding="utf-8"))
+    for item in terrain["features"]:
+        props = item["properties"]
+        if props["terrain"] != "vatten" or not props.get("name"):
+            continue
+        polygons = [item["geometry"]["coordinates"]] if item["geometry"]["type"] == "Polygon" else item["geometry"]["coordinates"]
+        ring = max((polygon[0] for polygon in polygons), key=len)
+        area = sum(_ring_area_km2(polygon[0]) for polygon in polygons)
+        centre = [round(sum(p[0] for p in ring) / len(ring), 5), round(sum(p[1] for p in ring) / len(ring), 5)]
+        features.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": centre},
+                         "properties": {"name": props["name"], "kind": "lake", "area_km2": round(area, 2),
+                                        "min_zoom": 9 if area >= 5 else 11 if area >= 0.5 else 13}})
+    return {"type": "FeatureCollection", "attribution": scenario.ATTRIBUTION["osm"], "features": features}
 
 
 @lru_cache(maxsize=1)
@@ -170,6 +205,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
         "attribution": scenario.ATTRIBUTION,
         "layers": {
             "terrain": "/api/layers/terrain",
+            "offline_tiles": offline_tiles.available(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "lantmateriet_fastighet": settings.fastighet_enabled,
             "lantmateriet_fastighet_layers": settings.fastighet_layers if settings.fastighet_enabled else "",
@@ -231,10 +267,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(self.engine.snapshot())
         elif path == "/api/scenario/stream":
             self.scenario_stream()
+        elif path == "/api/layers/labels":
+            self.send_json(labels())
         elif path == "/api/layers/terrain":
             self.send_bytes(scenario.TERRAIN_FILE.read_bytes(), "application/geo+json", "max-age=3600")
         elif path.startswith("/lm/"):
             self.lantmateriet(path, query)
+        elif path.startswith("/tiles/"):
+            self.offline_tile(path)
         else:
             self.static(path)
 
@@ -314,6 +354,20 @@ class Handler(BaseHTTPRequestHandler):
                 time.sleep(TICK_SECONDS)
         except (BrokenPipeError, ConnectionResetError):
             return
+
+    def offline_tile(self, path: str) -> None:
+        parts = path.strip("/").split("/")
+        try:
+            if len(parts) != 4:
+                raise ValueError("bad tile path")
+            body, content_type = offline_tiles.tile(int(parts[1]), int(parts[2]), int(parts[3].split(".")[0]))
+        except ValueError:
+            self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        except offline_tiles.Unavailable:
+            self.send_json({"error": "offline_tiles_unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+        self.send_bytes(body, content_type, "max-age=86400")
 
     def lantmateriet(self, path: str, query: dict[str, str]) -> None:
         parts = path.strip("/").split("/")
