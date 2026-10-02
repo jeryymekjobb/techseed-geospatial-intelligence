@@ -4,8 +4,9 @@ Datum: 2026-10-02
 Författare: Claude Opus 5.5 (`claude-opus-5-5`), via Claude Code.
 Underlag: `onepager.md` och
 `reviews/2026-10-02-jamforelse-implementation-onepager-claude-opus-5-5.md`.
-Status: Förslag. Besluten B1–B5 är öppna, och ingenting i planen är beslutat
-eller påbörjat.
+Status: Förslag. Besluten B1–B4 är öppna. B5 är genomförd i prototypen men inte
+formellt beslutad. Fas 0 och delar av fas 1 är påbörjade, se
+[Status 2026-10-02](#status-2026-10-02).
 
 Planen bygger vidare på det som finns: backend, data, prognos, kioskläge och
 inspelning. Den lägger till rymd-, IoT-, AI- och styrdelarna i en ordning där
@@ -20,7 +21,40 @@ gränssnittet, enligt `AGENTS.md`.
 | B2 | **AI-svar** (G-14) | Förberedda svar som visas direkt, plus spatiala frågor som körs på riktigt mot PostGIS. En lokal LLM kan läggas till som tillval. |
 | B3 | **Rättigheter och namn** (G-09, G-10, G-12) | Ja till att visa elnät från OSM. Dacreo och BruhnBruhn nämns bara med skriftligt godkännande. |
 | B4 | **IoT-hårdvara** | 3–4 nRF91-noder finns och kan levereras. De visas som riktiga sensorer i montern. Sensorer i brandområdet är syntetiska och märks så (G-02). |
-| B5 | **Visualiseringsmotor** | Byt till CesiumJS utan Cesium ion: OSM-kartbilder, höjddata från Copernicus DEM och satellitbanor beräknade lokalt. Leaflet behålls som reserv. |
+| B5 | **Visualiseringsmotor** | Byt till CesiumJS utan Cesium ion: OSM-kartbilder, höjddata från Copernicus DEM och satellitbanor beräknade lokalt. Leaflet behålls som reserv. Genomförd i prototypen, ej formellt beslutad. |
+
+## Status 2026-10-02
+
+Avstämning mot koden efter commit `a18700d`. Underlag: dagens commits, läsning
+av koden och `python3 -m pytest` (78 godkända). Gränssnittet är inte provat i
+webbläsare, och offlinedrift är inte provad från början till slut.
+
+### Fas 0 – i stort sett klar
+
+- **Klart:** gemensam scenarioklocka (`app/backend/scenario_engine.py`) som alla
+  skärmar följer via `/api/scenario/stream`, med kommandona play, pause, reset,
+  seek och speed, och token för styrning över nätverk. PostGIS i Docker med
+  orter, byggnader, vägar, järnväg, terräng, detektioner, brandfronter och
+  prognoser (`tools/load_postgis.py`). Offline-kartrutor via `tileserver-gl`
+  med egna ort- och sjönamn, och lokal terräng i `data/terrain/`.
+- **Avvikelser:** scenariomotorn är en klocka utan händelser i tidslinjen;
+  händelserna behövs i fas 5. Elnät saknas i PostGIS i väntan på B3. 2D-kartan
+  har kvar OSM online som valbart kartlager.
+
+### Fas 1 – delvis klar
+
+- **Klart:** CesiumJS utan Cesium ion, med Natural Earth II och offline-kartrutor
+  över brandområdet. Kameraresan till branden på cirka 5 sekunder. Hotspots,
+  terräng, vind, prognos och namn på globen. Höjddata från Copernicus GLO-30 med
+  licensens källhänvisning.
+- **Kvar:** satellitbanor från CelesTrak med satellite.js (biblioteket hämtas av
+  `tools/fetch_web_vendor.py` men används inte än), SPACE VIEW och RETURN TO
+  INCIDENT med panel för höjd, fart och nästa passage, och satellitbildslagret
+  från Landsat 8 den 4 augusti 2014.
+
+### Fas 2–6
+
+Inte påbörjade.
 
 ## Faser
 
