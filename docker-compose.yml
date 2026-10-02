@@ -1,4 +1,4 @@
-# Local services for the fire map. Both listen on 127.0.0.1 only.
+# Local services for the fire map. All listen on 127.0.0.1 only.
 #
 #   docker compose up -d postgis tiles
 #
@@ -7,6 +7,8 @@
 #   database only; override it with FIREMAP_DB_PASSWORD.
 # - tiles: offline map tiles for the map area, served from data/tiles/ (built with
 #   `python3 -m tools.build_offline_tiles`).
+# - mosquitto: MQTT broker for the TechSeed IoT nodes (topics techseed/<node>/<kind>;
+#   see app/backend/iot.py). Started with `docker compose up -d mosquitto`.
 services:
   postgis:
     image: postgis/postgis:16-3.4
@@ -31,6 +33,13 @@ services:
       - "127.0.0.1:8081:8080"
     volumes:
       - ./data/tiles:/data:ro
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
 
 volumes:
   postgis-data:

@@ -2,13 +2,15 @@
 
 Serves the GUI, the FIRMS detections of the fire, a playback stream that sends
 the detections to the GUI in compressed time (Server-Sent Events), the OSM
-terrain layer and a proxy for Lantmäteriet services.
+terrain layer, a proxy for Lantmäteriet services and the live readings of the
+TechSeed IoT nodes (MQTT, app/backend/iot.py).
 
 Run from the repository root:
 
     python3 -m app.backend.server
 
-Only the Python standard library is used.
+Only the Python standard library is used, except paho-mqtt for the IoT nodes
+(optional; app/requirements-iot.txt).
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import forecast, lantmateriet, offline_tiles, scenario
+from app.backend import forecast, iot, lantmateriet, offline_tiles, scenario
 from app.backend.scenario_engine import CommandError, ScenarioEngine
 from tools.firms_extract import daily_summary, select_detections
 
@@ -222,6 +224,8 @@ class Handler(BaseHTTPRequestHandler):
     settings = lantmateriet.Settings.from_environment()
     # One shared scenario for every screen; tests give their handler its own engine.
     engine = ScenarioEngine(scenario.PLAYBACK_START, scenario.PLAYBACK_END)
+    # Live readings of the real IoT nodes; main() connects it to the MQTT broker.
+    sensors = iot.SensorStore()
     # When set, commands need this token in the X-Control-Token header (for a networked mission control).
     control_token = os.environ.get("SCENARIO_CONTROL_TOKEN") or None
 
@@ -267,6 +271,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(weather())
         elif path == "/api/stream":
             self.stream(query)
+        elif path == "/api/sensors":
+            self.send_json(self.sensors.snapshot())
         elif path == "/api/scenario":
             self.send_json(self.engine.snapshot())
         elif path == "/api/scenario/stream":
@@ -336,7 +342,9 @@ class Handler(BaseHTTPRequestHandler):
     def scenario_stream(self) -> None:
         """Follow the shared scenario: a full `sync` on connect and after jumps, then
         `hotspot` events as the clock passes detections, a `scenario_event` per new
-        mission-control event and a `state` event per tick."""
+        mission-control event and a `state` event per tick. The real IoT nodes add a
+        `sensor` event per new reading and a `sensor_health` event when a node goes
+        offline or comes back; they follow real time, not the scenario clock."""
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -344,6 +352,8 @@ class Handler(BaseHTTPRequestHandler):
         last_clock: datetime | None = None
         last_jump = None
         last_seq = 0
+        last_reading = 0
+        health: dict[tuple[str, str], bool] = {}
         ended = False
         try:
             while True:
@@ -360,6 +370,7 @@ class Handler(BaseHTTPRequestHandler):
                             self.send_event("scenario_event", event)
                     self.send_event("state", state)
                 last_seq = state["events"][-1]["seq"] if state["events"] else last_seq
+                last_reading, health = self.send_sensor_events(last_reading, health)
                 if state["finished"] and not ended:
                     self.send_event("end", state)
                 ended = state["finished"]
@@ -368,6 +379,18 @@ class Handler(BaseHTTPRequestHandler):
                 time.sleep(TICK_SECONDS)
         except (BrokenPipeError, ConnectionResetError):
             return
+
+    def send_sensor_events(self, last_reading: int, health: dict[tuple[str, str], bool]) -> tuple[int, dict[tuple[str, str], bool]]:
+        sensors = self.sensors.snapshot()["sensors"]
+        for reading in sensors:
+            key = (reading["node"], reading["kind"])
+            if reading["seq"] > last_reading:
+                self.send_event("sensor", reading)
+            elif health.get(key) != reading["online"]:
+                self.send_event("sensor_health", {"node": reading["node"], "kind": reading["kind"], "online": reading["online"]})
+        return max([last_reading, *(reading["seq"] for reading in sensors)]), {
+            (reading["node"], reading["kind"]): reading["online"] for reading in sensors
+        }
 
     def offline_tile(self, path: str) -> None:
         parts = path.strip("/").split("/")
@@ -438,6 +461,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Backend for the Västmanland 2014 fire map")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--mqtt", default=os.environ.get("IOT_MQTT_BROKER", "127.0.0.1:1883"),
+                        help="MQTT broker of the IoT nodes as host:port, or 'off'")
     args = parser.parse_args(argv)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.daemon_threads = True
@@ -445,6 +470,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Fire map on http://{args.host}:{args.port}/ ({len(detections())} detections)")
     print(f"Lantmäteriet topowebb: {'on' if settings.topowebb_enabled else 'off'}, "
           f"fastighetsindelning: {'on' if settings.fastighet_enabled else 'off'}")
+    if args.mqtt != "off":
+        host, _, port = args.mqtt.rpartition(":")
+        iot.start(Handler.sensors, host or "127.0.0.1", int(port))
+    print(f"IoT: {Handler.sensors.detail}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
