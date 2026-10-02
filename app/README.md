@@ -50,8 +50,9 @@ The script downloads pinned npm packages, checks their SHA-512 and unpacks them
 into `app/frontend/vendor/`. Open <http://127.0.0.1:8765/3d.html>; the button
 "Flyg till branden" (or `?fly=1`) flies the camera from space to the fire in about
 five seconds. The world imagery is Natural Earth II, shipped with Cesium; the fire
-area uses the offline map when the `tiles` service runs. Forecast, wind arrows and
-place names are not yet drawn in 3D.
+area uses the offline map when the `tiles` service runs. The globe draws the same
+layers as the 2D map (hotspots, OSM terrain, place and lake names, wind arrows and
+the forecast) and has its own layer panel; click an object for its details.
 
 The terrain comes from Copernicus DEM GLO-30 (30 m), built for the map area:
 
