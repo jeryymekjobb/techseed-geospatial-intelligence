@@ -13,6 +13,8 @@ const FLIGHT = [
 ];
 // Last step: look at the fire's centre from the south at this pitch and range.
 const FIRE_VIEW = { pitch: -50, range: 42_000, seconds: 1.1 };
+// GOD VIEW: the whole of Europe, so satellites and other layers fit around the fire.
+const GOD_VIEW = { lon: 15, lat: 55, height: 12_000_000, seconds: 2.0 };
 
 function cesiumColor(hex, alpha = 1) {
   return Cesium.Color.fromCssColorString(hex).withAlpha(alpha);
@@ -115,6 +117,12 @@ async function createCesiumMap(config) {
   }
   const home = Cesium.Rectangle.fromDegrees(west, south, east, north);
   viewer.camera.setView({ destination: home });
+  const flyToFire = (lon, lat) => new Promise((resolve) => {
+    viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(lon, lat), 1), {
+      offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(FIRE_VIEW.pitch), FIRE_VIEW.range),
+      duration: FIRE_VIEW.seconds, complete: resolve, cancel: resolve,
+    });
+  });
 
   const groups = {};
   const group = (name) => {
@@ -353,12 +361,21 @@ async function createCesiumMap(config) {
           complete: resolve, cancel: resolve,
         });
       })), Promise.resolve());
-      return flight.then(() => new Promise((resolve) => {
-        viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(lon, lat), 1), {
-          offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(FIRE_VIEW.pitch), FIRE_VIEW.range),
-          duration: FIRE_VIEW.seconds, complete: resolve, cancel: resolve,
+      return flight.then(() => flyToFire(lon, lat));
+    },
+
+    // Mission control's GOD VIEW: out to Europe, and back to the fire when it is switched off.
+    showGodView(on) {
+      if (!on) {
+        const [lat, lon] = config.fire_centre;
+        return flyToFire(lon, lat);
+      }
+      return new Promise((resolve) => {
+        viewer.camera.flyTo({
+          destination: Cesium.Cartesian3.fromDegrees(GOD_VIEW.lon, GOD_VIEW.lat, GOD_VIEW.height),
+          duration: GOD_VIEW.seconds, complete: resolve, cancel: resolve,
         });
-      }));
+      });
     },
 
     flyHome() {

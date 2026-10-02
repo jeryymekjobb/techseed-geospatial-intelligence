@@ -10,6 +10,9 @@ function spreadArrowIcon(observedDeg, modelDeg) {
   });
 }
 
+// GOD VIEW in 2D: Europe, south-west and north-east corners.
+const GOD_VIEW_BOUNDS = [[36, -10], [71, 40]];
+
 function createLeafletMap(config) {
   const map = L.map("map", {
     preferCanvas: true, zoomSnap: 0.25, maxBounds: L.latLngBounds(config.view_bounds).pad(0.5),
@@ -191,6 +194,18 @@ function createLeafletMap(config) {
 
     finish() {
       L.control.layers(baseLayers, overlays, { collapsed: false }).addTo(map);
+    },
+
+    // Mission control's GOD VIEW: out to Europe (OSM online; the offline tiles cover the
+    // fire area only), and back to the fire area when it is switched off.
+    showGodView(on) {
+      if (on) {
+        map.setMaxBounds(null);
+        map.flyToBounds(GOD_VIEW_BOUNDS, { duration: 1.5 });
+      } else {
+        map.flyToBounds(config.view_bounds, { duration: 1.5 });
+        map.once("moveend", () => map.setMaxBounds(L.latLngBounds(config.view_bounds).pad(0.5)));
+      }
     },
   };
 }

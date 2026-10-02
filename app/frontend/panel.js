@@ -36,6 +36,10 @@ const state = {
   controlToken: null,
   clock: null,
   finished: false,
+  // Mission-control status (scenario_events.js): applied when it changes.
+  scenarioStatus: null,
+  pendingEvents: [],
+  horizonBeforePlus60: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -251,6 +255,68 @@ function showSpeed(speed) {
   select.value = String(speed);
 }
 
+// Mission-control events: a banner over the map per event and a status list in the
+// panel. The banner waits for the state that follows the event, so a toggle shows
+// whether it was switched on or off.
+function setupScenarioView() {
+  const section = document.createElement("section");
+  section.innerHTML = '<h2>Läge</h2><ul id="scenario-status" class="scenario-status"></ul>';
+  document.querySelector(".panel section").after(section);
+  const banner = document.createElement("div");
+  banner.id = "event-banner";
+  banner.className = "event-banner";
+  banner.setAttribute("role", "status");
+  banner.hidden = true;
+  document.body.append(banner);
+}
+
+let bannerTimer = null;
+
+function showBanner(text) {
+  const banner = $("event-banner");
+  banner.innerHTML = "";
+  const title = document.createElement("strong");
+  title.textContent = text.title;
+  const detail = document.createElement("span");
+  detail.textContent = text.detail;
+  banner.append(title, detail);
+  banner.hidden = false;
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => { banner.hidden = true; }, 6000);
+}
+
+function setHorizon(horizon) {
+  $("forecast-horizon").value = horizon;
+  state.forecastHorizon = horizon;
+  drawForecast(state.clock);
+}
+
+function applyStatus(status) {
+  const previous = state.scenarioStatus;
+  state.scenarioStatus = status;
+  const lines = statusLines(status);
+  const list = $("scenario-status");
+  list.innerHTML = "";
+  for (const line of lines.length ? lines : [{ level: "ok", text: "Inga händelser från mission control." }]) {
+    const item = document.createElement("li");
+    item.className = line.level;
+    item.textContent = line.text;
+    list.append(item);
+  }
+  // Read by styles.css and tools/record_demo.py.
+  document.body.dataset.satcom = status.satcom_up ? "up" : "down";
+  if (state.forecast && status.plus60 !== Boolean(previous?.plus60)) {
+    if (status.plus60) {
+      state.horizonBeforePlus60 = state.forecastHorizon;
+      setHorizon(String(Math.min(...state.forecast.horizons_h)));
+    } else if (state.horizonBeforePlus60) {
+      setHorizon(state.horizonBeforePlus60);
+      state.horizonBeforePlus60 = null;
+    }
+  }
+  if (status.god_view !== Boolean(previous?.god_view)) state.map.showGodView(status.god_view);
+}
+
 function applyState(scenarioState) {
   state.playing = scenarioState.playing;
   state.finished = scenarioState.finished;
@@ -262,6 +328,8 @@ function applyState(scenarioState) {
   // Read by tools/record_demo.py.
   document.body.dataset.playback = scenarioState.finished ? "finished" : scenarioState.playing ? "playing" : "paused";
   setClock(new Date(scenarioState.clock_utc));
+  applyStatus(scenarioState.status);
+  for (const event of state.pendingEvents.splice(0)) showBanner(eventBanner(event, scenarioState.status));
 }
 
 function connectScenario() {
@@ -275,6 +343,7 @@ function connectScenario() {
       resolve();
     });
     source.addEventListener("hotspot", (event) => state.map.addHotspot(JSON.parse(event.data)));
+    source.addEventListener("scenario_event", (event) => state.pendingEvents.push(JSON.parse(event.data)));
     source.addEventListener("state", (event) => applyState(JSON.parse(event.data)));
     source.onerror = () => {
       // EventSource reconnects by itself and the backend then sends a new sync.
@@ -348,6 +417,7 @@ async function startApp(createMap) {
   }
 
   state.map.finish();
+  setupScenarioView();
   setClock(new Date(config.playback.start_utc));
   state.controlToken = new URLSearchParams(window.location.search).get("token");
   $("play").addEventListener("click", () => runCommand(state.playing ? "pause" : "play"));

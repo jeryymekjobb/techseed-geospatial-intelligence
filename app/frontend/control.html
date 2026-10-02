@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TechSeed Mission Control</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:,">
+</head>
+<body class="control">
+  <header class="topbar">
+    <h1>TECHSEED MISSION CONTROL</h1>
+    <span class="data-label">Scenario: WILDFIRE – Västmanland 2014, historiska data</span>
+  </header>
+  <main class="control-layout">
+    <section class="control-clock">
+      <div id="sim-time" class="sim-time">–</div>
+      <div id="playback" class="status">Ansluter …</div>
+      <div class="control-row">
+        <button id="play" type="button" data-command="play">PLAY</button>
+        <button type="button" data-command="pause">PAUSE</button>
+        <button type="button" data-command="reset" class="danger">RESET</button>
+      </div>
+    </section>
+    <section>
+      <h2>Events</h2>
+      <div class="control-grid">
+        <button type="button" data-command="satellite_detection">SATELLITE DETECTION</button>
+        <button type="button" data-command="sensor_failure" data-target="sensor-17">SENSOR FAILURE</button>
+        <button type="button" data-command="satcom_failure" data-toggle-off="satcom_restore" data-status="satcom_down">SATCOM FAILURE</button>
+        <button type="button" data-command="road_closed">ROAD CLOSED</button>
+        <button type="button" data-command="power_failure">POWER FAILURE</button>
+        <button type="button" data-command="plus60" data-status="plus60">+60 MIN</button>
+        <button type="button" data-command="god_view" data-status="god_view">GOD VIEW</button>
+      </div>
+      <p class="status">Alla händelser är syntetiska och märks så på huvudskärmen.</p>
+    </section>
+    <section>
+      <h2>Läge</h2>
+      <ul id="scenario-status" class="scenario-status"></ul>
+      <h2>Logg</h2>
+      <ol id="event-log" class="event-log" reversed></ol>
+      <div id="command-status" class="status" aria-live="polite"></div>
+    </section>
+  </main>
+  <script src="/scenario_events.js"></script>
+  <script src="/control.js"></script>
+</body>
+</html>
