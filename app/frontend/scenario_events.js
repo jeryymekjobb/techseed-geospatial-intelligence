@@ -41,4 +41,26 @@ function statusLines(status) {
   return lines;
 }
 
-if (typeof module !== "undefined") module.exports = { EVENT_TEXTS, eventText, eventBanner, statusLines };
+// A SATCOM outage (app/backend/server.py): the queue while it lasts, the SYNC when it ends.
+function queueText(queue) {
+  if (!queue.since_utc) return "";
+  return `EDGE PROCESSING – ${queue.queued} detektioner köade sedan ${queue.since_utc.slice(11, 16)} UTC (simulerat avbrott)`;
+}
+
+function syncBanner(summary) {
+  return {
+    title: `SYNC – ${summary.passes.length} NEW EVENTS`,
+    detail: "Satellitpassager under det simulerade avbrottet, ur verkliga FIRMS-data 2014.",
+  };
+}
+
+function syncLines(summary) {
+  const lines = summary.passes.map((item) => ({
+    level: "info", text: `${item.time_utc.slice(5, 16).replace("T", " ")} UTC – ${item.detections} nya detektioner (${item.instruments.join(", ")})`,
+  }));
+  if (summary.area_increase_pct !== null) lines.push({ level: "info", text: `Brandfrontens yta ökade ${summary.area_increase_pct} %` });
+  if (!lines.length) lines.push({ level: "ok", text: "Inga satellitpassager under avbrottet." });
+  return lines;
+}
+
+if (typeof module !== "undefined") module.exports = { EVENT_TEXTS, eventText, eventBanner, statusLines, queueText, syncBanner, syncLines };

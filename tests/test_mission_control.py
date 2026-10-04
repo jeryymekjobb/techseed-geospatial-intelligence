@@ -53,7 +53,8 @@ def node(expression: str) -> object:
     return json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
 
 
-QUIET = {"satcom_up": True, "plus60": False, "god_view": False, "power_failure": False, "failed_sensors": [], "closed_roads": []}
+QUIET = {"satcom_up": True, "plus60": False, "god_view": False, "power_failure": False, "failed_sensors": [], "closed_roads": [],
+         "satcom_down_since": None, "last_outage": None}
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")

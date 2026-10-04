@@ -80,6 +80,7 @@ function connect() {
   };
   source.addEventListener("sync", follow);
   source.addEventListener("state", follow);
+  source.addEventListener("satcom_queue", (event) => { $("satcom-queue").textContent = queueText(JSON.parse(event.data)); });
   source.addEventListener("synthetic_sensors", (event) => { $("iot-confirms").textContent = confirmsText(JSON.parse(event.data)); });
   source.addEventListener("sensor", (event) => {
     const reading = JSON.parse(event.data);

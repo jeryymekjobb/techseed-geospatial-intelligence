@@ -264,7 +264,8 @@ function showSpeed(speed) {
 // whether it was switched on or off.
 function setupScenarioView() {
   const section = document.createElement("section");
-  section.innerHTML = '<h2>Läge</h2><ul id="scenario-status" class="scenario-status"></ul><div id="iot-confirms" class="iot-confirms"></div>';
+  section.innerHTML = '<h2>Läge</h2><ul id="scenario-status" class="scenario-status"></ul><div id="satcom-queue" class="satcom-queue"></div>'
+    + '<ul id="satcom-sync" class="scenario-status"></ul><div id="iot-confirms" class="iot-confirms"></div>';
   document.querySelector(".panel section").after(section);
   const assessmentSection = document.createElement("section");
   assessmentSection.innerHTML = '<h2>AI ASSESSMENT</h2><div id="assessment-outcome" class="assessment-outcome">–</div>'
@@ -452,7 +453,19 @@ function connectScenario() {
       resolve();
     });
     source.addEventListener("hotspot", (event) => state.map.addHotspot(JSON.parse(event.data)));
-    source.addEventListener("scenario_event", (event) => state.pendingEvents.push(JSON.parse(event.data)));
+    source.addEventListener("scenario_event", (event) => {
+      const scenarioEvent = JSON.parse(event.data);
+      state.pendingEvents.push(scenarioEvent);
+      if (scenarioEvent.kind !== "satcom_restore") $("satcom-sync").innerHTML = "";  // the SYNC list stays until the next event
+    });
+    source.addEventListener("satcom_queue", (event) => { $("satcom-queue").textContent = queueText(JSON.parse(event.data)); });
+    source.addEventListener("satcom_sync", (event) => {
+      const summary = JSON.parse(event.data);
+      // The SYNC banner replaces the plain SATCOM RESTORED one.
+      state.pendingEvents = state.pendingEvents.filter((item) => item.kind !== "satcom_restore");
+      showBanner(syncBanner(summary));
+      fillList("satcom-sync", syncLines(summary), "");
+    });
     source.addEventListener("sensor", (event) => {
       const reading = JSON.parse(event.data);
       state.realSensors.set(`${reading.node}/${reading.kind}`, reading);

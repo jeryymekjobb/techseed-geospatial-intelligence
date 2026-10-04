@@ -74,7 +74,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
 
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "power_failure": False,
-        "failed_sensors": [], "closed_roads": [],
+        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None,
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -93,12 +93,30 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert state["status"] == {
         "satcom_up": False, "plus60": True, "god_view": True, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
+        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None,
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
     scenario.command("satcom_restore")
     status = scenario.command("power_failure")["status"]
     assert status["satcom_up"] and not status["plus60"] and status["god_view"] and status["power_failure"]
+
+
+def test_an_outage_keeps_its_start_and_end() -> None:
+    scenario, fake = engine()
+
+    scenario.command("seek", at="2014-08-04T12:00:00Z")
+    scenario.command("satcom_failure")
+    scenario.command("play")
+    fake.now += 2  # 2 h at 1 h/s
+    scenario.command("satcom_failure")  # pressed again: the outage keeps its start
+    assert scenario.snapshot()["status"]["satcom_down_since"] == "2014-08-04T12:00:00Z"
+    fake.now += 1
+    status = scenario.command("satcom_restore")["status"]
+    assert status["satcom_up"] and status["satcom_down_since"] is None
+    assert status["last_outage"] == {"from_utc": "2014-08-04T12:00:00Z", "to_utc": "2014-08-04T15:00:00Z"}
+    # A restore without an outage changes nothing.
+    assert scenario.command("satcom_restore")["status"]["last_outage"] == status["last_outage"]
 
 
 def test_events_take_the_time_of_the_running_clock() -> None:

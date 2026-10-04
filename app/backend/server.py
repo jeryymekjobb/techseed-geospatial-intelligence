@@ -22,6 +22,7 @@ import json
 import math
 import mimetypes
 import os
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -154,14 +155,30 @@ def synthetic_at(state: dict[str, Any]) -> dict[str, Any]:
     return synthetic_sensors().at(parse_utc(state["clock_utc"]), state["status"]["failed_sensors"])
 
 
+# Every screen's stream needs the assessor; the first one to connect builds it, the others wait.
+_assessor_lock = threading.Lock()
+
+
 @lru_cache(maxsize=1)
-def assessor() -> assessment.Assessor:
+def _assessor() -> assessment.Assessor:
     return assessment.Assessor(detections(), wind_field(), forecast.forecasts()["states"], scenario.FIRE_CENTRE)
+
+
+def assessor() -> assessment.Assessor:
+    with _assessor_lock:
+        return _assessor()
+
+
+def satellite_until(state: dict[str, Any]) -> datetime:
+    """The last moment satellite data reaches the screens: the clock, or the start of a SATCOM outage."""
+    clock = parse_utc(state["clock_utc"])
+    down_since = state["status"]["satcom_down_since"]
+    return clock if down_since is None else min(clock, parse_utc(down_since))
 
 
 def assessment_at(state: dict[str, Any], synthetic: dict[str, Any] | None = None) -> dict[str, Any]:
     """The evidence-based assessment at the scenario clock."""
-    return assessor().at(parse_utc(state["clock_utc"]), synthetic or synthetic_at(state))
+    return assessor().at(parse_utc(state["clock_utc"]), synthetic or synthetic_at(state), satellite_until(state))
 
 
 @lru_cache(maxsize=1)
@@ -375,7 +392,10 @@ class Handler(BaseHTTPRequestHandler):
     def scenario_stream(self) -> None:
         """Follow the shared scenario: a full `sync` on connect and after jumps, then
         `hotspot` events as the clock passes detections, a `scenario_event` per new
-        mission-control event and a `state` event per tick. The real IoT nodes add a
+        mission-control event and a `state` event per tick. During a SATCOM outage
+        the detections after its start are held back (`satcom_queue` says how many);
+        when the link is back, `satcom_sync` summarises them and they follow as
+        `hotspot` events. The real IoT nodes add a
         `sensor` event per new reading and a `sensor_health` event when a node goes
         offline or comes back; they follow real time, not the scenario clock. The
         synthetic sensors in the fire area follow the scenario clock: a
@@ -386,6 +406,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         last_clock: datetime | None = None
+        last_visible: datetime | None = None
+        last_queue: dict[str, Any] | None = None
+        last_outage: Any = ...
         last_jump = None
         last_seq = 0
         last_reading = 0
@@ -397,16 +420,30 @@ class Handler(BaseHTTPRequestHandler):
             while True:
                 state = self.engine.snapshot()
                 clock = parse_utc(state["clock_utc"])
+                visible = satellite_until(state)
                 if last_jump != state["jump"] or (last_clock is not None and clock < last_clock):
                     # The sync carries the events in its state, so they are not sent again.
-                    self.send_event("sync", {"state": state, "features": features_between(None, clock)})
+                    self.send_event("sync", {"state": state, "features": features_between(None, visible)})
                 else:
-                    for item in features_between(last_clock, clock):
+                    for item in features_between(last_visible, visible):
                         self.send_event("hotspot", item)
                     for event in state["events"]:
                         if event["seq"] > last_seq:
                             self.send_event("scenario_event", event)
                     self.send_event("state", state)
+                # After the restore event, so the screens show the SYNC last.
+                outage = state["status"]["last_outage"]
+                if last_outage is not ... and outage and outage != last_outage and state["status"]["satcom_up"]:
+                    summary = assessor().outage(parse_utc(outage["from_utc"]), parse_utc(outage["to_utc"]))
+                    self.send_event("satcom_sync", summary)
+                last_outage = outage
+                queue = None if visible >= clock else {
+                    "since_utc": state["status"]["satcom_down_since"],
+                    "queued": len(features_between(visible, clock)),
+                }
+                if queue != last_queue:
+                    self.send_event("satcom_queue", queue or {"since_utc": None, "queued": 0})
+                    last_queue = queue
                 last_seq = state["events"][-1]["seq"] if state["events"] else last_seq
                 last_reading, health = self.send_sensor_events(last_reading, health)
                 synthetic = synthetic_at(state)
@@ -420,7 +457,7 @@ class Handler(BaseHTTPRequestHandler):
                 if state["finished"] and not ended:
                     self.send_event("end", state)
                 ended = state["finished"]
-                last_clock, last_jump = clock, state["jump"]
+                last_clock, last_visible, last_jump = clock, visible, state["jump"]
                 self.wfile.flush()
                 time.sleep(TICK_SECONDS)
         except (BrokenPipeError, ConnectionResetError):

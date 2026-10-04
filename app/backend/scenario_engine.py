@@ -8,7 +8,9 @@ computed from the real monotonic time, so it needs no ticking thread.
 Mission control also triggers events (satellite detection, sensor failure, SATCOM
 failure and so on). Each one is stored with its scenario time and a sequence
 number, and the derived status (SATCOM up or down, GOD VIEW, +60 MIN, failed
-sensors, closed roads, power failure) is part of every snapshot. `reset` clears
+sensors, closed roads, power failure) is part of every snapshot. While SATCOM is
+down, `satcom_down_since` gives the scenario time it went down; after a restore,
+`last_outage` gives the scenario times the last outage started and ended. `reset` clears
 the events together with the clock.
 """
 
@@ -96,13 +98,18 @@ class ScenarioEngine:
         """The state the events add up to, so a screen that connects late shows the same."""
         status: dict[str, Any] = {
             "satcom_up": True, "plus60": False, "god_view": False, "power_failure": False,
-            "failed_sensors": [], "closed_roads": [],
+            "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None,
         }
         for event in self.events:
             kind, target = event["kind"], event["target"]
             if kind == "satcom_failure":
+                if status["satcom_up"]:
+                    status["satcom_down_since"] = event["clock_utc"]
                 status["satcom_up"] = False
             elif kind == "satcom_restore":
+                if not status["satcom_up"]:
+                    status["last_outage"] = {"from_utc": status["satcom_down_since"], "to_utc": event["clock_utc"]}
+                    status["satcom_down_since"] = None
                 status["satcom_up"] = True
             elif kind in TOGGLES:
                 status[kind] = not status[kind]

@@ -12,7 +12,13 @@ Evidence (status ok, warn, miss or info):
 - high confidence: a MODIS confidence of at least 80 or a VIIRS "h";
 - IoT: each synthetic sensor that confirms the fire (sensor_sim.py), warn when failed;
 - wind and forecast: context from ERA5-Land and forecast.py, weight 0;
-- camera: no camera in the demo, always warn, weight 0.
+- camera: no camera in the demo, always warn, weight 0;
+- SATCOM: during a simulated outage only the detections before it count, and a
+  warn line says how many are queued.
+
+`outage()` summarises what the satellites saw during an outage, for the SYNC
+message when the link is back: the passes with their detections and how much the
+front grew.
 """
 
 from __future__ import annotations
@@ -120,10 +126,16 @@ class Assessor:
                               place(*state["front_centre"])))
         return lines
 
-    def at(self, clock: datetime, synthetic: dict[str, Any]) -> dict[str, Any]:
-        high = bisect.bisect_right(self.times, clock)
-        low = bisect.bisect_right(self.times, clock - WINDOW)
+    def at(self, clock: datetime, synthetic: dict[str, Any], satellite_until: datetime | None = None) -> dict[str, Any]:
+        """The assessment at the clock; `satellite_until` is the start of a SATCOM outage."""
+        until = clock if satellite_until is None else min(clock, satellite_until)
+        high = bisect.bisect_right(self.times, until)
+        low = min(high, bisect.bisect_right(self.times, clock - WINDOW))
         evidence = list(self.satellite(low, high))
+        if until < clock:
+            queued = bisect.bisect_right(self.times, clock) - high
+            evidence.insert(0, line("satcom", "warn", f"Satellitdata otillgänglig sedan {format_utc(until)} (simulerat avbrott) – "
+                                    f"{queued} detektioner köade", None))
         for sensor in synthetic["sensors"]:
             ref = place(sensor["latitude"], sensor["longitude"])
             if sensor["status"] == "failed":
@@ -143,6 +155,29 @@ class Assessor:
         score = 1.0 - math.prod(1.0 - item["weight"] for item in evidence)
         outcome = next(text for limit, text in OUTCOMES if score >= limit)
         return {"outcome": outcome, "score_pct": round(score * 100), "score_label": SCORE_LABEL, "evidence": evidence}
+
+
+    def outage(self, start: datetime, end: datetime) -> dict[str, Any]:
+        """The passes between start and end with their detections, and the growth of the front."""
+        low = bisect.bisect_right(self.times, start)
+        high = bisect.bisect_right(self.times, end)
+        passes: dict[str, dict[str, Any]] = {}
+        for item in self.items[low:high]:
+            entry = passes.setdefault(item["acq_datetime_utc"], {"time_utc": item["acq_datetime_utc"], "detections": 0, "instruments": set()})
+            entry["detections"] += 1
+            entry["instruments"].add(item["instrument"])
+        before = fs.polygon_area(fs.convex_hull(self.points[:low])) if low >= 3 else 0.0
+        after = fs.polygon_area(fs.convex_hull(self.points[:high])) if high >= 3 else 0.0
+        return {
+            "from_utc": format_utc(start), "to_utc": format_utc(end),
+            "passes": [{**entry, "instruments": sorted(entry["instruments"])} for entry in passes.values()],
+            "detections": high - low,
+            "area_increase_pct": round((after - before) / before * 100) if before > 0 and after > before else None,
+        }
+
+
+def format_utc(moment: datetime) -> str:
+    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def parse_utc(text: str) -> datetime:
