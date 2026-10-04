@@ -25,3 +25,7 @@ app/frontend/vendor/satellite.js-*/
 
 # Derived layers; regenerate with tools/firms_extract.py
 data/
+
+# Video recordings; make them with tools/record_demo.py
+*.mp4
+*.webm
