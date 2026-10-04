@@ -386,6 +386,11 @@ async function createCesiumMap(config) {
       }
     },
 
+    // Show an evidence object from the assessment.
+    focusOn(lat, lon) {
+      return flyToFire(lon, lat);
+    },
+
     // Mission control's GOD VIEW: out to Europe, and back to the fire when it is switched off.
     showGodView(on) {
       if (!on) {

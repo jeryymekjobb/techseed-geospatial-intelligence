@@ -210,6 +210,11 @@ function createLeafletMap(config) {
       }
     },
 
+    // Show an evidence object from the assessment.
+    focusOn(lat, lon) {
+      map.flyTo([lat, lon], Math.max(map.getZoom(), 12), { duration: 1 });
+    },
+
     // Mission control's GOD VIEW: out to Europe (OSM online; the offline tiles cover the
     // fire area only), and back to the fire area when it is switched off.
     showGodView(on) {

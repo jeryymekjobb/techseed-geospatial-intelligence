@@ -266,11 +266,16 @@ function setupScenarioView() {
   const section = document.createElement("section");
   section.innerHTML = '<h2>Läge</h2><ul id="scenario-status" class="scenario-status"></ul><div id="iot-confirms" class="iot-confirms"></div>';
   document.querySelector(".panel section").after(section);
+  const assessmentSection = document.createElement("section");
+  assessmentSection.innerHTML = '<h2>AI ASSESSMENT</h2><div id="assessment-outcome" class="assessment-outcome">–</div>'
+    + '<div id="assessment-score" class="status"></div><h3>Evidence</h3><ul id="assessment-evidence" class="evidence"></ul>'
+    + '<div class="status">Klicka på en rad för att visa objektet på kartan.</div>';
+  section.after(assessmentSection);
   const iotSection = document.createElement("section");
   iotSection.innerHTML = '<h2>IoT</h2><h3>Noder i montern</h3><ul id="real-sensors" class="scenario-status"></ul>'
     + '<div id="iot-connection" class="status"></div><h3>Syntetiska sensorer i brandområdet</h3>'
     + '<ul id="synthetic-sensors" class="scenario-status"></ul><div id="synthetic-label" class="status"></div>';
-  section.after(iotSection);
+  assessmentSection.after(iotSection);
   const banner = document.createElement("div");
   banner.id = "event-banner";
   banner.className = "event-banner";
@@ -351,6 +356,30 @@ function showSynthetic(result) {
   state.map.drawSyntheticSensors(result);
 }
 
+const EVIDENCE_MARKS = { ok: "✓", warn: "⚠", miss: "✗", info: "ℹ" };
+
+// The assessment (app/backend/assessment.py): each evidence line points at its object.
+function showAssessment(result) {
+  $("assessment-outcome").textContent = result.outcome;
+  $("assessment-outcome").dataset.outcome = result.outcome;
+  $("assessment-score").textContent = `Poäng ${result.score_pct} % – ${result.score_label}`;
+  const list = $("assessment-evidence");
+  list.innerHTML = "";
+  for (const item of result.evidence) {
+    const row = document.createElement("li");
+    row.className = item.status;
+    row.textContent = `${EVIDENCE_MARKS[item.status] || ""} ${item.text}`;
+    if (item.ref) {
+      row.tabIndex = 0;
+      row.classList.add("linked");
+      const focus = () => state.map.focusOn(item.ref.latitude, item.ref.longitude);
+      row.addEventListener("click", focus);
+      row.addEventListener("keydown", (event) => { if (event.key === "Enter") focus(); });
+    }
+    list.append(row);
+  }
+}
+
 function applyState(scenarioState) {
   state.playing = scenarioState.playing;
   state.finished = scenarioState.finished;
@@ -390,6 +419,7 @@ function connectScenario() {
       showRealSensors();
     });
     source.addEventListener("synthetic_sensors", (event) => showSynthetic(JSON.parse(event.data)));
+    source.addEventListener("assessment", (event) => showAssessment(JSON.parse(event.data)));
     source.addEventListener("state", (event) => applyState(JSON.parse(event.data)));
     source.onerror = () => {
       // EventSource reconnects by itself and the backend then sends a new sync.

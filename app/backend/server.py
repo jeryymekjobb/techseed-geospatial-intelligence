@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import forecast, iot, lantmateriet, offline_tiles, scenario, sensor_sim
+from app.backend import assessment, forecast, iot, lantmateriet, offline_tiles, scenario, sensor_sim
 from app.backend.scenario_engine import CommandError, ScenarioEngine
 from tools.firms_extract import daily_summary, select_detections
 
@@ -152,6 +152,16 @@ def synthetic_sensors() -> sensor_sim.SyntheticSensors:
 def synthetic_at(state: dict[str, Any]) -> dict[str, Any]:
     """The synthetic sensors at the scenario clock, with mission control's sensor failures."""
     return synthetic_sensors().at(parse_utc(state["clock_utc"]), state["status"]["failed_sensors"])
+
+
+@lru_cache(maxsize=1)
+def assessor() -> assessment.Assessor:
+    return assessment.Assessor(detections(), wind_field(), forecast.forecasts()["states"], scenario.FIRE_CENTRE)
+
+
+def assessment_at(state: dict[str, Any], synthetic: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The evidence-based assessment at the scenario clock."""
+    return assessor().at(parse_utc(state["clock_utc"]), synthetic or synthetic_at(state))
 
 
 @lru_cache(maxsize=1)
@@ -284,6 +294,9 @@ class Handler(BaseHTTPRequestHandler):
             self.stream(query)
         elif path == "/api/sensors":
             self.send_json(self.sensors.snapshot())
+        elif path == "/api/assessment":
+            state = self.engine.snapshot()
+            self.send_json({**assessment_at(state), "clock_utc": state["clock_utc"]})
         elif path == "/api/sensors/synthetic":
             state = self.engine.snapshot()
             self.send_json({**synthetic_at(state), "clock_utc": state["clock_utc"]})
@@ -360,7 +373,8 @@ class Handler(BaseHTTPRequestHandler):
         `sensor` event per new reading and a `sensor_health` event when a node goes
         offline or comes back; they follow real time, not the scenario clock. The
         synthetic sensors in the fire area follow the scenario clock: a
-        `synthetic_sensors` event whenever their values change."""
+        `synthetic_sensors` event whenever their values change, and an `assessment`
+        event whenever the assessment changes."""
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -371,6 +385,7 @@ class Handler(BaseHTTPRequestHandler):
         last_reading = 0
         health: dict[tuple[str, str], bool] = {}
         last_synthetic: dict[str, Any] | None = None
+        last_assessment: dict[str, Any] | None = None
         ended = False
         try:
             while True:
@@ -392,6 +407,10 @@ class Handler(BaseHTTPRequestHandler):
                 if synthetic != last_synthetic:
                     self.send_event("synthetic_sensors", {**synthetic, "clock_utc": state["clock_utc"]})
                     last_synthetic = synthetic
+                judged = assessment_at(state, synthetic)
+                if judged != last_assessment:
+                    self.send_event("assessment", {**judged, "clock_utc": state["clock_utc"]})
+                    last_assessment = judged
                 if state["finished"] and not ended:
                     self.send_event("end", state)
                 ended = state["finished"]
@@ -495,6 +514,8 @@ def main(argv: list[str] | None = None) -> int:
         host, _, port = args.mqtt.rpartition(":")
         iot.start(Handler.sensors, host or "127.0.0.1", int(port))
     print(f"IoT: {Handler.sensors.detail}")
+    # The assessment needs the forecasts, which take a few seconds; compute them before the first screen connects.
+    assessor()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
