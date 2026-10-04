@@ -105,3 +105,5 @@ def test_the_filter_names_every_category_and_marks_the_missing_ones() -> None:
     banner = node(f'eventBanner({{kind: "filter", target: "weather"}}, {json.dumps(hidden)})')
     assert banner == {"title": "FILTER WEATHER", "detail": "Lagret döljs."}
     assert node(f'eventBanner({{kind: "filter", target: "iot"}}, {json.dumps(hidden)})')["detail"] == "Lagret visas."
+    assert node('eventText({kind: "filter", target: "space"})')["title"] == "FILTER SPACE"
+    assert node('eventText({kind: "sensor_failure", target: "sensor-17"})')["title"] == "SENSOR FAILURE sensor-17"

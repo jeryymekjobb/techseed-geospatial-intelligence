@@ -27,7 +27,9 @@ const MISSING_NOTE = "ingår inte i demon";
 
 function eventText(event) {
   const text = EVENT_TEXTS[event.kind] || { title: event.kind.toUpperCase(), detail: "" };
-  const target = event.target ? ` ${event.target}` : "";
+  // A filter names its category as on the buttons ("FILTER SPACE"); other targets are ids such as sensor-17.
+  const category = event.kind === "filter" ? FILTER_CATEGORIES.find((item) => item.id === event.target) : null;
+  const target = category ? ` ${category.label.toUpperCase()}` : event.target ? ` ${event.target}` : "";
   return { title: `${text.title}${target}`, detail: text.detail };
 }
 
@@ -37,9 +39,8 @@ function eventBanner(event, status) {
   if (event.kind === "plus60" && !status.plus60) return { title: "+60 MIN AV", detail: "Prognosen visas med vald horisont igen." };
   if (event.kind === "god_view" && !status.god_view) return { title: "RETURN TO INCIDENT", detail: "Kameran går tillbaka till branden." };
   if (event.kind === "filter") {
-    const category = FILTER_CATEGORIES.find((item) => item.id === event.target);
     const hidden = status.hidden_layers.includes(event.target);
-    return { title: `FILTER ${(category?.label || event.target).toUpperCase()}`, detail: hidden ? "Lagret döljs." : "Lagret visas." };
+    return { title: text.title, detail: hidden ? "Lagret döljs." : "Lagret visas." };
   }
   return text;
 }

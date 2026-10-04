@@ -137,6 +137,7 @@ async function createCesiumMap(config) {
   const queryLayer = group("query");
   const stationLayer = group("stations");
   const layers = [];  // [name, show(visible), shown()] for the layer panel
+  const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
   let terrainLayer = null;
   let windEntities = [];
 
@@ -348,6 +349,7 @@ async function createCesiumMap(config) {
         box.type = "checkbox";
         box.checked = shown();
         box.addEventListener("change", () => show(box.checked));
+        layerBoxes.push([box, shown]);
         label.append(box, ` ${name}`);
         panel.append(label);
       }
@@ -417,6 +419,7 @@ async function createCesiumMap(config) {
     setCategoryVisible(category, visible) {
       const groups = { space: [points], iot: [syntheticLayer], infrastructure: [queryLayer], weather: [windLayer, stationLayer] };
       for (const layer of groups[category] || []) layer.show = visible;
+      for (const [box, shown] of layerBoxes) box.checked = shown();
     },
 
     // Show an evidence object from the assessment.
