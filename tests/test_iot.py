@@ -72,12 +72,20 @@ def test_valid_readings_are_kept_per_node_and_kind() -> None:
     ("techseed/booth-air/air", message("smoke <b>")),
     ("techseed/booth-air/air", message(3)),
     ("techseed/booth-temp/temp", message("x" * 600)),
+    ("techseed/booth-temp/temp", message(24.7, simulated="yes")),
 ])
 def test_invalid_messages_are_rejected_and_counted(topic: str, payload: bytes) -> None:
     sensors, _ = store()
 
     assert sensors.handle(topic, payload) is None
     assert sensors.snapshot()["sensors"] == [] and sensors.snapshot()["rejected"] == 1
+
+
+def test_simulated_messages_are_kept_as_not_real() -> None:
+    sensors, _ = store()
+
+    assert sensors.handle("techseed/booth-temp/temp", message(22.4, simulated=True))["real"] is False
+    assert sensors.handle("techseed/booth-water/water", message(42, simulated=False))["real"] is True
 
 
 def test_a_silent_node_goes_offline_and_comes_back() -> None:

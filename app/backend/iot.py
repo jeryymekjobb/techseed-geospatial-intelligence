@@ -9,6 +9,8 @@ paho-mqtt (app/requirements-iot.txt) and leaves the store `unavailable` without 
 
 These readings are live values from real nodes; they are not part of the 2014
 replay, and the GUI keeps them apart from the synthetic sensors in the fire area.
+A message with `"simulated": true` comes from tools/mqtt_node_sim.py; its reading
+is kept with `real: false` so the GUI can say so.
 """
 
 from __future__ import annotations
@@ -38,8 +40,8 @@ class Rejected(ValueError):
     pass
 
 
-def parse(topic: str, payload: bytes) -> tuple[str, str, float | str, str | None]:
-    """Node, kind, value and the node's own measurement time, or Rejected."""
+def parse(topic: str, payload: bytes) -> tuple[str, str, float | str, str | None, bool]:
+    """Node, kind, value, the node's own measurement time and whether it is simulated, or Rejected."""
     match = TOPIC.fullmatch(topic)
     if not match:
         raise Rejected("unknown topic")
@@ -65,7 +67,10 @@ def parse(topic: str, payload: bytes) -> tuple[str, str, float | str, str | None
             measured = utc_text(datetime.fromisoformat(str(measured).replace("Z", "+00:00")))
         except ValueError as exc:
             raise Rejected("invalid time_utc") from exc
-    return node, kind, value, measured
+    simulated = message.get("simulated", False)
+    if not isinstance(simulated, bool):
+        raise Rejected("simulated must be true or false")
+    return node, kind, value, measured, simulated
 
 
 class SensorStore:
@@ -89,7 +94,7 @@ class SensorStore:
     def handle(self, topic: str, payload: bytes) -> dict[str, Any] | None:
         """Store a message; returns the reading, or None when it was rejected."""
         try:
-            node, kind, value, measured = parse(topic, payload)
+            node, kind, value, measured, simulated = parse(topic, payload)
         except Rejected as exc:
             with self._lock:
                 self.rejected += 1
@@ -99,7 +104,7 @@ class SensorStore:
             self._seq += 1
             reading = {
                 "seq": self._seq, "node": node, "kind": kind, "value": value, "unit": UNITS.get(kind),
-                "measured_utc": measured, "received_utc": utc_text(self.now()), "real": True,
+                "measured_utc": measured, "received_utc": utc_text(self.now()), "real": not simulated,
             }
             self._readings[(node, kind)] = reading
             self._seen[(node, kind)] = self.monotonic()

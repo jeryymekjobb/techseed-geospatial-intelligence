@@ -148,6 +148,8 @@ def test_sensor_texts_keep_real_and_synthetic_apart() -> None:
     silent = node_sensors('realSensorLine({node: "booth-ntn", kind: "ntn", value: "ONLINE", unit: null, online: false})')
     assert real == {"level": "ok", "text": "TECHSEED TEMP booth-temp: 24,7 °C · live"}
     assert silent == {"level": "alert", "text": "TECHSEED NTN booth-ntn: ONLINE · OFFLINE"}
+    simulated = node_sensors('realSensorLine({node: "booth-air", kind: "air", value: "NORMAL", unit: null, online: true, real: false})')
+    assert simulated == {"level": "ok", "text": "TECHSEED AIR booth-air: NORMAL · simulerad"}
 
     hot = {"name": "Sensor 17", "status": "ok", "temp_c": 46.2, "smoke": "DETECTED", "distance_km": 0.85, "confirms": True}
     inside = {**hot, "distance_km": 0}

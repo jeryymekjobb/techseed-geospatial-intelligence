@@ -267,7 +267,7 @@ function setupScenarioView() {
   section.innerHTML = '<h2>Läge</h2><ul id="scenario-status" class="scenario-status"></ul><div id="iot-confirms" class="iot-confirms"></div>';
   document.querySelector(".panel section").after(section);
   const iotSection = document.createElement("section");
-  iotSection.innerHTML = '<h2>IoT</h2><h3>Riktiga noder i montern (live)</h3><ul id="real-sensors" class="scenario-status"></ul>'
+  iotSection.innerHTML = '<h2>IoT</h2><h3>Noder i montern</h3><ul id="real-sensors" class="scenario-status"></ul>'
     + '<div id="iot-connection" class="status"></div><h3>Syntetiska sensorer i brandområdet</h3>'
     + '<ul id="synthetic-sensors" class="scenario-status"></ul><div id="synthetic-label" class="status"></div>';
   section.after(iotSection);
