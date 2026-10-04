@@ -2,7 +2,8 @@
 
 Exhibition prototype in two parts:
 
-- **Backend** (`app/backend/`, Python standard library): reads the FIRMS archive
+- **Backend** (`app/backend/`, Python standard library; paho-mqtt only for the
+  IoT nodes): reads the FIRMS archive
   extracts in `satellite_data/firms/`, keeps the detections of the 2014 fire
   (same filters as `tools/firms_extract.py`) and sends them to the GUI as a
   playback stream in compressed time (Server-Sent Events). It also serves the
@@ -14,6 +15,12 @@ Exhibition prototype in two parts:
   weather panel (SMHI station observations) and thin wind arrows with speed
   barbs (ERA5-Land model wind) that follow the playback clock, and a fire-spread
   forecast (model, large uncertainty) for the latest satellite pass.
+- **Mission control** (`control.html`): a touch screen for the operator that
+  drives the scenario on every screen – events, GOD VIEW and its filter, and a
+  simulated SATCOM outage.
+- **IoT, assessment and questions**: simulated booth nodes over MQTT, synthetic
+  sensors in the fire area, a traceable fire assessment and prepared spatial
+  questions answered with PostGIS.
 
 All fire data is **historical (2014) and replayed, not live**; the GUI says so.
 
@@ -23,13 +30,21 @@ an adapter with the same interface.
 
 ## Run
 
-From the repository root:
+From the repository root, with the local services and the IoT client:
 
 ```bash
-python3 -m app.backend.server
+docker compose up -d tiles postgis mosquitto
+.venv/bin/pip install -r app/requirements-iot.txt   # once
+.venv/bin/python -m app.backend.server
+.venv/bin/python -m tools.mqtt_node_sim             # in a second terminal: the booth nodes, simulated
 ```
 
-Open <http://127.0.0.1:8765/>. Options: `--host`, `--port`. In the browser,
+`python3 -m app.backend.server` also works; without paho-mqtt the IoT nodes are
+then shown as unavailable, and without PostGIS the questions say so.
+
+Open <http://127.0.0.1:8765/> (2D), <http://127.0.0.1:8765/3d.html> (3D globe)
+and <http://127.0.0.1:8765/control.html> (mission control). Options: `--host`,
+`--port`, `--mqtt host:port|off` (default `IOT_MQTT_BROKER` or `127.0.0.1:1883`). In the browser,
 `?autoplay=1` starts the playback, `?show=all` shows every detection and
 `?at=2014-08-04T12:00:00Z` shows the state at that UTC time (the playback
 continues from there).
@@ -77,6 +92,68 @@ listens on the network (`--host 0.0.0.0`), set `SCENARIO_CONTROL_TOKEN` and open
 the GUI with `?token=<the token>` on screens that may control the scenario;
 others can only watch.
 
+### Mission control
+
+`control.html` sends commands to the shared scenario, and every screen follows:
+
+| Button | Command | On the main screens |
+|---|---|---|
+| PLAY, PAUSE, RESET | `play`, `pause`, `reset` | RESET also clears every event and filter |
+| SATELLITE DETECTION | `satellite_detection` | Banner (synthetic event) |
+| SENSOR FAILURE | `sensor_failure` with `target` `sensor-17` | The synthetic sensor drops out of the IoT count |
+| SATCOM FAILURE (again: restore) | `satcom_failure`, `satcom_restore` | See below |
+| ROAD CLOSED, POWER FAILURE | `road_closed`, `power_failure` | Status text only, marked synthetic; no road closure or power-grid data |
+| +60 MIN | `plus60` (toggle) | The shortest forecast horizon (3 h; the forecast has no 1 h horizon) |
+| GOD VIEW | `god_view` (toggle) | Camera out to Europe and back; the filter list on the map |
+| Filter SPACE, IOT, INFRASTRUCTURE, WEATHER | `filter` with `target` | Hides or shows hotspots, synthetic sensors, the last answer, wind and SMHI stations |
+
+Maritime, aviation and emergency are greyed out and marked as not part of the
+demo. Every event is stored with its scenario time; the stream sends each new
+one once (`scenario_event`) and the status they add up to in every state.
+
+**SATCOM outage.** While it lasts, detections after its start are held back:
+the main screen shows SATELLITE DATA UNAVAILABLE and how many detections are
+queued (`satcom_queue`), the assessment uses only earlier satellite data, and IoT
+carries on. When the link is back, `satcom_sync` lists the satellite passes
+during the outage and how much the front grew, from the 2014 data, and the
+queued detections follow on the map.
+
+### IoT
+
+The four booth nodes (TEMP, WATER, AIR, NTN) publish JSON to
+`techseed/<node>/<kind>`, for example `{"value": 24.7, "time_utc": "…"}`, to the
+local Mosquitto broker (`docker compose up -d mosquitto`, 127.0.0.1:1883,
+anonymous). For the exhibition demo they run **simulated** with
+`tools/mqtt_node_sim.py` (`--interval`, `--drop <node>` to try a silent node);
+their messages carry `"simulated": true` and the screens show them as
+"simulerad", not live. A node silent for 60 s is shown as offline.
+`GET /api/sensors` gives the latest readings.
+
+Three **synthetic sensors** in the fire area (`app/backend/sensor_sim.py`,
+invented positions) show the ERA5-Land air temperature plus a heat term that
+grows towards the front, and smoke near or downwind of it; they are computed from
+the scenario, not measured, and always marked synthetic.
+`GET /api/sensors/synthetic`.
+
+### Assessment and questions
+
+`app/backend/assessment.py` assesses the fire at the scenario clock with an
+evidence list – FIRMS detections in the last 24 h, repeats within 1 km, high
+FIRMS confidence, each synthetic sensor, wind and forecast as context, and the
+missing camera – each pointing at an object on the map (click a line). The
+lines that hold are combined with fixed weights (0.50, 0.30, 0.20, 0.25 per
+sensor) as 1 − ∏(1 − weight): a **rule-based score, not a calibrated
+probability**. `GET /api/assessment`.
+
+Four prepared questions (`app/backend/spatial.py`, `GET /api/questions`,
+`GET /api/ask?q=<id>`): why there is a fire (from the assessment), infrastructure
+within 5 km of the front (`ST_DWithin`), places inside the 6 h forecast
+(`ST_Intersects`) and the nearest village (`ST_Distance`). Only the scenario
+clock goes into the SQL; the answer shows the SQL that ran, its run time and the
+sources, and is drawn on the map. They need PostGIS loaded with
+`tools/load_postgis.py`; the backend keeps one `psql` open in the `postgis`
+service. The power grid is not in the data.
+
 ### Offline map and PostGIS
 
 `docker-compose.yml` has two local services (127.0.0.1 only):
@@ -109,9 +186,8 @@ Without `--duration` it records until the playback ends. The WebM starts with th
 few seconds in which the page loads; with ffmpeg installed an MP4 is also written
 that starts with the playback.
 
-The OSM base map is loaded by the browser from `tile.openstreetmap.org`, so it
-needs internet access; offline tiles for the exhibition are not part of this
-version.
+With the `tiles` service running the recording uses the offline map; without
+it the browser loads the OSM base map from `tile.openstreetmap.org`.
 
 ## Data and layers
 
@@ -123,6 +199,10 @@ version.
 | Weather | SMHI Sala A (96560) and Kloten A (95540), hourly, `weather_data/smhi/` | CC BY 4.0 SE; name SMHI | Station measurements 29 and 52 km from the fire, not at the fire |
 | Wind arrows | ERA5-Land hourly 10 m wind, 0.1° grid, `weather_data/era5-land/` | CC BY 4.0; "Contains modified Copernicus Climate Change Service information" | Model reanalysis, 40 grid points; arrows point where the wind blows; barbs 2.5/5/25 m/s |
 | Forecast (model) | `app/backend/forecast.py`, `tools/fire_spread.py` | – | At each FIRMS pass: estimated front (hull of detections so far), observed spread between passes, FBP C-2 forecast with FWI from SMHI Sala A, weather held from the pass, calibrated against observed spread; band half to double the rate for 3/6/12/24 h; places inside the double-rate area within 24 h with a span, no exact times. Hindcast skill: `reports/2026-10-01-brandspridningsanalys-vastmanland-2014-claude-opus-5-5.md` |
+| Synthetic sensors | `app/backend/sensor_sim.py` | – | **Synthetic**: invented positions; values computed from the front and ERA5-Land, not measured |
+| Booth IoT nodes | `tools/mqtt_node_sim.py` over MQTT | – | **Simulated** for the demo; real nRF91 nodes are deferred |
+| Assessment score | `app/backend/assessment.py` | – | Rule-based score with fixed weights, not a probability |
+| Infrastructure (questions) | OSM targets in PostGIS | ODbL | Places, major roads, railways, industrial buildings; no power grid |
 | Topowebb (optional) | Lantmäteriet Topografisk webbkarta Visning | CC0; access via Geotorget | Off until configured |
 | Property boundaries (optional) | Lantmäteriet Fastighetsindelning Visning (WMS) | Open data via Geotorget | Off until configured; choose the layers to show |
 

@@ -4,8 +4,9 @@ Datum: 2026-10-02
 Författare: Claude Opus 5.5 (`claude-opus-5-5`), via Claude Code.
 Underlag: `onepager.md` och
 `reviews/2026-10-02-jamforelse-implementation-onepager-claude-opus-5-5.md`.
-Status: Förslag. Besluten B1–B4 är öppna. B5 är genomförd i prototypen men inte
-formellt beslutad. Fas 0 och delar av fas 1 är påbörjade, se
+Status: Förslag, delvis genomfört. B1 och B2 är genomförda, B4 körs simulerat
+enligt beslut 2026-10-04 och B3 är öppen. B5 är genomförd i prototypen men inte
+formellt beslutad. Se [Status 2026-10-04](#status-2026-10-04) och
 [Status 2026-10-02](#status-2026-10-02).
 
 Planen bygger vidare på det som finns: backend, data, prognos, kioskläge och
@@ -22,6 +23,51 @@ gränssnittet, enligt `AGENTS.md`.
 | B3 | **Rättigheter och namn** (G-09, G-10, G-12) | Ja till att visa elnät från OSM. Dacreo och BruhnBruhn nämns bara med skriftligt godkännande. |
 | B4 | **IoT-hårdvara** | 3–4 nRF91-noder finns och kan levereras. De visas som riktiga sensorer i montern. Sensorer i brandområdet är syntetiska och märks så (G-02). |
 | B5 | **Visualiseringsmotor** | Byt till CesiumJS utan Cesium ion: OSM-kartbilder, höjddata från Copernicus DEM och satellitbanor beräknade lokalt. Leaflet behålls som reserv. Genomförd i prototypen, ej formellt beslutad. |
+
+## Status 2026-10-04
+
+Genomförandet av B1–B4, med en commit per steg. Underlag: koden, `python3 -m
+pytest` (143 godkända, inklusive frågorna mot PostGIS) och webbläsarprov med
+Playwright i Chrome för varje steg med gränssnitt.
+
+### Beslut
+
+- **B1 genomförd:** mission control på egen sida (`control.html`), huvudskärmen
+  följer.
+- **B2 genomförd:** förberedda svar ur bedömningen och riktiga PostGIS-frågor.
+  Lokal LLM ingår inte.
+- **B3 öppen:** inget elnät i data, och texterna är generiska ("edge
+  processing") i stället för Dacreo och BruhnBruhn.
+- **B4 ändrad 2026-10-04:** monternoderna körs simulerat för mässdemon och
+  märks "simulerad". Riktig hårdvara och firmware ligger i backloggen.
+
+### Steg
+
+| Steg | Innehåll | Commit |
+|---|---|---|
+| 1 | Händelser i scenariomotorn | `9531cc4` |
+| 2 | Mission control och huvudskärmens reaktioner | `a4e7adf` |
+| 3 | MQTT-mottagning av monternoder | `f516d1f` |
+| 4a | Syntetiska sensorer i brandområdet | `b998ff4` |
+| 4b | Visning av sensorerna | `024b9ef` |
+| 5a | Simulator för monternoderna | `25a81cf` |
+| 6 | Spårbar bedömning med evidens | `1b08463` |
+| 7 | Förberedda frågor med PostGIS | `9b6ace5` |
+| 8a | Kommunikationsavbrott med kö och SYNC | `f7c7958` |
+| 8b | Filter i GOD VIEW | `da84b55` |
+
+### Kvar
+
+- **Fas 1:** satellitbanor (CelesTrak, satellite.js), SPACE VIEW, RETURN TO
+  INCIDENT och Landsat-bilden.
+- **Fas 2:** den syntetiska upptäcktssekvensen från rymden och klassificeringen.
+- **Fas 5:** att hela tvåminutersdemon går att köra från pekskärmen och
+  återställa på under 5 sekunder är inte provat från början till slut.
+- **Fas 6:** manus, slutbild, kiosk med automatisk återstart och
+  belastningsprov.
+- **Backlogg:** firmware för nRF91, kort och SDK, wifi som reserv, att exponera
+  och skydda brokern, en riktig 1-timmeshorisont för +60 MIN och en bredare
+  offline-karta för GOD VIEW i 2D.
 
 ## Status 2026-10-02
 

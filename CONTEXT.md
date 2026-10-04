@@ -13,6 +13,15 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 - Keep real, simulated and proposed data sources distinguishable in the demonstrator and its explanations.
 - Prioritize a stable, repeatable operator-controlled scenario and evidence-linked AI assessment over breadth of integrations.
 - Treat implementation choices and estimates in the one-pager as proposals, not approved architecture or verified commitments.
+- A working prototype exists in `app/`: the Västmanland 2014 wildfire replayed from NASA FIRMS archive data on a 2D map and a CesiumJS globe, with mission control, simulated SATCOM outage, IoT, a traceable assessment and PostGIS questions. Västmanland 2014 is the prototype's scenario; it has not been recorded as a formal MVP decision.
+- Decided 2026-10-04: for the exhibition demo the booth IoT nodes run simulated (`tools/mqtt_node_sim.py`) and are shown as simulated. Questions that only concern a real implementation are deferred to the backlog.
+
+## Backlog
+
+- Firmware for the booth nodes: nRF91 board, nRF Connect SDK version, Wi-Fi fallback.
+- Exposing and securing the MQTT broker for real nodes (network, passwords or certificates).
+- A real 1 h forecast horizon for +60 MIN (the forecast has 3, 6, 12 and 24 h).
+- GOD VIEW in 2D needs a wider offline base map; the 3D globe works.
 
 ## Boundaries
 
@@ -23,7 +32,8 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 ## Open Questions
 
 - Which scenario, geographic area and audience interaction should be the MVP baseline?
-- Which data sources and physical IoT devices are available and approved for the demonstration?
+- Which data sources are approved for the demonstration? (Physical IoT devices are not needed for the demo; see the decision above.)
+- Decision B3: may the OSM power grid be shown, and may partner names (Dacreo, BruhnBruhn) be used? Until then there is no power grid and the texts are generic.
 - Which layers can be sourced live, and which should be explicitly simulated?
 - What are the accepted data licensing, attribution, update, and network requirements?
 - Which AI assessments and spatial queries must be demonstrably traceable to source observations?
