@@ -269,7 +269,11 @@ function setupScenarioView() {
   const assessmentSection = document.createElement("section");
   assessmentSection.innerHTML = '<h2>AI ASSESSMENT</h2><div id="assessment-outcome" class="assessment-outcome">–</div>'
     + '<div id="assessment-score" class="status"></div><h3>Evidence</h3><ul id="assessment-evidence" class="evidence"></ul>'
-    + '<div class="status">Klicka på en rad för att visa objektet på kartan.</div>';
+    + '<div class="status">Klicka på en rad för att visa objektet på kartan.</div>'
+    + '<h3>Fråga</h3><div id="questions" class="questions"></div>'
+    + '<div id="answer" class="answer" hidden><p id="answer-text"></p><div id="answer-meta" class="status"></div>'
+    + '<details><summary>SQL som kördes</summary><pre id="answer-sql"></pre></details>'
+    + '<button id="answer-clear" type="button">Rensa svaret från kartan</button></div>';
   section.after(assessmentSection);
   const iotSection = document.createElement("section");
   iotSection.innerHTML = '<h2>IoT</h2><h3>Noder i montern</h3><ul id="real-sensors" class="scenario-status"></ul>'
@@ -356,6 +360,14 @@ function showSynthetic(result) {
   state.map.drawSyntheticSensors(result);
 }
 
+const QUERY_COLOR = "#7b1fa2";
+
+function queryLabel(properties) {
+  const name = properties.name || `${properties.kind} (${properties.type})`;
+  if (properties.distance_m === null || properties.distance_m === undefined) return name;
+  return `${name} – ${String((properties.distance_m / 1000).toFixed(1)).replace(".", ",")} km från brandfronten`;
+}
+
 const EVIDENCE_MARKS = { ok: "✓", warn: "⚠", miss: "✗", info: "ℹ" };
 
 // The assessment (app/backend/assessment.py): each evidence line points at its object.
@@ -378,6 +390,40 @@ function showAssessment(result) {
     }
     list.append(row);
   }
+}
+
+// Prepared questions (app/backend/spatial.py): the answer, its SQL and the result on the map.
+async function askQuestion(id) {
+  $("answer").hidden = false;
+  $("answer-text").textContent = "Frågar PostGIS …";
+  $("answer-meta").textContent = "";
+  try {
+    const response = await fetch(`/api/ask?q=${encodeURIComponent(id)}`);
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.detail || body.error || `HTTP ${response.status}`);
+    $("answer-text").textContent = body.answer;
+    $("answer-meta").textContent = `${body.source} · ${String(body.elapsed_ms).replace(".", ",")} ms · scenariotid ${formatLocal(body.clock_utc)}`;
+    $("answer-sql").textContent = body.sql || "Ingen SQL – svaret kommer från bedömningen ovan.";
+    state.map.drawQueryResult(body.features);
+  } catch (error) {
+    $("answer-text").textContent = `Frågan kunde inte besvaras: ${error.message}`;
+    state.map.drawQueryResult(null);
+  }
+}
+
+async function setupQuestions() {
+  const questions = await loadOptional("/api/questions", (error) => { $("questions").textContent = `Frågorna kunde inte laddas: ${error.message}.`; });
+  for (const question of questions || []) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = question.question;
+    button.addEventListener("click", () => askQuestion(question.id));
+    $("questions").append(button);
+  }
+  $("answer-clear").addEventListener("click", () => {
+    state.map.drawQueryResult(null);
+    $("answer").hidden = true;
+  });
 }
 
 function applyState(scenarioState) {
@@ -494,6 +540,7 @@ async function startApp(createMap) {
 
   state.map.finish();
   setupScenarioView();
+  await setupQuestions();
   state.iotConnection = await loadOptional("/api/sensors", (error) => { $("iot-connection").textContent = `IoT kunde inte laddas: ${error.message}.`; });
   showRealSensors();
   setClock(new Date(config.playback.start_utc));

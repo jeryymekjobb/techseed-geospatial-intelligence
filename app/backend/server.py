@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, forecast, iot, lantmateriet, offline_tiles, scenario, sensor_sim
+from app.backend import assessment, forecast, iot, lantmateriet, offline_tiles, scenario, sensor_sim, spatial
 from app.backend.scenario_engine import CommandError, ScenarioEngine
 from tools.firms_extract import daily_summary, select_detections
 
@@ -245,6 +245,8 @@ class Handler(BaseHTTPRequestHandler):
     settings = lantmateriet.Settings.from_environment()
     # One shared scenario for every screen; tests give their handler its own engine.
     engine = ScenarioEngine(scenario.PLAYBACK_START, scenario.PLAYBACK_END)
+    # The prepared spatial questions run through one psql in the postgis service.
+    psql = spatial.Psql()
     # Live readings of the real IoT nodes; main() connects it to the MQTT broker.
     sensors = iot.SensorStore()
     # When set, commands need this token in the X-Control-Token header (for a networked mission control).
@@ -294,6 +296,10 @@ class Handler(BaseHTTPRequestHandler):
             self.stream(query)
         elif path == "/api/sensors":
             self.send_json(self.sensors.snapshot())
+        elif path == "/api/questions":
+            self.send_json([{"id": key, "question": value["question"]} for key, value in spatial.QUESTIONS.items()])
+        elif path == "/api/ask":
+            self.ask(query.get("q", ""))
         elif path == "/api/assessment":
             state = self.engine.snapshot()
             self.send_json({**assessment_at(state), "clock_utc": state["clock_utc"]})
@@ -420,6 +426,18 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             return
 
+    def ask(self, question_id: str) -> None:
+        state = self.engine.snapshot()
+        try:
+            answer = spatial.ask(question_id, parse_utc(state["clock_utc"]), self.psql, lambda: assessment_at(state))
+        except spatial.UnknownQuestion:
+            self.send_json({"error": "unknown_question"}, HTTPStatus.BAD_REQUEST)
+            return
+        except spatial.Unavailable as exc:
+            self.send_json({"error": "postgis_unavailable", "detail": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+        self.send_json({**answer, "clock_utc": state["clock_utc"]})
+
     def send_sensor_events(self, last_reading: int, health: dict[tuple[str, str], bool]) -> tuple[int, dict[tuple[str, str], bool]]:
         sensors = self.sensors.snapshot()["sensors"]
         for reading in sensors:
@@ -516,6 +534,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"IoT: {Handler.sensors.detail}")
     # The assessment needs the forecasts, which take a few seconds; compute them before the first screen connects.
     assessor()
+    # Start psql now, so the first question is answered without the start-up time.
+    try:
+        Handler.psql.query("SELECT 1")
+        print("PostGIS: questions on")
+    except spatial.Unavailable as exc:
+        print(f"PostGIS: questions unavailable ({exc})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

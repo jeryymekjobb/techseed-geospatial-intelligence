@@ -85,5 +85,11 @@ body.control { background: #141414; color: #f2f2f2; }
 .evidence .info { border-color: #1f5fa8; }
 .evidence .linked { cursor: pointer; }
 .evidence .linked:hover, .evidence .linked:focus { background: #e8f0fa; outline: none; }
+.questions { display: grid; gap: 4px; }
+.questions button { text-align: left; padding: 4px 8px; }
+.answer { margin-top: 8px; padding: 6px 8px; border-left: 4px solid #7b1fa2; background: #f3e5f5; font-size: 0.85rem; }
+.answer p { margin: 0 0 4px; font-weight: 600; }
+.answer pre { max-height: 220px; overflow: auto; font-size: 0.75rem; white-space: pre-wrap; }
+.answer button { margin-top: 6px; }
 .event-log { margin: 0; padding-left: 1.4em; font-size: 0.85rem; color: #d0d0d0; }
 @media (max-width: 760px) { .event-banner { left: 50%; } .layout { grid-template-columns: 1fr; grid-template-rows: 60vh auto; height: auto; } .panel { border-left: 0; } }

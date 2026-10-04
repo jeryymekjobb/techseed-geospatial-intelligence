@@ -134,6 +134,7 @@ async function createCesiumMap(config) {
   const windLayer = group("wind");
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
+  const queryLayer = group("query");
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   let terrainLayer = null;
   let windEntities = [];
@@ -336,6 +337,7 @@ async function createCesiumMap(config) {
     finish() {
       layers.unshift(["Hotspots", (visible) => { points.show = visible; }, () => points.show]);
       layers.push(["Syntetiska sensorer", (visible) => { syntheticLayer.show = visible; }, () => syntheticLayer.show]);
+      layers.push(["Svar på fråga", (visible) => { queryLayer.show = visible; }, () => queryLayer.show]);
       const panel = document.createElement("form");
       panel.className = "layer-panel";
       panel.setAttribute("aria-label", "Lager");
@@ -383,6 +385,30 @@ async function createCesiumMap(config) {
           },
           description: `${escapeText(syntheticSensorText(sensor))}<br><small>${escapeText(result.label)}</small>`,
         });
+      }
+    },
+
+    // The result of a prepared question (spatial.py); null clears it.
+    drawQueryResult(collection) {
+      const entities = queryLayer.entities;
+      entities.removeAll();
+      for (const feature of collection?.features || []) {
+        const { type, coordinates } = feature.geometry;
+        const description = escapeText(queryLabel(feature.properties));
+        if (type === "Point") {
+          entities.add({
+            name: description, description, position: Cesium.Cartesian3.fromDegrees(...coordinates),
+            point: { pixelSize: 11, color: cesiumColor(QUERY_COLOR), outlineColor: cesiumColor("#ffffff"), outlineWidth: 2, ...ON_GROUND },
+          });
+        } else if (type === "LineString" || type === "MultiLineString") {
+          for (const line of type === "LineString" ? [coordinates] : coordinates) {
+            entities.add({
+              name: description, description,
+              polyline: { positions: line.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat)), width: 4,
+                material: cesiumColor(QUERY_COLOR, 0.85), clampToGround: true },
+            });
+          }
+        }
       }
     },
 

@@ -53,6 +53,8 @@ function createLeafletMap(config) {
   overlays["Hotspots"] = hotspots;
   const syntheticLayer = L.layerGroup().addTo(map);
   overlays["Syntetiska sensorer"] = syntheticLayer;
+  const queryLayer = L.layerGroup().addTo(map);
+  overlays["Svar på fråga"] = queryLayer;
   map.attributionControl.addAttribution(config.attribution.firms);
   let markers = [];
   let windMarkers = [];
@@ -208,6 +210,18 @@ function createLeafletMap(config) {
           .bindPopup(`<strong>${sensor.name} (syntetisk)</strong><br>${syntheticSensorText(sensor)}<br><small>${result.label}</small>`)
           .addTo(syntheticLayer);
       }
+    },
+
+    // The result of a prepared question (spatial.py); null clears it.
+    drawQueryResult(collection) {
+      queryLayer.clearLayers();
+      if (!collection || !collection.features.length) return;
+      const layer = L.geoJSON(collection, {
+        style: { color: QUERY_COLOR, weight: 4, opacity: 0.85 },
+        pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 6, color: "#ffffff", weight: 2, fillColor: QUERY_COLOR, fillOpacity: 1 }),
+        onEachFeature: (feature, item) => item.bindTooltip(queryLabel(feature.properties)),
+      }).addTo(queryLayer);
+      map.flyToBounds(layer.getBounds().pad(0.1), { maxZoom: 13, duration: 1 });
     },
 
     // Show an evidence object from the assessment.
