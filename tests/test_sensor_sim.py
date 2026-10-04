@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import json
 import math
+import shutil
+import subprocess
 import threading
 from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 from urllib.request import Request, urlopen
 
 import pytest
@@ -131,3 +134,27 @@ def test_http_endpoint_and_stream_follow_the_scenario(base_url: str) -> None:
             elif line.startswith("data: ") and name == "synthetic_sensors":
                 assert json.loads(line[6:]) == result
                 break
+
+
+def node_sensors(expression: str) -> object:
+    script = Path(__file__).resolve().parents[1] / "app" / "frontend" / "sensors.js"
+    code = f"const s = require({json.dumps(str(script))}); with (s) {{ console.log(JSON.stringify({expression})); }}"
+    return json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_sensor_texts_keep_real_and_synthetic_apart() -> None:
+    real = node_sensors('realSensorLine({node: "booth-temp", kind: "temp", value: 24.7, unit: "°C", online: true})')
+    silent = node_sensors('realSensorLine({node: "booth-ntn", kind: "ntn", value: "ONLINE", unit: null, online: false})')
+    assert real == {"level": "ok", "text": "TECHSEED TEMP booth-temp: 24,7 °C · live"}
+    assert silent == {"level": "alert", "text": "TECHSEED NTN booth-ntn: ONLINE · OFFLINE"}
+
+    hot = {"name": "Sensor 17", "status": "ok", "temp_c": 46.2, "smoke": "DETECTED", "distance_km": 0.85, "confirms": True}
+    inside = {**hot, "distance_km": 0}
+    failed = {**hot, "status": "failed", "temp_c": None, "smoke": None, "distance_km": None, "confirms": False}
+    assert node_sensors(f"syntheticSensorText({json.dumps(hot)})") == "Sensor 17: 46,2 °C, Smoke DETECTED, 0,85 km från fronten (syntetisk)"
+    assert node_sensors(f"syntheticSensorText({json.dumps(inside)})").endswith("i brandområdet (syntetisk)")
+    assert node_sensors(f"syntheticSensorText({json.dumps(failed)})") == "Sensor 17: SENSOR FAILURE (syntetiskt)"
+    assert node_sensors(f"[syntheticState({json.dumps(hot)}), syntheticState({json.dumps(failed)})]") == ["confirms", "failed"]
+    assert node_sensors('confirmsText({confirms: 2, operating: 3})') == "IoT bekräftar 2/3 (syntetiska sensorer)"
+    assert node_sensors('connectionText({connection: "unavailable", detail: "paho-mqtt saknas.", sensors: []})') == "IoT: paho-mqtt saknas."

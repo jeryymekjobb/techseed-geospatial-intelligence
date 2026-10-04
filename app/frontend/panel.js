@@ -40,6 +40,10 @@ const state = {
   scenarioStatus: null,
   pendingEvents: [],
   horizonBeforePlus60: null,
+  // IoT (sensors.js): real nodes by "node/kind", the synthetic sensors at the clock.
+  realSensors: new Map(),
+  iotConnection: null,
+  synthetic: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -260,8 +264,13 @@ function showSpeed(speed) {
 // whether it was switched on or off.
 function setupScenarioView() {
   const section = document.createElement("section");
-  section.innerHTML = '<h2>Läge</h2><ul id="scenario-status" class="scenario-status"></ul>';
+  section.innerHTML = '<h2>Läge</h2><ul id="scenario-status" class="scenario-status"></ul><div id="iot-confirms" class="iot-confirms"></div>';
   document.querySelector(".panel section").after(section);
+  const iotSection = document.createElement("section");
+  iotSection.innerHTML = '<h2>IoT</h2><h3>Riktiga noder i montern (live)</h3><ul id="real-sensors" class="scenario-status"></ul>'
+    + '<div id="iot-connection" class="status"></div><h3>Syntetiska sensorer i brandområdet</h3>'
+    + '<ul id="synthetic-sensors" class="scenario-status"></ul><div id="synthetic-label" class="status"></div>';
+  section.after(iotSection);
   const banner = document.createElement("div");
   banner.id = "event-banner";
   banner.className = "event-banner";
@@ -317,6 +326,31 @@ function applyStatus(status) {
   if (status.god_view !== Boolean(previous?.god_view)) state.map.showGodView(status.god_view);
 }
 
+function fillList(id, lines, empty) {
+  const list = $(id);
+  list.innerHTML = "";
+  for (const line of lines.length ? lines : [{ level: "ok", text: empty }]) {
+    const item = document.createElement("li");
+    item.className = line.level;
+    item.textContent = line.text;
+    list.append(item);
+  }
+}
+
+function showRealSensors() {
+  const readings = [...state.realSensors.values()].sort((a, b) => `${a.node}/${a.kind}`.localeCompare(`${b.node}/${b.kind}`));
+  fillList("real-sensors", readings.map(realSensorLine), "Inga noder.");
+  if (state.iotConnection) $("iot-connection").textContent = connectionText({ ...state.iotConnection, sensors: readings });
+}
+
+function showSynthetic(result) {
+  state.synthetic = result;
+  fillList("synthetic-sensors", result.sensors.map(syntheticSensorLine), "Inga sensorer.");
+  $("synthetic-label").textContent = result.label;
+  $("iot-confirms").textContent = confirmsText(result);
+  state.map.drawSyntheticSensors(result);
+}
+
 function applyState(scenarioState) {
   state.playing = scenarioState.playing;
   state.finished = scenarioState.finished;
@@ -344,6 +378,18 @@ function connectScenario() {
     });
     source.addEventListener("hotspot", (event) => state.map.addHotspot(JSON.parse(event.data)));
     source.addEventListener("scenario_event", (event) => state.pendingEvents.push(JSON.parse(event.data)));
+    source.addEventListener("sensor", (event) => {
+      const reading = JSON.parse(event.data);
+      state.realSensors.set(`${reading.node}/${reading.kind}`, reading);
+      showRealSensors();
+    });
+    source.addEventListener("sensor_health", (event) => {
+      const health = JSON.parse(event.data);
+      const reading = state.realSensors.get(`${health.node}/${health.kind}`);
+      if (reading) reading.online = health.online;
+      showRealSensors();
+    });
+    source.addEventListener("synthetic_sensors", (event) => showSynthetic(JSON.parse(event.data)));
     source.addEventListener("state", (event) => applyState(JSON.parse(event.data)));
     source.onerror = () => {
       // EventSource reconnects by itself and the backend then sends a new sync.
@@ -418,6 +464,8 @@ async function startApp(createMap) {
 
   state.map.finish();
   setupScenarioView();
+  state.iotConnection = await loadOptional("/api/sensors", (error) => { $("iot-connection").textContent = `IoT kunde inte laddas: ${error.message}.`; });
+  showRealSensors();
   setClock(new Date(config.playback.start_utc));
   state.controlToken = new URLSearchParams(window.location.search).get("token");
   $("play").addEventListener("click", () => runCommand(state.playing ? "pause" : "play"));

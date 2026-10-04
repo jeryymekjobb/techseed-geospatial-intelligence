@@ -51,6 +51,8 @@ function createLeafletMap(config) {
   });
   const hotspots = L.layerGroup().addTo(map);
   overlays["Hotspots"] = hotspots;
+  const syntheticLayer = L.layerGroup().addTo(map);
+  overlays["Syntetiska sensorer"] = syntheticLayer;
   map.attributionControl.addAttribution(config.attribution.firms);
   let markers = [];
   let windMarkers = [];
@@ -194,6 +196,18 @@ function createLeafletMap(config) {
 
     finish() {
       L.control.layers(baseLayers, overlays, { collapsed: false }).addTo(map);
+    },
+
+    // The synthetic sensors at the clock (sensor_sim.py): red confirms the fire, grey failed.
+    drawSyntheticSensors(result) {
+      syntheticLayer.clearLayers();
+      for (const sensor of result.sensors) {
+        L.circleMarker([sensor.latitude, sensor.longitude], {
+          radius: 8, color: "#202020", weight: 2, dashArray: "3 2", fillColor: SYNTHETIC_COLORS[syntheticState(sensor)], fillOpacity: 0.9,
+        }).bindTooltip(sensor.name, { permanent: true, direction: "right", offset: [8, 0] })
+          .bindPopup(`<strong>${sensor.name} (syntetisk)</strong><br>${syntheticSensorText(sensor)}<br><small>${result.label}</small>`)
+          .addTo(syntheticLayer);
+      }
     },
 
     // Mission control's GOD VIEW: out to Europe (OSM online; the offline tiles cover the

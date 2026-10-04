@@ -133,6 +133,7 @@ async function createCesiumMap(config) {
   const labelLayer = group("labels");
   const windLayer = group("wind");
   const forecastLayer = group("forecast");
+  const syntheticLayer = group("synthetic-sensors");
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   let terrainLayer = null;
   let windEntities = [];
@@ -334,6 +335,7 @@ async function createCesiumMap(config) {
     // A layer panel like Leaflet's, in the corner of the globe.
     finish() {
       layers.unshift(["Hotspots", (visible) => { points.show = visible; }, () => points.show]);
+      layers.push(["Syntetiska sensorer", (visible) => { syntheticLayer.show = visible; }, () => syntheticLayer.show]);
       const panel = document.createElement("form");
       panel.className = "layer-panel";
       panel.setAttribute("aria-label", "Lager");
@@ -362,6 +364,26 @@ async function createCesiumMap(config) {
         });
       })), Promise.resolve());
       return flight.then(() => flyToFire(lon, lat));
+    },
+
+    // The synthetic sensors at the clock (sensor_sim.py): red confirms the fire, grey failed.
+    drawSyntheticSensors(result) {
+      const entities = syntheticLayer.entities;
+      entities.removeAll();
+      for (const sensor of result.sensors) {
+        const color = SYNTHETIC_COLORS[syntheticState(sensor)];
+        entities.add({
+          name: `${escapeText(sensor.name)} (syntetisk)`,
+          position: Cesium.Cartesian3.fromDegrees(sensor.longitude, sensor.latitude),
+          point: { pixelSize: 14, color: cesiumColor(color), outlineColor: cesiumColor("#ffffff"), outlineWidth: 2, ...ON_GROUND },
+          label: {
+            text: escapeText(sensor.name), font: "14px system-ui, sans-serif", fillColor: cesiumColor("#1b2430"),
+            outlineColor: cesiumColor("#ffffff"), outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new Cesium.Cartesian2(12, 0), horizontalOrigin: Cesium.HorizontalOrigin.LEFT, ...ON_GROUND,
+          },
+          description: `${escapeText(syntheticSensorText(sensor))}<br><small>${escapeText(result.label)}</small>`,
+        });
+      }
     },
 
     // Mission control's GOD VIEW: out to Europe, and back to the fire when it is switched off.

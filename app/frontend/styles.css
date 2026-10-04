@@ -71,5 +71,8 @@ body.control { background: #141414; color: #f2f2f2; }
 .control .scenario-status li { color: #f2f2f2; }
 .control .scenario-status .alert { background: #4a1a17; }
 .control .scenario-status .info { background: #17304a; }
+.panel h3 { margin: 8px 0 4px; font-size: 0.85rem; color: var(--muted); }
+.iot-confirms { margin-top: 6px; font-weight: 700; }
+.control-layout h3 { margin: 8px 0 4px; font-size: 0.9rem; color: #d0d0d0; }
 .event-log { margin: 0; padding-left: 1.4em; font-size: 0.85rem; color: #d0d0d0; }
 @media (max-width: 760px) { .event-banner { left: 50%; } .layout { grid-template-columns: 1fr; grid-template-rows: 60vh auto; height: auto; } .panel { border-left: 0; } }

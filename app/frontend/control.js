@@ -8,6 +8,8 @@ const $ = (id) => document.getElementById(id);
 const token = new URLSearchParams(window.location.search).get("token");
 const localTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short" });
 let status = null;
+const realSensors = new Map();
+let iotConnection = null;
 
 async function send(name, target) {
   const headers = { "Content-Type": "application/json" };
@@ -57,6 +59,19 @@ function showState(scenarioState) {
   }
 }
 
+function showIot() {
+  const readings = [...realSensors.values()].sort((a, b) => `${a.node}/${a.kind}`.localeCompare(`${b.node}/${b.kind}`));
+  const list = $("real-sensors");
+  list.innerHTML = "";
+  for (const line of readings.length ? readings.map(realSensorLine) : [{ level: "ok", text: "Inga noder." }]) {
+    const item = document.createElement("li");
+    item.className = line.level;
+    item.textContent = line.text;
+    list.append(item);
+  }
+  if (iotConnection) $("iot-connection").textContent = connectionText({ ...iotConnection, sensors: readings });
+}
+
 function connect() {
   const source = new EventSource("/api/scenario/stream");
   const follow = (event) => {
@@ -65,6 +80,18 @@ function connect() {
   };
   source.addEventListener("sync", follow);
   source.addEventListener("state", follow);
+  source.addEventListener("synthetic_sensors", (event) => { $("iot-confirms").textContent = confirmsText(JSON.parse(event.data)); });
+  source.addEventListener("sensor", (event) => {
+    const reading = JSON.parse(event.data);
+    realSensors.set(`${reading.node}/${reading.kind}`, reading);
+    showIot();
+  });
+  source.addEventListener("sensor_health", (event) => {
+    const health = JSON.parse(event.data);
+    const reading = realSensors.get(`${health.node}/${health.kind}`);
+    if (reading) reading.online = health.online;
+    showIot();
+  });
   source.onerror = () => { $("playback").textContent = "Anslutningen till backend bröts – försöker igen …"; };
 }
 
@@ -79,4 +106,8 @@ for (const button of document.querySelectorAll("[data-command]")) {
     });
   });
 }
+fetch("/api/sensors").then((response) => response.json()).then((snapshot) => {
+  iotConnection = snapshot;
+  showIot();
+}).catch((error) => { $("iot-connection").textContent = `IoT kunde inte laddas: ${error.message}.`; });
 connect();

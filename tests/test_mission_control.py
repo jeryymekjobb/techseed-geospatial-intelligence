@@ -36,12 +36,13 @@ def test_every_event_kind_has_a_text() -> None:
     assert set(re.findall(r"^  (\w+):", block, flags=re.MULTILINE)) == set(EVENT_KINDS)
 
 
-def test_both_maps_load_the_event_texts_before_the_panel() -> None:
+def test_every_screen_loads_the_shared_texts_before_its_own_script() -> None:
     for page in ["index.html", "3d.html", "control.html"]:
         html = (FRONTEND / page).read_text(encoding="utf-8")
-        assert '<script src="/scenario_events.js"></script>' in html
         follower = "/panel.js" if page != "control.html" else "/control.js"
-        assert html.index("/scenario_events.js") < html.index(follower)
+        for shared in ["/scenario_events.js", "/sensors.js"]:
+            assert f'<script src="{shared}"></script>' in html
+            assert html.index(shared) < html.index(follower)
 
 
 def node(expression: str) -> object:
@@ -87,6 +88,6 @@ def base_url():
 
 
 def test_the_backend_serves_mission_control(base_url: str) -> None:
-    for path, kind in [("/control.html", "text/html"), ("/control.js", "javascript"), ("/scenario_events.js", "javascript")]:
+    for path, kind in [("/control.html", "text/html"), ("/control.js", "javascript"), ("/scenario_events.js", "javascript"), ("/sensors.js", "javascript")]:
         with urlopen(f"{base_url}{path}", timeout=10) as response:
             assert response.status == 200 and kind in response.headers["Content-Type"]
