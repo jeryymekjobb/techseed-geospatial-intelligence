@@ -135,6 +135,7 @@ async function createCesiumMap(config) {
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
+  const stationLayer = group("stations");
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   let terrainLayer = null;
   let windEntities = [];
@@ -210,7 +211,7 @@ async function createCesiumMap(config) {
 
     addStations(stations) {
       for (const station of stations) {
-        viewer.entities.add({
+        stationLayer.entities.add({
           name: `SMHI ${station.name}`,
           position: Cesium.Cartesian3.fromDegrees(station.longitude, station.latitude),
           point: {
@@ -410,6 +411,12 @@ async function createCesiumMap(config) {
           }
         }
       }
+    },
+
+    // GOD VIEW's filter: hide or show a category of layers.
+    setCategoryVisible(category, visible) {
+      const groups = { space: [points], iot: [syntheticLayer], infrastructure: [queryLayer], weather: [windLayer, stationLayer] };
+      for (const layer of groups[category] || []) layer.show = visible;
     },
 
     // Show an evidence object from the assessment.

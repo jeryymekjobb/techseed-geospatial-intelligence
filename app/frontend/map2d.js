@@ -55,6 +55,8 @@ function createLeafletMap(config) {
   overlays["Syntetiska sensorer"] = syntheticLayer;
   const queryLayer = L.layerGroup().addTo(map);
   overlays["Svar på fråga"] = queryLayer;
+  const stationLayer = L.layerGroup().addTo(map);
+  let windLayer = null;
   map.attributionControl.addAttribution(config.attribution.firms);
   let markers = [];
   let windMarkers = [];
@@ -116,7 +118,7 @@ function createLeafletMap(config) {
       for (const station of stations) {
         L.circleMarker([station.latitude, station.longitude], {
           radius: 6, color: "#1f5fa8", fillColor: "#fff", fillOpacity: 1, weight: 3,
-        }).bindTooltip(`SMHI ${station.name}`, { permanent: true, direction: "right" }).addTo(map);
+        }).bindTooltip(`SMHI ${station.name}`, { permanent: true, direction: "right" }).addTo(stationLayer);
       }
     },
 
@@ -153,6 +155,7 @@ function createLeafletMap(config) {
       windMarkers = wind.points.map(([lat, lon]) => L.marker([lat, lon], { icon, keyboard: false })
         .bindTooltip("", { direction: "top" }).addTo(layer));
       overlays["Vind (ERA5-Land)"] = layer;
+      windLayer = layer;
       layer.addTo(map);
       layer.on("add", onShow);
     },
@@ -222,6 +225,16 @@ function createLeafletMap(config) {
         onEachFeature: (feature, item) => item.bindTooltip(queryLabel(feature.properties)),
       }).addTo(queryLayer);
       map.flyToBounds(layer.getBounds().pad(0.1), { maxZoom: 13, duration: 1 });
+    },
+
+    // GOD VIEW's filter: hide or show a category of layers.
+    setCategoryVisible(category, visible) {
+      const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer], weather: [windLayer, stationLayer] };
+      for (const layer of groups[category] || []) {
+        if (!layer) continue;
+        if (visible) layer.addTo(map);
+        else layer.remove();
+      }
     },
 
     // Show an evidence object from the assessment.

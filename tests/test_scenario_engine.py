@@ -74,7 +74,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
 
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "power_failure": False,
-        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None,
+        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [],
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -93,7 +93,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert state["status"] == {
         "satcom_up": False, "plus60": True, "god_view": True, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
-        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None,
+        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [],
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
@@ -117,6 +117,19 @@ def test_an_outage_keeps_its_start_and_end() -> None:
     assert status["last_outage"] == {"from_utc": "2014-08-04T12:00:00Z", "to_utc": "2014-08-04T15:00:00Z"}
     # A restore without an outage changes nothing.
     assert scenario.command("satcom_restore")["status"]["last_outage"] == status["last_outage"]
+
+
+def test_filters_hide_and_show_categories_until_reset() -> None:
+    scenario, _ = engine()
+
+    scenario.command("filter", target="weather")
+    scenario.command("filter", target="space")
+    assert scenario.snapshot()["status"]["hidden_layers"] == ["weather", "space"]
+    assert scenario.command("filter", target="weather")["status"]["hidden_layers"] == ["space"]
+    for bad in [None, "maritime", "aviation", "emergency", "forecast"]:
+        with pytest.raises(CommandError):
+            scenario.command("filter", target=bad)
+    assert scenario.command("reset")["status"]["hidden_layers"] == []
 
 
 def test_events_take_the_time_of_the_running_clock() -> None:

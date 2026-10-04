@@ -10,7 +10,9 @@ failure and so on). Each one is stored with its scenario time and a sequence
 number, and the derived status (SATCOM up or down, GOD VIEW, +60 MIN, failed
 sensors, closed roads, power failure) is part of every snapshot. While SATCOM is
 down, `satcom_down_since` gives the scenario time it went down; after a restore,
-`last_outage` gives the scenario times the last outage started and ended. `reset` clears
+`last_outage` gives the scenario times the last outage started and ended.
+`filter` with a category in FILTERS hides or shows that category on the maps
+(GOD VIEW's filter); `hidden_layers` lists the hidden ones. `reset` clears
 the events together with the clock.
 """
 
@@ -29,8 +31,10 @@ DEFAULT_SPEED = 3600.0
 # are kept until `reset`. `target` names a sensor or road and is optional.
 EVENT_KINDS = (
     "satellite_detection", "sensor_failure", "satcom_failure", "satcom_restore",
-    "road_closed", "power_failure", "plus60", "god_view",
+    "road_closed", "power_failure", "plus60", "god_view", "filter",
 )
+# Map categories mission control can hide; maritime, aviation and emergency are not in the demo.
+FILTERS = ("space", "iot", "infrastructure", "weather")
 TOGGLES = ("plus60", "god_view")
 TARGET_PATTERN = re.compile(r"[a-z0-9_-]{1,64}")
 MAX_EVENTS = 100
@@ -99,6 +103,7 @@ class ScenarioEngine:
         status: dict[str, Any] = {
             "satcom_up": True, "plus60": False, "god_view": False, "power_failure": False,
             "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None,
+            "hidden_layers": [],
         }
         for event in self.events:
             kind, target = event["kind"], event["target"]
@@ -119,11 +124,16 @@ class ScenarioEngine:
                 status["failed_sensors"].append(target)
             elif kind == "road_closed" and target not in status["closed_roads"]:
                 status["closed_roads"].append(target)
+            elif kind == "filter":
+                hidden = status["hidden_layers"]
+                hidden.remove(target) if target in hidden else hidden.append(target)
         return status
 
     def _record_event(self, kind: str, target: str | None) -> None:
         if target is not None and not TARGET_PATTERN.fullmatch(target):
             raise CommandError("target must be 1–64 characters a-z, 0-9, _ or -")
+        if kind == "filter" and target not in FILTERS:
+            raise CommandError(f"filter needs a target: {', '.join(FILTERS)}")
         self.event_seq += 1
         self.events.append({"seq": self.event_seq, "kind": kind, "target": target, "clock_utc": utc_text(self._clock)})
         del self.events[:-MAX_EVENTS]

@@ -36,6 +36,11 @@ function showState(scenarioState) {
   $("playback").textContent = scenarioState.finished ? "Uppspelningen är klar." : scenarioState.playing ? "Spelar upp." : "Pausad.";
   $("play").classList.toggle("active", scenarioState.playing);
   const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view };
+  for (const button of document.querySelectorAll("[data-filter]")) {
+    const shown = !status.hidden_layers.includes(button.dataset.filter);
+    button.classList.toggle("active", shown);
+    button.setAttribute("aria-pressed", String(shown));
+  }
   for (const button of document.querySelectorAll("[data-status]")) {
     const on = Boolean(active[button.dataset.status]);
     button.classList.toggle("active", on);

@@ -13,7 +13,17 @@ const EVENT_TEXTS = {
   power_failure: { title: "POWER FAILURE", detail: "Syntetisk händelse – elnätet finns inte i kartdata." },
   plus60: { title: "+60 MIN", detail: "Prognosen visas med kortaste horisonten – modell med stor osäkerhet." },
   god_view: { title: "GOD VIEW", detail: "Kameran visar hela lägesbilden." },
+  filter: { title: "FILTER", detail: "Ett lager visas eller döljs på kartan." },
 };
+
+// GOD VIEW's filter: the categories in the demo, and those the one-pager names but the demo lacks.
+const FILTER_CATEGORIES = [
+  { id: "space", label: "Space" }, { id: "iot", label: "IoT" },
+  { id: "infrastructure", label: "Infrastructure" }, { id: "weather", label: "Weather" },
+  { id: "maritime", label: "Maritime", missing: true }, { id: "aviation", label: "Aviation", missing: true },
+  { id: "emergency", label: "Emergency", missing: true },
+];
+const MISSING_NOTE = "ingår inte i demon";
 
 function eventText(event) {
   const text = EVENT_TEXTS[event.kind] || { title: event.kind.toUpperCase(), detail: "" };
@@ -26,6 +36,11 @@ function eventBanner(event, status) {
   const text = eventText(event);
   if (event.kind === "plus60" && !status.plus60) return { title: "+60 MIN AV", detail: "Prognosen visas med vald horisont igen." };
   if (event.kind === "god_view" && !status.god_view) return { title: "RETURN TO INCIDENT", detail: "Kameran går tillbaka till branden." };
+  if (event.kind === "filter") {
+    const category = FILTER_CATEGORIES.find((item) => item.id === event.target);
+    const hidden = status.hidden_layers.includes(event.target);
+    return { title: `FILTER ${(category?.label || event.target).toUpperCase()}`, detail: hidden ? "Lagret döljs." : "Lagret visas." };
+  }
   return text;
 }
 
@@ -38,6 +53,8 @@ function statusLines(status) {
   if (status.power_failure) lines.push({ level: "alert", text: "Strömavbrott (syntetiskt)" });
   if (status.plus60) lines.push({ level: "info", text: "+60 MIN: prognos med kortaste horisonten" });
   if (status.god_view) lines.push({ level: "info", text: "GOD VIEW" });
+  const hidden = FILTER_CATEGORIES.filter((item) => status.hidden_layers.includes(item.id)).map((item) => item.label);
+  if (hidden.length) lines.push({ level: "info", text: `Dolda lager: ${hidden.join(", ")}` });
   return lines;
 }
 
@@ -63,4 +80,4 @@ function syncLines(summary) {
   return lines;
 }
 
-if (typeof module !== "undefined") module.exports = { EVENT_TEXTS, eventText, eventBanner, statusLines, queueText, syncBanner, syncLines };
+if (typeof module !== "undefined") module.exports = { EVENT_TEXTS, FILTER_CATEGORIES, MISSING_NOTE, eventText, eventBanner, statusLines, queueText, syncBanner, syncLines };

@@ -38,6 +38,7 @@ const state = {
   finished: false,
   // Mission-control status (scenario_events.js): applied when it changes.
   scenarioStatus: null,
+  hiddenLayers: [],
   pendingEvents: [],
   horizonBeforePlus60: null,
   // IoT (sensors.js): real nodes by "node/kind", the synthetic sensors at the clock.
@@ -334,6 +335,32 @@ function applyStatus(status) {
     }
   }
   if (status.god_view !== Boolean(previous?.god_view)) state.map.showGodView(status.god_view);
+  showFilter(status);
+}
+
+// GOD VIEW's filter, set from mission control: the list on the map and the hidden categories.
+function showFilter(status) {
+  for (const category of FILTER_CATEGORIES.filter((item) => !item.missing)) {
+    const hidden = status.hidden_layers.includes(category.id);
+    if (hidden !== state.hiddenLayers.includes(category.id)) state.map.setCategoryVisible(category.id, !hidden);
+  }
+  state.hiddenLayers = [...status.hidden_layers];
+  let panel = $("god-filter");
+  if (!panel) {
+    panel = document.createElement("ul");
+    panel.id = "god-filter";
+    panel.className = "god-filter";
+    $("map").append(panel);
+  }
+  panel.hidden = !status.god_view;
+  panel.innerHTML = "";
+  for (const category of FILTER_CATEGORIES) {
+    const item = document.createElement("li");
+    const shown = !category.missing && !status.hidden_layers.includes(category.id);
+    item.className = category.missing ? "missing" : shown ? "shown" : "hidden";
+    item.textContent = `${shown ? "☑" : "☐"} ${category.label}${category.missing ? ` – ${MISSING_NOTE}` : ""}`;
+    panel.append(item);
+  }
 }
 
 function fillList(id, lines, empty) {

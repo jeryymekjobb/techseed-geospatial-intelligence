@@ -16,7 +16,7 @@ from urllib.request import urlopen
 import pytest
 
 from app.backend import lantmateriet, server
-from app.backend.scenario_engine import EVENT_KINDS
+from app.backend.scenario_engine import EVENT_KINDS, FILTERS
 
 FRONTEND = Path(__file__).resolve().parents[1] / "app" / "frontend"
 CLOCK_COMMANDS = {"play", "pause", "reset"}
@@ -28,6 +28,7 @@ def test_the_buttons_send_only_commands_the_engine_knows() -> None:
     assert commands == set(EVENT_KINDS) | CLOCK_COMMANDS
     for target in re.findall(r'data-target="([^"]+)"', html):
         assert re.fullmatch(r"[a-z0-9_-]{1,64}", target)
+    assert set(re.findall(r'data-command="filter" data-target="(\w+)"', html)) == set(FILTERS)
 
 
 def test_every_event_kind_has_a_text() -> None:
@@ -54,7 +55,7 @@ def node(expression: str) -> object:
 
 
 QUIET = {"satcom_up": True, "plus60": False, "god_view": False, "power_failure": False, "failed_sensors": [], "closed_roads": [],
-         "satcom_down_since": None, "last_outage": None}
+         "satcom_down_since": None, "last_outage": None, "hidden_layers": []}
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
@@ -92,3 +93,15 @@ def test_the_backend_serves_mission_control(base_url: str) -> None:
     for path, kind in [("/control.html", "text/html"), ("/control.js", "javascript"), ("/scenario_events.js", "javascript"), ("/sensors.js", "javascript")]:
         with urlopen(f"{base_url}{path}", timeout=10) as response:
             assert response.status == 200 and kind in response.headers["Content-Type"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_filter_names_every_category_and_marks_the_missing_ones() -> None:
+    categories = node("FILTER_CATEGORIES")
+    assert [item["id"] for item in categories if not item.get("missing")] == list(FILTERS)
+    assert [item["label"] for item in categories if item.get("missing")] == ["Maritime", "Aviation", "Emergency"]
+    hidden = {**QUIET, "hidden_layers": ["weather", "space"]}
+    assert node(f"statusLines({json.dumps(hidden)})")[-1] == {"level": "info", "text": "Dolda lager: Space, Weather"}
+    banner = node(f'eventBanner({{kind: "filter", target: "weather"}}, {json.dumps(hidden)})')
+    assert banner == {"title": "FILTER WEATHER", "detail": "Lagret döljs."}
+    assert node(f'eventBanner({{kind: "filter", target: "iot"}}, {json.dumps(hidden)})')["detail"] == "Lagret visas."

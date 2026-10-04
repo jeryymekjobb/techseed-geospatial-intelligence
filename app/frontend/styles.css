@@ -74,6 +74,11 @@ body.control { background: #141414; color: #f2f2f2; }
 .control .scenario-status .info { background: #17304a; }
 .panel h3 { margin: 8px 0 4px; font-size: 0.85rem; color: var(--muted); }
 .satcom-queue:not(:empty) { margin: 4px 0; padding: 2px 6px; border-left: 4px solid var(--accent); font-size: 0.85rem; font-weight: 600; }
+.god-filter { position: absolute; left: 10px; bottom: 40px; z-index: 1000; margin: 0; padding: 8px 12px; list-style: none; background: #202020e6; color: #fff; border-radius: 6px; font-size: 0.9rem; }
+.god-filter[hidden] { display: none; }
+.god-filter .hidden { color: #b8b8b8; }
+.god-filter .missing { color: #8a8a8a; font-style: italic; }
+.control button:disabled { opacity: 0.45; font-weight: 400; }
 .iot-confirms { margin-top: 6px; font-weight: 700; }
 .control-layout h3 { margin: 8px 0 4px; font-size: 0.9rem; color: #d0d0d0; }
 .assessment-outcome { font-size: 1.15rem; font-weight: 700; }
