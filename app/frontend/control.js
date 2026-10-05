@@ -11,11 +11,12 @@ let status = null;
 const realSensors = new Map();
 let iotConnection = null;
 
-async function send(name, target) {
+async function send(name, target, speed) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["X-Control-Token"] = token;
   const body = { command: name };
   if (target) body.target = target;
+  if (speed) body.speed = Number(speed);
   const response = await fetch("/api/scenario/command", { method: "POST", headers, body: JSON.stringify(body) });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -35,6 +36,11 @@ function showState(scenarioState) {
   $("sim-time").textContent = `${localTime.format(new Date(scenarioState.clock_utc))} svensk tid`;
   $("playback").textContent = scenarioState.finished ? "Uppspelningen är klar." : scenarioState.playing ? "Spelar upp." : "Pausad.";
   $("play").classList.toggle("active", scenarioState.playing);
+  for (const button of document.querySelectorAll("[data-speed]")) {
+    const on = Number(button.dataset.speed) === scenarioState.speed;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", String(on));
+  }
   const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view, space_view: status.space_view };
   for (const button of document.querySelectorAll("[data-filter]")) {
     const shown = !status.hidden_layers.includes(button.dataset.filter);
@@ -104,7 +110,7 @@ function connect() {
 for (const button of document.querySelectorAll("[data-command]")) {
   button.addEventListener("click", () => {
     const name = commandFor(button);
-    send(name, button.dataset.target).then((state) => {
+    send(name, button.dataset.target, button.dataset.speed).then((state) => {
       showState(state);
       $("command-status").textContent = "";
     }).catch((error) => {

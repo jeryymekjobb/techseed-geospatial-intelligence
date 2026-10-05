@@ -64,6 +64,7 @@ body.control { background: #141414; color: #f2f2f2; }
 .control-layout h2 { margin: 0 0 8px; font-size: 1rem; color: #ffd54a; }
 .control-row, .control-grid { display: grid; gap: 10px; margin: 10px 0; }
 .control-row { grid-template-columns: repeat(3, 1fr); }
+.control-row.speed-row { grid-template-columns: repeat(2, 1fr); }
 .control-grid { grid-template-columns: repeat(2, 1fr); }
 .control button { min-height: 64px; padding: 8px; border: 2px solid #5b5b57; border-radius: 8px; background: #2a2a2a; color: #fff; font-size: 1rem; font-weight: 700; letter-spacing: 0.03em; touch-action: manipulation; }
 .control button:active { background: #3a3a3a; }

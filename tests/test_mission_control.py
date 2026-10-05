@@ -16,10 +16,10 @@ from urllib.request import urlopen
 import pytest
 
 from app.backend import lantmateriet, server
-from app.backend.scenario_engine import EVENT_KINDS, FILTERS
+from app.backend.scenario_engine import EVENT_KINDS, FILTERS, MAX_SPEED, MIN_SPEED
 
 FRONTEND = Path(__file__).resolve().parents[1] / "app" / "frontend"
-CLOCK_COMMANDS = {"play", "pause", "reset"}
+CLOCK_COMMANDS = {"play", "pause", "reset", "speed"}
 
 
 def test_the_buttons_send_only_commands_the_engine_knows() -> None:
@@ -29,6 +29,8 @@ def test_the_buttons_send_only_commands_the_engine_knows() -> None:
     for target in re.findall(r'data-target="([^"]+)"', html):
         assert re.fullmatch(r"[a-z0-9_-]{1,64}", target)
     assert set(re.findall(r'data-command="filter" data-target="(\w+)"', html)) == set(FILTERS)
+    speeds = [float(value) for value in re.findall(r'data-command="speed" data-speed="([0-9.]+)"', html)]
+    assert speeds == [60.0, 3600.0] and all(MIN_SPEED <= value <= MAX_SPEED for value in speeds)
 
 
 def test_every_event_kind_has_a_text() -> None:

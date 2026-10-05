@@ -284,19 +284,18 @@ behöver `&token=din-token` i slutet.
 
 ## 10. Tvåminutersmanuset
 
-Knapparna i **fetstil** finns i mission control. **Hastigheten** väljer du i rutan
-"Hastighet" under "Uppspelning" på huvudskärmen. Mission control har inget hastighetsval
-ännu.
+Knapparna i **fetstil** finns i mission control, också hastigheten: **1 MINUT/S** och
+**1 TIMME/S** under PLAY, PAUSE och RESET. Den hastighet som gäller lyser.
 
 Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 
 | Tid | Gör | Säg |
 |---|---|---|
 | 0:00 | Klicka "Flyg till branden" på huvudskärmen. Kameran åker ut till jorden och flyger in till branden. | "Det här är skogsbranden i Västmanland sommaren 2014, återuppspelad med riktiga satellitdata." |
-| 0:10 | Tryck **SPACE VIEW**. Välj hastigheten **1 minut/s**. Tryck **PLAY**. | "Det här är satelliterna som såg branden, Aqua, Terra och Suomi NPP, där de var den dagen." |
+| 0:10 | Tryck **SPACE VIEW**, **1 MINUT/S** och **PLAY**. | "Det här är satelliterna som såg branden, Aqua, Terra och Suomi NPP, där de var den dagen." |
 | 0:30 | Kl. 11:48 svensk tid passerar Suomi NPP. Den blir större, med en gul linje ner till branden. | "Här upptäcker Suomi NPP värmen från branden." |
 | 0:40 | Tryck **SPACE VIEW** igen. Kameran flyger tillbaka. Kl. 12:06 svensk tid kommer Landsat-bilden. | "Landsat 8 fotograferade branden tjugo minuter senare. Det mörka är bränd skog, det orange är brandfronten." |
-| 0:50 | Välj hastigheten **1 timme/s**. | "Sensorer på marken bekräftar branden. I demon är de simulerade." |
+| 0:50 | Tryck **1 TIMME/S**. | "Sensorer på marken bekräftar branden. I demon är de simulerade." |
 | 1:00 | Peka på AI ASSESSMENT till höger. Klicka "Why do you believe there is a fire?". | "Bedömningen visar varför den tror att det brinner. Varje rad pekar på sitt objekt på kartan." |
 | 1:15 | Klicka "Show infrastructure within 5 km of the incident". Klicka på "SQL som kördes". | "Det här är en riktig fråga mot en kartdatabas. Frågan syns här." |
 | 1:25 | Tryck **+60 MIN**, och tryck igen för att stänga. | "Prognosen är en enkel modell med stor osäkerhet." |
@@ -354,7 +353,7 @@ Hitta det du ser i vänstra kolumnen. Åtgärderna A–F står i kodblocket unde
 | Frågorna svarar "PostGIS svarar inte" | Databasen är inte igång. | D, sedan A. |
 | Inga satelliter, eller ingen satellitbild | Steg 5.6 eller 5.7 är inte gjort. | E. Landsat-bilden visas först från 12:06 svensk tid den 4 augusti. |
 | Kartan runt brandområdet är tom eller ljus | Kartjänsten är inte igång. | F. |
-| 3D-vyn rör sig ryckigt | För hög hastighet eller för svagt grafikkort. | Välj 1 minut/s i SPACE VIEW. Kör generalrepetitionen i avsnitt 6. |
+| 3D-vyn rör sig ryckigt | För hög hastighet eller för svagt grafikkort. | Tryck **1 MINUT/S** i SPACE VIEW. Kör generalrepetitionen i avsnitt 6. |
 | Mission control säger "fel eller saknad token" | Backend kräver token. | Lägg till `?token=din-token` i adressen, se avsnitt 9. |
 | GOD VIEW blir tom på 2D-kartan | Känd begränsning: den sparade kartan täcker bara brandområdet. | Använd 3D-vyn (`3d.html`). |
 | Något annat ser konstigt ut | – | Tryck **RESET**. Hjälper det inte, ladda om huvudskärmen med adressen i avsnitt 8. |
