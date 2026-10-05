@@ -55,11 +55,19 @@ Playwright i Chrome för varje steg med gränssnitt.
 | 7 | Förberedda frågor med PostGIS | `9b6ace5` |
 | 8a | Kommunikationsavbrott med kö och SYNC | `f7c7958` |
 | 8b | Filter i GOD VIEW | `da84b55` |
+| 1b-1 | Hämtning av 2014 års banelement från Space-Track | `d83e7dc` |
+| 1b-2 | Banelementen i backend och kontroll mot FIRMS | `f9eee31` |
+| 1b-3 | Satelliterna på globen, SPACE VIEW och RETURN TO INCIDENT | `9cfa8b9` |
+
+Fas 1 genomfördes med satelliternas läge 2014 (alternativ B, 2026-10-05) i
+stället för dagens läge från CelesTrak: Terra, Aqua och Suomi NPP – de som gjorde
+detektionerna – samt Landsat 8 och ISS, beräknade ur banelement från Space-Track.
+Sentinel-1A och Sentinel-2A var inte i drift i augusti 2014. Varje
+FIRMS-detektion ligger inom svepbredden för satelliten som gjorde den.
 
 ### Kvar
 
-- **Fas 1:** satellitbanor (CelesTrak, satellite.js), SPACE VIEW, RETURN TO
-  INCIDENT och Landsat-bilden.
+- **Fas 1:** satellitbilden från Landsat 8 den 4 augusti 2014.
 - **Fas 2:** den syntetiska upptäcktssekvensen från rymden och klassificeringen.
 - **Fas 5:** att hela tvåminutersdemon går att köra från pekskärmen och
   återställa på under 5 sekunder är inte provat från början till slut.
@@ -67,7 +75,8 @@ Playwright i Chrome för varje steg med gränssnitt.
   belastningsprov.
 - **Backlogg:** firmware för nRF91, kort och SDK, wifi som reserv, att exponera
   och skydda brokern, en riktig 1-timmeshorisont för +60 MIN och en bredare
-  offline-karta för GOD VIEW i 2D.
+  offline-karta för GOD VIEW i 2D. Granska också Space-Tracks användarvillkor
+  för att visa positionerna offentligt.
 
 ## Status 2026-10-02
 

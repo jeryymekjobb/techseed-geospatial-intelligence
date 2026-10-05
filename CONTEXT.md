@@ -14,6 +14,7 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 - Prioritize a stable, repeatable operator-controlled scenario and evidence-linked AI assessment over breadth of integrations.
 - Treat implementation choices and estimates in the one-pager as proposals, not approved architecture or verified commitments.
 - A working prototype exists in `app/`: the Västmanland 2014 wildfire replayed from NASA FIRMS archive data on a 2D map and a CesiumJS globe, with mission control, simulated SATCOM outage, IoT, a traceable assessment and PostGIS questions. Västmanland 2014 is the prototype's scenario; it has not been recorded as a formal MVP decision.
+- The 3D globe shows the 2014 satellites (Terra, Aqua, Suomi NPP, Landsat 8, ISS) at the scenario clock from Space-Track element sets; the positions are computed, not observed, and are checked against the FIRMS detection times.
 - Decided 2026-10-04: for the exhibition demo the booth IoT nodes run simulated (`tools/mqtt_node_sim.py`) and are shown as simulated. Questions that only concern a real implementation are deferred to the backlog.
 
 ## Backlog
@@ -22,6 +23,7 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 - Exposing and securing the MQTT broker for real nodes (network, passwords or certificates).
 - A real 1 h forecast horizon for +60 MIN (the forecast has 3, 6, 12 and 24 h).
 - GOD VIEW in 2D needs a wider offline base map; the 3D globe works.
+- Check Space-Track's user agreement for showing positions computed from its element sets in public at the exhibition.
 
 ## Boundaries
 

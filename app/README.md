@@ -105,6 +105,7 @@ others can only watch.
 | ROAD CLOSED, POWER FAILURE | `road_closed`, `power_failure` | Status text only, marked synthetic; no road closure or power-grid data |
 | +60 MIN | `plus60` (toggle) | The shortest forecast horizon (3 h; the forecast has no 1 h horizon) |
 | GOD VIEW | `god_view` (toggle) | Camera out to Europe and back; the filter list on the map |
+| SPACE VIEW (again: RETURN TO INCIDENT) | `space_view` (toggle) | The 3D camera out to the satellites' orbits and back to the fire |
 | Filter SPACE, IOT, INFRASTRUCTURE, WEATHER | `filter` with `target` | Hides or shows hotspots, synthetic sensors, the last answer, wind and SMHI stations |
 
 Maritime, aviation and emergency are greyed out and marked as not part of the
@@ -117,6 +118,42 @@ queued (`satcom_queue`), the assessment uses only earlier satellite data, and Io
 carries on. When the link is back, `satcom_sync` lists the satellite passes
 during the outage and how much the front grew, from the 2014 data, and the
 queued detections follow on the map.
+
+### Satellites 2014
+
+The 3D globe shows Terra and Aqua (MODIS), Suomi NPP (VIIRS) – the satellites
+whose detections are in the FIRMS data – and Landsat 8 and the ISS where they
+were at the scenario clock in 2014, with their orbits 50 minutes back and ahead.
+The positions are **computed** with SGP4 (satellite.js, `app/frontend/orbits.js`)
+from the 2014 element sets, not observed. Sentinel-1A was still in commissioning
+in August 2014 and Sentinel-2A was launched in 2015, so neither is shown.
+
+The element sets come from Space-Track (class `gp_history`) and need an account:
+
+```bash
+# ~/.spacetrackrc, readable only by you (chmod 600):
+#   identity=<the e-mail address you log in with>
+#   password=<your password>
+python3 -m tools.fetch_tle_history      # one login and one query -> data/tle/
+```
+
+The login is never printed or stored. `data/tle/` is not versioned, so the
+element sets are not redistributed through the repository; check Space-Track's
+terms before showing the positions in public. Without `data/tle/` the globe shows
+no satellites. `GET /api/satellites` gives the element sets.
+
+When a detection arrives, the satellite that made it is enlarged with a line
+down to the detection ("VIIRS-detektion 11:28 UTC (Suomi NPP)"). The panel lists
+each satellite's height, speed and next pass over the fire (the fire inside half
+the instrument's swath: MODIS 1165 km, VIIRS 1520 km, Landsat 8 OLI 92.5 km).
+SPACE VIEW from mission control zooms out to the orbits; at 1 hour/s the
+satellites jump far between ticks, so choose **1 minut/s** there.
+
+`tests/test_satellite_passes.py` checks the chain: every one of the 1,727 FIRMS
+detections lies within the swath of the satellite that made it during its
+granule (farthest: Terra 947 km, Aqua 1151 km, Suomi NPP 1428 km), the check
+fails for a time 45 minutes off, and the next pass found is the one that made the
+detections. It needs Node.js, satellite.js and `data/tle/`.
 
 ### IoT
 
@@ -202,6 +239,7 @@ it the browser loads the OSM base map from `tile.openstreetmap.org`.
 | Synthetic sensors | `app/backend/sensor_sim.py` | – | **Synthetic**: invented positions; values computed from the front and ERA5-Land, not measured |
 | Booth IoT nodes | `tools/mqtt_node_sim.py` over MQTT | – | **Simulated** for the demo; real nRF91 nodes are deferred |
 | Assessment score | `app/backend/assessment.py` | – | Rule-based score with fixed weights, not a probability |
+| Satellite positions | Space-Track `gp_history` element sets, `data/tle/` (not versioned) | Space-Track user agreement | **Computed** with SGP4 for the scenario clock; checked against the FIRMS detection times |
 | Infrastructure (questions) | OSM targets in PostGIS | ODbL | Places, major roads, railways, industrial buildings; no power grid |
 | Topowebb (optional) | Lantmäteriet Topografisk webbkarta Visning | CC0; access via Geotorget | Off until configured |
 | Property boundaries (optional) | Lantmäteriet Fastighetsindelning Visning (WMS) | Open data via Geotorget | Off until configured; choose the layers to show |
