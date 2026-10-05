@@ -235,6 +235,22 @@ comes from <https://download.openstreetmap.fr/extracts/europe/sweden-latest.osm.
 records its SHA-256. PostGIS listens on 127.0.0.1:5433 (database and user
 `firemap`, local password `firemap-local` unless `FIREMAP_DB_PASSWORD` is set).
 
+### Check the demo end to end
+
+`tools/check_demo.py` runs the two-minute demo from mission control in Chrome –
+the flight, SPACE VIEW, detections with Landsat and IoT, the assessment and
+questions, +60 MIN, a SATCOM outage with SYNC, GOD VIEW – and checks that RESET
+brings both screens back within 5 s. It writes `report.txt`, `report.json` and a
+screenshot per step, and exits with 1 if a step fails. Run it on the exhibition
+PC with `--headed` (real graphics card); headless Chrome renders WebGL in
+software (about 0.3 frames per second here), so only the steps, not the times,
+mean anything there:
+
+```bash
+.venv/bin/python -m tools.check_demo --headed --out ~/demo-check                          # starts backend and booth nodes
+.venv/bin/python -m tools.check_demo --headed --base-url http://127.0.0.1:8765 --out ~/demo-check   # a backend that runs
+```
+
 ### Record a video
 
 `tools/record_demo.py` starts the backend itself, plays the GUI in a headless

@@ -1,0 +1,319 @@
+#!/usr/bin/env python3
+"""Run the two-minute demo from mission control and report each step, for the exhibition PC.
+
+Opens the 3D main screen and mission control in Chrome, drives the demo in the
+one-pager's order - the flight to the fire, SPACE VIEW, detections with Landsat
+and IoT, the assessment and questions, +60 MIN, a SATCOM outage with SYNC, GOD
+VIEW with its filter - and checks that RESET brings both screens back within
+5 seconds. It also measures the frame rate of the 3D view during playback.
+
+Without --base-url it starts the backend and the simulated booth nodes itself
+(with the local services of docker-compose.yml running); with --base-url it
+checks a backend that already runs. --headed shows a normal browser window with
+the real graphics card; headless Chrome renders WebGL in software, so its times
+say little about the exhibition PC. Needs Playwright in .venv
+(tools/requirements-record.txt) and Google Chrome.
+
+    .venv/bin/python -m tools.check_demo --headed --out ~/demo-check
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import socket
+import subprocess
+import sys
+import time
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable
+from urllib.error import URLError
+from urllib.request import Request, urlopen
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
+# 09:30 UTC on 4 August: a VIIRS pass at 09:48 and the Landsat scene at 10:06 come within minutes.
+START_UTC = "2014-08-04T09:30:00Z"
+RESET_LIMIT_S = 5.0
+WAIT_MS = 60000
+# Headless Chrome has no GPU; these flags give it WebGL in software, so the 3D view can start.
+SOFTWARE_WEBGL = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+# The main screen and mission control are separate windows, as in the booth; Chrome must
+# not pause or slow down the one that is not in front.
+KEEP_BOTH_RUNNING = ["--disable-background-timer-throttling", "--disable-renderer-backgrounding",
+                     "--disable-backgrounding-occluded-windows"]
+# Conditions are polled at a fixed interval, not on animation frames.
+POLL_MS = 100
+
+
+@dataclass
+class Step:
+    name: str
+    verdict: str
+    detail: str
+    seconds: float
+
+
+@dataclass
+class Report:
+    base_url: str
+    headed: bool
+    started_utc: str
+    steps: list[Step] = field(default_factory=list)
+    frames_per_second: float | None = None
+    javascript_errors: list[str] = field(default_factory=list)
+
+    @property
+    def passed(self) -> bool:
+        return bool(self.steps) and all(step.verdict == "GODKÄND" for step in self.steps) and not self.javascript_errors
+
+    def skip_rest(self, names: list[str]) -> None:
+        """After a failure the later steps would only time out; they are listed as not run."""
+        self.steps += [Step(name, "EJ KÖRD", "ett tidigare steg misslyckades", 0.0) for name in names]
+
+    def text(self) -> str:
+        lines = [f"Demokontroll {self.started_utc} mot {self.base_url} ({'synligt fönster' if self.headed else 'headless'})"]
+        lines += [f"{step.verdict:9} {step.name} ({step.seconds:.1f} s): {step.detail}" for step in self.steps]
+        fps = "ej mätt" if self.frames_per_second is None else f"{self.frames_per_second:.1f}"
+        lines.append(f"Bilder per sekund i 3D under uppspelning: {fps}")
+        lines.append("JavaScript-fel: " + ("; ".join(self.javascript_errors) if self.javascript_errors else "inga"))
+        lines.append("RESULTAT: " + ("GODKÄND" if self.passed else "UNDERKÄND"))
+        return "\n".join(lines)
+
+
+def free_port() -> int:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def backend_command(port: int) -> list[str]:
+    return [str(PYTHON), "-m", "app.backend.server", "--port", str(port)]
+
+
+def wait_for(url: str, seconds: float = 60.0) -> None:
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        try:
+            with urlopen(url, timeout=5):
+                return
+        except (URLError, ConnectionError, OSError):
+            time.sleep(0.5)
+    raise RuntimeError(f"{url} did not answer within {seconds:.0f} s")
+
+
+class Demo:
+    """The browser pages and the commands the steps use."""
+
+    def __init__(self, browser: Any, base_url: str, out: Path, errors: list[str]) -> None:
+        self.base_url, self.out = base_url, out
+        # One browser context each: two windows, both active.
+        self.main = browser.new_context(viewport={"width": 1600, "height": 900}).new_page()
+        self.control = browser.new_context(viewport={"width": 1024, "height": 900}).new_page()
+        for name, page in [("huvudskärm", self.main), ("mission control", self.control)]:
+            page.on("pageerror", lambda exc, name=name: errors.append(f"{name}: {exc}"))
+            page.on("console", lambda msg, name=name: errors.append(f"{name}: {msg.text}") if msg.type == "error" else None)
+
+    def button(self, label: str) -> Any:
+        return self.control.get_by_role("button", name=label, exact=True)
+
+    def command(self, body: dict[str, Any]) -> None:
+        request = Request(f"{self.base_url}/api/scenario/command", data=json.dumps(body).encode(),
+                          headers={"Content-Type": "application/json"}, method="POST")
+        urlopen(request, timeout=10).close()
+
+    def text(self, element_id: str) -> str:
+        return self.main.inner_text(f"#{element_id}")
+
+    def shot(self, name: str) -> None:
+        self.main.screenshot(path=str(self.out / f"{name}.png"))
+
+
+def opening(demo: Demo) -> str:
+    demo.main.goto(f"{demo.base_url}/3d.html?at={START_UTC}&fly=1")
+    try:
+        demo.main.wait_for_selector("body[data-ready=true]", timeout=WAIT_MS)
+    except Exception as exc:
+        # The page says why it did not start, for example that WebGL is missing.
+        raise RuntimeError(f"sidan startade inte: {demo.text('stream-status') or 'ingen statustext'}") from exc
+    demo.main.wait_for_selector("body[data-flight=arrived]", timeout=WAIT_MS)
+    demo.control.goto(f"{demo.base_url}/control.html")
+    demo.control.wait_for_function("document.getElementById('scenario-status').children.length > 0", timeout=WAIT_MS, polling=POLL_MS)
+    demo.shot("1-opening")
+    return f"kameraresan klar; {demo.text('counts')}"
+
+
+def space_view(demo: Demo) -> str:
+    demo.button("SPACE VIEW").click()
+    demo.command({"command": "speed", "speed": 60})
+    before = demo.text("counts")
+    demo.button("PLAY").click()
+    demo.main.wait_for_function("document.getElementById('satellite-list').children.length >= 5", timeout=WAIT_MS, polling=POLL_MS)
+    # The VIIRS pass at 09:48 brings new detections about 18 s into the playback.
+    demo.main.wait_for_function(f"document.getElementById('counts').textContent !== {json.dumps(before)}", timeout=WAIT_MS, polling=POLL_MS)
+    demo.shot("2-space-view")
+    after = demo.text("counts")
+    demo.button("SPACE VIEW").click()
+    demo.main.wait_for_function("!document.getElementById('satellite-section').classList.contains('space-view')", timeout=WAIT_MS, polling=POLL_MS)
+    return f"{before} -> {after}"
+
+
+def detections(demo: Demo) -> str:
+    demo.command({"command": "speed", "speed": 3600})
+    demo.main.wait_for_function("document.getElementById('landsat-note').textContent.includes('riktig satellitbild')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.wait_for_function("document.getElementById('sim-time').textContent.includes(' 15:')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.button("PAUSE").click()
+    nodes = demo.main.eval_on_selector_all("#real-sensors li", "els => els.map(e => e.textContent)")
+    assert len(nodes) == 4 and all("simulerad" in line or "live" in line for line in nodes), nodes
+    demo.shot("3-detections")
+    return f"{demo.text('sim-time')}; {demo.text('iot-confirms')}; Landsat synlig; {len(nodes)} monternoder"
+
+
+def assessment(demo: Demo) -> str:
+    outcome = demo.text("assessment-outcome")
+    demo.main.get_by_role("button", name="Why do you believe there is a fire?").click()
+    demo.main.wait_for_function("document.getElementById('answer-text').textContent.startsWith('Wildfire')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.get_by_role("button", name="Show infrastructure within 5 km of the incident").click()
+    demo.main.wait_for_function("document.getElementById('answer-text').textContent.startsWith('Inom 5 km')", timeout=WAIT_MS, polling=POLL_MS)
+    assert outcome == "Wildfire probable", outcome
+    demo.shot("4-assessment")
+    return f"{outcome}; {demo.text('answer-text')[:80]}"
+
+
+def plus60(demo: Demo) -> str:
+    demo.button("+60 MIN").click()
+    demo.main.wait_for_function("document.getElementById('forecast-horizon').value === '3'", timeout=WAIT_MS, polling=POLL_MS)
+    demo.button("+60 MIN").click()
+    demo.main.wait_for_function("document.getElementById('forecast-horizon').value !== '3'", timeout=WAIT_MS, polling=POLL_MS)
+    return "horisonten 3 h och tillbaka"
+
+
+def satcom(demo: Demo) -> str:
+    before = demo.text("counts")
+    demo.command({"command": "speed", "speed": 3600})  # detections come within seconds at 1 hour/s
+    demo.button("SATCOM FAILURE").click()
+    demo.button("PLAY").click()
+    demo.main.wait_for_function("/ [1-9][0-9]* detektioner köade/.test(document.getElementById('satcom-queue').textContent)", timeout=WAIT_MS, polling=POLL_MS)
+    demo.button("PAUSE").click()
+    queue, during = demo.text("satcom-queue"), demo.text("counts")
+    assert during == before, (before, during)
+    demo.button("SATCOM FAILURE").click()
+    demo.main.wait_for_function("document.getElementById('satcom-sync').children.length > 0", timeout=WAIT_MS, polling=POLL_MS)
+    demo.shot("6-sync")
+    return f"{queue}; efter SYNC {demo.text('counts')}"
+
+
+def god_view(demo: Demo) -> str:
+    demo.button("GOD VIEW").click()
+    demo.button("WEATHER").click()
+    demo.main.wait_for_function("!document.getElementById('god-filter').hidden"
+                                " && document.getElementById('god-filter').textContent.includes('☐ Weather')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.shot("7-god-view")
+    demo.button("GOD VIEW").click()
+    demo.main.wait_for_function("document.getElementById('god-filter').hidden", timeout=WAIT_MS, polling=POLL_MS)
+    return "filterlistan visades, Weather dold"
+
+
+def reset(demo: Demo) -> str:
+    pressed = time.time()
+    demo.button("RESET").click()
+    demo.main.wait_for_function("""() => document.getElementById('counts').textContent.startsWith('0 ')
+        && document.getElementById('scenario-status').textContent.includes('Inga händelser')
+        && document.getElementById('god-filter').hidden
+        && document.getElementById('satcom-queue').textContent === ''""", timeout=WAIT_MS, polling=50)
+    main_ready = time.time() - pressed
+    demo.control.wait_for_function("document.getElementById('event-log').children.length === 0", timeout=WAIT_MS, polling=50)
+    both_ready = time.time() - pressed
+    demo.shot("8-reset")
+    assert both_ready <= RESET_LIMIT_S, f"{both_ready:.2f} s, kravet är {RESET_LIMIT_S:.0f} s"
+    return f"huvudskärmen {main_ready:.2f} s, båda skärmarna {both_ready:.2f} s"
+
+
+STEPS: list[tuple[str, Callable[[Demo], str]]] = [
+    ("1 Öppning: jorden till branden", opening),
+    ("2 SPACE VIEW och RETURN TO INCIDENT", space_view),
+    ("3 Detektioner, Landsat och IoT", detections),
+    ("4 Bedömning och frågor", assessment),
+    ("5 +60 MIN", plus60),
+    ("6 SATCOM FAILURE och SYNC", satcom),
+    ("7 GOD VIEW med filter", god_view),
+    ("8 RESET inom 5 s", reset),
+]
+
+
+def frames_per_second(demo: Demo, seconds: float = 3.0) -> float:
+    """Animation frames the 3D view draws per second while the scenario plays at 1 minute/s."""
+    demo.main.bring_to_front()
+    demo.command({"command": "speed", "speed": 60})
+    demo.command({"command": "play"})
+    try:
+        return demo.main.evaluate("""(ms) => new Promise((resolve) => {
+          let frames = 0; const start = performance.now();
+          const tick = (now) => { frames += 1; if (now - start < ms) requestAnimationFrame(tick); else resolve(frames * 1000 / (now - start)); };
+          requestAnimationFrame(tick);
+        })""", seconds * 1000)
+    finally:
+        demo.command({"command": "pause"})
+        demo.command({"command": "speed", "speed": 3600})  # back to the demo's speed
+
+
+def run(base_url: str, out: Path, headed: bool) -> Report:
+    from playwright.sync_api import sync_playwright
+
+    report = Report(base_url, headed, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    out.mkdir(parents=True, exist_ok=True)
+    with sync_playwright() as playwright:
+        args = KEEP_BOTH_RUNNING + ([] if headed else SOFTWARE_WEBGL)
+        browser = playwright.chromium.launch(channel="chrome", headless=not headed, args=args)
+        demo = Demo(browser, base_url, out, report.javascript_errors)
+        for index, (name, action) in enumerate(STEPS):
+            started = time.time()
+            try:
+                report.steps.append(Step(name, "GODKÄND", action(demo), time.time() - started))
+            except Exception as exc:  # noqa: BLE001 - every failure belongs in the report
+                detail = f"{type(exc).__name__}: {exc}".split("\nCall log:")[0]
+                report.steps.append(Step(name, "UNDERKÄND", detail[:300], time.time() - started))
+                report.skip_rest([later for later, _ in STEPS[index + 1:]])
+                break
+            if name.startswith("3 "):
+                try:
+                    report.frames_per_second = frames_per_second(demo)
+                except Exception:  # noqa: BLE001 - the measurement is optional
+                    report.frames_per_second = None
+        browser.close()
+    return report
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
+    parser.add_argument("--base-url", help="check a backend that already runs, for example http://127.0.0.1:8765")
+    parser.add_argument("--headed", action="store_true", help="show the browser window (real graphics)")
+    parser.add_argument("--out", type=Path, default=Path("demo-check"), help="directory for the report and screenshots")
+    args = parser.parse_args(argv)
+    processes: list[subprocess.Popen[bytes]] = []
+    try:
+        base_url = args.base_url
+        if not base_url:
+            port = free_port()
+            base_url = f"http://127.0.0.1:{port}"
+            processes.append(subprocess.Popen(backend_command(port), cwd=REPO_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+            processes.append(subprocess.Popen([str(PYTHON), "-m", "tools.mqtt_node_sim", "--interval", "2"], cwd=REPO_ROOT,
+                                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        wait_for(f"{base_url}/api/config")
+        report = run(base_url.rstrip("/"), args.out, args.headed)
+    finally:
+        for process in processes:
+            process.terminate()
+        for process in processes:
+            process.wait(timeout=10)
+    text = report.text()
+    print(text)
+    (args.out / "report.txt").write_text(text + "\n", encoding="utf-8")
+    (args.out / "report.json").write_text(json.dumps(asdict(report), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return 0 if report.passed else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
