@@ -59,7 +59,9 @@ def main(argv: list[str] | None = None) -> int:
     import paho.mqtt.client as mqtt
 
     host, _, port = args.broker.rpartition(":")
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="techseed-node-sim")
+    from app.backend.iot import client_id
+
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id("techseed-node-sim"))
     client.connect(host or "127.0.0.1", int(port))
     client.loop_start()
     rng = random.Random(args.seed)

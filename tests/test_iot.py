@@ -113,6 +113,9 @@ def test_without_paho_the_store_says_iot_is_unavailable(monkeypatch: pytest.Monk
 
 @pytest.fixture()
 def served():
+    # The stream computes the assessment every tick; build it first, as main() does, so the
+    # first ticks are not slowed down by the forecast.
+    server.assessor()
     sensors, fake = store()
     handler = type("TestHandler", (server.Handler,), {
         "settings": lantmateriet.Settings(None, None, None, None),
@@ -178,3 +181,45 @@ def test_the_stream_sends_each_reading_once_and_health_changes(served) -> None:
     assert [(item["node"], item["seq"]) for item in readings] == [("booth-temp", 1), ("booth-water", 2)]
     health = [data for name, data in received if name == "sensor_health"]
     assert health and all(item["online"] is False for item in health)
+
+
+def test_every_process_has_its_own_client_id() -> None:
+    import os
+
+    assert iot.client_id("techseed-firemap") == f"techseed-firemap-{os.getpid()}"
+
+
+@pytest.mark.skipif(not __import__("importlib").util.find_spec("paho"), reason="needs paho-mqtt and the mosquitto service")
+def test_two_backends_both_receive_the_nodes() -> None:
+    import socket
+    import time
+
+    import paho.mqtt.client as mqtt
+
+    try:
+        socket.create_connection(("127.0.0.1", 1883), timeout=1).close()
+    except OSError:
+        pytest.skip("needs the mosquitto service (docker compose up -d mosquitto)")
+    # Two stores in two "processes": give the second its own id as a second process would.
+    first, second = iot.SensorStore(), iot.SensorStore()
+    original = iot.client_id
+    iot.start(first, "127.0.0.1", 1883)
+    iot.client_id = lambda prefix: original(prefix) + "-second"
+    try:
+        iot.start(second, "127.0.0.1", 1883)
+    finally:
+        iot.client_id = original
+    deadline = time.time() + 10
+    while time.time() < deadline and not (first.connection == second.connection == "connected"):
+        time.sleep(0.1)
+    publisher = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=original("test-publisher"))
+    publisher.connect("127.0.0.1", 1883)
+    publisher.loop_start()
+    publisher.publish("techseed/test-node/temp", message(21.5), qos=1).wait_for_publish()
+    publisher.loop_stop()
+    publisher.disconnect()
+    deadline = time.time() + 10
+    while time.time() < deadline and not (first.snapshot()["sensors"] and second.snapshot()["sensors"]):
+        time.sleep(0.1)
+    assert first.connection == second.connection == "connected"
+    assert first.snapshot()["sensors"][0]["value"] == second.snapshot()["sensors"][0]["value"] == 21.5

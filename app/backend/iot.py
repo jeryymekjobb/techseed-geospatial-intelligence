@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import threading
 import time
@@ -127,6 +128,13 @@ class SensorStore:
             }
 
 
+def client_id(prefix: str) -> str:
+    """A client id of its own per process: the broker drops a client when another connects
+    with the same id, so two backends (or a check next to a running demo) would keep
+    pushing each other off."""
+    return f"{prefix}-{os.getpid()}"
+
+
 def start(store: SensorStore, host: str, port: int) -> None:
     """Connect the store to the broker in the background; reconnects by itself."""
     try:
@@ -145,7 +153,7 @@ def start(store: SensorStore, host: str, port: int) -> None:
     def on_disconnect(_client: Any, _userdata: Any, _flags: Any, reason: Any, _properties: Any) -> None:
         store.set_connection("disconnected", f"Frånkopplad från {host}:{port} ({reason}) – försöker igen.")
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="techseed-firemap", clean_session=True)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id("techseed-firemap"), clean_session=True)
     client.on_connect = on_connect
     client.on_disconnect = on_disconnect
     client.on_message = lambda _client, _userdata, message: store.handle(message.topic, message.payload)
