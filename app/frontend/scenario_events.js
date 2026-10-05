@@ -13,6 +13,7 @@ const EVENT_TEXTS = {
   power_failure: { title: "POWER FAILURE", detail: "Syntetisk händelse – elnätet finns inte i kartdata." },
   plus60: { title: "+60 MIN", detail: "Prognosen visas med kortaste horisonten – modell med stor osäkerhet." },
   god_view: { title: "GOD VIEW", detail: "Kameran visar hela lägesbilden." },
+  space_view: { title: "SPACE VIEW", detail: "Satelliternas läge 2014, beräknat ur banelement." },
   filter: { title: "FILTER", detail: "Ett lager visas eller döljs på kartan." },
 };
 
@@ -38,6 +39,7 @@ function eventBanner(event, status) {
   const text = eventText(event);
   if (event.kind === "plus60" && !status.plus60) return { title: "+60 MIN AV", detail: "Prognosen visas med vald horisont igen." };
   if (event.kind === "god_view" && !status.god_view) return { title: "RETURN TO INCIDENT", detail: "Kameran går tillbaka till branden." };
+  if (event.kind === "space_view" && !status.space_view) return { title: "RETURN TO INCIDENT", detail: "Kameran går tillbaka till branden." };
   if (event.kind === "filter") {
     const hidden = status.hidden_layers.includes(event.target);
     return { title: text.title, detail: hidden ? "Lagret döljs." : "Lagret visas." };
@@ -54,6 +56,7 @@ function statusLines(status) {
   if (status.power_failure) lines.push({ level: "alert", text: "Strömavbrott (syntetiskt)" });
   if (status.plus60) lines.push({ level: "info", text: "+60 MIN: prognos med kortaste horisonten" });
   if (status.god_view) lines.push({ level: "info", text: "GOD VIEW" });
+  if (status.space_view) lines.push({ level: "info", text: "SPACE VIEW" });
   const hidden = FILTER_CATEGORIES.filter((item) => status.hidden_layers.includes(item.id)).map((item) => item.label);
   if (hidden.length) lines.push({ level: "info", text: `Dolda lager: ${hidden.join(", ")}` });
   return lines;

@@ -48,4 +48,35 @@ function groundDistanceKm(lat1, lon1, lat2, lon2) {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
-if (typeof module !== "undefined") module.exports = { elementAt, subpoint, groundDistanceKm };
+// Points along the orbit from `minutes` before to `minutes` after the time, with heights.
+function orbitTrack(lib, elements, time, minutes = 50, stepMinutes = 1) {
+  const points = [];
+  for (let offset = -minutes; offset <= minutes; offset += stepMinutes) {
+    const point = subpoint(lib, elements, new Date(time.getTime() + offset * 60000));
+    if (point) points.push(point);
+  }
+  return points;
+}
+
+// The first time from `from` on at which the point lies within half the swath of the
+// ground track: coarse steps of 30 s, refined to 5 s near the swath edge. null when no
+// pass comes within `hours`.
+function nextPass(lib, elements, from, latitude, longitude, halfSwathKm, hours = 24) {
+  const distanceAt = (ms) => {
+    const point = subpoint(lib, elements, new Date(ms));
+    return point ? groundDistanceKm(point.latitude, point.longitude, latitude, longitude) : Infinity;
+  };
+  const start = from.getTime();
+  for (let ms = start; ms <= start + hours * 3600000; ms += 30000) {
+    const km = distanceAt(ms);
+    if (km <= halfSwathKm) return new Date(ms);
+    if (km <= halfSwathKm + 250) {
+      for (let fine = ms + 5000; fine < ms + 30000; fine += 5000) {
+        if (distanceAt(fine) <= halfSwathKm) return new Date(fine);
+      }
+    }
+  }
+  return null;
+}
+
+if (typeof module !== "undefined") module.exports = { elementAt, subpoint, groundDistanceKm, orbitTrack, nextPass };

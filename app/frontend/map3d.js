@@ -15,6 +15,9 @@ const FLIGHT = [
 const FIRE_VIEW = { pitch: -50, range: 42_000, seconds: 1.1 };
 // GOD VIEW: the whole of Europe, so satellites and other layers fit around the fire.
 const GOD_VIEW = { lon: 15, lat: 55, height: 12_000_000, seconds: 2.0 };
+// SPACE VIEW: the satellites' orbits around Scandinavia.
+const SPACE_VIEW = { lon: 16, lat: 45, height: 20_000_000, seconds: 2.0 };
+const SATELLITE_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7" };
 
 function cesiumColor(hex, alpha = 1) {
   return Cesium.Color.fromCssColorString(hex).withAlpha(alpha);
@@ -136,6 +139,8 @@ async function createCesiumMap(config) {
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
   const stationLayer = group("stations");
+  const satelliteLayer = group("satellites");
+  const satelliteEntities = new Map();  // norad -> { point, track }
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
   let terrainLayer = null;
@@ -340,6 +345,7 @@ async function createCesiumMap(config) {
       layers.unshift(["Hotspots", (visible) => { points.show = visible; }, () => points.show]);
       layers.push(["Syntetiska sensorer", (visible) => { syntheticLayer.show = visible; }, () => syntheticLayer.show]);
       layers.push(["Svar på fråga", (visible) => { queryLayer.show = visible; }, () => queryLayer.show]);
+      layers.push(["Satelliter (2014)", (visible) => { satelliteLayer.show = visible; }, () => satelliteLayer.show]);
       const panel = document.createElement("form");
       panel.className = "layer-panel";
       panel.setAttribute("aria-label", "Lager");
@@ -417,9 +423,84 @@ async function createCesiumMap(config) {
 
     // GOD VIEW's filter: hide or show a category of layers.
     setCategoryVisible(category, visible) {
-      const groups = { space: [points], iot: [syntheticLayer], infrastructure: [queryLayer], weather: [windLayer, stationLayer] };
+      const groups = { space: [points, satelliteLayer], iot: [syntheticLayer], infrastructure: [queryLayer], weather: [windLayer, stationLayer] };
       for (const layer of groups[category] || []) layer.show = visible;
       for (const [box, shown] of layerBoxes) box.checked = shown();
+    },
+
+    // The 2014 satellites at the clock (panel.js computes them with orbits.js): a point at
+    // its height with its name, and the orbit 50 minutes back and ahead.
+    drawSatellites(items) {
+      for (const item of items) {
+        const color = cesiumColor(SATELLITE_COLORS[item.instrument] || "#d0d0d0");
+        const position = Cesium.Cartesian3.fromDegrees(item.point.longitude, item.point.latitude, item.point.height_km * 1000);
+        const track = item.track.map((point) => Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude, point.height_km * 1000));
+        let entry = satelliteEntities.get(item.norad);
+        if (!entry) {
+          entry = {
+            point: satelliteLayer.entities.add({
+              name: escapeText(`${item.name} – ${item.role}`),
+              description: escapeText(`${item.name}${item.instrument ? ` (${item.instrument})` : ""}: position 2014, beräknad ur banelement (SGP4) – inte en observation.`),
+              position,
+              point: { pixelSize: 9, color, outlineColor: cesiumColor("#ffffff"), outlineWidth: 2 },
+              label: {
+                text: item.name, font: "14px system-ui, sans-serif", fillColor: cesiumColor("#ffffff"),
+                outlineColor: cesiumColor("#000000"), outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                pixelOffset: new Cesium.Cartesian2(10, 0), horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+              },
+            }),
+            trackPositions: track,
+          };
+          // A callback keeps the orbit dynamic: replacing the positions every tick would
+          // rebuild the geometry asynchronously, and it would never be drawn.
+          entry.track = satelliteLayer.entities.add({
+            polyline: {
+              positions: new Cesium.CallbackProperty(() => entry.trackPositions, false),
+              width: 2, material: color.withAlpha(0.8), arcType: Cesium.ArcType.NONE,
+            },
+          });
+          satelliteEntities.set(item.norad, entry);
+        } else {
+          entry.point.position = position;
+          entry.trackPositions = track;
+        }
+      }
+    },
+
+    // A detection arrived: a line from the satellite where it observed down to the detection.
+    flashSatellite({ norad, from, to, label }) {
+      const line = satelliteLayer.entities.add({
+        polyline: {
+          positions: [Cesium.Cartesian3.fromDegrees(from.longitude, from.latitude, from.height_km * 1000), Cesium.Cartesian3.fromDegrees(to[1], to[0], 0)],
+          width: 2.5, material: cesiumColor("#ffd54a", 0.9), arcType: Cesium.ArcType.NONE,
+        },
+        position: Cesium.Cartesian3.fromDegrees(from.longitude, from.latitude, from.height_km * 1000),
+        label: {
+          text: label, font: "13px system-ui, sans-serif", fillColor: cesiumColor("#ffd54a"),
+          outlineColor: cesiumColor("#000000"), outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          pixelOffset: new Cesium.Cartesian2(10, 18), horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+        },
+      });
+      const satellite = satelliteEntities.get(norad);
+      if (satellite) satellite.point.point.pixelSize = 16;
+      setTimeout(() => {
+        satelliteLayer.entities.remove(line);
+        if (satellite) satellite.point.point.pixelSize = 9;
+      }, 4000);
+    },
+
+    // Mission control's SPACE VIEW: far enough out for the orbits; back to the fire when off.
+    showSpaceView(on) {
+      if (!on) {
+        const [lat, lon] = config.fire_centre;
+        return flyToFire(lon, lat);
+      }
+      return new Promise((resolve) => {
+        viewer.camera.flyTo({
+          destination: Cesium.Cartesian3.fromDegrees(SPACE_VIEW.lon, SPACE_VIEW.lat, SPACE_VIEW.height),
+          duration: SPACE_VIEW.seconds, complete: resolve, cancel: resolve,
+        });
+      });
     },
 
     // Show an evidence object from the assessment.

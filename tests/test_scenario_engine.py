@@ -73,7 +73,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     scenario, fake = engine()
 
     assert scenario.snapshot()["status"] == {
-        "satcom_up": True, "plus60": False, "god_view": False, "power_failure": False,
+        "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
         "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [],
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
@@ -91,7 +91,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert [event["seq"] for event in state["events"]] == [1, 2, 3, 4, 5, 6, 7]
     assert all(event["clock_utc"] == "2014-08-04T12:00:00Z" for event in state["events"])
     assert state["status"] == {
-        "satcom_up": False, "plus60": True, "god_view": True, "power_failure": False,
+        "satcom_up": False, "plus60": True, "god_view": True, "space_view": False, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
         "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [],
     }

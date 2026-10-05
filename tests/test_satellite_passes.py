@@ -9,6 +9,7 @@ import json
 import shutil
 import subprocess
 import threading
+from datetime import timedelta
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import urlopen
@@ -67,7 +68,7 @@ def test_the_endpoint_gives_the_elements_with_their_role_and_source(tmp_path: Pa
     assert result["source"] == "Space-Track.org (gp_history), hämtad 2026-10-05T08:08:00Z"
     assert result["satellites"] == [{  # Landsat 8 without elements is left out
         "norad": "37849", "name": "Suomi NPP", "firms": "SNPP", "instrument": "VIIRS",
-        "role": "FIRMS-detektioner (VIIRS)", "elements": [element],
+        "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0, "elements": [element],
     }]
 
 
@@ -134,3 +135,43 @@ def test_the_check_tells_a_wrong_time_apart(tmp_path: Path) -> None:
     # Three quarters of an hour later the satellites are on the other side of the Earth.
     passes = closest_passes(tmp_path, 45)
     assert all(item["km"] > 5000 for items in passes.values() for item in items)
+
+
+PASS_CHECK = """
+import * as lib from "SATELLITE_JS/index.js";
+import { createRequire } from "module";
+import fs from "fs";
+const require = createRequire(import.meta.url);
+const orbits = require("ORBITS");
+const { satellites, cases, centre } = JSON.parse(fs.readFileSync(0, "utf8"));
+const result = cases.map(({ norad, from, halfSwath }) => {
+  const next = orbits.nextPass(lib, satellites[norad].elements, new Date(from), centre[0], centre[1], halfSwath);
+  return next && next.toISOString();
+});
+const track = orbits.orbitTrack(lib, satellites["37849"].elements, new Date(cases[0].from));
+console.log(JSON.stringify({ result, track: track.length, heights: [Math.min(...track.map((p) => p.height_km)), Math.max(...track.map((p) => p.height_km))] }));
+"""
+
+
+@needs_orbits
+def test_the_next_pass_is_the_pass_that_made_the_detections(tmp_path: Path) -> None:
+    closest_passes(tmp_path, 0)  # makes the satellite.js copy
+    centre = list(server.scenario.FIRE_CENTRE)
+    cases, expected = [], []
+    for name, norad in NORAD.items():
+        times = sorted({item["acq_datetime_utc"] for item in server.detections() if item["satellite"] == name})
+        for acquired in times[:: max(1, len(times) // 4)][:4]:
+            moment = server.parse_utc(acquired)
+            half = HALF_SWATH_KM["VIIRS" if name == "SNPP" else "MODIS"]
+            cases.append({"norad": norad, "from": (moment - timedelta(minutes=20)).strftime("%Y-%m-%dT%H:%M:%SZ"), "halfSwath": half})
+            expected.append(moment)
+    script = PASS_CHECK.replace("SATELLITE_JS", (tmp_path / "satellite.js").as_posix()).replace("ORBITS", (FRONTEND / "orbits.js").as_posix())
+    payload = {"satellites": json.loads(satellites.TLE_FILE.read_text(encoding="utf-8"))["satellites"], "cases": cases, "centre": centre}
+    output = json.loads(subprocess.run(["node", "--input-type=module", "-e", script], input=json.dumps(payload),
+                                       capture_output=True, text=True, check=True).stdout)
+    assert len(cases) >= 9
+    for found, moment in zip(output["result"], expected):
+        # The pass begins when the fire enters the swath, at most a few minutes before the granule.
+        offset = (server.parse_utc(found.replace(".000Z", "Z")) - moment).total_seconds()
+        assert -600 <= offset <= 360, (found, moment)
+    assert output["track"] == 101 and 800 < output["heights"][0] < output["heights"][1] < 860  # Suomi NPP near 830 km

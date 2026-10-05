@@ -35,7 +35,7 @@ function showState(scenarioState) {
   $("sim-time").textContent = `${localTime.format(new Date(scenarioState.clock_utc))} svensk tid`;
   $("playback").textContent = scenarioState.finished ? "Uppspelningen är klar." : scenarioState.playing ? "Spelar upp." : "Pausad.";
   $("play").classList.toggle("active", scenarioState.playing);
-  const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view };
+  const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view, space_view: status.space_view };
   for (const button of document.querySelectorAll("[data-filter]")) {
     const shown = !status.hidden_layers.includes(button.dataset.filter);
     button.classList.toggle("active", shown);

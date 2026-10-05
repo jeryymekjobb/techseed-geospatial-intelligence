@@ -39,6 +39,11 @@ const state = {
   // Mission-control status (scenario_events.js): applied when it changes.
   scenarioStatus: null,
   hiddenLayers: [],
+  // Satellites in 2014 (/api/satellites, orbits.js with satellite.js).
+  satellites: null,
+  satelliteLib: null,
+  satelliteInfoAt: null,
+  flashedPasses: new Set(),
   pendingEvents: [],
   horizonBeforePlus60: null,
   // IoT (sensors.js): real nodes by "node/kind", the synthetic sensors at the clock.
@@ -229,6 +234,75 @@ function setClock(clock) {
   showWeather(clock);
   showWind(clock);
   drawForecast(clock);
+  showSatellites(clock);
+}
+
+const SATELLITE_JS = "/vendor/satellite.js-7.1.0/index.js";
+
+async function setupSatellites(config) {
+  const section = document.createElement("section");
+  section.id = "satellite-section";
+  section.innerHTML = '<h2>Satelliter 2014</h2><ul id="satellite-list" class="scenario-status"></ul><div id="satellite-note" class="status"></div>';
+  $("assessment-evidence").closest("section").after(section);
+  if (!config.layers.satellites) {
+    $("satellite-note").textContent = "Banelementen är inte hämtade (tools/fetch_tle_history.py); inga satelliter visas.";
+    return;
+  }
+  const data = await loadOptional("/api/satellites", (error) => { $("satellite-note").textContent = `Satelliterna kunde inte laddas: ${error.message}.`; });
+  if (!data?.available) return;
+  try {
+    state.satelliteLib = await import(SATELLITE_JS);
+  } catch (error) {
+    $("satellite-note").textContent = `satellite.js saknas (tools/fetch_web_vendor.py): ${error.message}.`;
+    return;
+  }
+  state.satellites = data;
+  $("satellite-note").textContent = `${data.label}. Källa: ${data.source}.`;
+}
+
+function showSatellites(clock) {
+  if (!state.satelliteLib || !clock) return;
+  const lib = state.satelliteLib;
+  const items = state.satellites.satellites.map((satellite) => ({
+    ...satellite,
+    point: subpoint(lib, satellite.elements, clock),
+    track: orbitTrack(lib, satellite.elements, clock),
+  })).filter((item) => item.point);
+  state.map.drawSatellites(items);
+  // Height, speed and next pass change slowly; recompute them every 10 scenario minutes.
+  if (state.satelliteInfoAt !== null && Math.abs(clock - state.satelliteInfoAt) < 600000) return;
+  state.satelliteInfoAt = clock;
+  const [lat, lon] = state.config.fire_centre;
+  fillList("satellite-list", items.map((item) => {
+    const instrument = item.instrument ? ` (${item.instrument})` : "";
+    let pass = "";
+    if (item.half_swath_km) {
+      const next = nextPass(lib, item.elements, clock, lat, lon, item.half_swath_km);
+      pass = next === null ? " · ingen passage över branden inom 24 h"
+        : next - clock < 60000 ? " · över branden nu"
+        : ` · nästa passage över branden ${clockTime.format(next)} svensk tid`;
+    }
+    return { level: "info", text: `${item.name}${instrument}: ${Math.round(item.point.height_km)} km, `
+      + `${item.point.speed_km_s.toFixed(1).replace(".", ",")} km/s${pass}` };
+  }), "Inga satelliter.");
+}
+
+// A new detection: the satellite that made it, at the time it made it, with a line down to it.
+function flashDetectionSatellite(feature) {
+  if (!state.satelliteLib) return;
+  const properties = feature.properties;
+  const satellite = state.satellites.satellites.find((item) => item.firms === properties.satellite);
+  const key = `${properties.satellite}|${properties.acq_datetime_utc}`;
+  if (!satellite || state.flashedPasses.has(key)) return;
+  state.flashedPasses.add(key);
+  const time = new Date(properties.acq_datetime_utc);
+  const from = subpoint(state.satelliteLib, satellite.elements, time);
+  if (!from) return;
+  const [lon, lat] = feature.geometry.coordinates;
+  state.map.flashSatellite({
+    norad: satellite.norad, from, to: [lat, lon],
+    label: `${properties.instrument}-detektion ${properties.acq_datetime_utc.slice(11, 16)} UTC (${satellite.name})`,
+  });
 }
 
 // The playback is shared: the backend holds one scenario clock that every screen
@@ -335,6 +409,10 @@ function applyStatus(status) {
     }
   }
   if (status.god_view !== Boolean(previous?.god_view)) state.map.showGodView(status.god_view);
+  if (status.space_view !== Boolean(previous?.space_view)) {
+    state.map.showSpaceView(status.space_view);
+    $("satellite-section")?.classList.toggle("space-view", status.space_view);
+  }
   showFilter(status);
 }
 
@@ -479,7 +557,11 @@ function connectScenario() {
       applyState(data.state);
       resolve();
     });
-    source.addEventListener("hotspot", (event) => state.map.addHotspot(JSON.parse(event.data)));
+    source.addEventListener("hotspot", (event) => {
+      const feature = JSON.parse(event.data);
+      state.map.addHotspot(feature);
+      flashDetectionSatellite(feature);
+    });
     source.addEventListener("scenario_event", (event) => {
       const scenarioEvent = JSON.parse(event.data);
       state.pendingEvents.push(scenarioEvent);
@@ -581,6 +663,7 @@ async function startApp(createMap) {
   state.map.finish();
   setupScenarioView();
   await setupQuestions();
+  await setupSatellites(config);
   state.iotConnection = await loadOptional("/api/sensors", (error) => { $("iot-connection").textContent = `IoT kunde inte laddas: ${error.message}.`; });
   showRealSensors();
   setClock(new Date(config.playback.start_utc));

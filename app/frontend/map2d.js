@@ -237,6 +237,11 @@ function createLeafletMap(config) {
       }
     },
 
+    // The satellites and SPACE VIEW are drawn on the 3D globe only; the panel lists them.
+    drawSatellites() {},
+    flashSatellite() {},
+    showSpaceView() {},
+
     // Show an evidence object from the assessment.
     focusOn(lat, lon) {
       map.flyTo([lat, lon], Math.max(map.getZoom(), 12), { duration: 1 });

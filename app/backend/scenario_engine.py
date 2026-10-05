@@ -31,11 +31,11 @@ DEFAULT_SPEED = 3600.0
 # are kept until `reset`. `target` names a sensor or road and is optional.
 EVENT_KINDS = (
     "satellite_detection", "sensor_failure", "satcom_failure", "satcom_restore",
-    "road_closed", "power_failure", "plus60", "god_view", "filter",
+    "road_closed", "power_failure", "plus60", "god_view", "filter", "space_view",
 )
 # Map categories mission control can hide; maritime, aviation and emergency are not in the demo.
 FILTERS = ("space", "iot", "infrastructure", "weather")
-TOGGLES = ("plus60", "god_view")
+TOGGLES = ("plus60", "god_view", "space_view")
 TARGET_PATTERN = re.compile(r"[a-z0-9_-]{1,64}")
 MAX_EVENTS = 100
 
@@ -101,7 +101,7 @@ class ScenarioEngine:
     def _status(self) -> dict[str, Any]:
         """The state the events add up to, so a screen that connects late shows the same."""
         status: dict[str, Any] = {
-            "satcom_up": True, "plus60": False, "god_view": False, "power_failure": False,
+            "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
             "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None,
             "hidden_layers": [],
         }

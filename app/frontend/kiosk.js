@@ -22,7 +22,8 @@ function parseKioskOptions(search) {
 function speedLabel(seconds) {
   if (seconds % 86400 === 0) return `${seconds / 86400} dygn/s`;
   if (seconds % 3600 === 0) return `${seconds / 3600} ${seconds === 3600 ? "timme" : "timmar"}/s`;
-  return `${Math.round(seconds / 60)} minuter/s`;
+  const minutes = Math.round(seconds / 60);
+  return `${minutes} ${minutes === 1 ? "minut" : "minuter"}/s`;
 }
 
 if (typeof module !== "undefined") module.exports = { parseKioskOptions, speedLabel };
