@@ -24,6 +24,8 @@ Exhibition prototype in two parts:
 
 All fire data is **historical (2014) and replayed, not live**; the GUI says so.
 
+To run the demo in the booth, see the operator guide `docs/operatorsguide.md` (Swedish).
+
 The 2D map (`index.html`, `map2d.js`) and the 3D globe (`3d.html`, `map3d.js`,
 CesiumJS without Cesium ion) share the panel logic in `panel.js`; each map file is
 an adapter with the same interface.

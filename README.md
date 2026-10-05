@@ -7,6 +7,7 @@ Concept work for a repeatable geospatial-intelligence demonstrator for IoTDagen.
 - `onepager.md` — user-provided concept for the exhibition demonstrator.
 - `CONTEXT.md` — project purpose, boundaries and current direction.
 - `AGENTS.md` — repository working and review rules.
+- `docs/operatorsguide.md` — operator guide (Swedish) for running the demo in the booth: preparation, start, the two-minute script, what is real or simulated, troubleshooting.
 - `app/` — fire-map prototype for the Västmanland 2014 scenario: backend, 2D map and 3D globe, mission control, IoT, assessment and spatial questions; see `app/README.md`.
 - `satellite_data/firms/` — NASA FIRMS archive extracts for summer 2014.
 - `weather_data/smhi/` — SMHI hourly station observations for the fire period.
