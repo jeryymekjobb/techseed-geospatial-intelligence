@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, forecast, iot, lantmateriet, offline_tiles, scenario, sensor_sim, spatial
+from app.backend import assessment, forecast, iot, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial
 from app.backend.scenario_engine import CommandError, ScenarioEngine
 from tools.firms_extract import daily_summary, select_detections
 
@@ -250,6 +250,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
             "terrain": "/api/layers/terrain",
             "offline_tiles": offline_tiles.available(),
             "terrain3d": (TERRAIN_DIR / "layer.json").is_file(),
+            "satellites": satellites.satellites()["available"],
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "lantmateriet_fastighet": settings.fastighet_enabled,
             "lantmateriet_fastighet_layers": settings.fastighet_layers if settings.fastighet_enabled else "",
@@ -313,6 +314,8 @@ class Handler(BaseHTTPRequestHandler):
             self.stream(query)
         elif path == "/api/sensors":
             self.send_json(self.sensors.snapshot())
+        elif path == "/api/satellites":
+            self.send_json(satellites.satellites())
         elif path == "/api/questions":
             self.send_json([{"id": key, "question": value["question"]} for key, value in spatial.QUESTIONS.items()])
         elif path == "/api/ask":
