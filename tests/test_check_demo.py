@@ -48,3 +48,16 @@ def test_after_a_failure_the_rest_is_not_run() -> None:
     report.skip_rest([name for name, _ in check_demo.STEPS[1:]])
     assert [step.verdict for step in report.steps] == ["UNDERKÄND"] + ["EJ KÖRD"] * 7
     assert not report.passed and "headless" in report.text()
+
+
+def test_the_report_names_the_computer_and_graphics_and_warns_on_a_low_frame_rate() -> None:
+    report = check_demo.Report("http://x", True, "2026-10-05T12:00:00Z", computer="massdator", webgl_renderer="ANGLE (NVIDIA)",
+                               canvas_px="1260x856")
+    report.steps.append(check_demo.Step("1 Öppning: jorden till branden", "GODKÄND", "ok", 1.0))
+    report.frames_per_second = 12.5
+    text = report.text()
+    assert "på massdator" in text and "Grafik (WebGL i Chrome): ANGLE (NVIDIA); 3D-ytan 1260x856 pixlar" in text
+    assert "VARNING: under 20 bilder per sekund" in text
+    assert report.passed  # a low frame rate warns but does not fail
+    report.frames_per_second = 45.0
+    assert "VARNING" not in report.text()

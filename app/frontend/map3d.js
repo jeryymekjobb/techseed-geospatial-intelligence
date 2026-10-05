@@ -196,6 +196,10 @@ async function createCesiumMap(config) {
         appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: true }),
         classificationType: Cesium.ClassificationType.TERRAIN,
       }));
+      // Off at the start: draping thousands of land-cover polygons on the 3D terrain halved
+      // the frame rate in a measurement (11 -> 5.5 frames per second on Intel graphics);
+      // the Landsat image shows the ground as well. It can be switched on in the layer panel.
+      terrainLayer.show = false;
       layers.push(["Terräng (OSM)", (visible) => { terrainLayer.show = visible; }, () => terrainLayer.show]);
     },
 

@@ -188,27 +188,40 @@ Första gången du kör 5.4 hämtar Docker tjänsterna, cirka 2,5 GB. Det sker b
 När 5.6 är klar skriver den hur många "element sets" den hämtade för varje satellit, till
 exempel `Suomi NPP: 18 element sets`. När 5.7 är klar skriver den namnen på två bilder.
 
-## 6. Generalrepetition
+## 6. Generalrepetition – på varje dator
 
-Den här kontrollen kör hela demon automatiskt och talar om ifall något inte fungerar. Kör
-den på **mässans dator**, med skärmarna inkopplade:
+Det här steget ingår i installationen på **varje dator** där demon ska köras. Det visar
+att allt fungerar och mäter hur jämnt 3D-vyn rör sig på just den datorn. Kör det med
+skärmarna inkopplade som de ska vara i montern.
+
+Stäng först en demo som redan är igång (Ctrl+C i terminal 1 och 2 från avsnitt 7).
+Kontrollen startar en egen.
 
 ```bash
-.venv/bin/python -m tools.check_demo --headed --out ~/demo-check
+.venv/bin/python -m tools.check_demo --headed --out ~/demo-check-$(hostname)
 ```
 
-Två webbläsarfönster öppnas och demon körs av sig själv i ungefär fem minuter. Rör inte
+Två webbläsarfönster öppnas och demon körs av sig själv i några minuter. Rör inte
 fönstren under tiden. När den är klar skriver den en rapport, som också sparas i
-`~/demo-check/report.txt`. Så här ser en lyckad körning ut:
+`~/demo-check-<datorns namn>/report.txt` tillsammans med en skärmdump per steg. Skicka
+mappen till den som ansvarar för demon, så att datorerna kan jämföras.
 
-- Alla åtta steg står som **GODKÄND**.
-- Sista raden är `RESULTAT: GODKÄND`.
-- Raden "Bilder per sekund i 3D" säger hur jämnt 3D-vyn rör sig. Under ungefär 20 bilder
-  per sekund kommer kameran och satelliterna att kännas ryckiga. Gränsen är en tumregel,
-  den är inte uppmätt på mässans dator.
+Så här läser du rapporten:
 
-Står något steg som **UNDERKÄND**, se avsnitt 13. Skärmdumparna i `~/demo-check/` visar hur
-det såg ut.
+- **Grafik** visar vilket grafikkort Chrome använde.
+- Alla åtta steg ska stå som **GODKÄND**, och sista raden ska vara `RESULTAT: GODKÄND`.
+- **Bilder per sekund i 3D** säger hur jämnt 3D-vyn rör sig. Under 20 skriver rapporten en
+  **VARNING**: kameran och satelliterna kommer att kännas ryckiga. Gränsen är en tumregel.
+
+Står något steg som **UNDERKÄND**, se avsnitt 13. Skärmdumparna visar hur det såg ut.
+
+### Datorer med två grafikkort
+
+Många bärbara datorer har ett inbyggt grafikkort (ofta Intel) och ett kraftfullare (ofta
+NVIDIA). Chrome använder oftast det inbyggda, och det står under **Grafik** i rapporten.
+Att tvinga Chrome till NVIDIA-kortet fungerade inte på den dator där demon provades,
+varken via PRIME offload eller via Vulkan: 3D-vyn startade inte alls. Skicka därför rapporten vidare om den visar en varning, i stället för
+att försöka byta grafikkort själv.
 
 ---
 
@@ -356,6 +369,7 @@ Hitta det du ser i vänstra kolumnen. Åtgärderna A–F står i kodblocket unde
 | 3D-vyn rör sig ryckigt | För hög hastighet eller för svagt grafikkort. | Tryck **1 MINUT/S** i SPACE VIEW. Kör generalrepetitionen i avsnitt 6. |
 | Mission control säger "fel eller saknad token" | Backend kräver token. | Lägg till `?token=din-token` i adressen, se avsnitt 9. |
 | GOD VIEW blir tom på 2D-kartan | Känd begränsning: den sparade kartan täcker bara brandområdet. | Använd 3D-vyn (`3d.html`). |
+| En röd ruta på huvudskärmen: "An error occurred while rendering. Rendering has stopped." | 3D-vyn har slutat rita, oftast på grund av grafikkortet. Panelen till höger fungerar fortfarande. | Ladda om huvudskärmen med adressen i avsnitt 8. Kommer rutan igen, starta om Chrome på vanligt sätt och kör generalrepetitionen i avsnitt 6. |
 | Något annat ser konstigt ut | – | Tryck **RESET**. Hjälper det inte, ladda om huvudskärmen med adressen i avsnitt 8. |
 
 Åtgärderna körs från repots mapp:

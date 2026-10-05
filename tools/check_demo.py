@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import socket
 import subprocess
 import sys
@@ -37,6 +38,9 @@ PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
 # 09:30 UTC on 4 August: a VIIRS pass at 09:48 and the Landsat scene at 10:06 come within minutes.
 START_UTC = "2014-08-04T09:30:00Z"
 RESET_LIMIT_S = 5.0
+# Below this the camera and satellites feel jerky. A rule of thumb, not measured at the
+# exhibition, so a lower rate gives a warning and does not fail the check.
+DEFAULT_MIN_FPS = 20.0
 WAIT_MS = 60000
 # Headless Chrome has no GPU; these flags give it WebGL in software, so the 3D view can start.
 SOFTWARE_WEBGL = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
@@ -61,8 +65,12 @@ class Report:
     base_url: str
     headed: bool
     started_utc: str
+    computer: str = field(default_factory=platform.node)
     steps: list[Step] = field(default_factory=list)
     frames_per_second: float | None = None
+    webgl_renderer: str | None = None
+    canvas_px: str | None = None
+    min_fps: float = DEFAULT_MIN_FPS
     javascript_errors: list[str] = field(default_factory=list)
 
     @property
@@ -74,10 +82,14 @@ class Report:
         self.steps += [Step(name, "EJ KÖRD", "ett tidigare steg misslyckades", 0.0) for name in names]
 
     def text(self) -> str:
-        lines = [f"Demokontroll {self.started_utc} mot {self.base_url} ({'synligt fönster' if self.headed else 'headless'})"]
+        lines = [f"Demokontroll {self.started_utc} på {self.computer} mot {self.base_url} "
+                 f"({'synligt fönster' if self.headed else 'headless'})"]
+        lines.append(f"Grafik (WebGL i Chrome): {self.webgl_renderer or 'okänd'}; 3D-ytan {self.canvas_px or 'okänd'} pixlar")
         lines += [f"{step.verdict:9} {step.name} ({step.seconds:.1f} s): {step.detail}" for step in self.steps]
         fps = "ej mätt" if self.frames_per_second is None else f"{self.frames_per_second:.1f}"
         lines.append(f"Bilder per sekund i 3D under uppspelning: {fps}")
+        if self.frames_per_second is not None and self.frames_per_second < self.min_fps:
+            lines.append(f"VARNING: under {self.min_fps:.0f} bilder per sekund – kameran och satelliterna blir ryckiga")
         lines.append("JavaScript-fel: " + ("; ".join(self.javascript_errors) if self.javascript_errors else "inga"))
         lines.append("RESULTAT: " + ("GODKÄND" if self.passed else "UNDERKÄND"))
         return "\n".join(lines)
@@ -231,6 +243,20 @@ def reset(demo: Demo) -> str:
     return f"huvudskärmen {main_ready:.2f} s, båda skärmarna {both_ready:.2f} s"
 
 
+WEBGL_RENDERER = """() => {
+  const gl = document.createElement("canvas").getContext("webgl2") || document.createElement("canvas").getContext("webgl");
+  if (!gl) return null;
+  const info = gl.getExtension("WEBGL_debug_renderer_info");
+  return info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+}"""
+
+
+CANVAS_SIZE = """() => {
+  const canvas = document.querySelector("#map canvas");
+  return canvas ? `${canvas.width}x${canvas.height}` : null;
+}"""
+
+
 STEPS: list[tuple[str, Callable[[Demo], str]]] = [
     ("1 Öppning: jorden till branden", opening),
     ("2 SPACE VIEW och RETURN TO INCIDENT", space_view),
@@ -259,10 +285,10 @@ def frames_per_second(demo: Demo, seconds: float = 3.0) -> float:
         demo.command({"command": "speed", "speed": 3600})  # back to the demo's speed
 
 
-def run(base_url: str, out: Path, headed: bool) -> Report:
+def run(base_url: str, out: Path, headed: bool, min_fps: float = DEFAULT_MIN_FPS) -> Report:
     from playwright.sync_api import sync_playwright
 
-    report = Report(base_url, headed, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    report = Report(base_url, headed, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), min_fps=min_fps)
     out.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
         args = KEEP_BOTH_RUNNING + ([] if headed else SOFTWARE_WEBGL)
@@ -277,6 +303,12 @@ def run(base_url: str, out: Path, headed: bool) -> Report:
                 report.steps.append(Step(name, "UNDERKÄND", detail[:300], time.time() - started))
                 report.skip_rest([later for later, _ in STEPS[index + 1:]])
                 break
+            if index == 0:
+                try:
+                    report.webgl_renderer = demo.main.evaluate(WEBGL_RENDERER)
+                    report.canvas_px = demo.main.evaluate(CANVAS_SIZE)
+                except Exception:  # noqa: BLE001 - the renderer is information only
+                    report.webgl_renderer = None
             if name.startswith("3 "):
                 try:
                     report.frames_per_second = frames_per_second(demo)
@@ -291,6 +323,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base-url", help="check a backend that already runs, for example http://127.0.0.1:8765")
     parser.add_argument("--headed", action="store_true", help="show the browser window (real graphics)")
     parser.add_argument("--out", type=Path, default=Path("demo-check"), help="directory for the report and screenshots")
+    parser.add_argument("--min-fps", type=float, default=DEFAULT_MIN_FPS, help="warn below this 3D frame rate")
     args = parser.parse_args(argv)
     processes: list[subprocess.Popen[bytes]] = []
     try:
@@ -302,7 +335,7 @@ def main(argv: list[str] | None = None) -> int:
             processes.append(subprocess.Popen([str(PYTHON), "-m", "tools.mqtt_node_sim", "--interval", "2"], cwd=REPO_ROOT,
                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         wait_for(f"{base_url}/api/config")
-        report = run(base_url.rstrip("/"), args.out, args.headed)
+        report = run(base_url.rstrip("/"), args.out, args.headed, args.min_fps)
     finally:
         for process in processes:
             process.terminate()
