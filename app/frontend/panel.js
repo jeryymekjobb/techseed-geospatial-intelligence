@@ -301,8 +301,11 @@ async function setupSatellites(config) {
   }
   state.satellites = data;
   $("satellite-note").textContent = `${data.label}. Källa: ${data.source}.`;
-  const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
-  state.monitor = createSatelliteMonitor($("map"), config.fire_centre, (time) => hourMinute.format(time));
+  // The satellite monitor has its own window (monitor.html); ?monitor=1 also shows it in a corner here.
+  if (new URLSearchParams(window.location.search).get("monitor") === "1") {
+    const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
+    state.monitor = createSatelliteMonitor($("map"), config.fire_centre, (time) => hourMinute.format(time));
+  }
   precomputePasses();
 }
 

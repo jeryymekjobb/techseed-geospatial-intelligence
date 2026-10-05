@@ -87,6 +87,15 @@ body.control { background: #141414; color: #f2f2f2; }
 .sat-monitor canvas { display: block; }
 .sat-monitor-now { margin-top: 4px; font-size: 0.8rem; color: #b8b8b8; }
 .sat-monitor-now.active { color: #ffd54a; font-weight: 700; }
+body.monitor-page { display: flex; flex-direction: column; height: 100%; background: #101010; color: #fff; }
+.monitor-clock { margin-left: auto; font-weight: 700; }
+.monitor-main { position: relative; flex: 1; min-height: 0; padding: 12px; }
+.monitor-main .sat-monitor { position: static; display: inline-block; box-shadow: none; background: none; }
+.monitor-main .sat-monitor h2 { display: none; }
+.monitor-main .sat-monitor-now { font-size: 1.2rem; }
+.monitor-list { margin: 0; padding: 0 12px 4px; list-style: none; font-size: 1rem; columns: 2; }
+.monitor-list .active { color: #ffd54a; font-weight: 700; }
+.monitor-note { padding: 0 12px 10px; font-size: 0.8rem; color: #b8b8b8; }
 .iot-confirms { margin-top: 6px; font-weight: 700; }
 .control-layout h3 { margin: 8px 0 4px; font-size: 0.9rem; color: #d0d0d0; }
 .assessment-outcome { font-size: 1.15rem; font-weight: 700; }

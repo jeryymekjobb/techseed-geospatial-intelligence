@@ -47,7 +47,9 @@ function timelineTicks(clockMs, window = MONITOR_WINDOW, stepMs = 3600000) {
   return ticks;
 }
 
-function createSatelliteMonitor(container, fireCentre, formatTime) {
+// `size` gives the canvas width, map height and timeline row height; `size.fit` makes the
+// monitor fill its container (the stand-alone monitor page) and follow its size.
+function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITOR_SIZE) {
   const box = document.createElement("section");
   box.className = "sat-monitor";
   box.setAttribute("aria-label", "Satellitbevakning");
@@ -61,14 +63,21 @@ function createSatelliteMonitor(container, fireCentre, formatTime) {
       latest = [items, clock];
       const timed = items.filter((item) => item.passes);
       const rows = new Map(timed.map((item) => [item, timelineRow(item.passes, clock.getTime())]));
-      const width = MONITOR_SIZE.width;
-      const height = MONITOR_SIZE.mapHeight + rowsHeight + timed.length * MONITOR_SIZE.rowHeight + 6;
+      const rowHeight = size.rowHeight;
+      let width = size.width;
+      let mapHeight = size.mapHeight;
+      if (size.fit) {
+        // Fill the window: the map keeps its 2:1 shape and leaves room for the timeline.
+        const free = container.clientHeight - rowsHeight - timed.length * rowHeight - 60;
+        width = Math.max(320, Math.min(container.clientWidth - 24, 2 * free));
+        mapHeight = Math.round(width / 2);
+      }
+      const height = mapHeight + rowsHeight + timed.length * rowHeight + 6;
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
         canvas.height = height;
       }
       const g = canvas.getContext("2d");
-      const mapHeight = MONITOR_SIZE.mapHeight;
       g.clearRect(0, 0, width, height);
       // The map: world image, orbits, satellites, the fire.
       if (tiles.every((image) => image.complete && image.naturalWidth)) {
@@ -98,7 +107,7 @@ function createSatelliteMonitor(container, fireCentre, formatTime) {
       g.arc(fx, fy, 5, 0, 2 * Math.PI);
       g.fill();
       g.stroke();
-      g.font = "11px system-ui, sans-serif";
+      g.font = `${size.fit ? 15 : 11}px system-ui, sans-serif`;
       for (const item of items) {
         const [x, y] = mapPoint(item.point.longitude, item.point.latitude, width, mapHeight);
         g.fillStyle = monitorColor(item);
@@ -125,7 +134,7 @@ function createSatelliteMonitor(container, fireCentre, formatTime) {
       const overNow = [];
       timed.forEach((item, index) => {
         const row = rows.get(item);
-        const y = top + rowsHeight - 4 + index * MONITOR_SIZE.rowHeight;
+        const y = top + rowsHeight - 4 + index * rowHeight;
         g.fillStyle = "#e0e0e0";
         g.fillText(item.name, 4, y + 11);
         g.fillStyle = "#3a3a3a";
