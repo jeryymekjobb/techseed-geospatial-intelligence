@@ -58,6 +58,7 @@ Playwright i Chrome för varje steg med gränssnitt.
 | 1b-1 | Hämtning av 2014 års banelement från Space-Track | `d83e7dc` |
 | 1b-2 | Banelementen i backend och kontroll mot FIRMS | `f9eee31` |
 | 1b-3 | Satelliterna på globen, SPACE VIEW och RETURN TO INCIDENT | `9cfa8b9` |
+| 1b-4 | Landsat 8-bilden från 4 augusti 2014 på båda kartorna | `f14ecec` |
 
 Fas 1 genomfördes med satelliternas läge 2014 (alternativ B, 2026-10-05) i
 stället för dagens läge från CelesTrak: Terra, Aqua och Suomi NPP – de som gjorde
@@ -67,7 +68,6 @@ FIRMS-detektion ligger inom svepbredden för satelliten som gjorde den.
 
 ### Kvar
 
-- **Fas 1:** satellitbilden från Landsat 8 den 4 augusti 2014.
 - **Fas 2:** den syntetiska upptäcktssekvensen från rymden och klassificeringen.
 - **Fas 5:** att hela tvåminutersdemon går att köra från pekskärmen och
   återställa på under 5 sekunder är inte provat från början till slut.

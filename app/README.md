@@ -155,6 +155,32 @@ granule (farthest: Terra 947 km, Aqua 1151 km, Suomi NPP 1428 km), the check
 fails for a time 45 minutes off, and the next pass found is the one that made the
 detections. It needs Node.js, satellite.js and `data/tle/`.
 
+### Landsat 8 image
+
+Landsat 8 passed over the fire at 10:06:44 UTC on 4 August 2014 with 1.7 % cloud
+(scene `LC08_L2SP_194018_20140804_02_T1`, Collection 2 Level-2 surface
+reflectance). Cut the map area out of it once (needs Docker, no account):
+
+```bash
+python3 -m tools.fetch_landsat_scene    # Planetary Computer -> data/landsat/ (two PNGs, about 4 MB)
+```
+
+The tool reads the scene from Microsoft Planetary Computer's open STAC catalogue
+with the anonymous access token its API hands out; GDAL in the
+`tumgis/ctb-quantized-mesh` image (as for the terrain) reads only the map area,
+warps it to WGS 84 and writes a **false-colour** image (bands 7-5-4: burnt area
+dark, active fire orange, smoke visible) and a **natural-colour** image (bands
+4-3-2; the atmospheric correction leaves a greenish tint around the smoke). TLS
+is verified with the host's certificates. `data/landsat/SOURCE.json` records the
+scene, bands and stretch; `data/` is not versioned.
+
+Both maps show the image from the moment it was taken at the scenario clock,
+false colour by default; the panel's "Satellitbild" chooses false colour,
+natural colour or none, and the Space filter hides it. In 2D the WGS 84 image is
+stretched to its bounds (about 1 % distortion over this area). USGS Landsat data
+are public domain; the maps cite "Landsat 8-9 OLI/TIRS Collection 2 Level-2
+Science Products, courtesy of the U.S. Geological Survey, doi:10.5066/P9OGBGM6".
+
 ### IoT
 
 The four booth nodes (TEMP, WATER, AIR, NTN) publish JSON to
@@ -239,6 +265,7 @@ it the browser loads the OSM base map from `tile.openstreetmap.org`.
 | Synthetic sensors | `app/backend/sensor_sim.py` | – | **Synthetic**: invented positions; values computed from the front and ERA5-Land, not measured |
 | Booth IoT nodes | `tools/mqtt_node_sim.py` over MQTT | – | **Simulated** for the demo; real nRF91 nodes are deferred |
 | Assessment score | `app/backend/assessment.py` | – | Rule-based score with fixed weights, not a probability |
+| Landsat 8 image | USGS Collection 2 Level-2 scene of 2014-08-04 10:06 UTC via Planetary Computer, `data/landsat/` (not versioned) | Public domain; cite USGS, doi:10.5066/P9OGBGM6 | Real satellite image, 30 m; shown from its acquisition time |
 | Satellite positions | Space-Track `gp_history` element sets, `data/tle/` (not versioned) | Space-Track user agreement | **Computed** with SGP4 for the scenario clock; checked against the FIRMS detection times |
 | Infrastructure (questions) | OSM targets in PostGIS | ODbL | Places, major roads, railways, industrial buildings; no power grid |
 | Topowebb (optional) | Lantmäteriet Topografisk webbkarta Visning | CC0; access via Geotorget | Off until configured |
