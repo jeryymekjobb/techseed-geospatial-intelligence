@@ -1,184 +1,386 @@
 # Operatörsguide – brandkartan på IoTDagen
 
-Guide för den som kör demonstratorn i montern: förberedelser, start, tvåminutersmanuset,
-vad som är riktigt och simulerat, felsökning och avslutning. Teknisk bakgrund finns i
-`app/README.md`.
+Den här guiden tar dig från en dator utan något installerat till en demo som går i
+montern. Varje steg säger vad du gör, varför, och vad du ska se när det har fungerat.
+Läs gärna igenom hela guiden en gång innan du börjar.
 
-Kommandona körs från repots rot, `techseed-geospatial-intelligence/`.
+Teknisk bakgrund för utvecklare finns i `app/README.md`.
 
-> **Inte provat ännu:** flytet i 3D-vyn på mässans dator. Proven hittills har körts i
-> headless Chrome utan grafikkort. Kör kontrollen i avsnitt 1.3 på mässans dator innan
-> mässan.
+## Vad demon är
 
-## 1. Förberedelser dagen före
+Demon spelar upp skogsbranden i Västmanland sommaren 2014 med riktiga satellitdata. Den
+visar hur satelliter upptäcker branden, hur sensorer på marken bekräftar den och hur en
+spårbar bedömning byggs upp. En genomkörning tar ungefär två minuter.
 
-### 1.1 Engångshämtningar
+Demon har två skärmar:
 
-Allt nedan behövs en gång per dator och sparas i `data/` och `app/frontend/vendor/`, som
-inte versioneras. Efteråt behövs inget internet för demon. Kör kommandona i tur och ordning:
+- **Huvudskärmen** är den stora skärmen som besökarna ser: en 3D-jordglob med branden.
+- **Mission control** är en mindre skärm för dig som operatör, med knappar som styr
+  demon. Besökarna ser den inte.
+
+Båda skärmarna är sidor i webbläsaren. De hämtar allt från ett program på datorn,
+**backend**, som måste vara igång så länge demon körs.
+
+## Ord som används i guiden
+
+| Ord | Betydelse |
+|---|---|
+| Terminal | Ett fönster där du skriver kommandon. I Ubuntu öppnas den med Ctrl+Alt+T. |
+| Kommando | En rad text som du klistrar in i terminalen och kör med Enter. |
+| Repot | Mappen `techseed-geospatial-intelligence` med all kod. Kommandona körs från den mappen. |
+| Docker | Ett program som kör färdiga tjänster, till exempel databasen, utan att de behöver installeras en och en. |
+| Backend | Programmet som skärmarna hämtar data från. Startas i avsnitt 7. |
+| Scenarioklockan | Tiden i demon, alltså en tidpunkt i augusti 2014. Den är gemensam för alla skärmar. |
+
+Kopiera kommandona från kodblocken i guiden. En rad som börjar med `#` är en förklaring
+och gör ingenting om den råkar komma med.
+
+---
+
+# Del 1 – Förbered datorn
+
+Del 1 görs en gång per dator, helst några dagar före mässan. Den kräver internet. Efteråt
+fungerar demon utan internet.
+
+## 1. Program som behövs
+
+Datorn behöver:
+
+- **Linux**, till exempel Ubuntu. Guiden är skriven för Ubuntu.
+- **Git**, för att hämta koden, och **curl**, för att hämta kartutdraget.
+- **Python 3** med `venv`, som demon är skriven i.
+- **Docker** med `docker compose`, för databasen, kartan och meddelandetjänsten.
+- **Google Chrome**, för skärmarna.
+- **Ett grafikkort** som klarar 3D i webbläsaren. De flesta datorer från de senaste åren
+  gör det.
+- **Cirka 10 GB ledigt diskutrymme.**
+
+Kontrollera vad som redan finns genom att köra de här raderna i terminalen. Varje rad ska
+svara med ett versionsnummer:
 
 ```bash
-# Lokala tjänster: PostGIS, offline-karta och MQTT (kräver Docker)
-docker compose up -d tiles postgis mosquitto
+git --version
+curl --version
+python3 --version
+docker --version
+docker compose version
+google-chrome --version
+```
 
-# Python-miljö med IoT-klient och provverktyg (kräver internet)
+Om en rad svarar `command not found` saknas programmet. Installera det enligt programmets
+egen installationsanvisning, eller be den som sköter datorn om hjälp. För Docker behöver
+ditt konto dessutom få köra Docker utan `sudo`. Det ingår i Dockers anvisning för Linux
+("post-installation steps"), och kräver att du loggar ut och in igen.
+
+## 2. Åtkomster och konton
+
+Det mesta som demon använder är öppet och kräver inget konto. Två saker kräver inloggning:
+
+| Vad | Varför | Vad du behöver |
+|---|---|---|
+| **GitHub-repot** `jeryymekjobb/techseed-geospatial-intelligence` | För att hämta koden. | Åtkomst till repot och en SSH-nyckel på GitHub. Fråga ägaren av repot om åtkomst. |
+| **Space-Track** (space-track.org) | För satelliternas banor 2014. | Ett eget, gratis konto. Registrera dig på space-track.org och godkänn villkoren. Använd ett eget konto i stället för att dela någon annans inloggning. |
+
+Två konton behövs bara i särskilda fall och kan hoppas över för demon:
+
+| Vad | När det behövs |
+|---|---|
+| Copernicus CDS | Bara om vinddatan från ERA5-Land ska hämtas om. Den finns redan i repot. |
+| Lantmäteriet Geotorget | Bara för Lantmäteriets kartor och fastighetsgränser. De är avstängda i demon. |
+
+Det här behöver **inget konto**: Landsat-bilden (Microsoft Planetary Computer), höjddata
+(Copernicus på AWS), webbiblioteken (npm), Docker-tjänsterna (Docker Hub) och kartutdraget
+från OpenStreetMap. Brandens satellitdetektioner, väderdata och kartdata över orter och
+terräng ligger redan i repot.
+
+### Spara inloggningen till Space-Track
+
+Programmet som hämtar satellitbanorna läser din inloggning från en fil i din hemmapp,
+`~/.spacetrackrc`. Filen ligger utanför repot, så inloggningen hamnar aldrig i koden.
+
+Skapa filen med ett textredigeringsprogram, till exempel:
+
+```bash
+nano ~/.spacetrackrc
+```
+
+Skriv två rader, med din egen e-postadress och ditt eget lösenord:
+
+```
+identity=din.adress@example.com
+password=ditt-lösenord
+```
+
+Spara med Ctrl+O och Enter, och stäng med Ctrl+X. Gör sedan filen läsbar bara för dig:
+
+```bash
+chmod 600 ~/.spacetrackrc
+```
+
+Prova gärna att logga in på space-track.org i webbläsaren med samma uppgifter först. Ett
+lösenord som inte fungerar där fungerar inte heller i programmet, och för många
+misslyckade försök kan spärra kontot.
+
+## 3. Hämta koden
+
+Hämta repot till din hemmapp och gå in i det:
+
+```bash
+cd ~
+git clone git@github.com:jeryymekjobb/techseed-geospatial-intelligence.git
+cd techseed-geospatial-intelligence
+```
+
+**Alla kommandon i resten av guiden körs från den här mappen.** Öppnar du en ny terminal
+senare, gå först in i mappen igen:
+
+```bash
+cd ~/techseed-geospatial-intelligence
+```
+
+## 4. Installera demons Python-delar
+
+Demon behöver två tillägg till Python: ett för sensorerna och ett för
+generalrepetitionen. De installeras i en egen mapp, `.venv`, så att resten av datorn inte
+påverkas:
+
+```bash
 python3 -m venv .venv
 .venv/bin/pip install -r app/requirements-iot.txt -r tools/requirements-record.txt
+```
 
-# Webbibliotek: Cesium och satellite.js (kräver internet)
+Det tar någon minut. Sista raden ska börja med `Successfully installed`.
+
+## 5. Hämta och bygga data
+
+Kör stegen i tur och ordning. Vissa tar några minuter. Varje steg skriver ut vad det gör,
+och om något går fel visas ett felmeddelande. Läs det och se avsnitt 13, eller be om hjälp
+innan du går vidare.
+
+```bash
+# 5.1 Webbiblioteken för 3D-globen och satelliterna
 python3 -m tools.fetch_web_vendor
 
-# Höjddata och 3D-terräng (kräver internet och Docker)
+# 5.2 Höjddata (cirka 100 MB) och 3D-terrängen som byggs av den
 python3 -m tools.fetch_copernicus_dem
 python3 -m tools.build_terrain
 
-# Offline-karta (kräver data/osm/sweden-latest.osm.pbf, cirka 930 MB, se app/README.md)
+# 5.3 Kartutdraget för Sverige (cirka 930 MB) och offline-kartan som byggs av det
+mkdir -p data/osm
+curl -L -o data/osm/sweden-latest.osm.pbf https://download.openstreetmap.fr/extracts/europe/sweden-latest.osm.pbf
 python3 -m tools.build_offline_tiles
 
-# Data i PostGIS (kräver att tjänsten postgis kör)
+# 5.4 Starta tjänsterna: databasen, kartan och meddelandetjänsten för sensorerna
+docker compose up -d tiles postgis mosquitto
+
+# 5.5 Fyll databasen
 python3 -m tools.load_postgis
 
-# Satellitbanor 2014 (kräver Space-Track-konto i ~/.spacetrackrc)
+# 5.6 Satelliternas banor 2014 (använder ~/.spacetrackrc)
 python3 -m tools.fetch_tle_history
 
-# Landsat-bilden 4 aug 2014 (kräver internet och Docker)
+# 5.7 Landsat-bilden av branden den 4 augusti 2014
 python3 -m tools.fetch_landsat_scene
 ```
 
-`~/.spacetrackrc` innehåller två rader, `identity=<e-postadressen du loggar in med>` och
-`password=<lösenord>`, och ska bara kunna läsas av dig (`chmod 600 ~/.spacetrackrc`).
+Första gången du kör 5.4 hämtar Docker tjänsterna, cirka 2,5 GB. Det sker bara en gång.
 
-### 1.2 Data som visas offentligt
+När 5.6 är klar skriver den hur många "element sets" den hämtade för varje satellit, till
+exempel `Suomi NPP: 18 element sets`. När 5.7 är klar skriver den namnen på två bilder.
 
-Kontrollera Space-Tracks användarvillkor för att visa satellitpositioner beräknade ur
-deras banelement på en mässa. Det är inte granskat ännu (se `CONTEXT.md`, backlogg).
+## 6. Generalrepetition
 
-### 1.3 Generalrepetition med kontrollen
-
-Kör på mässans dator, med skärmarna inkopplade:
+Den här kontrollen kör hela demon automatiskt och talar om ifall något inte fungerar. Kör
+den på **mässans dator**, med skärmarna inkopplade:
 
 ```bash
-docker compose up -d tiles postgis mosquitto
 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check
 ```
 
-Verktyget kör hela demon i två fönster och skriver `~/demo-check/report.txt`. Allt ska
-vara **GODKÄND**. Notera raden "Bilder per sekund i 3D". Som tumregel (inte uppmätt på
-mässans dator) känns satelliterna och kameraresan hackiga under cirka 20.
+Två webbläsarfönster öppnas och demon körs av sig själv i ungefär fem minuter. Rör inte
+fönstren under tiden. När den är klar skriver den en rapport, som också sparas i
+`~/demo-check/report.txt`. Så här ser en lyckad körning ut:
 
-## 2. Start på mässan
+- Alla åtta steg står som **GODKÄND**.
+- Sista raden är `RESULTAT: GODKÄND`.
+- Raden "Bilder per sekund i 3D" säger hur jämnt 3D-vyn rör sig. Under ungefär 20 bilder
+  per sekund kommer kameran och satelliterna att kännas ryckiga. Gränsen är en tumregel,
+  den är inte uppmätt på mässans dator.
 
-### 2.1 Starta
+Står något steg som **UNDERKÄND**, se avsnitt 13. Skärmdumparna i `~/demo-check/` visar hur
+det såg ut.
 
-```bash
-docker compose up -d tiles postgis mosquitto     # om de inte redan körs
-.venv/bin/python -m app.backend.server             # terminal 1 – vänta på "PostGIS: questions on"
-.venv/bin/python -m tools.mqtt_node_sim --interval 5   # terminal 2 – monternoderna (simulerade)
-```
+---
 
-Låt båda terminalerna stå öppna under hela mässdagen. Stängs terminal 1 slutar demon att
-svara.
+# Del 2 – På mässdagen
 
-### 2.2 Öppna skärmarna
+## 7. Starta demon
 
-| Skärm | Adress | Placering |
-|---|---|---|
-| Huvudskärm (besökarna) | <http://127.0.0.1:8765/3d.html?at=2014-08-04T09:30:00Z> | stora skärmen, helskärm med F11 |
-| Mission control (operatören) | <http://127.0.0.1:8765/control.html> | liten skärm eller surfplatta bredvid |
+Demon behöver två program som är igång hela dagen. Öppna **två terminaler** och gå in i
+repot i båda (`cd ~/techseed-geospatial-intelligence`).
 
-`?at=2014-08-04T09:30:00Z` ställer scenarioklockan för alla skärmar strax före en
-satellitpassage. Besökarna ser bara huvudskärmen.
-
-### 2.3 Mission control på en annan enhet
-
-Ska en surfplatta styra över nätverket måste backend lyssna på nätverket och kräva en
-token:
+Kontrollera först att tjänsterna från avsnitt 5.4 är igång. Om datorn har startats om
+sedan dess, starta dem igen:
 
 ```bash
-SCENARIO_CONTROL_TOKEN=<valfri hemlig sträng> .venv/bin/python -m app.backend.server --host 0.0.0.0
+docker compose up -d tiles postgis mosquitto
 ```
 
-Öppna då `http://<datorns-ip>:8765/control.html?token=<strängen>` på surfplattan. Även
-huvudskärmen behöver `&token=<strängen>` i adressen om den ska ställa klockan med `?at=`.
-Skärmar utan token kan bara titta.
+**I terminal 1**, starta backend:
 
-## 3. Tvåminutersmanuset
+```bash
+.venv/bin/python -m app.backend.server
+```
 
-Knappar i **fetstil** finns i mission control. Hastigheten väljs under "Uppspelning" på
-huvudskärmen – mission control har inget hastighetsval ännu.
+Efter några sekunder ska du se raden `PostGIS: questions on`. Då är backend klar.
 
-| Tid | Gör | Säg (förslag) |
+**I terminal 2**, starta sensorerna i montern. De är simulerade i demon, se avsnitt 11:
+
+```bash
+.venv/bin/python -m tools.mqtt_node_sim --interval 5
+```
+
+Den skriver en rad var femte sekund, till exempel `round 3: 4 nodes published`.
+
+**Låt båda terminalerna stå öppna hela dagen.** Stänger du terminal 1 slutar skärmarna att
+fungera.
+
+## 8. Öppna skärmarna
+
+Öppna två fönster i Chrome:
+
+| Skärm | Adress | Var |
 |---|---|---|
-| 0:00 | Klicka "Flyg till branden" på huvudskärmen – kameran går ut till jorden och flyger in till branden. | "Det här är skogsbranden i Västmanland sommaren 2014 – återuppspelad med riktiga satellitdata." |
-| 0:10 | **SPACE VIEW**. Välj **1 minut/s**. **PLAY**. | "Det här är satelliterna som faktiskt såg branden – Aqua, Terra och Suomi NPP – där de var den dagen." |
-| 0:30 | Suomi NPP passerar kl. 11:48 svensk tid och blinkar med en linje ner till branden. | "Här upptäcker Suomi NPP:s VIIRS-instrument värmen från branden." |
-| 0:40 | **SPACE VIEW** igen (RETURN TO INCIDENT). Kl. 12:06 svensk tid kommer Landsat-bilden. | "Landsat 8 fotograferade branden tjugo minuter senare – det mörka är bränd skog, det orange är brandfronten." |
-| 0:50 | Välj **1 timme/s**. | "Sensorer på marken bekräftar – de här är simulerade i demon." |
-| 1:00 | Peka på AI ASSESSMENT. Klicka "Why do you believe there is a fire?". | "Bedömningen visar varför: varje rad pekar på sitt objekt på kartan." |
-| 1:15 | Klicka "Show infrastructure within 5 km of the incident". Fäll ut "SQL som kördes". | "Det här är en riktig rumslig fråga mot databasen – frågan syns här." |
-| 1:25 | **+60 MIN** (och igen för att stänga). | "Prognosen är en enkel modell med stor osäkerhet." |
-| 1:35 | **SATCOM FAILURE**. Vänta några sekunder. | "Satellitlänken bryts – IoT fortsätter, satellitdatan köas." |
-| 1:50 | **SATCOM FAILURE** igen. | "Länken är tillbaka – här är det som hände under avbrottet." |
-| 2:00 | **GOD VIEW**, och filterknapparna om tid finns. | Slutbild: "From Orbit to Decision." |
-| efter | **RESET**. | Klart för nästa besökare inom cirka 5 sekunder. |
+| Huvudskärmen | <http://127.0.0.1:8765/3d.html?at=2014-08-04T09:30:00Z> | Stora skärmen. Tryck F11 för helskärm. |
+| Mission control | <http://127.0.0.1:8765/control.html> | Din skärm bredvid. |
 
-Fler knappar vid frågor: **SENSOR FAILURE** (en sensor faller bort och räknas inte),
-**SATELLITE DETECTION**, **ROAD CLOSED** och **POWER FAILURE** (bara text, märkta
-syntetiska – det finns inga väg- eller elnätsdata kopplade till dem).
+Slutet av huvudskärmens adress, `?at=2014-08-04T09:30:00Z`, ställer scenarioklockan på den
+4 augusti 2014 kl. 11:30 svensk tid. Då hinner du visa en satellitpassage och
+Landsat-bilden inom en minut.
 
-## 4. Riktigt, beräknat och simulerat
+Huvudskärmen ska visa kartan över brandområdet, och i panelen till höger ska det stå "4 aug.
+2014 11:30 svensk tid".
 
-Var tydlig med skillnaden – skärmarna märker varje del.
+## 9. Mission control på en surfplatta (valfritt)
+
+Hoppa över det här avsnittet om mission control körs på samma dator som huvudskärmen.
+
+Ska en surfplatta styra demon över nätverket behöver backend vara nåbar från nätverket och
+kräva ett lösenord, en så kallad **token**, så att ingen annan kan styra den. Välj själv en
+token, till exempel en fras utan mellanslag, och starta backend i terminal 1 så här i
+stället:
+
+```bash
+SCENARIO_CONTROL_TOKEN=din-token .venv/bin/python -m app.backend.server --host 0.0.0.0
+```
+
+Öppna sedan `http://<datorns-ip-adress>:8765/control.html?token=din-token` på
+surfplattan. Datorns IP-adress visas med kommandot `hostname -I`. Även huvudskärmens adress
+behöver `&token=din-token` i slutet.
+
+---
+
+# Del 3 – Köra demon
+
+## 10. Tvåminutersmanuset
+
+Knapparna i **fetstil** finns i mission control. **Hastigheten** väljer du i rutan
+"Hastighet" under "Uppspelning" på huvudskärmen. Mission control har inget hastighetsval
+ännu.
+
+Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
+
+| Tid | Gör | Säg |
+|---|---|---|
+| 0:00 | Klicka "Flyg till branden" på huvudskärmen. Kameran åker ut till jorden och flyger in till branden. | "Det här är skogsbranden i Västmanland sommaren 2014, återuppspelad med riktiga satellitdata." |
+| 0:10 | Tryck **SPACE VIEW**. Välj hastigheten **1 minut/s**. Tryck **PLAY**. | "Det här är satelliterna som såg branden, Aqua, Terra och Suomi NPP, där de var den dagen." |
+| 0:30 | Kl. 11:48 svensk tid passerar Suomi NPP. Den blir större, med en gul linje ner till branden. | "Här upptäcker Suomi NPP värmen från branden." |
+| 0:40 | Tryck **SPACE VIEW** igen. Kameran flyger tillbaka. Kl. 12:06 svensk tid kommer Landsat-bilden. | "Landsat 8 fotograferade branden tjugo minuter senare. Det mörka är bränd skog, det orange är brandfronten." |
+| 0:50 | Välj hastigheten **1 timme/s**. | "Sensorer på marken bekräftar branden. I demon är de simulerade." |
+| 1:00 | Peka på AI ASSESSMENT till höger. Klicka "Why do you believe there is a fire?". | "Bedömningen visar varför den tror att det brinner. Varje rad pekar på sitt objekt på kartan." |
+| 1:15 | Klicka "Show infrastructure within 5 km of the incident". Klicka på "SQL som kördes". | "Det här är en riktig fråga mot en kartdatabas. Frågan syns här." |
+| 1:25 | Tryck **+60 MIN**, och tryck igen för att stänga. | "Prognosen är en enkel modell med stor osäkerhet." |
+| 1:35 | Tryck **SATCOM FAILURE**. Vänta några sekunder. | "Satellitlänken bryts. Sensorerna fortsätter, och satellitdatan köas." |
+| 1:50 | Tryck **SATCOM FAILURE** igen. | "Länken är tillbaka, och här är det som hände under avbrottet." |
+| 2:00 | Tryck **GOD VIEW**, och prova filterknapparna om det finns tid. | "From Orbit to Decision." |
+| Efteråt | Tryck **RESET**. | Inom ungefär fem sekunder är demon tillbaka i början och klar för nästa besökare. |
+
+Efter **RESET** står klockan på demons startpunkt, den 31 juli. Ladda om huvudskärmen med
+adressen i avsnitt 8 för att börja kl. 11:30 den 4 augusti igen.
+
+Fler knappar om besökarna frågar:
+
+- **SENSOR FAILURE**: en sensor slutar fungera och räknas inte längre.
+- **SATELLITE DETECTION**, **ROAD CLOSED** och **POWER FAILURE** visar bara en text, märkt
+  syntetisk. Det finns inga väg- eller elnätsdata kopplade till dem.
+
+## 11. Riktigt, beräknat och simulerat
+
+Besökare frågar ofta vad som är på riktigt. Skärmarna märker varje del, och det är viktigt
+att det du säger stämmer med märkningen.
 
 | Kategori | Vad | Säg |
 |---|---|---|
-| **Riktiga data** | Brandens FIRMS-detektioner (NASA), Landsat 8-bilden (USGS), väderobservationer från SMHI, satelliternas banelement (Space-Track), terräng och orter från OSM (dagens läge, inte 2014) | "Riktiga data från 2014, uppspelade – inte live." |
-| **Beräknat** | Satellitpositionerna (ur banelementen), vinden (ERA5-Land, en modell), brandprognosen, bedömningspoängen | "Beräknat ur data. Poängen är en regelbaserad poäng, ingen sannolikhet." |
-| **Simulerat/syntetiskt** | Monternoderna (TEMP, WATER, AIR, NTN), sensorerna i brandområdet, kommunikationsavbrottet, händelserna från mission control | "Simulerat för demon – märkt på skärmen." |
+| **Riktiga data** | Satelliternas upptäckter av branden (NASA FIRMS), Landsat-bilden (USGS), väderobservationer från SMHI, satelliternas banor (Space-Track), kartdata från OpenStreetMap (dagens läge, inte 2014) | "Riktiga data från 2014, uppspelade. Det är inte live." |
+| **Beräknat** | Satelliternas positioner, vinden (ERA5-Land, en modell), brandprognosen, bedömningens poäng | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
+| **Simulerat** | Sensorerna i montern (TEMP, WATER, AIR, NTN), sensorerna i brandområdet, satellitavbrottet och händelserna från mission control | "Simulerat för demon. Det står på skärmen." |
 
 Säg inte att något är live, att sensorerna fanns i skogen 2014 eller att poängen är en
-träffsäkerhet. Partnernamn (Dacreo, BruhnBruhn) används inte förrän det finns ett
+träffsäkerhet. Nämn inte partnernamn som Dacreo eller BruhnBruhn förrän det finns ett
 skriftligt godkännande.
 
-## 5. Felsökning
+## 12. Avsluta för dagen
 
-| Problem | Orsak | Åtgärd |
-|---|---|---|
-| "This site can't be reached" / `ERR_CONNECTION_REFUSED` | Backend kör inte. | A, ladda sedan om sidorna. |
-| "Ansluter …" eller IoT unavailable | Brokern kör inte, eller backend startades med `python3` i stället för `.venv/bin/python`. | B, sedan A. |
-| Monternoderna visas som OFFLINE | Simulatorn i terminal 2 har stannat. | C – noderna blir live inom några sekunder. |
-| Frågorna svarar "PostGIS svarar inte" | PostGIS kör inte. | D, sedan A. |
-| Inga satelliter eller ingen satellitbild | `data/tle/` eller `data/landsat/` saknas. | E. Landsat-bilden visas först från 12:06 svensk tid den 4 augusti. |
-| Tom eller ljus karta runt brandområdet | Offline-kartan kör inte. | F. |
-| Hackig 3D-vy | För hög hastighet eller svag grafik. | Välj 1 minut/s i SPACE VIEW. Mät med kontrollen i avsnitt 1.3. |
-| Knapparna i mission control ger "fel eller saknad token" | Backend kräver token. | Lägg till `?token=<strängen>` i adressen (avsnitt 2.3). |
-| GOD VIEW på 2D-kartan blir tom | Känd begränsning: offline-kartan täcker bara brandområdet. | Använd 3D-vyn. |
-| Allt annat | – | **RESET** i mission control. Hjälper det inte: ladda om huvudskärmen med adressen i 2.2. |
-
-Åtgärderna (från repots rot):
+Tryck Ctrl+C i terminal 1 och i terminal 2. Docker-tjänsterna kan stå kvar till nästa dag,
+eller stoppas med:
 
 ```bash
-# A – starta backend (terminal 1)
+docker compose stop
+```
+
+---
+
+# Del 4 – Om något går fel
+
+## 13. Felsökning
+
+Hitta det du ser i vänstra kolumnen. Åtgärderna A–F står i kodblocket under tabellen.
+
+| Det här ser du | Orsak | Gör så här |
+|---|---|---|
+| "This site can't be reached" eller `ERR_CONNECTION_REFUSED` | Backend är inte igång. | A, och ladda om sidorna. |
+| Sensorerna visar "Ansluter …" eller "IoT unavailable" | Meddelandetjänsten är inte igång, eller backend startades med `python3` i stället för `.venv/bin/python`. | B, sedan A. |
+| Sensorerna i montern visas som OFFLINE | Programmet i terminal 2 har stannat. | C. Sensorerna kommer tillbaka inom några sekunder. |
+| Frågorna svarar "PostGIS svarar inte" | Databasen är inte igång. | D, sedan A. |
+| Inga satelliter, eller ingen satellitbild | Steg 5.6 eller 5.7 är inte gjort. | E. Landsat-bilden visas först från 12:06 svensk tid den 4 augusti. |
+| Kartan runt brandområdet är tom eller ljus | Kartjänsten är inte igång. | F. |
+| 3D-vyn rör sig ryckigt | För hög hastighet eller för svagt grafikkort. | Välj 1 minut/s i SPACE VIEW. Kör generalrepetitionen i avsnitt 6. |
+| Mission control säger "fel eller saknad token" | Backend kräver token. | Lägg till `?token=din-token` i adressen, se avsnitt 9. |
+| GOD VIEW blir tom på 2D-kartan | Känd begränsning: den sparade kartan täcker bara brandområdet. | Använd 3D-vyn (`3d.html`). |
+| Något annat ser konstigt ut | – | Tryck **RESET**. Hjälper det inte, ladda om huvudskärmen med adressen i avsnitt 8. |
+
+Åtgärderna körs från repots mapp:
+
+```bash
+# A – starta backend (i terminal 1)
 .venv/bin/python -m app.backend.server
 
-# B – starta MQTT-brokern
+# B – starta meddelandetjänsten för sensorerna
 docker compose up -d mosquitto
 
-# C – starta de simulerade monternoderna (terminal 2)
+# C – starta sensorerna i montern (i terminal 2)
 .venv/bin/python -m tools.mqtt_node_sim --interval 5
 
-# D – starta PostGIS
+# D – starta databasen
 docker compose up -d postgis
 
-# E – hämta satellitbanor och Landsat-bilden
+# E – hämta satellitbanorna och Landsat-bilden
 python3 -m tools.fetch_tle_history
 python3 -m tools.fetch_landsat_scene
 
-# F – starta offline-kartan
+# F – starta kartjänsten
 docker compose up -d tiles
 ```
 
-## 6. Avslutning
-
-Tryck Ctrl-C i terminal 1 och 2. Docker-tjänsterna kan få stå kvar, eller stoppas med
-`docker compose stop`.
+Om ett kommando skriver ett felmeddelande du inte förstår, spara det, till exempel som en
+skärmdump. Det gör det mycket lättare för någon annan att hjälpa till.
