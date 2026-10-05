@@ -193,3 +193,43 @@ def test_landsat_8_passed_over_the_fire_when_the_scene_was_taken(tmp_path: Path)
     landsat_pass = server.parse_utc(output["result"][0].replace(".000Z", "Z"))
     # The scene time is the centre of a 185 km scene; the fire is in it, so within a few tens of seconds.
     assert abs((landsat_pass - acquired).total_seconds()) <= 60
+
+
+DAY_CHECK = """
+import * as lib from "SATELLITE_JS/index.js";
+import { createRequire } from "module";
+import fs from "fs";
+const require = createRequire(import.meta.url);
+const orbits = require("ORBITS");
+const { satellites, days, centre } = JSON.parse(fs.readFileSync(0, "utf8"));
+const result = {};
+for (const [norad, half] of [["27424", 1165], ["25994", 1165], ["37849", 1520]]) {
+  result[norad] = days.flatMap((day) => {
+    const start = Date.parse(day);
+    return orbits.passesBetween(lib, satellites[norad].elements, start, start + 86400000, centre[0], centre[1], half);
+  });
+}
+console.log(JSON.stringify(result));
+"""
+
+
+@needs_orbits
+def test_the_passes_of_a_day_contain_every_detection(tmp_path: Path) -> None:
+    closest_passes(tmp_path, 0)  # makes the satellite.js copy
+    days = ["2014-08-03T00:00:00Z", "2014-08-04T00:00:00Z"]
+    script = DAY_CHECK.replace("SATELLITE_JS", (tmp_path / "satellite.js").as_posix()).replace("ORBITS", (FRONTEND / "orbits.js").as_posix())
+    payload = {"satellites": json.loads(satellites.TLE_FILE.read_text(encoding="utf-8"))["satellites"], "days": days,
+               "centre": list(server.scenario.FIRE_CENTRE)}
+    passes = json.loads(subprocess.run(["node", "--input-type=module", "-e", script], input=json.dumps(payload),
+                                       capture_output=True, text=True, check=True).stdout)
+    by_name = {name: passes[norad] for name, norad in NORAD.items()}
+    checked = 0
+    for item in server.detections():
+        if not item["acq_datetime_utc"].startswith(("2014-08-03", "2014-08-04")):
+            continue
+        acquired = server.parse_utc(item["acq_datetime_utc"]).timestamp() * 1000
+        # The granule (acquisition time to five minutes later) overlaps a computed pass.
+        assert any(entry["start"] <= acquired + 360000 and entry["end"] >= acquired - 60000 for entry in by_name[item["satellite"]]), item
+        checked += 1
+    assert checked > 300
+    assert all(0 < entry["end"] - entry["start"] < 30 * 60000 for entries in passes.values() for entry in entries)

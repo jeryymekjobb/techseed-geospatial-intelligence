@@ -43,6 +43,8 @@ const state = {
   satellites: null,
   satelliteLib: null,
   satelliteInfoAt: null,
+  satellitesDrawnAt: null,
+  passCache: new Map(),  // "norad|day" -> passes over the fire that scenario day
   flashedPasses: new Set(),
   // The Landsat 8 scene (config.layers.landsat): shown from its acquisition time.
   landsat: null,
@@ -298,29 +300,74 @@ async function setupSatellites(config) {
   }
   state.satellites = data;
   $("satellite-note").textContent = `${data.label}. Källa: ${data.source}.`;
+  precomputePasses();
+}
+
+// Compute the passes of every playback day in the background, one satellite day at a time,
+// so the playback never waits for them.
+function precomputePasses() {
+  const first = Math.floor(Date.parse(state.config.playback.start_utc) / DAY_MS);
+  const last = Math.floor(Date.parse(state.config.playback.end_utc) / DAY_MS);
+  const work = [];
+  for (let day = first; day <= last + 1; day += 1) {
+    for (const item of state.satellites.satellites) if (item.half_swath_km) work.push([item, day]);
+  }
+  const later = window.requestIdleCallback || ((callback) => setTimeout(callback, 50));
+  const next = () => {
+    const entry = work.shift();
+    if (!entry) return;
+    passesOn(entry[0], entry[1]);
+    later(next);
+  };
+  later(next);
+}
+
+function passesOn(item, day) {
+  const key = `${item.norad}|${day}`;
+  if (!state.passCache.has(key)) {
+    const [lat, lon] = state.config.fire_centre;
+    state.passCache.set(key, passesBetween(state.satelliteLib, item.elements, day * DAY_MS, (day + 1) * DAY_MS, lat, lon, item.half_swath_km));
+  }
+  return state.passCache.get(key);
+}
+
+const DAY_MS = 86400000;
+
+// The pass over the fire that is going on or comes next, from the passes of this and the
+// next scenario day (computed once per day and kept).
+function passFor(item, clock) {
+  const now = clock.getTime();
+  const today = Math.floor(now / DAY_MS);
+  for (const day of [today, today + 1]) {
+    const pass = passesOn(item, day).find((candidate) => candidate.end > now);
+    if (pass) return pass;
+  }
+  return null;
 }
 
 function showSatellites(clock) {
   if (!state.satelliteLib || !clock) return;
+  // Nothing moves while the playback stands still.
+  if (state.satellitesDrawnAt === clock.getTime()) return;
+  state.satellitesDrawnAt = clock.getTime();
   const lib = state.satelliteLib;
   const items = state.satellites.satellites.map((satellite) => ({
     ...satellite,
     point: subpoint(lib, satellite.elements, clock),
-    track: orbitTrack(lib, satellite.elements, clock),
+    track: orbitTrack(lib, satellite.elements, clock, 50, 2),
   })).filter((item) => item.point);
   state.map.drawSatellites(items);
   // Height, speed and next pass change slowly; recompute them every 10 scenario minutes.
   if (state.satelliteInfoAt !== null && Math.abs(clock - state.satelliteInfoAt) < 600000) return;
   state.satelliteInfoAt = clock;
-  const [lat, lon] = state.config.fire_centre;
   fillList("satellite-list", items.map((item) => {
     const instrument = item.instrument ? ` (${item.instrument})` : "";
     let pass = "";
     if (item.half_swath_km) {
-      const next = nextPass(lib, item.elements, clock, lat, lon, item.half_swath_km);
+      const next = passFor(item, clock);
       pass = next === null ? " · ingen passage över branden inom 24 h"
-        : next - clock < 60000 ? " · över branden nu"
-        : ` · nästa passage över branden ${clockTime.format(next)} svensk tid`;
+        : next.start <= clock.getTime() ? " · över branden nu"
+        : ` · nästa passage över branden ${clockTime.format(new Date(next.start))} svensk tid`;
     }
     return { level: "info", text: `${item.name}${instrument}: ${Math.round(item.point.height_km)} km, `
       + `${item.point.speed_km_s.toFixed(1).replace(".", ",")} km/s${pass}` };

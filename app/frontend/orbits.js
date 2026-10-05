@@ -6,14 +6,20 @@
 
 const EARTH_RADIUS_KM = 6371.0;
 
+const epochs = new WeakMap();  // elements -> their epochs in ms, in order
+
 // The latest element set at or before the time, or the first one before the period.
 function elementAt(elements, time) {
-  let found = elements[0];
-  for (const element of elements) {
-    if (new Date(element.epoch_utc) > time) break;
-    found = element;
+  if (!epochs.has(elements)) epochs.set(elements, elements.map((element) => Date.parse(element.epoch_utc)));
+  const times = epochs.get(elements);
+  const target = time.getTime();
+  let [low, high] = [0, times.length - 1];
+  if (target < times[0]) return elements[0];
+  while (low < high) {  // the last index with times[index] <= target
+    const middle = Math.ceil((low + high) / 2);
+    if (times[middle] <= target) low = middle; else high = middle - 1;
   }
-  return found;
+  return elements[low];
 }
 
 const satrecs = new Map();
@@ -79,4 +85,47 @@ function nextPass(lib, elements, from, latitude, longitude, halfSwathKm, hours =
   return null;
 }
 
-if (typeof module !== "undefined") module.exports = { elementAt, subpoint, groundDistanceKm, orbitTrack, nextPass };
+// Every pass over the point between two times, as { start, end } in ms: the fire inside
+// half the swath. The ground track is sampled at a step short enough not to jump a
+// whole swath (30 s, less for Landsat's narrow one), and each entry and exit is found by
+// halving the step down to 1 s. The globe computes this once per scenario day and looks
+// the next pass up, instead of searching every tick.
+function passesBetween(lib, elements, startMs, endMs, latitude, longitude, halfSwathKm) {
+  const inside = (ms) => {
+    const point = subpoint(lib, elements, new Date(ms));
+    return Boolean(point) && groundDistanceKm(point.latitude, point.longitude, latitude, longitude) <= halfSwathKm;
+  };
+  // A ground point moves about 7 km/s; never step past more than the swath.
+  const step = Math.min(30000, Math.max(2000, Math.floor((halfSwathKm / 7) * 1000)));
+  const edge = (outside, insideMs) => {
+    let [low, high] = [outside, insideMs];  // inside(low) differs from inside(high)
+    const wanted = inside(high);
+    while (Math.abs(high - low) > 1000) {
+      const middle = Math.round((low + high) / 2);
+      if (inside(middle) === wanted) high = middle; else low = middle;
+    }
+    return high;
+  };
+  const passes = [];
+  let previous = startMs;
+  let wasInside = inside(startMs);
+  let current = wasInside ? { start: startMs } : null;
+  for (let ms = startMs + step; ms <= endMs; ms += step) {
+    const isInside = inside(ms);
+    if (isInside && !wasInside) current = { start: edge(previous, ms) };
+    else if (!isInside && wasInside) {
+      current.end = edge(ms, previous) + 1000;
+      passes.push(current);
+      current = null;
+    }
+    previous = ms;
+    wasInside = isInside;
+  }
+  if (current) {
+    current.end = endMs;
+    passes.push(current);
+  }
+  return passes;
+}
+
+if (typeof module !== "undefined") module.exports = { elementAt, subpoint, groundDistanceKm, orbitTrack, nextPass, passesBetween };
