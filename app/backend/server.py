@@ -271,6 +271,14 @@ class Handler(BaseHTTPRequestHandler):
     # When set, commands need this token in the X-Control-Token header (for a networked mission control).
     control_token = os.environ.get("SCENARIO_CONTROL_TOKEN") or None
 
+    def handle(self) -> None:
+        try:
+            super().handle()
+        except (BrokenPipeError, ConnectionResetError):
+            # The browser cancelled the request, for example map tiles it no longer needs
+            # while the camera moves; there is nobody left to answer and nothing to report.
+            self.close_connection = True
+
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - signature of the base class
         # Keep the console readable; query strings may carry map parameters only.
         print(f"{self.address_string()} {format % args}")
