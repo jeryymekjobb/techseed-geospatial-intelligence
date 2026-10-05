@@ -132,6 +132,39 @@ def test_filters_hide_and_show_categories_until_reset() -> None:
     assert scenario.command("reset")["status"]["hidden_layers"] == []
 
 
+def test_the_clock_slows_down_in_a_slow_window_and_speeds_up_after() -> None:
+    from datetime import timedelta
+
+    from app.backend.scenario_engine import DEFAULT_SPEED, SLOW_SPEED
+
+    assert DEFAULT_SPEED == 600 and SLOW_SPEED == 60
+    scenario, fake = engine()  # 1 hour/s
+    window = (START + timedelta(hours=1), START + timedelta(hours=1, minutes=8))
+    scenario.set_slow_windows([window])
+    scenario.command("play")
+    fake.now += 1  # 1 h at full speed reaches the window
+    state = scenario.snapshot()
+    assert state["clock_utc"] == "2014-07-31T01:00:00Z" and state["slowed"] and state["effective_speed"] == 60
+    fake.now += 4  # 4 s at 1 min/s inside the window
+    assert scenario.snapshot()["clock_utc"] == "2014-07-31T01:04:00Z"
+    fake.now += 4 + 1  # the rest of the window, then 1 s at full speed again
+    state = scenario.snapshot()
+    assert state["clock_utc"] == "2014-07-31T02:08:00Z" and not state["slowed"] and state["effective_speed"] == 3600
+
+
+def test_a_high_speed_cannot_jump_over_a_slow_window() -> None:
+    from datetime import timedelta
+
+    scenario, fake = engine()
+    scenario.command("speed", speed=4 * 86400)  # four days per second
+    scenario.set_slow_windows([(START + timedelta(days=1), START + timedelta(days=1, minutes=8)),
+                               (START + timedelta(days=1, minutes=5), START + timedelta(days=1, minutes=10))])  # overlapping
+    scenario.command("play")
+    fake.now += 1
+    # One real second: a quarter second to reach the merged 10-minute window, which takes 10 s at 1 min/s.
+    assert scenario.snapshot()["clock_utc"] == "2014-08-01T00:00:45Z"
+
+
 def test_events_take_the_time_of_the_running_clock() -> None:
     scenario, fake = engine()
 
@@ -269,3 +302,14 @@ def test_a_following_screen_gets_new_events_once(base_url: str) -> None:
     events = [data for name, data in received if name == "scenario_event"]
     assert [event["kind"] for event in events] == ["satcom_failure"]
     assert received[-1][1]["status"]["satcom_up"] is False
+
+
+def test_the_backend_slows_down_around_every_firms_pass_and_the_landsat_scene() -> None:
+    from datetime import timedelta
+
+    windows = server.slow_windows()
+    passes = {server.parse_utc(item["acq_datetime_utc"]) for item in server.detections()}
+    assert len(windows) >= len(passes) == 48
+    assert all(end - start == timedelta(minutes=8) for start, end in windows)
+    first = min(passes)
+    assert (first - timedelta(minutes=2), first + timedelta(minutes=6)) in windows

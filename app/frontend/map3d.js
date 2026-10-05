@@ -4,19 +4,19 @@
 // from Copernicus DEM GLO-30 (tools/build_terrain.py).
 "use strict";
 
-// Camera route from space to the fire, about five seconds in total.
+// Camera route from space to the fire, about ten seconds in total, so visitors can follow it.
 const FLIGHT = [
-  { lon: 12, lat: 50, height: 16_000_000, pitch: -90, seconds: 0.8 },  // Earth over Europe
-  { lon: 15, lat: 58, height: 3_500_000, pitch: -90, seconds: 1.0 },   // Europe
-  { lon: 16, lat: 61, height: 1_100_000, pitch: -80, seconds: 1.0 },   // Sweden
-  { lon: 16.3, lat: 59.6, height: 160_000, pitch: -60, seconds: 1.1 }, // Mälardalen
+  { lon: 12, lat: 50, height: 16_000_000, pitch: -90, seconds: 1.8 },  // Earth over Europe
+  { lon: 15, lat: 58, height: 3_500_000, pitch: -90, seconds: 2.0 },   // Europe
+  { lon: 16, lat: 61, height: 1_100_000, pitch: -80, seconds: 2.0 },   // Sweden
+  { lon: 16.3, lat: 59.6, height: 160_000, pitch: -60, seconds: 2.2 }, // Mälardalen
 ];
 // Last step: look at the fire's centre from the south at this pitch and range.
-const FIRE_VIEW = { pitch: -50, range: 42_000, seconds: 1.1 };
+const FIRE_VIEW = { pitch: -50, range: 42_000, seconds: 2.2 };
 // GOD VIEW: the whole of Europe, so satellites and other layers fit around the fire.
-const GOD_VIEW = { lon: 15, lat: 55, height: 12_000_000, seconds: 2.0 };
+const GOD_VIEW = { lon: 15, lat: 55, height: 12_000_000, seconds: 4.0 };
 // SPACE VIEW: the satellites' orbits around Scandinavia.
-const SPACE_VIEW = { lon: 16, lat: 45, height: 20_000_000, seconds: 2.0 };
+const SPACE_VIEW = { lon: 16, lat: 45, height: 20_000_000, seconds: 4.0 };
 const SATELLITE_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7" };
 
 function cesiumColor(hex, alpha = 1) {
@@ -543,7 +543,7 @@ async function createCesiumMap(config) {
     },
 
     flyHome() {
-      viewer.camera.flyTo({ destination: home, duration: 1.5 });
+      viewer.camera.flyTo({ destination: home, duration: 3 });
     },
   };
 

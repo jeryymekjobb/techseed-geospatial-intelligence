@@ -475,7 +475,7 @@ function showBanner(text) {
   banner.append(title, detail);
   banner.hidden = false;
   clearTimeout(bannerTimer);
-  bannerTimer = setTimeout(() => { banner.hidden = true; }, 6000);
+  bannerTimer = setTimeout(() => { banner.hidden = true; }, 10000);
 }
 
 function setHorizon(horizon) {
@@ -639,7 +639,10 @@ function applyState(scenarioState) {
   showSpeed(scenarioState.speed);
   $("stream-status").textContent = scenarioState.finished
     ? "Uppspelningen är klar."
-    : scenarioState.playing ? "Spelar upp – alla skärmar följer samma klocka." : "Pausad.";
+    : !scenarioState.playing ? "Pausad."
+    : scenarioState.slowed ? "Saktar in: satellitpassage (1 minut/s) – alla skärmar följer samma klocka."
+    : "Spelar upp – alla skärmar följer samma klocka.";
+  document.body.dataset.slowed = String(Boolean(scenarioState.slowed && scenarioState.playing));
   // Read by tools/record_demo.py.
   document.body.dataset.playback = scenarioState.finished ? "finished" : scenarioState.playing ? "playing" : "paused";
   setClock(new Date(scenarioState.clock_utc));

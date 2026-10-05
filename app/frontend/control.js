@@ -34,7 +34,9 @@ function commandFor(button) {
 function showState(scenarioState) {
   status = scenarioState.status;
   $("sim-time").textContent = `${localTime.format(new Date(scenarioState.clock_utc))} svensk tid`;
-  $("playback").textContent = scenarioState.finished ? "Uppspelningen är klar." : scenarioState.playing ? "Spelar upp." : "Pausad.";
+  $("playback").textContent = scenarioState.finished ? "Uppspelningen är klar."
+    : !scenarioState.playing ? "Pausad."
+    : scenarioState.slowed ? "Saktar in: satellitpassage (1 minut/s)." : "Spelar upp.";
   $("play").classList.toggle("active", scenarioState.playing);
   for (const button of document.querySelectorAll("[data-speed]")) {
     const on = Number(button.dataset.speed) === scenarioState.speed;

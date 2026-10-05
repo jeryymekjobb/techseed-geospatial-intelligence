@@ -169,6 +169,18 @@ def assessor() -> assessment.Assessor:
         return _assessor()
 
 
+SLOW_BEFORE, SLOW_AFTER = timedelta(minutes=2), timedelta(minutes=6)
+
+
+def slow_windows() -> list[tuple[datetime, datetime]]:
+    """Two minutes before to six after each FIRMS pass (a granule lasts up to five) and the Landsat scene."""
+    moments = {parse_utc(item["acq_datetime_utc"]) for item in detections()}
+    scene = landsat.layer()
+    if scene:
+        moments.add(parse_utc(scene["acquired_utc"]))
+    return [(moment - SLOW_BEFORE, moment + SLOW_AFTER) for moment in sorted(moments)]
+
+
 def satellite_until(state: dict[str, Any]) -> datetime:
     """The last moment satellite data reaches the screens: the clock, or the start of a SATCOM outage."""
     clock = parse_utc(state["clock_utc"])
@@ -589,6 +601,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"IoT: {Handler.sensors.detail}")
     # The assessment needs the forecasts, which take a few seconds; compute them before the first screen connects.
     assessor()
+    # Slow the playback down around every satellite pass in the data and the Landsat scene.
+    Handler.engine.set_slow_windows(slow_windows())
     # Start psql now, so the first question is answered without the start-up time.
     try:
         Handler.psql.query("SELECT 1")

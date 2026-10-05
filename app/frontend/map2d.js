@@ -228,7 +228,7 @@ function createLeafletMap(config) {
         pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 6, color: "#ffffff", weight: 2, fillColor: QUERY_COLOR, fillOpacity: 1 }),
         onEachFeature: (feature, item) => item.bindTooltip(queryLabel(feature.properties)),
       }).addTo(queryLayer);
-      map.flyToBounds(layer.getBounds().pad(0.1), { maxZoom: 13, duration: 1 });
+      map.flyToBounds(layer.getBounds().pad(0.1), { maxZoom: 13, duration: 2 });
     },
 
     // GOD VIEW's filter: hide or show a category of layers.
@@ -261,7 +261,7 @@ function createLeafletMap(config) {
 
     // Show an evidence object from the assessment.
     focusOn(lat, lon) {
-      map.flyTo([lat, lon], Math.max(map.getZoom(), 12), { duration: 1 });
+      map.flyTo([lat, lon], Math.max(map.getZoom(), 12), { duration: 2 });
     },
 
     // Mission control's GOD VIEW: out to Europe (OSM online; the offline tiles cover the
@@ -269,9 +269,9 @@ function createLeafletMap(config) {
     showGodView(on) {
       if (on) {
         map.setMaxBounds(null);
-        map.flyToBounds(GOD_VIEW_BOUNDS, { duration: 1.5 });
+        map.flyToBounds(GOD_VIEW_BOUNDS, { duration: 3 });
       } else {
-        map.flyToBounds(config.view_bounds, { duration: 1.5 });
+        map.flyToBounds(config.view_bounds, { duration: 3 });
         map.once("moveend", () => map.setMaxBounds(L.latLngBounds(config.view_bounds).pad(0.5)));
       }
     },

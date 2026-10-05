@@ -14,10 +14,15 @@ down, `satcom_down_since` gives the scenario time it went down; after a restore,
 `filter` with a category in FILTERS hides or shows that category on the maps
 (GOD VIEW's filter); `hidden_layers` lists the hidden ones. `reset` clears
 the events together with the clock.
+
+So that visitors can follow the satellite passes, the clock goes no faster than
+SLOW_SPEED inside the slow windows (set_slow_windows), whatever the chosen speed;
+the clock is advanced window by window, so a high speed cannot jump over one.
 """
 
 from __future__ import annotations
 
+import bisect
 import re
 import threading
 import time
@@ -26,7 +31,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 MIN_SPEED, MAX_SPEED = 60.0, 4 * 86400.0
-DEFAULT_SPEED = 3600.0
+# Ten scenario minutes per second: slow enough to follow, a scenario day in under 2.5 minutes.
+DEFAULT_SPEED = 600.0
+SLOW_SPEED = 60.0
 # Events mission control can trigger. Toggles switch a view on and off; the others
 # are kept until `reset`. `target` names a sensor or road and is optional.
 EVENT_KINDS = (
@@ -66,17 +73,56 @@ class ScenarioEngine:
     log: list[dict[str, Any]] = field(default_factory=list, init=False)
     events: list[dict[str, Any]] = field(default_factory=list, init=False)
     event_seq: int = field(default=0, init=False)
+    _slow: list[tuple[datetime, datetime]] = field(default_factory=list, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
 
     def __post_init__(self) -> None:
         self._clock = self.start
         self._since = self.monotonic()
 
+    def set_slow_windows(self, windows: list[tuple[datetime, datetime]]) -> None:
+        """Scenario periods in which the clock goes no faster than SLOW_SPEED; overlaps are merged."""
+        merged: list[tuple[datetime, datetime]] = []
+        for start, end in sorted(windows):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        with self._lock:
+            self._advance()
+            self._slow = merged
+
+    def _window_at(self, moment: datetime) -> tuple[datetime, datetime] | None:
+        index = bisect.bisect_right(self._slow, (moment, datetime.max.replace(tzinfo=moment.tzinfo))) - 1
+        if index >= 0 and self._slow[index][0] <= moment < self._slow[index][1]:
+            return self._slow[index]
+        return None
+
+    def _speed_at(self, moment: datetime) -> float:
+        return min(self.speed, SLOW_SPEED) if self._window_at(moment) else self.speed
+
     def _advance(self) -> None:
-        """Move the stored clock to now; stop at the end."""
+        """Move the stored clock to now, window by window; stop at the end."""
         now = self.monotonic()
         if self._playing:
-            self._clock = min(self.end, self._clock + timedelta(seconds=(now - self._since) * self.speed))
+            remaining = now - self._since  # real seconds
+            clock = self._clock
+            while remaining > 0 and clock < self.end:
+                window = self._window_at(clock)
+                if window:
+                    boundary = window[1]
+                else:
+                    later = bisect.bisect_right(self._slow, (clock, datetime.max.replace(tzinfo=clock.tzinfo)))
+                    boundary = self._slow[later][0] if later < len(self._slow) else self.end
+                boundary = min(boundary, self.end)
+                speed = self._speed_at(clock)
+                needed = (boundary - clock).total_seconds() / speed
+                if needed >= remaining:
+                    clock += timedelta(seconds=remaining * speed)
+                    remaining = 0.0
+                else:
+                    clock, remaining = boundary, remaining - needed
+            self._clock = min(self.end, clock)
             if self._clock >= self.end:
                 self._playing = False
                 self.revision += 1
@@ -90,6 +136,8 @@ class ScenarioEngine:
                 "playing": self._playing,
                 "finished": self._clock >= self.end,
                 "speed": self.speed,
+                "effective_speed": self._speed_at(self._clock),
+                "slowed": self._speed_at(self._clock) < self.speed,
                 "start_utc": utc_text(self.start),
                 "end_utc": utc_text(self.end),
                 "revision": self.revision,
