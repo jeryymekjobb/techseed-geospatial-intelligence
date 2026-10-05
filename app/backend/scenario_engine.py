@@ -38,7 +38,7 @@ SLOW_SPEED = 60.0
 # are kept until `reset`. `target` names a sensor or road and is optional.
 EVENT_KINDS = (
     "satellite_detection", "sensor_failure", "satcom_failure", "satcom_restore",
-    "road_closed", "power_failure", "plus60", "god_view", "filter", "space_view",
+    "road_closed", "power_failure", "plus60", "god_view", "filter", "space_view", "iot",
 )
 # Map categories mission control can hide; maritime, aviation and emergency are not in the demo.
 FILTERS = ("space", "iot", "infrastructure", "weather")
@@ -152,6 +152,8 @@ class ScenarioEngine:
             "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
             "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None,
             "hidden_layers": [],
+            # IoT on or off from mission control: off leaves every sensor out of the screens and the assessment.
+            "iot": True,
         }
         for event in self.events:
             kind, target = event["kind"], event["target"]
@@ -172,6 +174,8 @@ class ScenarioEngine:
                 status["failed_sensors"].append(target)
             elif kind == "road_closed" and target not in status["closed_roads"]:
                 status["closed_roads"].append(target)
+            elif kind == "iot":
+                status["iot"] = not status["iot"]
             elif kind == "filter":
                 hidden = status["hidden_layers"]
                 hidden.remove(target) if target in hidden else hidden.append(target)

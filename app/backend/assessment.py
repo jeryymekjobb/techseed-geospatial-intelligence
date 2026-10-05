@@ -136,6 +136,8 @@ class Assessor:
             queued = bisect.bisect_right(self.times, clock) - high
             evidence.insert(0, line("satcom", "warn", f"Satellitdata otillgänglig sedan {format_utc(until)} (simulerat avbrott) – "
                                     f"{queued} detektioner köade", None))
+        if synthetic.get("disabled"):
+            evidence.append(line("iot", "warn", "IoT avstängt från mission control – inga sensorer i bedömningen", None))
         for sensor in synthetic["sensors"]:
             ref = place(sensor["latitude"], sensor["longitude"])
             if sensor["status"] == "failed":

@@ -48,6 +48,7 @@ function syntheticSensorLine(sensor) {
 }
 
 function confirmsText(result) {
+  if (result.disabled) return "IoT avstängt från mission control";
   return `IoT bekräftar ${result.confirms}/${result.operating} (syntetiska sensorer)`;
 }
 

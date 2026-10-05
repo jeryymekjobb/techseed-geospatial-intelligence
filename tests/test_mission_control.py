@@ -57,7 +57,7 @@ def node(expression: str) -> object:
 
 
 QUIET = {"satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False, "failed_sensors": [], "closed_roads": [],
-         "satcom_down_since": None, "last_outage": None, "hidden_layers": []}
+         "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True}
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
@@ -109,3 +109,12 @@ def test_the_filter_names_every_category_and_marks_the_missing_ones() -> None:
     assert node(f'eventBanner({{kind: "filter", target: "iot"}}, {json.dumps(hidden)})')["detail"] == "Lagret visas."
     assert node('eventText({kind: "filter", target: "space"})')["title"] == "FILTER SPACE"
     assert node('eventText({kind: "sensor_failure", target: "sensor-17"})')["title"] == "SENSOR FAILURE sensor-17"
+
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_iot_switch_says_whether_it_was_switched_off_or_on() -> None:
+    off = {**QUIET, "iot": False}
+    assert node(f'eventBanner({{kind: "iot", target: null}}, {json.dumps(off)})')["title"] == "IOT AV"
+    assert node(f'eventBanner({{kind: "iot", target: null}}, {json.dumps(QUIET)})')["title"] == "IOT PÅ"
+    assert node(f"statusLines({json.dumps(off)})") == [{"level": "alert", "text": "IoT avstängt – inga sensorer räknas"}]

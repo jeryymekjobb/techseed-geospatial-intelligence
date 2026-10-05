@@ -13,6 +13,7 @@ const EVENT_TEXTS = {
   power_failure: { title: "POWER FAILURE", detail: "Syntetisk händelse – elnätet finns inte i kartdata." },
   plus60: { title: "+60 MIN", detail: "Prognosen visas med kortaste horisonten – modell med stor osäkerhet." },
   god_view: { title: "GOD VIEW", detail: "Kameran visar hela lägesbilden." },
+  iot: { title: "IOT PÅ", detail: "Sensorerna räknas med i lägesbilden och bedömningen igen." },
   space_view: { title: "SPACE VIEW", detail: "Satelliternas läge 2014, beräknat ur banelement." },
   filter: { title: "FILTER", detail: "Ett lager visas eller döljs på kartan." },
 };
@@ -39,6 +40,7 @@ function eventBanner(event, status) {
   const text = eventText(event);
   if (event.kind === "plus60" && !status.plus60) return { title: "+60 MIN AV", detail: "Prognosen visas med vald horisont igen." };
   if (event.kind === "god_view" && !status.god_view) return { title: "RETURN TO INCIDENT", detail: "Kameran går tillbaka till branden." };
+  if (event.kind === "iot" && !status.iot) return { title: "IOT AV", detail: "Inga sensorer i lägesbilden eller bedömningen." };
   if (event.kind === "space_view" && !status.space_view) return { title: "RETURN TO INCIDENT", detail: "Kameran går tillbaka till branden." };
   if (event.kind === "filter") {
     const hidden = status.hidden_layers.includes(event.target);
@@ -55,6 +57,7 @@ function statusLines(status) {
   for (const road of status.closed_roads) lines.push({ level: "alert", text: `Väg avstängd: ${road ?? "väg"} (syntetiskt)` });
   if (status.power_failure) lines.push({ level: "alert", text: "Strömavbrott (syntetiskt)" });
   if (status.plus60) lines.push({ level: "info", text: "+60 MIN: prognos med kortaste horisonten" });
+  if (status.iot === false) lines.push({ level: "alert", text: "IoT avstängt – inga sensorer räknas" });
   if (status.god_view) lines.push({ level: "info", text: "GOD VIEW" });
   if (status.space_view) lines.push({ level: "info", text: "SPACE VIEW" });
   const hidden = FILTER_CATEGORIES.filter((item) => status.hidden_layers.includes(item.id)).map((item) => item.label);

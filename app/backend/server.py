@@ -151,7 +151,10 @@ def synthetic_sensors() -> sensor_sim.SyntheticSensors:
 
 
 def synthetic_at(state: dict[str, Any]) -> dict[str, Any]:
-    """The synthetic sensors at the scenario clock, with mission control's sensor failures."""
+    """The synthetic sensors at the scenario clock, with mission control's sensor failures;
+    none when mission control has switched IoT off."""
+    if not state["status"]["iot"]:
+        return {"label": sensor_sim.LABEL, "sensors": [], "confirms": 0, "operating": 0, "disabled": True}
     return synthetic_sensors().at(parse_utc(state["clock_utc"]), state["status"]["failed_sensors"])
 
 

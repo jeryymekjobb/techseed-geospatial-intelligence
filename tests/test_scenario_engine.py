@@ -74,7 +74,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
 
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
-        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [],
+        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True,
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -93,7 +93,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert state["status"] == {
         "satcom_up": False, "plus60": True, "god_view": True, "space_view": False, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
-        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [],
+        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True,
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
@@ -163,6 +163,16 @@ def test_a_high_speed_cannot_jump_over_a_slow_window() -> None:
     fake.now += 1
     # One real second: a quarter second to reach the merged 10-minute window, which takes 10 s at 1 min/s.
     assert scenario.snapshot()["clock_utc"] == "2014-08-01T00:00:45Z"
+
+
+def test_iot_is_switched_off_and_on_and_back_on_after_reset() -> None:
+    scenario, _ = engine()
+
+    assert scenario.snapshot()["status"]["iot"] is True
+    assert scenario.command("iot")["status"]["iot"] is False
+    assert scenario.command("iot")["status"]["iot"] is True
+    scenario.command("iot")
+    assert scenario.command("reset")["status"]["iot"] is True
 
 
 def test_events_take_the_time_of_the_running_clock() -> None:
@@ -313,3 +323,16 @@ def test_the_backend_slows_down_around_every_firms_pass_and_the_landsat_scene() 
     assert all(end - start == timedelta(minutes=8) for start, end in windows)
     first = min(passes)
     assert (first - timedelta(minutes=2), first + timedelta(minutes=6)) in windows
+
+
+def test_with_iot_off_no_sensor_reaches_the_screens_or_the_assessment() -> None:
+    scenario, _ = engine()
+    scenario.command("seek", at="2014-08-05T12:00:00Z")
+    on = scenario.snapshot()
+    off = scenario.command("iot")
+    assert server.synthetic_at(on)["operating"] == 3
+    assert server.synthetic_at(off) == {"label": server.sensor_sim.LABEL, "sensors": [], "confirms": 0, "operating": 0, "disabled": True}
+    with_iot, without_iot = server.assessment_at(on), server.assessment_at(off)
+    keys = [item["key"] for item in without_iot["evidence"]]
+    assert "iot" in keys and not any(key.startswith("iot:") for key in keys)
+    assert without_iot["score_pct"] < with_iot["score_pct"]

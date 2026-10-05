@@ -516,6 +516,7 @@ function applyStatus(status) {
     $("satellite-section")?.classList.toggle("space-view", status.space_view);
   }
   showFilter(status);
+  if (status.iot !== (previous?.iot ?? true)) showRealSensors();
 }
 
 // GOD VIEW's filter, set from mission control: the list on the map and the hidden categories.
@@ -557,13 +558,17 @@ function fillList(id, lines, empty) {
 
 function showRealSensors() {
   const readings = [...state.realSensors.values()].sort((a, b) => `${a.node}/${a.kind}`.localeCompare(`${b.node}/${b.kind}`));
+  if (state.scenarioStatus?.iot === false) {
+    fillList("real-sensors", [{ level: "alert", text: "IoT avstängt från mission control" }], "");
+    return;
+  }
   fillList("real-sensors", readings.map(realSensorLine), "Inga noder.");
   if (state.iotConnection) $("iot-connection").textContent = connectionText({ ...state.iotConnection, sensors: readings });
 }
 
 function showSynthetic(result) {
   state.synthetic = result;
-  fillList("synthetic-sensors", result.sensors.map(syntheticSensorLine), "Inga sensorer.");
+  fillList("synthetic-sensors", result.sensors.map(syntheticSensorLine), result.disabled ? "IoT avstängt." : "Inga sensorer.");
   $("synthetic-label").textContent = result.label;
   $("iot-confirms").textContent = confirmsText(result);
   state.map.drawSyntheticSensors(result);

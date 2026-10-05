@@ -43,7 +43,7 @@ function showState(scenarioState) {
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   }
-  const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view, space_view: status.space_view };
+  const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view, space_view: status.space_view, iot: status.iot };
   for (const button of document.querySelectorAll("[data-filter]")) {
     const shown = !status.hidden_layers.includes(button.dataset.filter);
     button.classList.toggle("active", shown);
@@ -63,6 +63,7 @@ function showState(scenarioState) {
     item.textContent = line.text;
     list.append(item);
   }
+  showIot();
   const log = $("event-log");
   log.innerHTML = "";
   for (const event of scenarioState.events.slice(-12).reverse()) {
@@ -73,6 +74,10 @@ function showState(scenarioState) {
 }
 
 function showIot() {
+  if (status && status.iot === false) {
+    $("real-sensors").innerHTML = '<li class="alert">IoT avstängt</li>';
+    return;
+  }
   const readings = [...realSensors.values()].sort((a, b) => `${a.node}/${a.kind}`.localeCompare(`${b.node}/${b.kind}`));
   const list = $("real-sensors");
   list.innerHTML = "";
