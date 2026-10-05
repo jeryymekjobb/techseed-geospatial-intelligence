@@ -175,3 +175,21 @@ def test_the_next_pass_is_the_pass_that_made_the_detections(tmp_path: Path) -> N
         offset = (server.parse_utc(found.replace(".000Z", "Z")) - moment).total_seconds()
         assert -600 <= offset <= 360, (found, moment)
     assert output["track"] == 101 and 800 < output["heights"][0] < output["heights"][1] < 860  # Suomi NPP near 830 km
+
+
+@needs_orbits
+def test_landsat_8_passed_over_the_fire_when_the_scene_was_taken(tmp_path: Path) -> None:
+    closest_passes(tmp_path, 0)  # makes the satellite.js copy
+    acquired = server.parse_utc("2014-08-04T10:06:44Z")
+    script = PASS_CHECK.replace("SATELLITE_JS", (tmp_path / "satellite.js").as_posix()).replace("ORBITS", (FRONTEND / "orbits.js").as_posix())
+    payload = {
+        "satellites": json.loads(satellites.TLE_FILE.read_text(encoding="utf-8"))["satellites"],
+        "cases": [{"norad": "39084", "from": "2014-08-04T09:30:00Z", "halfSwath": 92.5},
+                  {"norad": "37849", "from": "2014-08-04T09:30:00Z", "halfSwath": 1520.0}],
+        "centre": list(server.scenario.FIRE_CENTRE),
+    }
+    output = json.loads(subprocess.run(["node", "--input-type=module", "-e", script], input=json.dumps(payload),
+                                       capture_output=True, text=True, check=True).stdout)
+    landsat_pass = server.parse_utc(output["result"][0].replace(".000Z", "Z"))
+    # The scene time is the centre of a 185 km scene; the fire is in it, so within a few tens of seconds.
+    assert abs((landsat_pass - acquired).total_seconds()) <= 60

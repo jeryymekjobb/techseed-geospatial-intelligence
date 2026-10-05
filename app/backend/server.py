@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, forecast, iot, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial
+from app.backend import assessment, forecast, iot, landsat, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial
 from app.backend.scenario_engine import CommandError, ScenarioEngine
 from tools.firms_extract import daily_summary, select_detections
 
@@ -251,6 +251,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
             "offline_tiles": offline_tiles.available(),
             "terrain3d": (TERRAIN_DIR / "layer.json").is_file(),
             "satellites": satellites.satellites()["available"],
+            "landsat": landsat.layer(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "lantmateriet_fastighet": settings.fastighet_enabled,
             "lantmateriet_fastighet_layers": settings.fastighet_layers if settings.fastighet_enabled else "",
@@ -340,6 +341,12 @@ class Handler(BaseHTTPRequestHandler):
             self.offline_tile(path)
         elif path.startswith("/terrain/"):
             self.terrain(path)
+        elif path.startswith("/landsat/"):
+            body = landsat.image(path.removeprefix("/landsat/"))
+            if body is None:
+                self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            else:
+                self.send_bytes(body, "image/png", "max-age=86400")
         else:
             self.static(path)
 

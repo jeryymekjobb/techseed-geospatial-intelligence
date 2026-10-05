@@ -44,6 +44,10 @@ const state = {
   satelliteLib: null,
   satelliteInfoAt: null,
   flashedPasses: new Set(),
+  // The Landsat 8 scene (config.layers.landsat): shown from its acquisition time.
+  landsat: null,
+  landsatChoice: "swir",
+  landsatShown: undefined,
   pendingEvents: [],
   horizonBeforePlus60: null,
   // IoT (sensors.js): real nodes by "node/kind", the synthetic sensors at the clock.
@@ -235,6 +239,42 @@ function setClock(clock) {
   showWind(clock);
   drawForecast(clock);
   showSatellites(clock);
+  showLandsatAt(clock);
+}
+
+async function setupLandsat(config) {
+  const section = document.createElement("section");
+  section.innerHTML = '<h2>Satellitbild</h2><label>Landsat 8 <select id="landsat-choice">'
+    + '<option value="swir" selected>falska färger (SWIR)</option><option value="natural">naturliga färger</option>'
+    + '<option value="off">av</option></select></label><div id="landsat-note" class="status"></div>';
+  $("satellite-section").after(section);
+  const info = config.layers.landsat;
+  if (!info) {
+    $("landsat-note").textContent = "Satellitbilden är inte hämtad (tools/fetch_landsat_scene.py).";
+    $("landsat-choice").disabled = true;
+    return;
+  }
+  state.landsat = info;
+  await state.map.setupLandsat(info);
+  state.map.addAttribution(info.attribution);
+  $("landsat-choice").addEventListener("change", (event) => {
+    state.landsatChoice = event.target.value;
+    showLandsatAt(state.clock);
+  });
+  showLandsatAt(state.clock);
+}
+
+// The image appears when the scenario clock reaches the moment it was taken.
+function showLandsatAt(clock) {
+  if (!state.landsat || !clock) return;
+  const taken = new Date(state.landsat.acquired_utc);
+  const name = clock >= taken && state.landsatChoice !== "off" && !state.hiddenLayers.includes("space") ? state.landsatChoice : null;
+  $("landsat-note").textContent = clock >= taken
+    ? `${state.landsat.label}, ${String(state.landsat.cloud_cover_pct).replace(".", ",")} % moln. ${state.landsat.names[state.landsatChoice] || ""}`.trim()
+    : `Bilden togs ${formatLocal(state.landsat.acquired_utc)} och visas när scenariot når dit.`;
+  if (name === state.landsatShown) return;
+  state.landsatShown = name;
+  state.map.showLandsat(name);
 }
 
 const SATELLITE_JS = "/vendor/satellite.js-7.1.0/index.js";
@@ -423,6 +463,7 @@ function showFilter(status) {
     if (hidden !== state.hiddenLayers.includes(category.id)) state.map.setCategoryVisible(category.id, !hidden);
   }
   state.hiddenLayers = [...status.hidden_layers];
+  showLandsatAt(state.clock);
   let panel = $("god-filter");
   if (!panel) {
     panel = document.createElement("ul");
@@ -664,6 +705,7 @@ async function startApp(createMap) {
   setupScenarioView();
   await setupQuestions();
   await setupSatellites(config);
+  await setupLandsat(config);
   state.iotConnection = await loadOptional("/api/sensors", (error) => { $("iot-connection").textContent = `IoT kunde inte laddas: ${error.message}.`; });
   showRealSensors();
   setClock(new Date(config.playback.start_utc));

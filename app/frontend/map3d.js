@@ -141,6 +141,7 @@ async function createCesiumMap(config) {
   const stationLayer = group("stations");
   const satelliteLayer = group("satellites");
   const satelliteEntities = new Map();  // norad -> { point, track }
+  const landsatLayers = {};  // composite name -> imagery layer
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
   let terrainLayer = null;
@@ -501,6 +502,21 @@ async function createCesiumMap(config) {
           duration: SPACE_VIEW.seconds, complete: resolve, cancel: resolve,
         });
       });
+    },
+
+    // The Landsat 8 scene as imagery over the map area, one hidden layer per composite.
+    setupLandsat(info) {
+      const [[south, west], [north, east]] = info.bounds;
+      const rectangle = Cesium.Rectangle.fromDegrees(west, south, east, north);
+      return Promise.all(Object.entries(info.images).map(async ([name, url]) => {
+        const layer = viewer.imageryLayers.addImageryProvider(await Cesium.SingleTileImageryProvider.fromUrl(url, { rectangle }));
+        layer.show = false;
+        landsatLayers[name] = layer;
+      }));
+    },
+
+    showLandsat(name) {
+      for (const [key, layer] of Object.entries(landsatLayers)) layer.show = key === name;
     },
 
     // Show an evidence object from the assessment.

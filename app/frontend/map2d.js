@@ -56,6 +56,10 @@ function createLeafletMap(config) {
   const queryLayer = L.layerGroup().addTo(map);
   overlays["Svar på fråga"] = queryLayer;
   const stationLayer = L.layerGroup().addTo(map);
+  // The Landsat 8 scene below the hotspots and other overlays. It is in WGS 84 and
+  // stretched to its bounds; over this small area the distortion is about one per cent.
+  map.createPane("landsat").style.zIndex = 350;
+  const landsatOverlays = {};
   let windLayer = null;
   map.attributionControl.addAttribution(config.attribution.firms);
   let markers = [];
@@ -241,6 +245,19 @@ function createLeafletMap(config) {
     drawSatellites() {},
     flashSatellite() {},
     showSpaceView() {},
+
+    setupLandsat(info) {
+      for (const [name, url] of Object.entries(info.images)) {
+        landsatOverlays[name] = L.imageOverlay(url, info.bounds, { pane: "landsat", interactive: false });
+      }
+    },
+
+    showLandsat(name) {
+      for (const [key, overlay] of Object.entries(landsatOverlays)) {
+        if (key === name) overlay.addTo(map);
+        else overlay.remove();
+      }
+    },
 
     // Show an evidence object from the assessment.
     focusOn(lat, lon) {
