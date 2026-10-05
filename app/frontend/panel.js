@@ -44,6 +44,7 @@ const state = {
   satelliteLib: null,
   satelliteInfoAt: null,
   satellitesDrawnAt: null,
+  monitor: null,  // satmonitor.js, always on screen
   passCache: new Map(),  // "norad|day" -> passes over the fire that scenario day
   flashedPasses: new Set(),
   // The Landsat 8 scene (config.layers.landsat): shown from its acquisition time.
@@ -300,6 +301,8 @@ async function setupSatellites(config) {
   }
   state.satellites = data;
   $("satellite-note").textContent = `${data.label}. Källa: ${data.source}.`;
+  const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
+  state.monitor = createSatelliteMonitor($("map"), config.fire_centre, (time) => hourMinute.format(time));
   precomputePasses();
 }
 
@@ -357,6 +360,15 @@ function showSatellites(clock) {
     track: orbitTrack(lib, satellite.elements, clock, 50, 2),
   })).filter((item) => item.point);
   state.map.drawSatellites(items);
+  if (state.monitor) {
+    // The monitor's timeline needs the passes from an hour back to five hours ahead.
+    const first = Math.floor((clock.getTime() - MONITOR_WINDOW.beforeMs) / DAY_MS);
+    const last = Math.floor((clock.getTime() + MONITOR_WINDOW.afterMs) / DAY_MS);
+    state.monitor.draw(items.map((item) => ({
+      ...item,
+      passes: item.half_swath_km ? Array.from({ length: last - first + 1 }, (_, i) => passesOn(item, first + i)).flat() : null,
+    })), clock);
+  }
   // Height, speed and next pass change slowly; recompute them every 10 scenario minutes.
   if (state.satelliteInfoAt !== null && Math.abs(clock - state.satelliteInfoAt) < 600000) return;
   state.satelliteInfoAt = clock;
