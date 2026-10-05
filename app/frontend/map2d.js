@@ -247,8 +247,11 @@ function createLeafletMap(config) {
     showSpaceView() {},
 
     setupLandsat(info) {
-      for (const [name, url] of Object.entries(info.images)) {
-        landsatOverlays[name] = L.imageOverlay(url, info.bounds, { pane: "landsat", interactive: false });
+      // One overlay per scene and image, keyed "scene|image" as landsat.js names them.
+      for (const scene of info.scenes) {
+        for (const [name, url] of Object.entries(scene.images)) {
+          landsatOverlays[`${scene.scene}|${name}`] = L.imageOverlay(url, info.bounds, { pane: "landsat", interactive: false });
+        }
       }
     },
 

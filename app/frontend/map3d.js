@@ -512,10 +512,12 @@ async function createCesiumMap(config) {
     setupLandsat(info) {
       const [[south, west], [north, east]] = info.bounds;
       const rectangle = Cesium.Rectangle.fromDegrees(west, south, east, north);
-      return Promise.all(Object.entries(info.images).map(async ([name, url]) => {
+      // One hidden layer per scene and image, keyed "scene|image" as landsat.js names them.
+      const images = info.scenes.flatMap((scene) => Object.entries(scene.images).map(([name, url]) => [`${scene.scene}|${name}`, url]));
+      return Promise.all(images.map(async ([key, url]) => {
         const layer = viewer.imageryLayers.addImageryProvider(await Cesium.SingleTileImageryProvider.fromUrl(url, { rectangle }));
         layer.show = false;
-        landsatLayers[name] = layer;
+        landsatLayers[key] = layer;
       }));
     },
 

@@ -176,11 +176,13 @@ SLOW_BEFORE, SLOW_AFTER = timedelta(minutes=2), timedelta(minutes=6)
 
 
 def slow_windows() -> list[tuple[datetime, datetime]]:
-    """Two minutes before to six after each FIRMS pass (a granule lasts up to five) and the Landsat scene."""
+    """Two minutes before to six after each FIRMS pass (a granule lasts up to five) and each Landsat scene in the playback."""
     moments = {parse_utc(item["acq_datetime_utc"]) for item in detections()}
-    scene = landsat.layer()
-    if scene:
-        moments.add(parse_utc(scene["acquired_utc"]))
+    scenes = landsat.layer()
+    for scene in scenes["scenes"] if scenes else []:
+        moment = parse_utc(scene["acquired_utc"])
+        if scenario.PLAYBACK_START <= moment <= scenario.PLAYBACK_END:  # the scenes before and after are outside
+            moments.add(moment)
     return [(moment - SLOW_BEFORE, moment + SLOW_AFTER) for moment in sorted(moments)]
 
 

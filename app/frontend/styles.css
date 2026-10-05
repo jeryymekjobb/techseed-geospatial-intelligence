@@ -96,6 +96,10 @@ body.monitor-page { display: flex; flex-direction: column; height: 100%; backgro
 .monitor-list { margin: 0; padding: 0 12px 4px; list-style: none; font-size: 1rem; columns: 2; }
 .monitor-list .active { color: #ffd54a; font-weight: 700; }
 .monitor-note { padding: 0 12px 10px; font-size: 0.8rem; color: #b8b8b8; }
+.ndmi-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; margin: 6px 0; font-size: 0.8rem; color: var(--muted); }
+.ndmi-legend[hidden] { display: none; }
+.ndmi-legend .bar { grid-column: 1 / -1; height: 10px; border-radius: 3px; }
+.ndmi-legend span:last-child { text-align: right; }
 .iot-confirms { margin-top: 6px; font-weight: 700; }
 .control-layout h3 { margin: 8px 0 4px; font-size: 0.9rem; color: #d0d0d0; }
 .assessment-outcome { font-size: 1.15rem; font-weight: 700; }

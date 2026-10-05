@@ -179,14 +179,15 @@ python3 -m tools.load_postgis
 # 5.6 Satelliternas banor 2014 (använder ~/.spacetrackrc)
 python3 -m tools.fetch_tle_history
 
-# 5.7 Landsat-bilden av branden den 4 augusti 2014
-python3 -m tools.fetch_landsat_scene
+# 5.7 Landsat-bilderna före, under och efter branden (10 juni, 4 augusti och 14 september 2014)
+.venv/bin/python -m tools.fetch_landsat_scene
 ```
 
 Första gången du kör 5.4 hämtar Docker tjänsterna, cirka 2,5 GB. Det sker bara en gång.
 
 När 5.6 är klar skriver den hur många "element sets" den hämtade för varje satellit, till
-exempel `Suomi NPP: 18 element sets`. När 5.7 är klar skriver den namnen på två bilder.
+exempel `Suomi NPP: 18 element sets`. När 5.7 är klar skriver den en rad per bild, till exempel
+`before: … – data över 100.0 % av brandområdet, moln över 0.0 %`.
 
 ## 6. Generalrepetition – på varje dator
 
@@ -320,6 +321,12 @@ Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 Efter **RESET** står klockan på demons startpunkt, den 31 juli. Ladda om huvudskärmen med
 adressen i avsnitt 8 för att börja kl. 11:30 den 4 augusti igen.
 
+**Före och efter branden.** Under "Satellitbild" i panelen kan du välja datum. Med
+**efter branden (jämförelse)** visas bilden från 14 september med hela det brända området,
+ovanpå dagens brandfront. Välj bilden **fukt i vegetationen (NDMI)** för att visa hur torrt
+det var: brunt är torrt, blått är fuktigt. Säg att bilden efter branden är en jämförelse,
+inte läget vid scenariotiden – det står också på skärmen.
+
 Fler knappar om besökarna frågar:
 
 - **SENSOR FAILURE**: en sensor slutar fungera och räknas inte längre.
@@ -364,7 +371,7 @@ Hitta det du ser i vänstra kolumnen. Åtgärderna A–F står i kodblocket unde
 | Sensorerna visar "Ansluter …" eller "IoT unavailable" | Meddelandetjänsten är inte igång, eller backend startades med `python3` i stället för `.venv/bin/python`. | B, sedan A. |
 | Sensorerna i montern visas som OFFLINE | Programmet i terminal 2 har stannat. | C. Sensorerna kommer tillbaka inom några sekunder. |
 | Frågorna svarar "PostGIS svarar inte" | Databasen är inte igång. | D, sedan A. |
-| Inga satelliter, eller ingen satellitbild | Steg 5.6 eller 5.7 är inte gjort. | E. Landsat-bilden visas först från 12:06 svensk tid den 4 augusti. |
+| Inga satelliter, eller ingen satellitbild | Steg 5.6 eller 5.7 är inte gjort. | E. Före 12:06 svensk tid den 4 augusti visas bilden från 10 juni; bilden från 4 augusti tar över när scenariot når dit. |
 | Kartan runt brandområdet är tom eller ljus | Kartjänsten är inte igång. | F. |
 | 3D-vyn rör sig ryckigt | För hög hastighet eller för svagt grafikkort. | Tryck **1 MINUT/S** i SPACE VIEW. Kör generalrepetitionen i avsnitt 6. |
 | Mission control säger "fel eller saknad token" | Backend kräver token. | Lägg till `?token=din-token` i adressen, se avsnitt 9. |
@@ -389,7 +396,7 @@ docker compose up -d postgis
 
 # E – hämta satellitbanorna och Landsat-bilden
 python3 -m tools.fetch_tle_history
-python3 -m tools.fetch_landsat_scene
+.venv/bin/python -m tools.fetch_landsat_scene
 
 # F – starta kartjänsten
 docker compose up -d tiles

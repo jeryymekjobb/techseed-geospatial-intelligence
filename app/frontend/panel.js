@@ -50,6 +50,7 @@ const state = {
   // The Landsat 8 scene (config.layers.landsat): shown from its acquisition time.
   landsat: null,
   landsatChoice: "swir",
+  landsatDate: "auto",
   landsatShown: undefined,
   pendingEvents: [],
   horizonBeforePlus60: null,
@@ -247,15 +248,30 @@ function setClock(clock) {
 
 async function setupLandsat(config) {
   const section = document.createElement("section");
-  section.innerHTML = '<h2>Satellitbild</h2><label>Landsat 8 <select id="landsat-choice">'
-    + '<option value="swir" selected>falska färger (SWIR)</option><option value="natural">naturliga färger</option>'
-    + '<option value="off">av</option></select></label><div id="landsat-note" class="status"></div>';
+  section.innerHTML = '<h2>Satellitbild (Landsat 8)</h2>'
+    + '<label>Datum <select id="landsat-date"><option value="auto" selected>senaste fram till scenariotiden</option>'
+    + '<option value="before">före branden</option><option value="during">under branden</option>'
+    + '<option value="after">efter branden (jämförelse)</option></select></label> '
+    + '<label>Bild <select id="landsat-choice"><option value="swir" selected>falska färger (SWIR)</option>'
+    + '<option value="natural">naturliga färger</option><option value="ndmi">fukt i vegetationen (NDMI)</option>'
+    + '<option value="off">av</option></select></label>'
+    + '<div id="landsat-legend" class="ndmi-legend" hidden></div><div id="landsat-note" class="status"></div>';
   $("satellite-section").after(section);
   const info = config.layers.landsat;
   if (!info) {
     $("landsat-note").textContent = "Satellitbilden är inte hämtad (tools/fetch_landsat_scene.py).";
     $("landsat-choice").disabled = true;
+    $("landsat-date").disabled = true;
     return;
+  }
+  if (info.ndmi_colours) {
+    // The NDMI scale: brown dry to blue moist, with the index at the ends and the middle.
+    const stops = info.ndmi_colours;
+    const low = stops[0][0];
+    const high = stops[stops.length - 1][0];
+    const gradient = stops.map(([value, rgb]) => `rgb(${rgb.join(",")}) ${Math.round((100 * (value - low)) / (high - low))}%`).join(", ");
+    $("landsat-legend").innerHTML = `<span class="bar" style="background: linear-gradient(to right, ${gradient})"></span>`
+      + `<span>torrt ${String(low).replace(".", ",")}</span><span>fuktigt ${String(high).replace(".", ",")}</span>`;
   }
   state.landsat = info;
   await state.map.setupLandsat(info);
@@ -264,20 +280,33 @@ async function setupLandsat(config) {
     state.landsatChoice = event.target.value;
     showLandsatAt(state.clock);
   });
+  $("landsat-date").addEventListener("change", (event) => {
+    state.landsatDate = event.target.value;
+    showLandsatAt(state.clock);
+  });
   showLandsatAt(state.clock);
 }
 
-// The image appears when the scenario clock reaches the moment it was taken.
+// The latest image taken up to the scenario clock, or the chosen date once the clock has
+// reached it; the image after the fire is a comparison (landsat.js).
 function showLandsatAt(clock) {
   if (!state.landsat || !clock) return;
-  const taken = new Date(state.landsat.acquired_utc);
-  const name = clock >= taken && state.landsatChoice !== "off" && !state.hiddenLayers.includes("space") ? state.landsatChoice : null;
-  $("landsat-note").textContent = clock >= taken
-    ? `${state.landsat.label}, ${String(state.landsat.cloud_cover_pct).replace(".", ",")} % moln. ${state.landsat.names[state.landsatChoice] || ""}`.trim()
-    : `Bilden togs ${formatLocal(state.landsat.acquired_utc)} och visas när scenariot når dit.`;
-  if (name === state.landsatShown) return;
-  state.landsatShown = name;
-  state.map.showLandsat(name);
+  const selection = landsatSelection(state.landsat.scenes, clock.getTime(), state.landsatDate, state.landsatChoice);
+  const key = state.hiddenLayers.includes("space") ? null : selection.key;
+  const scene = selection.scene;
+  const notes = {
+    off: "Satellitbilden är avslagen.",
+    "none-yet": "Ingen bild är tagen ännu vid scenariotiden.",
+    missing: "Bilden finns inte (tools/fetch_landsat_scene.py).",
+    "not-yet": scene ? `Bilden togs ${formatLocal(scene.acquired_utc)} och visas när scenariot når dit.` : "",
+  };
+  $("landsat-note").textContent = notes[selection.reason]
+    || `${scene.label}, ${String(scene.cloud_pct).replace(".", ",")} % moln över brandområdet. ${state.landsat.names[state.landsatChoice]}.`
+      + (selection.reason === "comparison" ? " Tagen efter branden – inte läget vid scenariotiden." : "");
+  $("landsat-legend").hidden = !(key && state.landsatChoice === "ndmi");
+  if (key === state.landsatShown) return;
+  state.landsatShown = key;
+  state.map.showLandsat(key);
 }
 
 const SATELLITE_JS = "/vendor/satellite.js-7.1.0/index.js";
