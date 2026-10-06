@@ -1,7 +1,8 @@
-"""The Landsat 8 scenes before, during and after the fire, for both maps.
+"""The Landsat 8 scenes before, during and after the incident, for both maps.
 
-tools/fetch_landsat_scene.py cuts three scenes - 10 June, 4 August and 14 September
-2014 - into PNGs in the unversioned data/landsat/: natural colour, short-wave infrared
+tools/fetch_landsat_scene.py cuts the scenario's scenes - for Västmanland 10 June,
+4 August and 14 September 2014 - into PNGs in its unversioned Landsat directory
+(data/landsat/): natural colour, short-wave infrared
 false colour and the moisture index NDMI, all in WGS 84 over the map area. The backend
 serves them at /landsat/<file> and describes them in /api/config. The maps show the
 latest scene taken up to the scenario clock; the scene after the fire is shown only
@@ -15,13 +16,13 @@ from typing import Any
 
 from app.backend import scenario
 
-LANDSAT_DIR = scenario.REPO_ROOT / "data" / "landsat"
+LANDSAT_DIR = scenario.LANDSAT_DIR
 NAMES = {
     "swir": "falska färger, kortvågig IR (band 7-5-4)",
     "natural": "naturliga färger (band 4-3-2)",
     "ndmi": "fukt i vegetationen, NDMI (band 5 och 6)",
 }
-ROLES = {"before": "Före branden", "during": "Under branden", "after": "Efter branden – jämförelse"}
+ROLES = scenario.LANDSAT_ROLES
 
 
 def layer() -> dict[str, Any] | None:

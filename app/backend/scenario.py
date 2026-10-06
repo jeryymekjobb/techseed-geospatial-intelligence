@@ -1,40 +1,59 @@
-"""The Västmanland 2014 wildfire scenario: data files, area, period and playback."""
+"""The scenario the demo runs: its data files, area, period, playback and texts.
+
+The values come from one module in app/backend/scenarios/, chosen by the environment
+variable TECHSEED_SCENARIO (default vastmanland2014). The modules that use them read
+them when they are imported, so the scenario is chosen before the backend starts:
+`server.py --scenario` restarts itself with the variable set.
+"""
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-from pathlib import Path
+import importlib
+import os
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-FIRMS_FILES = [
-    REPO_ROOT / "satellite_data" / "firms" / "fire_archive_M-C61_816007.csv",
-    REPO_ROOT / "satellite_data" / "firms" / "fire_archive_SV-C2_816008.csv",
-]
-TERRAIN_FILE = REPO_ROOT / "app" / "layers" / "terrain-vastmanland.geojson"
-WEATHER_DIR = REPO_ROOT / "weather_data" / "smhi"
-WIND_FILE = REPO_ROOT / "weather_data" / "era5-land" / "era5-land-vastmanland-2014.csv"
-# Mean position of the FIRMS detections, used for station distances.
-FIRE_CENTRE = (59.89, 16.175)
+from app.backend.scenarios import AVAILABLE, DEFAULT, REPO_ROOT
 
-TITLE = "Skogsbranden i Västmanland 2014"
-# FIRMS selection box; the detections of the fire lie within 59.83-60.01 N, 16.01-16.30 E.
-FIRE_BBOX = (59.70, 60.10, 15.90, 16.50)  # min_lat, max_lat, min_lon, max_lon
-# Map view with a margin, so surrounding places and lakes are visible.
-VIEW_BBOX = (59.75, 60.08, 15.85, 16.45)
-PERIOD_START = date(2014, 7, 29)
-PERIOD_END = date(2014, 8, 14)
-PLAYBACK_START = datetime(2014, 7, 31, 0, 0, tzinfo=timezone.utc)
-PLAYBACK_END = datetime(2014, 8, 15, 0, 0, tzinfo=timezone.utc)
+NAME = os.environ.get("TECHSEED_SCENARIO") or DEFAULT
+if NAME not in AVAILABLE:
+    raise SystemExit(f"Unknown scenario {NAME!r} in TECHSEED_SCENARIO; available: {', '.join(AVAILABLE)}")
+_module = importlib.import_module(f"app.backend.scenarios.{NAME}")
 
-ATTRIBUTION = {
-    "firms": "NASA FIRMS, MODIS C6.1 och VIIRS S-NPP C2, arkivuttag 816007 och 816008",
-    "osm": "© OpenStreetMap contributors (ODbL)",
-    "lantmateriet": "© Lantmäteriet",
-    "smhi": "SMHI öppna data (CC BY 4.0 SE), Sala A och Kloten A",
-    "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land), CC BY 4.0",
-    # The Copernicus DEM licence's notice for modified data (the 3D terrain mesh).
-    "copernicus_dem": (
-        "produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 "
-        "provided under COPERNICUS by the European Union and ESA; all rights reserved"
-    ),
-}
+TITLE = _module.TITLE
+DATA_LABEL = _module.DATA_LABEL
+CONTROL_LABEL = _module.CONTROL_LABEL
+FIRMS_FILES = _module.FIRMS_FILES
+TERRAIN_FILE = _module.TERRAIN_FILE
+TARGETS_FILE = _module.TARGETS_FILE
+WEATHER_DIR = _module.WEATHER_DIR
+WIND_FILE = _module.WIND_FILE
+DEM_DIR = _module.DEM_DIR
+TERRAIN_DIR = _module.TERRAIN_DIR
+LANDSAT_DIR = _module.LANDSAT_DIR
+TLE_DIR = _module.TLE_DIR
+TLE_FILE_NAME = _module.TLE_FILE_NAME
+FIRE_CENTRE = _module.FIRE_CENTRE
+FIRE_BBOX = _module.FIRE_BBOX
+VIEW_BBOX = _module.VIEW_BBOX
+MAP_BBOX = _module.MAP_BBOX
+PERIOD_START = _module.PERIOD_START
+PERIOD_END = _module.PERIOD_END
+PLAYBACK_START = _module.PLAYBACK_START
+PLAYBACK_END = _module.PLAYBACK_END
+CHECK_START_UTC = _module.CHECK_START_UTC
+DATABASE = _module.DATABASE
+TILES_FILE = _module.TILES_FILE
+CAMERA_ROUTE = _module.CAMERA_ROUTE
+TLE_SATELLITES = _module.TLE_SATELLITES
+TLE_START = _module.TLE_START
+TLE_END = _module.TLE_END
+SATELLITE_ROLES = _module.SATELLITE_ROLES
+SATELLITE_LABEL = _module.SATELLITE_LABEL
+LANDSAT_SCENES = _module.LANDSAT_SCENES
+LANDSAT_ROLES = _module.LANDSAT_ROLES
+LANDSAT_FOCUS_AREA = _module.LANDSAT_FOCUS_AREA
+LANDSAT_SIZE = _module.LANDSAT_SIZE
+FORECAST_WEATHER_FILES = _module.FORECAST_WEATHER_FILES
+FORECAST_METHOD = _module.FORECAST_METHOD
+FORECAST_REPORT = _module.FORECAST_REPORT
+SPATIAL_SOURCE = _module.SPATIAL_SOURCE
+ATTRIBUTION = _module.ATTRIBUTION

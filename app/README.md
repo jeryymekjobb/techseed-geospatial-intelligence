@@ -51,6 +51,20 @@ and <http://127.0.0.1:8765/control.html> (mission control). Options: `--host`,
 `?at=2014-08-04T12:00:00Z` shows the state at that UTC time (the playback
 continues from there).
 
+### Scenarios
+
+Everything that belongs to one demo - area, period, titles, data files, database,
+map tiles, camera route, satellites and Landsat scenes - is in a module of its own in
+`app/backend/scenarios/`; `app/backend/scenario.py` loads the chosen one. Today there
+is one, `vastmanland2014`, the default. Choose with `--scenario` or the environment
+variable `TECHSEED_SCENARIO`; the tools in `tools/` read the same variable:
+
+```bash
+.venv/bin/python -m app.backend.server --scenario vastmanland2014
+TECHSEED_SCENARIO=vastmanland2014 .venv/bin/python -m tools.load_postgis
+TILES_FILE=vastmanland.mbtiles docker compose up -d tiles   # the scenario's TILES_FILE
+```
+
 `?speed=10800` sets the playback speed in simulated seconds per second and
 `?horizon=6` the forecast horizon (3, 6, 12 or 24 hours).
 

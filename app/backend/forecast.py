@@ -22,11 +22,8 @@ from tools.firms_extract import select_detections
 
 HORIZONS_H = (3, 6, 12, 24)
 BANDS = analysis.BANDS
-SMHI_FILES = [
-    scenario.WEATHER_DIR / "spinup" / "sala-a-96560.csv",
-    scenario.WEATHER_DIR / "sala-a-96560.csv",
-]
-TARGETS_FILE = scenario.REPO_ROOT / "osm_data" / "targets-vastmanland.geojson"
+SMHI_FILES = scenario.FORECAST_WEATHER_FILES
+TARGETS_FILE = scenario.TARGETS_FILE
 LABEL = "Modellprognos med stor osäkerhet – inte beslutsunderlag"
 COMPASS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "SV", "VSV", "V", "VNV", "NV", "NNV"]
 
@@ -122,8 +119,8 @@ def forecasts() -> dict[str, Any]:
         })
     return {
         "label": LABEL,
-        "method": "FBP C-2, FWI från SMHI Sala A, rådande väder vid passagen, kalibrerad mot observerad spridning; spann halva–dubbla hastigheten",
+        "method": scenario.FORECAST_METHOD,
         "horizons_h": list(HORIZONS_H),
-        "report": "reports/2026-10-01-brandspridningsanalys-vastmanland-2014-claude-opus-5-5.md",
+        "report": scenario.FORECAST_REPORT,
         "states": states,
     }

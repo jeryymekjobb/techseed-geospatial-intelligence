@@ -113,7 +113,7 @@ def land_cover_at(lat: float, lon: float) -> str | None:
 
 @lru_cache(maxsize=1)
 def industrial_buildings() -> list[tuple[float, float]]:
-    targets = json.loads((scenario.REPO_ROOT / "osm_data" / "targets-vastmanland.geojson").read_text(encoding="utf-8"))
+    targets = json.loads(scenario.TARGETS_FILE.read_text(encoding="utf-8"))
     return [(f["geometry"]["coordinates"][1], f["geometry"]["coordinates"][0]) for f in targets["features"]
             if f["properties"].get("kind") == "building" and f["properties"].get("type") == "industrial"]
 

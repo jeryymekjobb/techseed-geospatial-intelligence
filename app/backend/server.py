@@ -1,4 +1,4 @@
-"""Backend for the Västmanland 2014 fire map.
+"""Backend for the demo map, for the scenario chosen in app/backend/scenario.py.
 
 Serves the GUI, the FIRMS detections of the fire, a playback stream that sends
 the detections to the GUI in compressed time (Server-Sent Events), the OSM
@@ -8,6 +8,7 @@ TechSeed IoT nodes (MQTT, app/backend/iot.py).
 Run from the repository root:
 
     python3 -m app.backend.server
+    python3 -m app.backend.server --scenario vastmanland2014
 
 Only the Python standard library is used, except paho-mqtt for the IoT nodes
 (optional; app/requirements-iot.txt).
@@ -22,6 +23,7 @@ import json
 import math
 import mimetypes
 import os
+import sys
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -34,11 +36,12 @@ from urllib.parse import parse_qsl, urlsplit
 
 from app.backend import assessment, detection, forecast, iot, landsat, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial
 from app.backend.scenario_engine import CommandError, ScenarioEngine
+from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 # Cesium terrain built by tools/build_terrain.py (not versioned).
-TERRAIN_DIR = Path(__file__).resolve().parents[2] / "data" / "terrain"
+TERRAIN_DIR = scenario.TERRAIN_DIR
 TICK_SECONDS = 0.25
 MIN_SPEED, MAX_SPEED = 60.0, 4 * 86400.0  # simulated seconds per real second
 
@@ -98,7 +101,7 @@ def _ring_area_km2(ring: list[list[float]]) -> float:
 def labels() -> dict[str, Any]:
     """Place names (OSM places) and lake names (named water areas) as label points."""
     features = []
-    targets = json.loads((scenario.REPO_ROOT / "osm_data" / "targets-vastmanland.geojson").read_text(encoding="utf-8"))
+    targets = json.loads(scenario.TARGETS_FILE.read_text(encoding="utf-8"))
     for item in targets["features"]:
         props = item["properties"]
         if props["kind"] == "place" and props.get("name") and props["type"] in LABEL_MIN_ZOOM:
@@ -267,9 +270,15 @@ def playback_events(
 def config(settings: lantmateriet.Settings) -> dict[str, Any]:
     min_lat, max_lat, min_lon, max_lon = scenario.VIEW_BBOX
     fire = scenario.FIRE_BBOX
+    west, south, east, north = scenario.MAP_BBOX
     return {
+        "scenario": scenario.NAME,
         "title": scenario.TITLE,
-        "data_label": "Historiska data 2014 – uppspelning, inte live",
+        "data_label": scenario.DATA_LABEL,
+        "control_label": scenario.CONTROL_LABEL,
+        "camera_route": scenario.CAMERA_ROUTE,
+        # The area of the offline map, the DEM and the Landsat images.
+        "map_bounds": [[south, west], [north, east]],
         "view_bounds": [[min_lat, min_lon], [max_lat, max_lon]],
         "fire_centre": list(scenario.FIRE_CENTRE),
         "fire_selection_bounds": [[fire[0], fire[2]], [fire[1], fire[3]]],
@@ -616,16 +625,21 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Backend for the Västmanland 2014 fire map")
+    parser = argparse.ArgumentParser(description="Backend for the demo map")
+    parser.add_argument("--scenario", choices=AVAILABLE, help=f"the scenario to run (default: TECHSEED_SCENARIO or {DEFAULT})")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--mqtt", default=os.environ.get("IOT_MQTT_BROKER", "127.0.0.1:1883"),
                         help="MQTT broker of the IoT nodes as host:port, or 'off'")
     args = parser.parse_args(argv)
+    if args.scenario and args.scenario != scenario.NAME:
+        # The modules read the scenario when they are imported: start again with it chosen.
+        os.environ["TECHSEED_SCENARIO"] = args.scenario
+        os.execv(sys.executable, [sys.executable, "-m", "app.backend.server", *(argv if argv is not None else sys.argv[1:])])
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.daemon_threads = True
     settings = Handler.settings
-    print(f"Fire map on http://{args.host}:{args.port}/ ({len(detections())} detections)")
+    print(f"{scenario.TITLE} ({scenario.NAME}) on http://{args.host}:{args.port}/ ({len(detections())} detections)")
     print(f"Lantmäteriet topowebb: {'on' if settings.topowebb_enabled else 'off'}, "
           f"fastighetsindelning: {'on' if settings.fastighet_enabled else 'off'}")
     if args.mqtt != "off":
