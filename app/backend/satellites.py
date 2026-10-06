@@ -29,6 +29,10 @@ def satellites() -> dict[str, Any]:
     data = json.loads(TLE_FILE.read_text(encoding="utf-8"))["satellites"]
     source = json.loads(SOURCE_FILE.read_text(encoding="utf-8")) if SOURCE_FILE.is_file() else {}
     fetched = source.get("fetched_utc", "okänt datum")
+    # Satellites whose passes over the incident are known acquisitions rather than computed (Sentinel-1).
+    acquisitions: dict[str, list[str]] = {}
+    for item in scenario.SENTINEL1_ACQUISITIONS:
+        acquisitions.setdefault(item["norad"], []).append(item["time_utc"])
     return {
         "available": True,
         "label": LABEL,
@@ -36,6 +40,7 @@ def satellites() -> dict[str, Any]:
         "satellites": [
             {"norad": norad, "name": entry["name"],
              **ROLES.get(norad, {"firms": None, "instrument": None, "role": "", "half_swath_km": None}),
+             **({"acquisitions": acquisitions[norad]} if norad in acquisitions else {}),
              "elements": entry["elements"]}
             for norad, entry in data.items() if entry["elements"]
         ],

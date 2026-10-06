@@ -440,7 +440,7 @@ function precomputePasses() {
   const last = Math.floor(Date.parse(state.config.playback.end_utc) / DAY_MS);
   const work = [];
   for (let day = first; day <= last + 1; day += 1) {
-    for (const item of state.satellites.satellites) if (item.half_swath_km) work.push([item, day]);
+    for (const item of state.satellites.satellites) if (hasPasses(item)) work.push([item, day]);
   }
   const later = window.requestIdleCallback || ((callback) => setTimeout(callback, 50));
   const next = () => {
@@ -456,7 +456,7 @@ function passesOn(item, day) {
   const key = `${item.norad}|${day}`;
   if (!state.passCache.has(key)) {
     const [lat, lon] = state.config.fire_centre;
-    state.passCache.set(key, passesBetween(state.satelliteLib, item.elements, day * DAY_MS, (day + 1) * DAY_MS, lat, lon, item.half_swath_km));
+    state.passCache.set(key, satellitePasses(state.satelliteLib, item, day * DAY_MS, (day + 1) * DAY_MS, lat, lon));
   }
   return state.passCache.get(key);
 }
@@ -493,7 +493,7 @@ function showSatellites(clock) {
     const last = Math.floor((clock.getTime() + MONITOR_WINDOW.afterMs) / DAY_MS);
     state.monitor.draw(items.map((item) => ({
       ...item,
-      passes: item.half_swath_km ? Array.from({ length: last - first + 1 }, (_, i) => passesOn(item, first + i)).flat() : null,
+      passes: hasPasses(item) ? Array.from({ length: last - first + 1 }, (_, i) => passesOn(item, first + i)).flat() : null,
     })), clock);
   }
   // Height, speed and next pass change slowly; recompute them every 10 scenario minutes.
@@ -502,7 +502,7 @@ function showSatellites(clock) {
   fillList("satellite-list", items.map((item) => {
     const instrument = item.instrument ? ` (${item.instrument})` : "";
     let pass = "";
-    if (item.half_swath_km) {
+    if (hasPasses(item)) {
       const next = passFor(item, clock);
       const place = state.config.incident_place;
       pass = next === null ? ` · ingen passage över ${place} inom 24 h`
@@ -570,8 +570,6 @@ function setupScenarioView() {
     + '<ul id="satcom-sync" class="scenario-status"></ul><div id="iot-confirms" class="iot-confirms"></div>';
   document.querySelector(".panel section").after(section);
   const assessmentSection = document.createElement("section");
-  // The flood's assessment and questions come later; until then the section is the fire's.
-  if (state.config.incident !== "wildfire") assessmentSection.dataset.incident = "wildfire";
   assessmentSection.innerHTML = '<h2>AI ASSESSMENT</h2><div id="assessment-outcome" class="assessment-outcome">–</div>'
     + '<div id="assessment-score" class="status"></div><h3>Evidence</h3><ul id="assessment-evidence" class="evidence"></ul>'
     + '<div class="status">Klicka på en rad för att visa objektet på kartan.</div>'
@@ -582,8 +580,8 @@ function setupScenarioView() {
   section.after(assessmentSection);
   const iotSection = document.createElement("section");
   iotSection.innerHTML = '<h2>IoT</h2><h3>Noder i montern</h3><ul id="real-sensors" class="scenario-status"></ul>'
-    + `<div id="iot-connection" class="status"></div><div data-incident="wildfire"><h3>Syntetiska sensorer i ${state.config.incident_area}</h3>`
-    + '<ul id="synthetic-sensors" class="scenario-status"></ul><div id="synthetic-label" class="status"></div></div>';
+    + `<div id="iot-connection" class="status"></div><h3>Syntetiska sensorer i ${state.config.incident_area}</h3>`
+    + '<ul id="synthetic-sensors" class="scenario-status"></ul><div id="synthetic-label" class="status"></div>';
   assessmentSection.after(iotSection);
   const banner = document.createElement("div");
   banner.id = "event-banner";
@@ -620,11 +618,12 @@ async function followDetection(detection) {
     const info = await getJson("/api/detection").catch(() => null);
     if (state.detectionKey !== key || !info) return;  // a newer step came while waiting
     state.detection = { pass_utc: info.pass_utc, pass: info.pass, classification: info.classification };
-    state.monitor?.setMark({ atMs: Date.parse(info.pass.pass_utc), firms: info.pass.satellite });
+    state.monitor?.setMark({ atMs: Date.parse(info.pass.pass_utc), firms: info.pass.satellite, norad: info.pass.norad });
   }
   const info = { ...state.detection, ...detection };
   showDetection(info);
-  const satellite = state.satellites?.satellites.find((item) => item.firms === info.pass.satellite);
+  // The fire's passes name the FIRMS satellite, the flood's the NORAD number.
+  const satellite = state.satellites?.satellites.find((item) => (item.firms && item.firms === info.pass.satellite) || item.norad === info.pass.norad);
   if (info.name === "acquired") state.map.highlightSatellite(satellite?.norad, { fly: true });
   if (info.name === "zoom") {
     state.map.highlightSatellite(null);
@@ -638,7 +637,7 @@ function showDetection(info) {
   $("detection-pass").textContent = `${info.pass.instrument} · ${info.pass.pass_utc.slice(0, 16).replace("T", " ")} UTC`;
   const list = $("detection-steps");
   list.innerHTML = "";
-  for (const item of detectionSteps(info.step)) {
+  for (const item of detectionSteps(info.step, state.config.incident_place)) {
     const row = document.createElement("li");
     row.className = item.state;
     const tag = document.createElement("span");

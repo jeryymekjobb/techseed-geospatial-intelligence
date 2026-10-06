@@ -1,7 +1,8 @@
 // Texts for the IoT sensors, shared by the main screen (panel.js, the map adapters)
 // and mission control (control.js). Real nodes (app/backend/iot.py) are live
-// readings in the booth; synthetic sensors (app/backend/sensor_sim.py) are computed
-// from the 2014 fire and the weather and are always marked synthetic.
+// readings in the booth; synthetic sensors are computed - from the 2014 fire and the weather
+// (app/backend/sensor_sim.py), or from the 2026 rain (app/backend/flood_sensors.py) - and are
+// always marked synthetic.
 "use strict";
 
 const SENSOR_KINDS = { temp: "TEMP", water: "WATER", air: "AIR", ntn: "NTN" };
@@ -34,8 +35,18 @@ function syntheticState(sensor) {
   return sensor.confirms ? "confirms" : "quiet";
 }
 
+// The flood's overflow sensors (flood_sensors.py), shaped like diwise's Sewer.
+function sewerSensorText(sensor, kind) {
+  if (sensor.status === "failed") return `${sensor.name}: SENSOR FAILURE (${kind})`;
+  const overflow = sensor.overflow === "started" ? `BRÄDDAR sedan ${sensor.overflow_observed_at.slice(11, 16)} UTC` : "ingen bräddning";
+  const hours = sensor.overflow_cumulative_h ? `, bräddat ${sensor.overflow_cumulative_h} h totalt` : "";
+  const model = sensor.model_depth_m === null ? "" : `; modell ${decimal(Math.round(sensor.model_depth_m * 100) / 100)} m vid 100-årsregn`;
+  return `${sensor.name}: nivå ${decimal(sensor.level_m)} m, ${sensor.percent} % fyllt, ${overflow}${hours}${model} (${kind})`;
+}
+
 function syntheticSensorText(sensor) {
   const kind = sensor.placed ? "syntetisk, placerad av operatören" : "syntetisk";
+  if (sensor.kind === "sewer") return sewerSensorText(sensor, kind);
   if (sensor.status === "failed") return `${sensor.name}: SENSOR FAILURE (${sensor.placed ? kind : "syntetiskt"})`;
   const temp = sensor.temp_c === null ? "temperatur saknas" : `${decimal(sensor.temp_c)} °C`;
   const smoke = sensor.smoke === "DETECTED" ? "Smoke DETECTED" : "ingen rök";

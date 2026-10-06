@@ -31,6 +31,11 @@ function splitTrack(track, point) {
   return { past: track.slice(0, nearest + 1), ahead: track.slice(nearest) };
 }
 
+// Whether a satellite is the one of the detection sequence: by FIRMS name (the fire) or NORAD number (the flood).
+function marked(item, mark) {
+  return Boolean(mark) && ((Boolean(mark.firms) && item.firms === mark.firms) || (Boolean(mark.norad) && item.norad === mark.norad));
+}
+
 // Equirectangular: longitude -180..180 and latitude 90..-90 onto the map box.
 function mapPoint(longitude, latitude, width, height) {
   return [((longitude + 180) / 360) * width, ((90 - latitude) / 180) * height];
@@ -71,7 +76,7 @@ function timelineTicks(clockMs, window = MONITOR_WINDOW, stepMs = 3600000) {
 
 // `size` gives the canvas width, map height and timeline row height; `size.fit` makes the
 // monitor fill its container (the stand-alone monitor page) and follow its size.
-// setMark() takes the pass of mission control's detection sequence, { atMs, firms }, to
+// setMark() takes the pass of mission control's detection sequence, { atMs, firms, norad }, to
 // mark on the timeline and around its satellite; null when no sequence runs.
 // `place` names the incident's place in the texts ("branden", "Sundsvall"), `year` the scenario's.
 function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITOR_SIZE, place = "branden", year = "2014") {
@@ -166,7 +171,7 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
         g.strokeStyle = "#fff";
         g.lineWidth = 2;
         g.stroke();
-        if (mark && item.firms === mark.firms) {
+        if (marked(item, mark)) {
           g.strokeStyle = MARK_COLOR;
           g.lineWidth = 3;
           g.beginPath();
@@ -197,7 +202,7 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
       timed.forEach((item, index) => {
         const row = rows.get(item);
         const y = top + rowsHeight - 4 + index * rowHeight;
-        g.fillStyle = mark && item.firms === mark.firms ? MARK_COLOR : "#e0e0e0";
+        g.fillStyle = marked(item, mark) ? MARK_COLOR : "#e0e0e0";
         g.fillText(item.name, 4, y + 11);
         g.fillStyle = "#3a3a3a";
         g.fillRect(left, y + 6, span, 2);

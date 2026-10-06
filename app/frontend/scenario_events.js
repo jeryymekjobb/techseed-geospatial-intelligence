@@ -84,8 +84,10 @@ function syncBanner(summary) {
 }
 
 function syncLines(summary) {
+  // The fire's passes count detections; the flood's name their image (assessment.py, flood_assessment.py).
   const lines = summary.passes.map((item) => ({
-    level: "info", text: `${item.time_utc.slice(5, 16).replace("T", " ")} UTC – ${item.detections} nya detektioner (${item.instruments.join(", ")})`,
+    level: "info", text: `${item.time_utc.slice(5, 16).replace("T", " ")} UTC – `
+      + (item.text || `${item.detections} nya detektioner (${item.instruments.join(", ")})`),
   }));
   if (summary.area_increase_pct !== null) lines.push({ level: "info", text: `Brandfrontens yta ökade ${summary.area_increase_pct} %` });
   if (!lines.length) lines.push({ level: "ok", text: "Inga satellitpassager under avbrottet." });
@@ -99,7 +101,7 @@ const DETECTION_STEPS = [
   { name: "acquired", title: "Bild tagen", real: true },
   { name: "anomaly", title: "Anomali upptäckt ombord", real: false },
   { name: "downlink", title: "Nedlänk till markstation", real: false },
-  { name: "zoom", title: "Zoom till branden", real: true },
+  { name: "zoom", title: "Zoom till {place}", real: true },
   { name: "iot", title: "IoT på marken", real: false },
   { name: "correlate", title: "Korrelering", real: true },
 ];
@@ -109,8 +111,31 @@ function decimalText(value) {
   return String(value).replace(".", ",");
 }
 
+// The flood's sequence: a real Sentinel-1 acquisition; the radar image is not analysed in the demo.
+function floodDetectionDetail(info, iotText) {
+  const pass = info.pass;
+  const { counts, rules } = info.classification;
+  switch (info.name) {
+    case "acquired":
+      return `Radar (${pass.instrument}) på ${pass.satellite} tar en bild över Sundsvall ${pass.pass_utc.slice(11, 16)} UTC – verklig tagning ur Copernicus-katalogen.`;
+    case "anomaly":
+      return `Illustrativt: ${pass.satellite} flaggar vatten på marken i bilden. Sentinel-1 analyserar inte bilderna ombord.`;
+    case "downlink":
+      return "Illustrativt: satelliten skickar larmet till en markstation och vidare till lägescentralen.";
+    case "zoom":
+      return "Kartan zoomar till Sundsvall. Radarbilden är inte analyserad i demon – regnet och kommunens modell visar var vatten kan stå.";
+    case "iot":
+      return `Bräddgivarna på marken kontrollerar larmet: ${iotText || "inga sensorvärden ännu"}.`;
+    case "correlate":
+      return `${info.classification.outcome} – ${counts.Översvämning} av ${rules.length} regler för översvämning håller.`;
+    default:
+      return "";
+  }
+}
+
 // The detail of the current step; `info` is /api/detection, `iotText` the synthetic sensors' line.
 function detectionDetail(info, iotText) {
+  if (info.pass.kind === "flood") return floodDetectionDetail(info, iotText);
   const pass = info.pass;
   const satellite = FIRMS_SATELLITES[pass.satellite] || pass.satellite;
   const { counts, rules } = info.classification;
@@ -133,17 +158,21 @@ function detectionDetail(info, iotText) {
   }
 }
 
-// The steps for a list: done, current or still to come.
-function detectionSteps(step) {
+function stepTitle(item, place) {
+  return item.title.replace("{place}", place);
+}
+
+// The steps for a list: done, current or still to come; `place` names the incident's place.
+function detectionSteps(step, place = "branden") {
   return DETECTION_STEPS.map((item, index) => ({
-    ...item, state: index < step ? "done" : index === step ? "current" : "todo",
+    ...item, title: stepTitle(item, place), state: index < step ? "done" : index === step ? "current" : "todo",
   }));
 }
 
-function detectionStepLine(detection) {
+function detectionStepLine(detection, place = "branden") {
   if (!detection) return "Ingen sekvens – tryck SATELLITE DETECTION.";
   const item = DETECTION_STEPS[detection.step];
-  return `Steg ${detection.step + 1}/${detection.steps}: ${item.title} (${item.real ? "verkliga data" : "syntetiskt"})`;
+  return `Steg ${detection.step + 1}/${detection.steps}: ${stepTitle(item, place)} (${item.real ? "verkliga data" : "syntetiskt"})`;
 }
 
 if (typeof module !== "undefined") module.exports = { EVENT_TEXTS, DETECTION_STEPS, detectionDetail, detectionSteps, detectionStepLine, FILTER_CATEGORIES, MISSING_NOTE, eventText, eventBanner, statusLines, queueText, syncBanner, syncLines };

@@ -1,0 +1,123 @@
+"""Tests for the flood's synthetic overflow sensors, assessment and detection sequence
+(app/backend/flood_sensors.py, flood_assessment.py) with SYNTHETIC rain, and their texts."""
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
+
+from app.backend import flood_assessment as fa
+from app.backend import flood_sensors as fsen
+
+FRONTEND = Path(__file__).resolve().parents[1] / "app" / "frontend"
+START = datetime(2026, 8, 16, 0, 0, tzinfo=timezone.utc)
+END = datetime(2026, 8, 17, 0, 0, tzinfo=timezone.utc)
+
+
+def at(text: str) -> datetime:
+    return datetime.fromisoformat(text.replace("Z", "+00:00"))
+
+
+def point(fid: int, area: str, depth: float | None, lat: float = 62.39, lon: float = 17.30) -> dict:
+    return {"geometry": {"type": "Point", "coordinates": [lon, lat]},
+            "properties": {"fid": fid, "omrade": area, "objekttyp": "Trumma", "model_depth_100y_m": depth}}
+
+
+STATION = {"name": "Mätaren", "latitude": 62.39, "longitude": 17.31, "observations": [  # synthetic, dry hours missing
+    {"time_utc": "2026-08-16T07:00:00Z", "precip_mm": 4.0},
+    {"time_utc": "2026-08-16T08:00:00Z", "precip_mm": 10.0},
+    {"time_utc": "2026-08-16T09:00:00Z", "precip_mm": 2.0},
+]}
+
+
+def sensors(tmp_path: Path, features: list[dict]) -> fsen.FloodSensors:
+    path = tmp_path / "points.geojson"
+    path.write_text(json.dumps({"features": features}), encoding="utf-8")
+    return fsen.FloodSensors(path, [STATION], START, END)
+
+
+def test_the_deepest_modelled_points_are_chosen_one_per_area_first() -> None:
+    chosen = fsen.choose_points([point(1, "A", 0.9), point(2, "A", 0.8), point(3, "B", 0.2), point(4, "C", 0.05), point(5, "D", None)], 3)
+    assert [item["properties"]["fid"] for item in chosen] == [1, 3, 2]  # C is too shallow, D outside the model
+
+
+def test_the_reservoir_fills_with_rain_drains_and_overflows_when_full() -> None:
+    states = fsen.reservoir([0, 10, 10, 0, 0, 0], 2.0)  # inflow 20 mm/h, drain 6
+    assert [round(storage, 1) for storage, _ in states] == [0, 14, 15, 9, 3, 0]
+    assert [flowing for _, flowing in states] == [False, False, True, False, False, False]
+
+
+def test_the_sensors_are_shaped_like_diwise_sewers_with_overflow_times(tmp_path: Path) -> None:
+    flood = sensors(tmp_path, [point(1, "Haga", 0.75)])  # inflow factor 4
+    before, peak, after = (flood.at(at(moment)) for moment in ("2026-08-16T07:30:00Z", "2026-08-16T08:30:00Z", "2026-08-16T12:00:00Z"))
+    assert before["sensors"][0]["percent"] == 67 and before["sensors"][0]["overflow"] == "stopped"  # 16 - 6 = 10 of 15 mm
+    sewer = peak["sensors"][0]
+    assert (sewer["id"], sewer["name"], sewer["kind"], sewer["overflow"], sewer["percent"]) == ("dv-01", "DV1 Haga", "sewer", "started", 100)
+    assert sewer["overflow_observed_at"] == "2026-08-16T07:00:00Z" and sewer["overflow_ended_at"] is None and peak["confirms"] == 1
+    assert sewer["level_m"] == 2.0 and sewer["gauge"] == "Mätaren"
+    ended = after["sensors"][0]
+    # The hour to 09:00 still overflows: 15 + 2 x 4 - 6 = 17 mm.
+    assert ended["overflow"] == "stopped" and ended["overflow_ended_at"] == "2026-08-16T09:00:00Z" and ended["overflow_cumulative_h"] == 2
+    failed = flood.at(at("2026-08-16T08:30:00Z"), failed=["dv-01"])
+    assert failed["sensors"][0]["status"] == "failed" and failed["operating"] == 0
+
+
+def test_the_assessment_weighs_rain_and_overflow_and_keeps_the_model_and_images_as_context(tmp_path: Path) -> None:
+    flood = sensors(tmp_path, [point(1, "Haga", 0.75)])
+    acquisitions = [{"time_utc": "2026-08-16T05:21:32Z", "satellite": "Sentinel-1C", "norad": "62261"}]
+    assessor = fa.FloodAssessor([STATION], acquisitions, [], (62.39, 17.31))
+    peak = assessor.at(at("2026-08-16T08:30:00Z"), flood.at(at("2026-08-16T08:30:00Z")))
+    keys = {item["key"]: item for item in peak["evidence"]}
+    assert keys["rain_hour"]["status"] == "ok" and keys["rain_day"]["status"] == "miss"  # 10 mm in the hour, 14 in the day
+    assert keys["iot:dv-01"]["status"] == "ok" and keys["model:dv-01"]["weight"] == 0.0
+    assert "inte analyserad" in keys["radar"]["text"] and keys["image"]["text"] == "Ingen klar optisk satellitbild under regnet"
+    assert (peak["outcome"], peak["score_pct"]) == ("Possible flood", 48)  # 1 - 0.70 x 0.75
+    outage = assessor.at(at("2026-08-16T08:30:00Z"), flood.at(at("2026-08-16T08:30:00Z")), at("2026-08-16T05:00:00Z"))
+    assert outage["evidence"][0]["key"] == "satcom" and "radar" not in {item["key"] for item in outage["evidence"]}
+
+
+def test_the_detection_sequence_starts_from_the_next_real_acquisition_and_says_the_image_is_not_analysed(tmp_path: Path) -> None:
+    acquisitions = [{"time_utc": "2026-08-16T05:21:32Z", "satellite": "Sentinel-1C", "norad": "62261"},
+                    {"time_utc": "2026-08-16T16:37:32Z", "satellite": "Sentinel-1C", "norad": "62261"}]
+    assessor = fa.FloodAssessor([STATION], acquisitions, [], (62.39, 17.31))
+    summary = assessor.next_pass(at("2026-08-16T06:00:00Z"))
+    assert (summary["pass_utc"], summary["norad"], summary["kind"]) == ("2026-08-16T16:37:32Z", "62261", "flood")
+    assert assessor.next_pass(at("2026-08-17T00:00:00Z")) is None
+    flood = sensors(tmp_path, [point(1, "Haga", 0.75)])
+    result = assessor.classify(assessor.pass_at("2026-08-16T05:21:32Z"), flood.at(at("2026-08-16T08:30:00Z")))
+    assert [rule["holds"] for rule in result["rules"]] == [False, True, True, False]
+    assert result["outcome"] == "Översvämning trolig" and result["counts"] == {"Översvämning": 2}
+
+
+def node(script: str, expression: str) -> object:
+    code = f"const m = require({json.dumps(str(FRONTEND / script))}); with (m) {{ console.log(JSON.stringify({expression})); }}"
+    return json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_screens_name_the_sewer_values_and_the_flood_s_steps() -> None:
+    sewer = {"kind": "sewer", "name": "DV1 Haga", "status": "ok", "level_m": 2.0, "percent": 100, "overflow": "started",
+             "overflow_observed_at": "2026-08-16T07:00:00Z", "overflow_cumulative_h": 2, "model_depth_m": 0.736, "placed": False}
+    assert node("sensors.js", f"syntheticSensorText({json.dumps(sewer)})") == (
+        "DV1 Haga: nivå 2 m, 100 % fyllt, BRÄDDAR sedan 07:00 UTC, bräddat 2 h totalt; modell 0,74 m vid 100-årsregn (syntetisk)")
+    assert node("scenario_events.js", "detectionSteps(3, 'Sundsvall')[3].title") == "Zoom till Sundsvall"
+    assert node("scenario_events.js", "detectionStepLine({step: 3, steps: 6})") == "Steg 4/6: Zoom till branden (verkliga data)"
+    info = {"name": "acquired", "pass": {"kind": "flood", "instrument": "SAR", "satellite": "Sentinel-1C", "pass_utc": "2026-08-16T05:21:32Z"},
+            "classification": {"counts": {}, "rules": []}}
+    assert node("scenario_events.js", f"detectionDetail({json.dumps(info)}, null)").startswith("Radar (SAR) på Sentinel-1C tar en bild över Sundsvall 05:21 UTC")
+    assert node("scenario_events.js", "syncLines({passes: [{time_utc: '2026-08-16T05:21:32Z', text: 'Sentinel-1C radarbild'}], area_increase_pct: null})") == [
+        {"level": "info", "text": "08-16 05:21 UTC – Sentinel-1C radarbild"}]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_sentinel_1_passes_are_the_catalogue_acquisitions() -> None:
+    item = {"half_swath_km": None, "acquisitions": ["2026-08-16T05:21:32Z", "2026-08-16T16:37:32Z", "2026-08-17T05:13:33Z"]}
+    day = "Date.parse('2026-08-16T00:00:00Z'), Date.parse('2026-08-17T00:00:00Z')"
+    passes = node("orbits.js", f"satellitePasses(null, {json.dumps(item)}, {day}, 62.39, 17.31)")
+    assert [(entry["end"] - entry["start"]) for entry in passes] == [25000, 25000]
+    assert node("orbits.js", f"[hasPasses({json.dumps(item)}), hasPasses({{half_swath_km: null}}), hasPasses({{half_swath_km: 92.5}})]") == [True, False, True]

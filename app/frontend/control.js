@@ -8,6 +8,7 @@ const $ = (id) => document.getElementById(id);
 const token = new URLSearchParams(window.location.search).get("token");
 const localTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short" });
 let status = null;
+let place = "branden";  // the incident's place, from /api/config
 const realSensors = new Map();
 let iotConnection = null;
 
@@ -55,7 +56,7 @@ function showState(scenarioState) {
     button.setAttribute("aria-pressed", String(on));
   }
   $("next").disabled = !status.detection;
-  $("detection-step").textContent = detectionStepLine(status.detection);
+  $("detection-step").textContent = detectionStepLine(status.detection, place);
   const list = $("scenario-status");
   list.innerHTML = "";
   const lines = statusLines(status);
@@ -130,6 +131,7 @@ for (const button of document.querySelectorAll("[data-command]")) {
 // The scenario's name in the header.
 fetch("/api/config").then((response) => response.json()).then((config) => {
   $("control-label").textContent = config.control_label;
+  place = config.incident_place;
   // Only the buttons of the scenario's kind of incident (styles.css).
   document.body.dataset.incident = config.incident;
 }).catch(() => {});

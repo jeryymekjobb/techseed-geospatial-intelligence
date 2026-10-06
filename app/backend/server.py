@@ -34,8 +34,8 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, forecast, iot, landsat, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial, wms
-from app.backend.scenario_engine import CommandError, ScenarioEngine
+from app.backend import assessment, detection, flood_assessment, flood_sensors, forecast, iot, landsat, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial, wms
+from app.backend.scenario_engine import DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
 
@@ -148,7 +148,11 @@ def wind_field() -> dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
-def synthetic_sensors() -> sensor_sim.SyntheticSensors:
+def synthetic_sensors() -> sensor_sim.SyntheticSensors | flood_sensors.FloodSensors:
+    """The incident's synthetic sensors: heat and smoke round the fire, overflow at the flood's stormwater points."""
+    if not scenario.WILDFIRE:
+        return flood_sensors.FloodSensors(scenario.MUNICIPAL_DIR / "critical-stormwater.geojson", weather()["stations"],
+                                          scenario.PLAYBACK_START, scenario.PLAYBACK_END)
     items = [(parse_utc(item["acq_datetime_utc"]), item["latitude"], item["longitude"]) for item in detections()]
     return sensor_sim.SyntheticSensors(items, wind_field(), scenario.FIRE_CENTRE)
 
@@ -157,7 +161,8 @@ def synthetic_at(state: dict[str, Any]) -> dict[str, Any]:
     """The synthetic sensors at the scenario clock, with mission control's sensor failures;
     none when mission control has switched IoT off."""
     if not state["status"]["iot"]:
-        return {"label": sensor_sim.LABEL, "sensors": [], "confirms": 0, "operating": 0, "disabled": True}
+        label = sensor_sim.LABEL if scenario.WILDFIRE else flood_sensors.LABEL
+        return {"label": label, "sensors": [], "confirms": 0, "operating": 0, "disabled": True}
     status = state["status"]
     return synthetic_sensors().at(parse_utc(state["clock_utc"]), status["failed_sensors"], status["placed_sensors"])
 
@@ -167,11 +172,15 @@ _assessor_lock = threading.Lock()
 
 
 @lru_cache(maxsize=1)
-def _assessor() -> assessment.Assessor:
+def _assessor() -> assessment.Assessor | flood_assessment.FloodAssessor:
+    if not scenario.WILDFIRE:
+        images = landsat.layer()
+        return flood_assessment.FloodAssessor(weather()["stations"], scenario.SENTINEL1_ACQUISITIONS,
+                                              images["scenes"] if images else [], scenario.FIRE_CENTRE)
     return assessment.Assessor(detections(), wind_field(), forecast.forecasts()["states"], scenario.FIRE_CENTRE)
 
 
-def assessor() -> assessment.Assessor:
+def assessor() -> assessment.Assessor | flood_assessment.FloodAssessor:
     with _assessor_lock:
         return _assessor()
 
@@ -180,8 +189,10 @@ SLOW_BEFORE, SLOW_AFTER = timedelta(minutes=2), timedelta(minutes=6)
 
 
 def slow_windows() -> list[tuple[datetime, datetime]]:
-    """Two minutes before to six after each FIRMS pass (a granule lasts up to five) and each Landsat scene in the playback."""
+    """Two minutes before to six after each FIRMS pass (a granule lasts up to five), each Sentinel-1 radar
+    acquisition of the flood and each satellite image in the playback."""
     moments = {parse_utc(item["acq_datetime_utc"]) for item in detections()}
+    moments |= {parse_utc(item["time_utc"]) for item in scenario.SENTINEL1_ACQUISITIONS}
     scenes = landsat.layer()
     for scene in scenes["scenes"] if scenes else []:
         moment = parse_utc(scene["acquired_utc"])
@@ -212,6 +223,13 @@ def detection_info(state: dict[str, Any]) -> dict[str, Any] | None:
     running = state["status"]["detection"]
     if running is None:
         return None
+    if not scenario.WILDFIRE:
+        # The flood's sequence: a Sentinel-1 acquisition, judged with the sensors just after it (the zoom step's time).
+        summary = assessor().pass_at(running["pass_utc"])
+        if summary is None:
+            return None
+        after = {**state, "clock_utc": flood_assessment.format_utc(parse_utc(summary["pass_utc"]) + DETECTION_AFTER)}
+        return {**running, "pass": summary, "classification": assessor().classify(summary, synthetic_at(after))}
     summary = firms_passes().pass_at(running["pass_utc"])
     if summary is None:
         return None
@@ -361,7 +379,7 @@ class Handler(BaseHTTPRequestHandler):
                 "features": [feature(item) for item in items],
                 "daily": daily_summary(items),
             })
-        elif path in {"/api/forecast", "/api/wind", "/api/assessment", "/api/sensors/synthetic"} and not scenario.WILDFIRE:
+        elif path in {"/api/forecast", "/api/wind"} and not scenario.WILDFIRE:
             self.send_json({"error": "not_in_scenario"}, HTTPStatus.NOT_FOUND)
         elif path == "/api/forecast":
             self.send_json(forecast.forecasts())
@@ -452,7 +470,8 @@ class Handler(BaseHTTPRequestHandler):
             at = body.get("at")
             if body.get("command") == "satellite_detection" and not at:
                 # The sequence is built on the next real pass after the scenario clock.
-                upcoming = firms_passes().next_pass(parse_utc(self.engine.snapshot()["clock_utc"]))
+                passes = firms_passes() if scenario.WILDFIRE else assessor()
+                upcoming = passes.next_pass(parse_utc(self.engine.snapshot()["clock_utc"]))
                 if upcoming is None:
                     raise CommandError("no satellite pass with detections after the scenario clock")
                 at = upcoming["pass_utc"]
@@ -529,15 +548,14 @@ class Handler(BaseHTTPRequestHandler):
                     last_queue = queue
                 last_seq = state["events"][-1]["seq"] if state["events"] else last_seq
                 last_reading, health = self.send_sensor_events(last_reading, health)
-                if scenario.WILDFIRE:
-                    synthetic = synthetic_at(state)
-                    if synthetic != last_synthetic:
-                        self.send_event("synthetic_sensors", {**synthetic, "clock_utc": state["clock_utc"]})
-                        last_synthetic = synthetic
-                    judged = assessment_at(state, synthetic)
-                    if judged != last_assessment:
-                        self.send_event("assessment", {**judged, "clock_utc": state["clock_utc"]})
-                        last_assessment = judged
+                synthetic = synthetic_at(state)
+                if synthetic != last_synthetic:
+                    self.send_event("synthetic_sensors", {**synthetic, "clock_utc": state["clock_utc"]})
+                    last_synthetic = synthetic
+                judged = assessment_at(state, synthetic)
+                if judged != last_assessment:
+                    self.send_event("assessment", {**judged, "clock_utc": state["clock_utc"]})
+                    last_assessment = judged
                 if state["finished"] and not ended:
                     self.send_event("end", state)
                 ended = state["finished"]
@@ -672,9 +690,8 @@ def main(argv: list[str] | None = None) -> int:
         host, _, port = args.mqtt.rpartition(":")
         iot.start(Handler.sensors, host or "127.0.0.1", int(port))
     print(f"IoT: {Handler.sensors.detail}")
-    if scenario.WILDFIRE:
-        # The assessment needs the forecasts, which take a few seconds; compute them before the first screen connects.
-        assessor()
+    # The fire's assessment needs the forecasts, which take a few seconds; compute them before the first screen connects.
+    assessor()
     # Slow the playback down around every satellite pass in the data and the Landsat scene.
     Handler.engine.set_slow_windows(slow_windows())
     # Start psql now, so the first question is answered without the start-up time.

@@ -18,7 +18,7 @@ async function getJson(path) {
 function passesOn(lib, item, day, centre) {
   const key = `${item.norad}|${day}`;
   if (!passCache.has(key)) {
-    passCache.set(key, passesBetween(lib, item.elements, day * DAY, (day + 1) * DAY, centre[0], centre[1], item.half_swath_km));
+    passCache.set(key, satellitePasses(lib, item, day * DAY, (day + 1) * DAY, centre[0], centre[1]));
   }
   return passCache.get(key);
 }
@@ -46,7 +46,7 @@ async function start() {
     logShown = [scenarioState, clock];
     const first = Math.floor((clock.getTime() - SATLOG_WINDOW_MS) / DAY);
     const last = Math.floor(clock.getTime() / DAY);
-    const satellites = data.satellites.filter((satellite) => satellite.half_swath_km).map((satellite) => ({
+    const satellites = data.satellites.filter(hasPasses).map((satellite) => ({
       name: satellite.name, instrument: satellite.instrument,
       passes: Array.from({ length: last - first + 1 }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat(),
     }));
@@ -91,7 +91,7 @@ async function start() {
     markPass = pass;
     const info = pass ? await getJson("/api/detection").catch(() => null) : null;
     if (markPass !== pass) return;
-    monitor.setMark(info ? { atMs: Date.parse(info.pass.pass_utc), firms: info.pass.satellite } : null);
+    monitor.setMark(info ? { atMs: Date.parse(info.pass.pass_utc), firms: info.pass.satellite, norad: info.pass.norad } : null);
     document.body.dataset.mark = info ? info.pass.pass_utc : "";  // read by tools/check_demo.py
   };
 
@@ -110,7 +110,7 @@ async function start() {
       ...satellite,
       point: subpoint(lib, satellite.elements, clock),
       track: orbitTrack(lib, satellite.elements, clock, 50, 2),
-      passes: satellite.half_swath_km
+      passes: hasPasses(satellite)
         ? Array.from({ length: last - first + 1 }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat() : null,
     })).filter((item) => item.point);
     monitor.draw(items, clock);

@@ -90,6 +90,23 @@ function nextPass(lib, elements, from, latitude, longitude, halfSwathKm, hours =
 // whole swath (30 s, less for Landsat's narrow one), and each entry and exit is found by
 // halving the step down to 1 s. The globe computes this once per scenario day and looks
 // the next pass up, instead of searching every tick.
+// A catalogue acquisition (Sentinel-1) as a pass: the product's first 25 seconds.
+const ACQUISITION_MS = 25000;
+
+// Whether a satellite has passes over the incident: a swath round its track or known acquisitions.
+function hasPasses(item) {
+  return Boolean(item.half_swath_km || item.acquisitions);
+}
+
+// The passes of a satellite between two times: its catalogue acquisitions, or computed from its swath.
+function satellitePasses(lib, item, startMs, endMs, latitude, longitude) {
+  if (item.acquisitions) {
+    return item.acquisitions.map((time) => Date.parse(time)).filter((ms) => ms >= startMs && ms < endMs)
+      .map((ms) => ({ start: ms, end: ms + ACQUISITION_MS }));
+  }
+  return passesBetween(lib, item.elements, startMs, endMs, latitude, longitude, item.half_swath_km);
+}
+
 function passesBetween(lib, elements, startMs, endMs, latitude, longitude, halfSwathKm) {
   const inside = (ms) => {
     const point = subpoint(lib, elements, new Date(ms));
@@ -128,4 +145,4 @@ function passesBetween(lib, elements, startMs, endMs, latitude, longitude, halfS
   return passes;
 }
 
-if (typeof module !== "undefined") module.exports = { elementAt, subpoint, groundDistanceKm, orbitTrack, nextPass, passesBetween };
+if (typeof module !== "undefined") module.exports = { elementAt, subpoint, groundDistanceKm, orbitTrack, nextPass, passesBetween, hasPasses, satellitePasses };

@@ -38,6 +38,8 @@ DEM_DIR = DATA / "dem"
 TERRAIN_DIR = DATA / "terrain"
 LANDSAT_DIR = DATA / "landsat"
 SENTINEL2_DIR = DATA / "sentinel2"
+# The municipality's critical stormwater points and flood areas (tools/fetch_municipal_features.py).
+MUNICIPAL_DIR = DATA / "municipal"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2026.json"
 
@@ -80,10 +82,13 @@ TLE_SATELLITES = {
     "60989": "Sentinel-2C", "39084": "Landsat 8", "49260": "Landsat 9", "25544": "ISS",
 }
 TLE_START, TLE_END = "2026-08-10", "2026-08-24"
-# half_swath_km: Sentinel-1 IW 250 km, Sentinel-2 MSI 290 km and Landsat OLI 185 km across.
+# half_swath_km: Sentinel-2 MSI 290 km and Landsat OLI 185 km across, centred under the
+# satellite. Sentinel-1's radar looks to the side - at the catalogue's acquisitions over
+# Sundsvall its ground track lay 400-650 km away - so a swath round the track does not
+# fit it: its passes over the town are the catalogue's acquisitions (SENTINEL1_ACQUISITIONS).
 SATELLITE_ROLES = {
-    "62261": {"firms": None, "instrument": "SAR", "role": "Radar, ser genom moln", "half_swath_km": 125.0},
-    "66315": {"firms": None, "instrument": "SAR", "role": "Radar, ser genom moln", "half_swath_km": 125.0},
+    "62261": {"firms": None, "instrument": "SAR", "role": "Radar, ser genom moln", "half_swath_km": None},
+    "66315": {"firms": None, "instrument": "SAR", "role": "Radar, ser genom moln", "half_swath_km": None},
     "40697": {"firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
     "42063": {"firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
     "60989": {"firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
@@ -106,6 +111,19 @@ LANDSAT_ROLES = {"before": "Före regnet", "during": "Under regnet", "after": "E
 LANDSAT_FOCUS_AREA = (17.15, 62.33, 17.45, 62.45)
 # About 30 m over MAP_BBOX: 0.9 degrees of longitude and 0.47 of latitude at 62.4 N.
 LANDSAT_SIZE = (1546, 1742)
+# Sentinel-1 radar acquisitions over the town in the playback (Planetary Computer catalogue,
+# sentinel-1-grd, checked 2026-10-06; the start of the first product of each pass). The
+# flood's detection sequence starts from them; the images are not analysed in the demo.
+SENTINEL1_ACQUISITIONS = [
+    {"time_utc": "2026-08-16T05:21:32Z", "satellite": "Sentinel-1C", "norad": "62261"},
+    {"time_utc": "2026-08-16T16:37:32Z", "satellite": "Sentinel-1C", "norad": "62261"},
+    {"time_utc": "2026-08-17T05:13:33Z", "satellite": "Sentinel-1D", "norad": "66315"},
+    {"time_utc": "2026-08-17T16:29:45Z", "satellite": "Sentinel-1D", "norad": "66315"},
+    {"time_utc": "2026-08-18T05:05:31Z", "satellite": "Sentinel-1C", "norad": "62261"},
+    {"time_utc": "2026-08-18T16:21:13Z", "satellite": "Sentinel-1C", "norad": "62261"},
+    {"time_utc": "2026-08-22T05:21:45Z", "satellite": "Sentinel-1D", "norad": "66315"},
+    {"time_utc": "2026-08-22T16:38:02Z", "satellite": "Sentinel-1D", "norad": "66315"},
+]
 # Sentinel-2 (tools/fetch_sentinel2_scene.py): the clearest datatakes before and after the
 # rain, by product name up to the relative orbit; 16 August is 98 % cloud. Over the town
 # the scene classification gives 72 % cloud on 11 August and 37 % on 20 August.
