@@ -55,14 +55,33 @@ continues from there).
 
 Everything that belongs to one demo - area, period, titles, data files, database,
 map tiles, camera route, satellites and Landsat scenes - is in a module of its own in
-`app/backend/scenarios/`; `app/backend/scenario.py` loads the chosen one. Today there
-is one, `vastmanland2014`, the default. Choose with `--scenario` or the environment
-variable `TECHSEED_SCENARIO`; the tools in `tools/` read the same variable:
+`app/backend/scenarios/`; `app/backend/scenario.py` loads the chosen one:
+`vastmanland2014`, the default, and `sundsvall2026`, a flood scenario built on the real
+rain of August 2026, whose data the tools fetch but whose screens are not built yet.
+Choose with `--scenario` or the environment variable `TECHSEED_SCENARIO`; the tools in
+`tools/` read the same variable:
 
 ```bash
 .venv/bin/python -m app.backend.server --scenario vastmanland2014
 TECHSEED_SCENARIO=vastmanland2014 .venv/bin/python -m tools.load_postgis
 TILES_FILE=vastmanland.mbtiles docker compose up -d tiles   # the scenario's TILES_FILE
+```
+
+The Sundsvall data go to the unversioned `data/sundsvall2026/` (the rain gauges are the
+municipality's and SMHI's Brämön A; the last months may not be quality-controlled yet, and
+the municipality's gauges list only hours with rain):
+
+```bash
+export TECHSEED_SCENARIO=sundsvall2026
+.venv/bin/python -m tools.fetch_copernicus_dem && .venv/bin/python -m tools.build_terrain
+.venv/bin/python -m tools.build_offline_tiles      # data/tiles/sundsvall.mbtiles
+.venv/bin/python -m tools.fetch_tle_history         # Sentinel-1C/1D, Sentinel-2A/2B/2C, Landsat 8/9, ISS
+.venv/bin/python -m tools.fetch_smhi_weather 2222813 2222814 2222818 2222811 2222812 2222819 127130 \
+  --period latest-months --parameters 7 --start 2026-08-14 --end 2026-08-22 --out data/sundsvall2026/smhi
+.venv/bin/python -m tools.fetch_osm_terrain --bbox 62.15,16.9,62.62,17.8 --out data/sundsvall2026/osm/terrain-sundsvall.geojson
+.venv/bin/python -m tools.fetch_osm_targets --bbox 62.15,16.9,62.62,17.8 --out data/sundsvall2026/osm/targets-sundsvall.geojson
+.venv/bin/python -m tools.fetch_landsat_scene       # Landsat 8 before and after the rain
+.venv/bin/python -m tools.fetch_sentinel2_scene     # Sentinel-2 natural colour and NDWI water
 ```
 
 `?speed=10800` sets the playback speed in simulated seconds per second and
