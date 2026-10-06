@@ -16,6 +16,7 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 - A working prototype exists in `app/`: the Västmanland 2014 wildfire replayed from NASA FIRMS archive data on a 2D map and a CesiumJS globe, with mission control, simulated SATCOM outage, IoT, a traceable assessment and PostGIS questions. Västmanland 2014 is the prototype's scenario; it has not been recorded as a formal MVP decision.
 - The 3D globe shows the 2014 satellites (Terra, Aqua, Suomi NPP, Landsat 8, ISS) at the scenario clock from Space-Track element sets; the positions are computed, not observed, and are checked against the FIRMS detection times.
 - Decided 2026-10-04: for the exhibition demo the booth IoT nodes run simulated (`tools/mqtt_node_sim.py`) and are shown as simulated. Questions that only concern a real implementation are deferred to the backlog.
+- Decided 2026-10-06: a second demo, flooding in Sundsvall 2026, uses the Västmanland fire demo as its template (same screens and parts; the scenario is chosen at start, the two demos need not run at the same time). It is a scenario built on the real rain of 16–19 August 2026 and the municipality's cloudburst models, clearly marked as a scenario rather than a replayed event; a flood in Sundsvall that day is not confirmed in open sources. See `reports/2026-10-06-datakallor-oversvamning-sundsvall-claude-opus-5-5.md`.
 
 ## Backlog
 
@@ -39,3 +40,5 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 - Which layers can be sourced live, and which should be explicitly simulated?
 - What are the accepted data licensing, attribution, update, and network requirements?
 - Which AI assessments and spatial queries must be demonstrably traceable to source observations?
+- Written permission from Sundsvall municipality to show the cloudburst and stormwater layers of its geoserver (bxkarta); its terms limit use to five municipalities unless agreed. Not used until granted.
+- Combined sewer overflow data from MSVA for ten days around 16 August 2026: format, positions and whether it may be shown publicly.
