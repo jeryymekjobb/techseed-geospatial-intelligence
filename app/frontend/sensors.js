@@ -35,11 +35,12 @@ function syntheticState(sensor) {
 }
 
 function syntheticSensorText(sensor) {
-  if (sensor.status === "failed") return `${sensor.name}: SENSOR FAILURE (syntetiskt)`;
+  const kind = sensor.placed ? "syntetisk, placerad av operatören" : "syntetisk";
+  if (sensor.status === "failed") return `${sensor.name}: SENSOR FAILURE (${sensor.placed ? kind : "syntetiskt"})`;
   const temp = sensor.temp_c === null ? "temperatur saknas" : `${decimal(sensor.temp_c)} °C`;
   const smoke = sensor.smoke === "DETECTED" ? "Smoke DETECTED" : "ingen rök";
   const distance = sensor.distance_km === null ? "" : sensor.distance_km === 0 ? ", i brandområdet" : `, ${decimal(sensor.distance_km)} km från fronten`;
-  return `${sensor.name}: ${temp}, ${smoke}${distance} (syntetisk)`;
+  return `${sensor.name}: ${temp}, ${smoke}${distance} (${kind})`;
 }
 
 function syntheticSensorLine(sensor) {

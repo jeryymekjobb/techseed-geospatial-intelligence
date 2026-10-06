@@ -12,7 +12,9 @@ sensors, closed roads, power failure) is part of every snapshot. While SATCOM is
 down, `satcom_down_since` gives the scenario time it went down; after a restore,
 `last_outage` gives the scenario times the last outage started and ended.
 `filter` with a category in FILTERS hides or shows that category on the maps
-(GOD VIEW's filter); `hidden_layers` lists the hidden ones. `reset` clears
+(GOD VIEW's filter); `hidden_layers` lists the hidden ones. `place_sensor` with a
+latitude and longitude inside the map area places a synthetic IoT sensor there
+(the main screen's right-click menu); `placed_sensors` lists them. `reset` clears
 the events together with the clock.
 
 So that visitors can follow the satellite passes, the clock goes no faster than
@@ -23,6 +25,7 @@ the clock is advanced window by window, so a high speed cannot jump over one.
 from __future__ import annotations
 
 import bisect
+import math
 import re
 import threading
 import time
@@ -43,7 +46,10 @@ DETECTION_BEFORE, DETECTION_AFTER = timedelta(minutes=2), timedelta(minutes=6)
 EVENT_KINDS = (
     "satellite_detection", "sensor_failure", "satcom_failure", "satcom_restore",
     "road_closed", "power_failure", "plus60", "god_view", "filter", "space_view", "iot",
+    "place_sensor",
 )
+# Sensors the operator places from the main screen's map: at most this many, named P1, P2 …
+MAX_PLACED_SENSORS = 10
 # Map categories mission control can hide; maritime, aviation and emergency are not in the demo.
 FILTERS = ("space", "iot", "infrastructure", "weather")
 TOGGLES = ("plus60", "god_view", "space_view")
@@ -67,6 +73,8 @@ class CommandError(ValueError):
 class ScenarioEngine:
     start: datetime
     end: datetime
+    # (min_lat, max_lat, min_lon, max_lon) a placed sensor must lie in; None accepts any position.
+    area: tuple[float, float, float, float] | None = None
     monotonic: Callable[[], float] = time.monotonic
     speed: float = DEFAULT_SPEED
     _clock: datetime = field(init=False)
@@ -159,6 +167,7 @@ class ScenarioEngine:
             "hidden_layers": [],
             # IoT on or off from mission control: off leaves every sensor out of the screens and the assessment.
             "iot": True,
+            "placed_sensors": [],
         }
         for event in self.events:
             kind, target = event["kind"], event["target"]
@@ -181,6 +190,10 @@ class ScenarioEngine:
                 status["closed_roads"].append(target)
             elif kind == "iot":
                 status["iot"] = not status["iot"]
+            elif kind == "place_sensor":
+                number = len(status["placed_sensors"]) + 1
+                status["placed_sensors"].append({"id": target, "name": f"Sensor P{number}",
+                                                 "latitude": event["latitude"], "longitude": event["longitude"]})
             elif kind == "filter":
                 hidden = status["hidden_layers"]
                 hidden.remove(target) if target in hidden else hidden.append(target)
@@ -216,17 +229,30 @@ class ScenarioEngine:
             self._clock = min(self.end, parse_utc(self._detection["pass_utc"]) + DETECTION_AFTER)
             self.jump += 1
 
-    def _record_event(self, kind: str, target: str | None) -> None:
+    def _record_event(self, kind: str, target: str | None, **extra: Any) -> None:
         if target is not None and not TARGET_PATTERN.fullmatch(target):
             raise CommandError("target must be 1–64 characters a-z, 0-9, _ or -")
         if kind == "filter" and target not in FILTERS:
             raise CommandError(f"filter needs a target: {', '.join(FILTERS)}")
         self.event_seq += 1
-        self.events.append({"seq": self.event_seq, "kind": kind, "target": target, "clock_utc": utc_text(self._clock)})
+        self.events.append({"seq": self.event_seq, "kind": kind, "target": target, "clock_utc": utc_text(self._clock), **extra})
         del self.events[:-MAX_EVENTS]
+
+    def _place_sensor(self, latitude: float | None, longitude: float | None) -> None:
+        if latitude is None or longitude is None or not (math.isfinite(latitude) and math.isfinite(longitude)):
+            raise CommandError("place_sensor needs a latitude and a longitude")
+        if self.area is not None:
+            min_lat, max_lat, min_lon, max_lon = self.area
+            if not (min_lat <= latitude <= max_lat and min_lon <= longitude <= max_lon):
+                raise CommandError("the sensor must be placed inside the map area")
+        placed = sum(1 for event in self.events if event["kind"] == "place_sensor")
+        if placed >= MAX_PLACED_SENSORS:
+            raise CommandError(f"at most {MAX_PLACED_SENSORS} placed sensors")
+        self._record_event("place_sensor", f"placed-{placed + 1}", latitude=round(latitude, 5), longitude=round(longitude, 5))
 
     def command(
         self, name: str, *, at: str | None = None, speed: float | None = None, target: str | None = None,
+        latitude: float | None = None, longitude: float | None = None,
     ) -> dict[str, Any]:
         with self._lock:
             self._advance()
@@ -261,6 +287,8 @@ class ScenarioEngine:
                 self._record_event(name, target)
             elif name == "next":
                 self._next_detection_step()
+            elif name == "place_sensor":
+                self._place_sensor(latitude, longitude)
             elif name in EVENT_KINDS:
                 self._record_event(name, target)
             else:

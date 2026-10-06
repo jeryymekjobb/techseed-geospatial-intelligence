@@ -88,6 +88,18 @@ def test_failed_sensors_have_no_values_and_do_not_count(monkeypatch: pytest.Monk
     assert all(item["synthetic"] for item in result["sensors"])
 
 
+def test_placed_sensors_are_computed_like_the_fixed_ones(monkeypatch: pytest.MonkeyPatch) -> None:
+    model = sensors(monkeypatch, (("a", "", 59.900, 16.200),))
+    placed = [{"id": "placed-1", "name": "Sensor P1", "latitude": 59.900, "longitude": 16.205},
+              {"id": "placed-2", "name": "Sensor P2", "latitude": 59.900, "longitude": 16.300}]
+    result = model.at(T0, failed=["placed-2"], placed=placed)
+    items = by_id(result)
+    assert [item["id"] for item in result["sensors"]] == ["a", "placed-1", "placed-2"]
+    assert not items["a"]["placed"] and items["placed-1"]["placed"] and items["placed-1"]["confirms"]
+    assert items["placed-2"]["status"] == "failed"
+    assert (result["confirms"], result["operating"]) == (2, 2)
+
+
 def test_the_2014_fire_reaches_the_sensors_one_after_another() -> None:
     model = server.synthetic_sensors()
     counts = [model.at(datetime(2014, 7, 31, tzinfo=UTC) + timedelta(days=day))["confirms"] for day in range(10)]

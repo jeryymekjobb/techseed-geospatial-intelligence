@@ -16,6 +16,7 @@ const EVENT_TEXTS = {
   iot: { title: "IOT PÅ", detail: "Sensorerna räknas med i lägesbilden och bedömningen igen." },
   space_view: { title: "SPACE VIEW", detail: "Satelliternas läge 2014, beräknat ur banelement." },
   filter: { title: "FILTER", detail: "Ett lager visas eller döljs på kartan." },
+  place_sensor: { title: "IOT-SENSOR PLACERAD", detail: "Syntetisk sensor, placerad av operatören – värdena beräknas ur brandfronten och vädret." },
 };
 
 // GOD VIEW's filter: the categories in the demo, and those the one-pager names but the demo lacks.
@@ -31,7 +32,9 @@ function eventText(event) {
   const text = EVENT_TEXTS[event.kind] || { title: event.kind.toUpperCase(), detail: "" };
   // A filter names its category as on the buttons ("FILTER SPACE"); other targets are ids such as sensor-17.
   const category = event.kind === "filter" ? FILTER_CATEGORIES.find((item) => item.id === event.target) : null;
-  const target = category ? ` ${category.label.toUpperCase()}` : event.target ? ` ${event.target}` : "";
+  // A placed sensor is named P1, P2 … as on the map; its id is placed-1, placed-2 …
+  const placed = event.kind === "place_sensor" && event.target ? ` P${event.target.replace("placed-", "")}` : null;
+  const target = category ? ` ${category.label.toUpperCase()}` : placed ?? (event.target ? ` ${event.target}` : "");
   return { title: `${text.title}${target}`, detail: text.detail };
 }
 
@@ -58,6 +61,8 @@ function statusLines(status) {
   if (status.power_failure) lines.push({ level: "alert", text: "Strömavbrott (syntetiskt)" });
   if (status.plus60) lines.push({ level: "info", text: "+60 MIN: prognos med kortaste horisonten" });
   if (status.iot === false) lines.push({ level: "alert", text: "IoT avstängt – inga sensorer räknas" });
+  const placed = status.placed_sensors || [];
+  if (placed.length) lines.push({ level: "info", text: `Placerade sensorer: ${placed.map((item) => item.name.replace("Sensor ", "")).join(", ")} (syntetiska)` });
   if (status.god_view) lines.push({ level: "info", text: "GOD VIEW" });
   if (status.space_view) lines.push({ level: "info", text: "SPACE VIEW" });
   const hidden = FILTER_CATEGORIES.filter((item) => status.hidden_layers.includes(item.id)).map((item) => item.label);

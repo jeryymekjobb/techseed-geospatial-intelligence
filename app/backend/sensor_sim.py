@@ -67,8 +67,10 @@ class SyntheticSensors:
         index = bisect.bisect_right(self.wind_times, clock) - 1
         return index if index >= 0 else None
 
-    def at(self, clock: datetime, failed: Sequence[str | None] = ()) -> dict[str, Any]:
-        """The sensors at the scenario clock; `failed` are sensor ids mission control failed."""
+    def at(self, clock: datetime, failed: Sequence[str | None] = (), placed: Sequence[dict[str, Any]] = ()) -> dict[str, Any]:
+        """The sensors at the scenario clock; `failed` are sensor ids mission control failed,
+        `placed` the sensors the operator placed on the map (id, name, latitude, longitude),
+        computed in the same way after the fixed ones."""
         hull = self.hull(bisect.bisect_right(self.times, clock))
         hour = self._hour(clock)
         blows_to = None
@@ -76,8 +78,11 @@ class SyntheticSensors:
             _, wind_from, _ = self.wind["values"][hour][self._nearest_wind_point(fs.centroid(hull))]
             blows_to = (wind_from + 180) % 360
         sensors = []
-        for sensor_id, name, lat, lon, point in self.sensors:
-            item: dict[str, Any] = {"id": sensor_id, "name": name, "latitude": lat, "longitude": lon, "synthetic": True}
+        extra = [(item["id"], item["name"], item["latitude"], item["longitude"], self.projector.xy(item["latitude"], item["longitude"]))
+                 for item in placed]
+        for index, (sensor_id, name, lat, lon, point) in enumerate([*self.sensors, *extra]):
+            item: dict[str, Any] = {"id": sensor_id, "name": name, "latitude": lat, "longitude": lon, "synthetic": True,
+                                    "placed": index >= len(self.sensors)}
             if sensor_id in failed:
                 sensors.append({**item, "status": "failed", "temp_c": None, "smoke": None, "distance_km": None, "confirms": False})
                 continue

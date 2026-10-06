@@ -831,12 +831,45 @@ async function loadOptional(path, onError) {
 }
 
 // `createMap(config)` returns the map adapter: setup*/add*/draw*/show* methods used above.
+// Right-click menu on the map: place a synthetic IoT sensor where the operator clicked.
+// The sensor is a scenario command, so every screen shows it and RESET removes it.
+const coordinate = new Intl.NumberFormat("sv-SE", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+
+function setupMapMenu() {
+  const menu = document.createElement("div");
+  menu.id = "map-menu";
+  menu.className = "map-menu";
+  menu.setAttribute("role", "menu");
+  menu.hidden = true;
+  menu.innerHTML = '<div id="map-menu-place" class="map-menu-place"></div>'
+    + '<button id="map-menu-sensor" type="button" role="menuitem">Placera IoT-sensor</button>';
+  document.body.append(menu);
+  let target = null;
+  const close = () => { menu.hidden = true; target = null; };
+  state.map.onContextMenu((click) => {
+    target = click;
+    $("map-menu-place").textContent = `${coordinate.format(click.latitude)} N, ${coordinate.format(click.longitude)} O`;
+    menu.hidden = false;
+    // Keep the menu inside the window.
+    menu.style.left = `${Math.min(click.x, window.innerWidth - menu.offsetWidth - 8)}px`;
+    menu.style.top = `${Math.min(click.y, window.innerHeight - menu.offsetHeight - 8)}px`;
+    $("map-menu-sensor").focus();
+  });
+  $("map-menu-sensor").addEventListener("click", () => {
+    if (target) runCommand("place_sensor", { latitude: target.latitude, longitude: target.longitude });
+    close();
+  });
+  document.addEventListener("pointerdown", (event) => { if (!menu.contains(event.target)) close(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
+}
+
 async function startApp(createMap) {
   const config = await getJson("/api/config");
   state.config = config;
   $("title").textContent = config.title;
   $("data-label").textContent = config.data_label;
   state.map = await createMap(config);
+  setupMapMenu();
   const summary = await getJson("/api/hotspots");
   state.daily = summary.daily;
 

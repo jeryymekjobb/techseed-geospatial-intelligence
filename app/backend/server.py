@@ -155,7 +155,8 @@ def synthetic_at(state: dict[str, Any]) -> dict[str, Any]:
     none when mission control has switched IoT off."""
     if not state["status"]["iot"]:
         return {"label": sensor_sim.LABEL, "sensors": [], "confirms": 0, "operating": 0, "disabled": True}
-    return synthetic_sensors().at(parse_utc(state["clock_utc"]), state["status"]["failed_sensors"])
+    status = state["status"]
+    return synthetic_sensors().at(parse_utc(state["clock_utc"]), status["failed_sensors"], status["placed_sensors"])
 
 
 # Every screen's stream needs the assessor; the first one to connect builds it, the others wait.
@@ -296,7 +297,7 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "TechseedFireMap/0.1"
     settings = lantmateriet.Settings.from_environment()
     # One shared scenario for every screen; tests give their handler its own engine.
-    engine = ScenarioEngine(scenario.PLAYBACK_START, scenario.PLAYBACK_END)
+    engine = ScenarioEngine(scenario.PLAYBACK_START, scenario.PLAYBACK_END, area=scenario.VIEW_BBOX)
     # The prepared spatial questions run through one psql in the postgis service.
     psql = spatial.Psql()
     # Live readings of the real IoT nodes; main() connects it to the MQTT broker.
@@ -440,6 +441,8 @@ class Handler(BaseHTTPRequestHandler):
                 at=at,
                 speed=float(body["speed"]) if body.get("speed") is not None else None,
                 target=str(body["target"]) if body.get("target") is not None else None,
+                latitude=float(body["latitude"]) if body.get("latitude") is not None else None,
+                longitude=float(body["longitude"]) if body.get("longitude") is not None else None,
             )
         except (ValueError, TypeError, AttributeError, CommandError) as exc:
             self.send_json({"error": "invalid_command", "detail": str(exc)}, HTTPStatus.BAD_REQUEST)

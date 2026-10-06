@@ -25,7 +25,8 @@ CLOCK_COMMANDS = {"play", "pause", "reset", "speed", "next"}
 def test_the_buttons_send_only_commands_the_engine_knows() -> None:
     html = (FRONTEND / "control.html").read_text(encoding="utf-8")
     commands = set(re.findall(r'data-command="(\w+)"', html)) | set(re.findall(r'data-toggle-off="(\w+)"', html))
-    assert commands == set(EVENT_KINDS) | CLOCK_COMMANDS
+    # place_sensor comes from the main screen's map, not from a button.
+    assert commands == set(EVENT_KINDS) - {"place_sensor"} | CLOCK_COMMANDS
     for target in re.findall(r'data-target="([^"]+)"', html):
         assert re.fullmatch(r"[a-z0-9_-]{1,64}", target)
     assert set(re.findall(r'data-command="filter" data-target="(\w+)"', html)) == set(FILTERS)
@@ -57,7 +58,7 @@ def node(expression: str) -> object:
 
 
 QUIET = {"satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False, "failed_sensors": [], "closed_roads": [],
-         "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "detection": None}
+         "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None}
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
@@ -149,3 +150,11 @@ def test_the_detection_texts_say_what_is_real_and_what_is_synthetic() -> None:
     assert detail("correlate") == "Vegetationsbrand – 3 av 3 regler för vegetationsbrand och 0 av 2 för industri håller."
     assert node("detectionStepLine(null)") == "Ingen sekvens – tryck SATELLITE DETECTION."
     assert node('detectionStepLine({step: 1, steps: 6})') == "Steg 2/6: Anomali upptäckt ombord (syntetiskt)"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_a_placed_sensor_is_named_as_on_the_map_and_listed_as_synthetic() -> None:
+    event = '{kind: "place_sensor", target: "placed-2", latitude: 59.9, longitude: 16.2}'
+    assert node(f"eventText({event})")["title"] == "IOT-SENSOR PLACERAD P2"
+    placed = {**QUIET, "placed_sensors": [{"id": "placed-1", "name": "Sensor P1"}, {"id": "placed-2", "name": "Sensor P2"}]}
+    assert node(f"statusLines({json.dumps(placed)})") == [{"level": "info", "text": "Placerade sensorer: P1, P2 (syntetiska)"}]

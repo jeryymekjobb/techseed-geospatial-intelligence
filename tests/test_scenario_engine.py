@@ -74,7 +74,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
 
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
-        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "detection": None,
+        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None,
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -93,7 +93,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert state["status"] == {
         "satcom_up": False, "plus60": True, "god_view": True, "space_view": False, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
-        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True, "detection": None,
+        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None,
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
@@ -336,3 +336,28 @@ def test_with_iot_off_no_sensor_reaches_the_screens_or_the_assessment() -> None:
     keys = [item["key"] for item in without_iot["evidence"]]
     assert "iot" in keys and not any(key.startswith("iot:") for key in keys)
     assert without_iot["score_pct"] < with_iot["score_pct"]
+
+
+def test_placed_sensors_are_numbered_inside_the_area_and_cleared_by_reset() -> None:
+    scenario = ScenarioEngine(START, END, area=(59.75, 60.08, 15.85, 16.45))
+    scenario.command("place_sensor", latitude=59.9123456, longitude=16.2)
+    state = scenario.command("place_sensor", latitude=59.95, longitude=16.1)
+    assert state["status"]["placed_sensors"] == [
+        {"id": "placed-1", "name": "Sensor P1", "latitude": 59.91235, "longitude": 16.2},
+        {"id": "placed-2", "name": "Sensor P2", "latitude": 59.95, "longitude": 16.1},
+    ]
+    assert state["events"][-1] == {**state["events"][-1], "kind": "place_sensor", "target": "placed-2", "latitude": 59.95}
+    for kwargs in [{}, {"latitude": 59.9}, {"latitude": 61.0, "longitude": 16.2}, {"latitude": float("nan"), "longitude": 16.2}]:
+        with pytest.raises(CommandError):
+            scenario.command("place_sensor", **kwargs)
+    for index in range(8):
+        scenario.command("place_sensor", latitude=59.9, longitude=16.0 + index / 100)
+    with pytest.raises(CommandError, match="at most 10"):
+        scenario.command("place_sensor", latitude=59.9, longitude=16.3)
+    assert scenario.command("reset")["status"]["placed_sensors"] == []
+
+
+def test_a_sensor_is_placed_through_the_http_api(base_url: str) -> None:
+    status, state = post(f"{base_url}/api/scenario/command", {"command": "place_sensor", "latitude": 59.9, "longitude": 16.2})
+    assert status == 200 and state["status"]["placed_sensors"][0]["name"] == "Sensor P1"
+    assert post(f"{base_url}/api/scenario/command", {"command": "place_sensor", "latitude": "north", "longitude": 16.2})[0] == 400

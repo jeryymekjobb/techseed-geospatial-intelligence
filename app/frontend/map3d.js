@@ -580,6 +580,24 @@ async function createCesiumMap(config) {
     flyHome() {
       viewer.camera.flyTo({ destination: home, duration: 3 });
     },
+
+    // A right click on the ground: callback({ latitude, longitude, x, y }) with the page
+    // position of the click. Cesium reports a click only when the mouse did not move, so
+    // a right-drag still zooms.
+    onContextMenu(callback) {
+      viewer.scene.canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+      new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas).setInputAction((click) => {
+        const ray = viewer.camera.getPickRay(click.position);
+        const ground = (ray && viewer.scene.globe.pick(ray, viewer.scene)) || viewer.camera.pickEllipsoid(click.position);
+        if (!ground) return;
+        const place = Cesium.Cartographic.fromCartesian(ground);
+        const box = viewer.scene.canvas.getBoundingClientRect();
+        callback({
+          latitude: Cesium.Math.toDegrees(place.latitude), longitude: Cesium.Math.toDegrees(place.longitude),
+          x: box.left + click.position.x, y: box.top + click.position.y,
+        });
+      }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+    },
   };
 
   // Show the FIRMS details when a hotspot is clicked.

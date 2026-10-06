@@ -245,6 +245,14 @@ function createLeafletMap(config) {
     drawSatellites() {},
     flashSatellite() {},
     highlightSatellite() {},
+
+    // A right click on the map: callback({ latitude, longitude, x, y }) with the page position.
+    onContextMenu(callback) {
+      map.on("contextmenu", (event) => callback({
+        latitude: event.latlng.lat, longitude: event.latlng.lng,
+        x: event.originalEvent.clientX, y: event.originalEvent.clientY,
+      }));
+    },
     showSpaceView() {},
 
     setupLandsat(info) {
