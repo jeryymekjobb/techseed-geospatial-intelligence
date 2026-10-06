@@ -32,3 +32,12 @@ Before ending a response that waits for user input, state the exact proposed act
 
 **Vad ska göras:** `<exakt åtgärd och scope>`
 **GO/NO-GO, eller beskriv vad du vill ändra.**
+
+## Commit Messages
+
+- Every commit message has a subject line and a body, separated by a blank line. The
+  body briefly describes, in English, what was done and why, and nothing else.
+- Show the complete proposed message, subject and body, before staging and again
+  before committing.
+- Do not add `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`, or any other
+  `Co-Authored-By` line naming Claude, to commit messages.
