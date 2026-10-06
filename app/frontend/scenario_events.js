@@ -73,7 +73,7 @@ function statusLines(status) {
 // A SATCOM outage (app/backend/server.py): the queue while it lasts, the SYNC when it ends.
 function queueText(queue) {
   if (!queue.since_utc) return "";
-  return `EDGE PROCESSING – ${queue.queued} detektioner köade sedan ${queue.since_utc.slice(11, 16)} UTC (simulerat avbrott)`;
+  return `EDGE PROCESSING – ${queue.queued} ${queue.unit || "detektioner"} köade sedan ${queue.since_utc.slice(11, 16)} UTC (simulerat avbrott)`;
 }
 
 function syncBanner(summary) {

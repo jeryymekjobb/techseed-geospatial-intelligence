@@ -538,9 +538,11 @@ class Handler(BaseHTTPRequestHandler):
                     summary = assessor().outage(parse_utc(outage["from_utc"]), parse_utc(outage["to_utc"]))
                     self.send_event("satcom_sync", summary)
                 last_outage = outage
+                # The fire queues detections; the flood its radar acquisitions and optical images.
                 queue = None if visible >= clock else {
                     "since_utc": state["status"]["satcom_down_since"],
-                    "queued": len(features_between(visible, clock)),
+                    "queued": len(features_between(visible, clock)) if scenario.WILDFIRE else len(assessor().outage(visible, clock)["passes"]),
+                    "unit": "detektioner" if scenario.WILDFIRE else "satellitbilder",
                 }
                 if queue != last_queue:
                     self.send_event("satcom_queue", queue or {"since_utc": None, "queued": 0})

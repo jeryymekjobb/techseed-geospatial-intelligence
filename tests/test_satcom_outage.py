@@ -114,7 +114,7 @@ def test_the_stream_holds_back_queues_and_syncs(base_url: str) -> None:
     sync = next(data for name, data in received if name == "sync")
     assert all(item["properties"]["acq_datetime_utc"] <= down for item in sync["features"])
     queue = next(data for name, data in received if name == "satcom_queue")
-    assert queue == {"since_utc": down, "queued": len(expected)}
+    assert queue == {"since_utc": down, "queued": len(expected), "unit": "detektioner"}
 
     command(base_url, {"command": "satcom_restore"})
     thread.join(30)

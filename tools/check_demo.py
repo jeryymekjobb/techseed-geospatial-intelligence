@@ -7,6 +7,10 @@ VIEW, the detection sequence with NEXT, detections with Landsat and IoT, the IoT
 switch, the assessment and questions, +60 MIN, a SATCOM outage with SYNC, GOD
 VIEW with its filter - and checks that RESET brings the screens back within
 5 seconds. It also measures the frame rate of the 3D view during playback.
+With TECHSEED_SCENARIO=sundsvall2026 it runs the flood's manuscript instead: the rain,
+the synthetic overflow sensors, the detection sequence from a Sentinel-1 acquisition,
+the flood assessment and questions, and a SATCOM outage that holds satellite images back
+(with the tiles service serving sundsvall.mbtiles and the database loaded).
 
 Without --base-url it starts the backend and the simulated booth nodes itself
 (with the local services of docker-compose.yml running); with --base-url it
@@ -16,6 +20,7 @@ say little about the exhibition PC. Needs Playwright in .venv
 (tools/requirements-record.txt) and Google Chrome.
 
     .venv/bin/python -m tools.check_demo --headed --out ~/demo-check
+    TECHSEED_SCENARIO=sundsvall2026 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-sundsvall
 """
 
 from __future__ import annotations
@@ -160,8 +165,10 @@ def opening(demo: Demo) -> str:
     demo.control.goto(f"{demo.base_url}/control.html")
     demo.monitor.goto(f"{demo.base_url}/monitor.html")
     demo.control.wait_for_function("document.getElementById('scenario-status').children.length > 0", timeout=WAIT_MS, polling=POLL_MS)
+    if not scenario.WILDFIRE:
+        demo.main.wait_for_function("document.getElementById('rain-values').textContent.includes('Senaste timmen')", timeout=WAIT_MS, polling=POLL_MS)
     demo.shot("1-opening")
-    return f"kameraresan klar; {demo.text('counts')}"
+    return f"kameraresan klar; {demo.text('counts') if scenario.WILDFIRE else 'regnet visas: ' + demo.text('rain-values').replace(chr(10), ' ')}"
 
 
 def space_view(demo: Demo) -> str:
@@ -284,6 +291,77 @@ def reset(demo: Demo) -> str:
     return f"huvudskärmen {main_ready:.2f} s, båda skärmarna {both_ready:.2f} s"
 
 
+# The flood (scenario sundsvall2026): the same screens with its rain, sensors and questions.
+FLOOD_PEAK_UTC = "2026-08-16T08:30:00Z"
+
+
+def flood_space_view(demo: Demo) -> str:
+    demo.button("SPACE VIEW").click()
+    demo.command({"command": "speed", "speed": 60})
+    demo.button("PLAY").click()
+    demo.main.wait_for_function("document.getElementById('satellite-list').children.length >= 8", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.wait_for_function("document.getElementById('satellite-section').classList.contains('space-view')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.shot("2-space-view")
+    demo.button("PAUSE").click()
+    demo.button("SPACE VIEW").click()
+    demo.main.wait_for_function("!document.getElementById('satellite-section').classList.contains('space-view')", timeout=WAIT_MS, polling=POLL_MS)
+    return f"{demo.main.eval_on_selector_all('#satellite-list li', 'els => els.length')} satelliter i listan"
+
+
+def flood_detection_sequence(demo: Demo) -> str:
+    demo.button("SATELLITE DETECTION").click()
+    demo.control.wait_for_function("document.getElementById('detection-step').textContent.startsWith('Steg 1/6')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.wait_for_function("!document.getElementById('detection-card').hidden", timeout=WAIT_MS, polling=POLL_MS)
+    demo.monitor.wait_for_function("Boolean(document.body.dataset.mark)", timeout=WAIT_MS, polling=POLL_MS)
+    passed = demo.text("detection-pass")
+    assert passed.startswith("SAR ·"), passed
+    for step in range(2, 7):
+        demo.button("NÄSTA ▸").click()
+        demo.control.wait_for_function(f"document.getElementById('detection-step').textContent.startsWith('Steg {step}/6')",
+                                       timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.wait_for_function("!document.getElementById('detection-rules').hidden", timeout=WAIT_MS, polling=POLL_MS)
+    outcome = demo.text("detection-outcome")
+    rules = demo.main.eval_on_selector_all("#detection-rule-list li", "els => els.length")
+    assert outcome == "Översvämning trolig" and rules == 4, (outcome, rules)
+    demo.shot("3-detection-correlate")
+    demo.button("NÄSTA ▸").click()
+    demo.main.wait_for_function("document.getElementById('detection-card').hidden", timeout=WAIT_MS, polling=POLL_MS)
+    demo.monitor.wait_for_function("!document.body.dataset.mark", timeout=WAIT_MS, polling=POLL_MS)
+    return f"{passed}: {outcome}, {rules} regler; kortet och markeringen borta efter sista steget"
+
+
+def flood_rain_and_sensors(demo: Demo) -> str:
+    demo.command({"command": "seek", "at": FLOOD_PEAK_UTC})
+    demo.main.wait_for_function("document.getElementById('iot-confirms').textContent.startsWith('IoT bekräftar 4/8')", timeout=WAIT_MS, polling=POLL_MS)
+    nodes = demo.main.eval_on_selector_all("#real-sensors li", "els => els.map(e => e.textContent)")
+    assert len(nodes) == 4 and all("simulerad" in line or "live" in line for line in nodes), nodes
+    demo.shot("4-rain")
+    return f"{demo.text('sim-time')}; {demo.text('rain-values').replace(chr(10), ' ')}; {demo.text('iot-confirms')}; {len(nodes)} monternoder"
+
+
+def flood_assessment(demo: Demo) -> str:
+    demo.main.wait_for_function("document.getElementById('assessment-outcome').textContent === 'Flood probable'", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.get_by_role("button", name="Why do you believe there is a flood?").click()
+    demo.main.wait_for_function("document.getElementById('answer-text').textContent.startsWith('Flood probable')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.get_by_role("button", name="Vilka byggnader ligger inom 100-årsflödet?").click()
+    demo.main.wait_for_function("document.getElementById('answer-text').textContent.includes('byggnader inom 100-årsflödet')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.shot("5-assessment")
+    return f"{demo.text('assessment-outcome')}; {demo.text('answer-text')[:80]}"
+
+
+def flood_satcom(demo: Demo) -> str:
+    demo.command({"command": "speed", "speed": 3600})  # the radar acquisition at 16:37 UTC comes within seconds
+    demo.button("SATCOM FAILURE").click()
+    demo.button("PLAY").click()
+    demo.main.wait_for_function("/ [1-9][0-9]* satellitbilder köade/.test(document.getElementById('satcom-queue').textContent)", timeout=WAIT_MS, polling=POLL_MS)
+    demo.button("PAUSE").click()
+    queue = demo.text("satcom-queue")
+    demo.button("SATCOM FAILURE").click()
+    demo.main.wait_for_function("document.getElementById('satcom-sync').textContent.includes('radarbild')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.shot("6-sync")
+    return f"{queue}; SYNC: {demo.text('satcom-sync').splitlines()[0]}"
+
+
 WEBGL_RENDERER = """() => {
   const gl = document.createElement("canvas").getContext("webgl2") || document.createElement("canvas").getContext("webgl");
   if (!gl) return null;
@@ -298,7 +376,7 @@ CANVAS_SIZE = """() => {
 }"""
 
 
-STEPS: list[tuple[str, Callable[[Demo], str]]] = [
+FIRE_STEPS: list[tuple[str, Callable[[Demo], str]]] = [
     ("1 Öppning: jorden till branden", opening),
     ("2 SPACE VIEW och RETURN TO INCIDENT", space_view),
     ("3 SATELLITE DETECTION och NÄSTA", detection_sequence),
@@ -310,6 +388,19 @@ STEPS: list[tuple[str, Callable[[Demo], str]]] = [
     ("9 GOD VIEW med filter", god_view),
     ("10 RESET inom 5 s", reset),
 ]
+FLOOD_STEPS: list[tuple[str, Callable[[Demo], str]]] = [
+    ("1 Öppning: jorden till Sundsvall", opening),
+    ("2 SPACE VIEW och RETURN TO INCIDENT", flood_space_view),
+    ("3 SATELLITE DETECTION och NÄSTA", flood_detection_sequence),
+    ("4 Regn och bräddgivare", flood_rain_and_sensors),
+    ("5 IOT PÅ/AV", iot_switch),
+    ("6 Bedömning och frågor", flood_assessment),
+    ("7 SATCOM FAILURE och SYNC", flood_satcom),
+    ("8 GOD VIEW med filter", god_view),
+    ("9 RESET inom 5 s", reset),
+]
+# The manuscript of the scenario chosen by TECHSEED_SCENARIO (the backend it starts gets the same).
+STEPS = FIRE_STEPS if scenario.WILDFIRE else FLOOD_STEPS
 
 
 def frames_per_second(demo: Demo, seconds: float = 3.0) -> float:
@@ -352,7 +443,7 @@ def run(base_url: str, out: Path, headed: bool, min_fps: float = DEFAULT_MIN_FPS
                     report.canvas_px = demo.main.evaluate(CANVAS_SIZE)
                 except Exception:  # noqa: BLE001 - the renderer is information only
                     report.webgl_renderer = None
-            if action is detections:
+            if action in (detections, flood_rain_and_sensors):  # after the step the playback runs in
                 try:
                     report.frames_per_second = frames_per_second(demo)
                 except Exception:  # noqa: BLE001 - the measurement is optional
