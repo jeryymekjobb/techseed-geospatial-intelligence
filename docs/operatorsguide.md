@@ -270,6 +270,24 @@ fungera.
 | Mission control | <http://127.0.0.1:8765/control.html> | Din skärm bredvid. |
 
 Satellitbevakningen visar hela tiden var satelliterna är och när de passerar över branden.
+Varje satellits bana är svag där den redan har flugit och stark där den är på väg. Terra och
+Aqua har var sin nyans av orange, och färgprickarna i listan längst ned visar vilken färg
+som hör till vilken satellit.
+
+Under världskartan och tidslinjen finns **Satellithändelser**, en logg över det senaste
+dygnet i scenariot med den senaste händelsen överst och i gult. Loggen fyller utrymmet ned
+till listan, och varje rad är märkt med var uppgiften kommer från:
+
+| Märkning | Händelser |
+|---|---|
+| *beräknat* | En satellit går in över eller lämnar branden, beräknat ur banorna |
+| *FIRMS 2014* | Detektionerna från en passage: hur många och den starkaste |
+| *Landsat 2014* | Landsat 8 tar en bild över branden |
+| *simulerat* | Från mission control: upptäcktssekvensen startar, SATCOM nere och SATCOM åter |
+
+Loggen räknas fram ur scenarioklockan och stämmer därför också efter **RESET** eller ett hopp
+i tiden.
+
 Har du bara en stor skärm, lägg fönstren sida vid sida: satellitbevakningen till vänster,
 huvudskärmen i mitten och mission control till höger. Öppna huvudskärmen först.
 
