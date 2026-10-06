@@ -58,6 +58,9 @@ const state = {
   realSensors: new Map(),
   iotConnection: null,
   synthetic: null,
+  // The detection sequence (scenario_events.js): /api/detection per pass and the step shown.
+  detection: null,
+  detectionKey: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -493,6 +496,83 @@ function setupScenarioView() {
   banner.setAttribute("role", "status");
   banner.hidden = true;
   document.body.append(banner);
+  const card = document.createElement("section");
+  card.id = "detection-card";
+  card.className = "detection-card";
+  card.setAttribute("aria-live", "polite");
+  card.hidden = true;
+  card.innerHTML = '<h2>UPPTÄCKT FRÅN RYMDEN <small id="detection-pass"></small></h2><ol id="detection-steps" class="detection-steps"></ol>'
+    + '<p id="detection-detail" class="detection-detail"></p><div id="detection-rules" hidden><h3 id="detection-outcome"></h3>'
+    + '<ul id="detection-rule-list" class="evidence"></ul><div id="detection-label" class="status"></div></div>';
+  $("map").append(card);
+  if (window.L) L.DomEvent.disableClickPropagation(card);
+}
+
+// The detection sequence (mission control's SATELLITE DETECTION and NEXT): a card over the
+// map with the steps, each marked real or synthetic, and what the current step shows.
+async function followDetection(detection) {
+  const key = detection ? `${detection.pass_utc}|${detection.step}` : null;
+  if (key === state.detectionKey) return;
+  state.detectionKey = key;
+  if (!detection) {
+    state.detection = null;
+    $("detection-card").hidden = true;
+    state.map.highlightSatellite(null);
+    state.monitor?.setMark(null);
+    return;
+  }
+  if (state.detection?.pass_utc !== detection.pass_utc) {
+    const info = await getJson("/api/detection").catch(() => null);
+    if (state.detectionKey !== key || !info) return;  // a newer step came while waiting
+    state.detection = { pass_utc: info.pass_utc, pass: info.pass, classification: info.classification };
+    state.monitor?.setMark({ atMs: Date.parse(info.pass.pass_utc), firms: info.pass.satellite });
+  }
+  const info = { ...state.detection, ...detection };
+  showDetection(info);
+  const satellite = state.satellites?.satellites.find((item) => item.firms === info.pass.satellite);
+  if (info.name === "acquired") state.map.highlightSatellite(satellite?.norad, { fly: true });
+  if (info.name === "zoom") {
+    state.map.highlightSatellite(null);
+    state.map.focusOn(info.pass.centre.latitude, info.pass.centre.longitude);
+  }
+}
+
+function showDetection(info) {
+  const card = $("detection-card");
+  card.hidden = false;
+  $("detection-pass").textContent = `${info.pass.instrument} · ${info.pass.pass_utc.slice(0, 16).replace("T", " ")} UTC`;
+  const list = $("detection-steps");
+  list.innerHTML = "";
+  for (const item of detectionSteps(info.step)) {
+    const row = document.createElement("li");
+    row.className = item.state;
+    const tag = document.createElement("span");
+    tag.className = item.real ? "tag real" : "tag synthetic";
+    tag.textContent = item.real ? "VERKLIGA DATA" : "SYNTETISKT";
+    row.append(item.title, " ", tag);
+    list.append(row);
+  }
+  $("detection-detail").textContent = detectionDetail(info, state.synthetic ? confirmsText(state.synthetic) : null);
+  const rules = $("detection-rules");
+  rules.hidden = info.name !== "correlate";
+  if (rules.hidden) return;
+  $("detection-outcome").textContent = info.classification.outcome;
+  $("detection-label").textContent = info.classification.label;
+  const ruleList = $("detection-rule-list");
+  ruleList.innerHTML = "";
+  for (const rule of info.classification.rules) {
+    const row = document.createElement("li");
+    row.className = rule.holds ? "ok" : "miss";
+    row.textContent = `${rule.holds ? "✓" : "✗"} ${rule.category}: ${rule.text}`;
+    if (rule.ref) {
+      row.tabIndex = 0;
+      row.classList.add("linked");
+      const focus = () => state.map.focusOn(rule.ref.latitude, rule.ref.longitude);
+      row.addEventListener("click", focus);
+      row.addEventListener("keydown", (event) => { if (event.key === "Enter") focus(); });
+    }
+    ruleList.append(row);
+  }
 }
 
 let bannerTimer = null;
@@ -546,6 +626,7 @@ function applyStatus(status) {
   }
   showFilter(status);
   if (status.iot !== (previous?.iot ?? true)) showRealSensors();
+  followDetection(status.detection);
 }
 
 // GOD VIEW's filter, set from mission control: the list on the map and the hidden categories.
@@ -601,6 +682,10 @@ function showSynthetic(result) {
   $("synthetic-label").textContent = result.label;
   $("iot-confirms").textContent = confirmsText(result);
   state.map.drawSyntheticSensors(result);
+  // The IoT step of the detection sequence quotes the sensors at its time.
+  if (state.detection && state.scenarioStatus?.detection?.name === "iot") {
+    $("detection-detail").textContent = detectionDetail({ ...state.detection, ...state.scenarioStatus.detection }, confirmsText(result));
+  }
 }
 
 const QUERY_COLOR = "#7b1fa2";

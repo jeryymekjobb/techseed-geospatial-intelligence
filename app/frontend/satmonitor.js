@@ -7,6 +7,7 @@
 const MONITOR_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7" };
 const MONITOR_WINDOW = { beforeMs: 3600000, afterMs: 5 * 3600000 };
 const MONITOR_SIZE = { width: 400, mapHeight: 200, rowHeight: 18 };
+const MARK_COLOR = "#e040fb";
 // Natural Earth II as shipped with Cesium: two 256 px tiles, west and east hemisphere.
 const WORLD_TILES = ["/vendor/cesium-1.146.0/Assets/Textures/NaturalEarthII/0/0/0.jpg",
   "/vendor/cesium-1.146.0/Assets/Textures/NaturalEarthII/0/1/0.jpg"];
@@ -38,6 +39,12 @@ function timelineRow(passes, clockMs, window = MONITOR_WINDOW) {
   return { blocks, overNow, next: next ? next.start : null, now: window.beforeMs / span };
 }
 
+// Where a moment falls on the timeline, as a fraction of the window; null outside it.
+function timelineX(atMs, clockMs, window = MONITOR_WINDOW) {
+  const x = (atMs - (clockMs - window.beforeMs)) / (window.beforeMs + window.afterMs);
+  return x >= 0 && x <= 1 ? x : null;
+}
+
 // Hour marks for the timeline axis, as fractions of the window.
 function timelineTicks(clockMs, window = MONITOR_WINDOW, stepMs = 3600000) {
   const start = clockMs - window.beforeMs;
@@ -49,6 +56,8 @@ function timelineTicks(clockMs, window = MONITOR_WINDOW, stepMs = 3600000) {
 
 // `size` gives the canvas width, map height and timeline row height; `size.fit` makes the
 // monitor fill its container (the stand-alone monitor page) and follow its size.
+// setMark() takes the pass of mission control's detection sequence, { atMs, firms }, to
+// mark on the timeline and around its satellite; null when no sequence runs.
 function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITOR_SIZE) {
   const box = document.createElement("section");
   box.className = "sat-monitor";
@@ -58,6 +67,7 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
   const canvas = box.querySelector("canvas");
   const rowsHeight = 22;
   let latest = null;
+  let mark = null;
   const monitor = {
     draw(items, clock) {
       latest = [items, clock];
@@ -116,6 +126,14 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
         g.fill();
         g.strokeStyle = "#fff";
         g.stroke();
+        if (mark && item.firms === mark.firms) {
+          g.strokeStyle = MARK_COLOR;
+          g.lineWidth = 3;
+          g.beginPath();
+          g.arc(x, y, 11, 0, 2 * Math.PI);
+          g.stroke();
+          g.lineWidth = 1.5;
+        }
         g.fillStyle = "#fff";
         g.fillText(item.name, x + 7, y + 4);
       }
@@ -135,7 +153,7 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
       timed.forEach((item, index) => {
         const row = rows.get(item);
         const y = top + rowsHeight - 4 + index * rowHeight;
-        g.fillStyle = "#e0e0e0";
+        g.fillStyle = mark && item.firms === mark.firms ? MARK_COLOR : "#e0e0e0";
         g.fillText(item.name, 4, y + 11);
         g.fillStyle = "#3a3a3a";
         g.fillRect(left, y + 6, span, 2);
@@ -143,6 +161,21 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
         for (const block of row.blocks) g.fillRect(left + block.from * span, y + 1, Math.max(3, (block.to - block.from) * span), 12);
         if (row.overNow) overNow.push(`${item.name}${item.instrument ? ` (${item.instrument})` : ""}`);
       });
+      const markX = mark ? timelineX(mark.atMs, clock.getTime()) : null;
+      if (markX !== null) {
+        const x = left + markX * span;
+        g.strokeStyle = MARK_COLOR;
+        g.lineWidth = 2;
+        g.setLineDash([5, 4]);
+        g.beginPath();
+        g.moveTo(x, top + 12);
+        g.lineTo(x, height);
+        g.stroke();
+        g.setLineDash([]);
+        g.lineWidth = 1.5;
+        g.fillStyle = MARK_COLOR;
+        g.fillText(`UPPTÄCKT ${formatTime(new Date(mark.atMs))}`, Math.min(x + 4, width - 110), top + 24);
+      }
       const nowX = left + timelineRow([], clock.getTime()).now * span;
       g.fillStyle = "#ffd54a";
       g.fillRect(nowX - 1, top + 12, 2, height - top - 12);
@@ -152,6 +185,10 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
     },
     redraw() {
       if (latest) monitor.draw(...latest);
+    },
+    setMark(value) {
+      mark = value;
+      monitor.redraw();
     },
   };
   const tiles = WORLD_TILES.map((url) => {
@@ -163,4 +200,4 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
   return monitor;
 }
 
-if (typeof module !== "undefined") module.exports = { mapPoint, timelineRow, timelineTicks, MONITOR_WINDOW };
+if (typeof module !== "undefined") module.exports = { mapPoint, timelineRow, timelineTicks, timelineX, MONITOR_WINDOW };

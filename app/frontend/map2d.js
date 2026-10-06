@@ -244,6 +244,7 @@ function createLeafletMap(config) {
     // The satellites and SPACE VIEW are drawn on the 3D globe only; the panel lists them.
     drawSatellites() {},
     flashSatellite() {},
+    highlightSatellite() {},
     showSpaceView() {},
 
     setupLandsat(info) {

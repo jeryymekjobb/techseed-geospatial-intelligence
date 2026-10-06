@@ -16,10 +16,10 @@ from urllib.request import urlopen
 import pytest
 
 from app.backend import lantmateriet, server
-from app.backend.scenario_engine import EVENT_KINDS, FILTERS, MAX_SPEED, MIN_SPEED
+from app.backend.scenario_engine import DETECTION_STEPS, EVENT_KINDS, FILTERS, MAX_SPEED, MIN_SPEED
 
 FRONTEND = Path(__file__).resolve().parents[1] / "app" / "frontend"
-CLOCK_COMMANDS = {"play", "pause", "reset", "speed"}
+CLOCK_COMMANDS = {"play", "pause", "reset", "speed", "next"}
 
 
 def test_the_buttons_send_only_commands_the_engine_knows() -> None:
@@ -118,3 +118,34 @@ def test_the_iot_switch_says_whether_it_was_switched_off_or_on() -> None:
     assert node(f'eventBanner({{kind: "iot", target: null}}, {json.dumps(off)})')["title"] == "IOT AV"
     assert node(f'eventBanner({{kind: "iot", target: null}}, {json.dumps(QUIET)})')["title"] == "IOT PÅ"
     assert node(f"statusLines({json.dumps(off)})") == [{"level": "alert", "text": "IoT avstängt – inga sensorer räknas"}]
+
+
+def test_the_detection_steps_match_the_engine() -> None:
+    source = (FRONTEND / "scenario_events.js").read_text(encoding="utf-8")
+    block = source.split("const DETECTION_STEPS = [", 1)[1].split("];", 1)[0]
+    assert tuple(re.findall(r'name: "(\w+)"', block)) == DETECTION_STEPS
+
+
+DETECTION = {
+    "pass_utc": "2014-08-04T01:36:00Z", "step": 0, "name": "acquired", "steps": 6,
+    "pass": {"pass_utc": "2014-08-04T01:36:00Z", "satellite": "SNPP", "instrument": "VIIRS", "detections": 154, "max_frp_mw": 6.96,
+             "strongest": {"latitude": 59.89, "longitude": 16.14}, "centre": {"latitude": 59.86, "longitude": 16.21}},
+    "classification": {"outcome": "Vegetationsbrand", "counts": {"Vegetationsbrand": 3, "Industri": 0}, "label": "",
+                       "rules": [{"category": "Vegetationsbrand", "holds": True}] * 3 + [{"category": "Industri", "holds": False}] * 2},
+}
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_detection_texts_say_what_is_real_and_what_is_synthetic() -> None:
+    steps = node("detectionSteps(1)")
+    assert [item["state"] for item in steps] == ["done", "current", "todo", "todo", "todo", "todo"]
+    assert [item["real"] for item in steps] == [True, False, False, True, False, True]
+    def detail(name: str, iot: str | None = None) -> str:
+        return node(f"detectionDetail({json.dumps({**DETECTION, 'name': name})}, {json.dumps(iot)})")
+    assert detail("acquired") == "VIIRS på Suomi NPP passerar över branden 01:36 UTC – verklig passage ur FIRMS 2014."
+    assert "inte bilderna ombord 2014" in detail("anomaly") and detail("downlink").startswith("Illustrativt")
+    assert detail("zoom") == "154 detektioner, starkast 6,96 MW – verkliga FIRMS-data."
+    assert detail("iot", "IoT bekräftar 2/3 (syntetiska sensorer)").endswith("IoT bekräftar 2/3 (syntetiska sensorer).")
+    assert detail("correlate") == "Vegetationsbrand – 3 av 3 regler för vegetationsbrand och 0 av 2 för industri håller."
+    assert node("detectionStepLine(null)") == "Ingen sekvens – tryck SATELLITE DETECTION."
+    assert node('detectionStepLine({step: 1, steps: 6})') == "Steg 2/6: Anomali upptäckt ombord (syntetiskt)"

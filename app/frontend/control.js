@@ -43,7 +43,7 @@ function showState(scenarioState) {
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   }
-  const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view, space_view: status.space_view, iot: status.iot };
+  const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view, space_view: status.space_view, iot: status.iot, detection: Boolean(status.detection) };
   for (const button of document.querySelectorAll("[data-filter]")) {
     const shown = !status.hidden_layers.includes(button.dataset.filter);
     button.classList.toggle("active", shown);
@@ -54,6 +54,8 @@ function showState(scenarioState) {
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   }
+  $("next").disabled = !status.detection;
+  $("detection-step").textContent = detectionStepLine(status.detection);
   const list = $("scenario-status");
   list.innerHTML = "";
   const lines = statusLines(status);

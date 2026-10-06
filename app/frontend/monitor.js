@@ -36,11 +36,23 @@ async function start() {
   const monitor = createSatelliteMonitor(document.getElementById("monitor"), centre, (time) => hourMinute.format(time),
     { width: 0, mapHeight: 0, rowHeight: 30, fit: true });
   let drawnAt = null;
+  // The pass of mission control's detection sequence, from /api/detection once per pass.
+  let markPass = null;
+
+  const followDetection = async (detection) => {
+    const pass = detection ? detection.pass_utc : null;
+    if (pass === markPass) return;
+    markPass = pass;
+    const info = pass ? await getJson("/api/detection").catch(() => null) : null;
+    if (markPass !== pass) return;
+    monitor.setMark(info ? { atMs: Date.parse(info.pass.pass_utc), firms: info.pass.satellite } : null);
+  };
 
   const show = (scenarioState) => {
     const clock = new Date(scenarioState.clock_utc);
     const slowed = scenarioState.playing && scenarioState.slowed ? " · saktar in vid passage" : "";
     document.getElementById("monitor-clock").textContent = `${dayTime.format(clock)} svensk tid${slowed}`;
+    followDetection(scenarioState.status.detection);
     if (drawnAt === clock.getTime()) return;
     drawnAt = clock.getTime();
     const first = Math.floor((clock.getTime() - MONITOR_WINDOW.beforeMs) / DAY);

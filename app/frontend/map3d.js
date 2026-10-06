@@ -17,6 +17,8 @@ const FIRE_VIEW = { pitch: -50, range: 42_000, seconds: 2.2 };
 const GOD_VIEW = { lon: 15, lat: 55, height: 12_000_000, seconds: 4.0 };
 // SPACE VIEW: the satellites' orbits around Scandinavia.
 const SPACE_VIEW = { lon: 16, lat: 45, height: 20_000_000, seconds: 4.0 };
+// The detection sequence: from the south and high enough to see the satellite and the fire.
+const DETECTION_VIEW = { latOffset: -12, height: 2_500_000, pitch: -60, seconds: 3.0 };
 const SATELLITE_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7" };
 
 function cesiumColor(hex, alpha = 1) {
@@ -141,6 +143,7 @@ async function createCesiumMap(config) {
   const stationLayer = group("stations");
   const satelliteLayer = group("satellites");
   const satelliteEntities = new Map();  // norad -> { point, track }
+  let highlighted = null;  // the detection sequence's satellite: { entry, line }
   const landsatLayers = {};  // composite name -> imagery layer
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
@@ -490,8 +493,38 @@ async function createCesiumMap(config) {
       if (satellite) satellite.point.point.pixelSize = 16;
       setTimeout(() => {
         satelliteLayer.entities.remove(line);
-        if (satellite) satellite.point.point.pixelSize = 9;
+        if (satellite) satellite.point.point.pixelSize = highlighted?.entry === satellite ? 18 : 9;
       }, 4000);
+    },
+
+    // The detection sequence's satellite: larger, with a dashed line down to the fire, and
+    // with `fly` the camera out far enough to see both; null clears it.
+    highlightSatellite(norad, { fly = false } = {}) {
+      if (highlighted) {
+        satelliteLayer.entities.remove(highlighted.line);
+        highlighted.entry.point.point.pixelSize = 9;
+        highlighted = null;
+      }
+      const entry = norad ? satelliteEntities.get(norad) : null;
+      if (!entry) return Promise.resolve();
+      const [lat, lon] = config.fire_centre;
+      const ground = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
+      const line = satelliteLayer.entities.add({
+        polyline: {
+          positions: new Cesium.CallbackProperty((time) => [entry.point.position.getValue(time), ground], false),
+          width: 3, material: new Cesium.PolylineDashMaterialProperty({ color: cesiumColor("#e040fb") }), arcType: Cesium.ArcType.NONE,
+        },
+      });
+      entry.point.point.pixelSize = 18;
+      highlighted = { entry, line };
+      if (!fly) return Promise.resolve();
+      return new Promise((resolve) => {
+        viewer.camera.flyTo({
+          destination: Cesium.Cartesian3.fromDegrees(lon, lat + DETECTION_VIEW.latOffset, DETECTION_VIEW.height),
+          orientation: { heading: 0, pitch: Cesium.Math.toRadians(DETECTION_VIEW.pitch), roll: 0 },
+          duration: DETECTION_VIEW.seconds, complete: resolve, cancel: resolve,
+        });
+      });
     },
 
     // Mission control's SPACE VIEW: far enough out for the orbits; back to the fire when off.

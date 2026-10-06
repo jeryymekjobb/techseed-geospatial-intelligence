@@ -5,7 +5,7 @@
 "use strict";
 
 const EVENT_TEXTS = {
-  satellite_detection: { title: "SATELLITE DETECTION", detail: "Syntetisk händelse utlöst från mission control." },
+  satellite_detection: { title: "SATELLITE DETECTION", detail: "Upptäckten bygger på nästa verkliga FIRMS-passage; varje steg märks verkligt eller syntetiskt." },
   sensor_failure: { title: "SENSOR FAILURE", detail: "Syntetiskt sensorbortfall." },
   satcom_failure: { title: "SATCOM FAILURE", detail: "Simulerat avbrott: satellitdata når inte markstationen." },
   satcom_restore: { title: "SATCOM RESTORED", detail: "Simulerat avbrott slut: satellitlänken är uppe igen." },
@@ -87,4 +87,58 @@ function syncLines(summary) {
   return lines;
 }
 
-if (typeof module !== "undefined") module.exports = { EVENT_TEXTS, FILTER_CATEGORIES, MISSING_NOTE, eventText, eventBanner, statusLines, queueText, syncBanner, syncLines };
+// The detection sequence (DETECTION_STEPS in app/backend/scenario_engine.py): each step
+// says whether it rests on real 2014 data or is the story's synthetic part - the
+// satellites did not analyse their images on board in 2014.
+const DETECTION_STEPS = [
+  { name: "acquired", title: "Bild tagen", real: true },
+  { name: "anomaly", title: "Anomali upptäckt ombord", real: false },
+  { name: "downlink", title: "Nedlänk till markstation", real: false },
+  { name: "zoom", title: "Zoom till branden", real: true },
+  { name: "iot", title: "IoT på marken", real: false },
+  { name: "correlate", title: "Korrelering", real: true },
+];
+const FIRMS_SATELLITES = { Aqua: "Aqua", Terra: "Terra", SNPP: "Suomi NPP" };
+
+function decimalText(value) {
+  return String(value).replace(".", ",");
+}
+
+// The detail of the current step; `info` is /api/detection, `iotText` the synthetic sensors' line.
+function detectionDetail(info, iotText) {
+  const pass = info.pass;
+  const satellite = FIRMS_SATELLITES[pass.satellite] || pass.satellite;
+  const { counts, rules } = info.classification;
+  const total = (category) => rules.filter((rule) => rule.category === category).length;
+  switch (info.name) {
+    case "acquired":
+      return `${pass.instrument} på ${satellite} passerar över branden ${pass.pass_utc.slice(11, 16)} UTC – verklig passage ur FIRMS 2014.`;
+    case "anomaly":
+      return `Illustrativt: ${satellite} flaggar ett varmt område i bilden. Satelliterna analyserade inte bilderna ombord 2014.`;
+    case "downlink":
+      return "Illustrativt: satelliten skickar larmet till en markstation och vidare till lägescentralen.";
+    case "zoom":
+      return `${pass.detections} detektioner, starkast ${decimalText(pass.max_frp_mw)} MW – verkliga FIRMS-data.`;
+    case "iot":
+      return `Sensorerna på marken kontrollerar larmet: ${iotText || "inga sensorvärden ännu"}.`;
+    case "correlate":
+      return `${info.classification.outcome} – ${counts.Vegetationsbrand} av ${total("Vegetationsbrand")} regler för vegetationsbrand och ${counts.Industri} av ${total("Industri")} för industri håller.`;
+    default:
+      return "";
+  }
+}
+
+// The steps for a list: done, current or still to come.
+function detectionSteps(step) {
+  return DETECTION_STEPS.map((item, index) => ({
+    ...item, state: index < step ? "done" : index === step ? "current" : "todo",
+  }));
+}
+
+function detectionStepLine(detection) {
+  if (!detection) return "Ingen sekvens – tryck SATELLITE DETECTION.";
+  const item = DETECTION_STEPS[detection.step];
+  return `Steg ${detection.step + 1}/${detection.steps}: ${item.title} (${item.real ? "verkliga data" : "syntetiskt"})`;
+}
+
+if (typeof module !== "undefined") module.exports = { EVENT_TEXTS, DETECTION_STEPS, detectionDetail, detectionSteps, detectionStepLine, FILTER_CATEGORIES, MISSING_NOTE, eventText, eventBanner, statusLines, queueText, syncBanner, syncLines };

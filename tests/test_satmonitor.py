@@ -50,3 +50,8 @@ def test_the_axis_has_a_mark_every_hour() -> None:
     ticks = node(f"timelineTicks({CLOCK} + 1800000)")  # 11:30: marks at 11, 12, 13, 14, 15, 16
     assert [tick["at"] for tick in ticks] == [CLOCK + i * HOUR for i in range(6)]
     assert all(0 <= tick["x"] <= 1 for tick in ticks)
+
+
+def test_a_moment_is_placed_on_the_timeline_only_inside_the_window() -> None:
+    assert node(f"[timelineX({CLOCK}, {CLOCK}), timelineX({CLOCK + 2 * HOUR}, {CLOCK}), timelineX({CLOCK - 2 * HOUR}, {CLOCK}), timelineX({CLOCK + 6 * HOUR}, {CLOCK})]") == [
+        pytest.approx(1 / 6), pytest.approx(0.5), None, None]

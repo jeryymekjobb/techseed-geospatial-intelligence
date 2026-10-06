@@ -64,6 +64,7 @@ body.control { background: #141414; color: #f2f2f2; }
 .control-layout h2 { margin: 0 0 8px; font-size: 1rem; color: #ffd54a; }
 .control-row, .control-grid { display: grid; gap: 10px; margin: 10px 0; }
 .control-row { grid-template-columns: repeat(3, 1fr); }
+.control-row.detection-row { grid-template-columns: 1fr; }
 .control-row.speed-row { grid-template-columns: repeat(3, 1fr); }
 .control-grid { grid-template-columns: repeat(2, 1fr); }
 .control button { min-height: 64px; padding: 8px; border: 2px solid #5b5b57; border-radius: 8px; background: #2a2a2a; color: #fff; font-size: 1rem; font-weight: 700; letter-spacing: 0.03em; touch-action: manipulation; }
@@ -81,6 +82,23 @@ body.control { background: #141414; color: #f2f2f2; }
 .god-filter .missing { color: #8a8a8a; font-style: italic; }
 .control button:disabled { opacity: 0.45; font-weight: 400; }
 #satellite-section.space-view { outline: 3px solid #ffd54a; outline-offset: 4px; }
+.detection-card { position: absolute; right: 10px; bottom: 30px; z-index: 1000; width: 400px; max-height: calc(100% - 80px); overflow: auto; margin: 0; padding: 10px 12px; background: #141414ee; color: #f2f2f2; border-radius: 6px; box-shadow: 0 2px 10px #0008; font-size: 0.9rem; }
+.detection-card[hidden] { display: none; }
+.detection-card h2 { margin: 0 0 6px; font-size: 0.95rem; letter-spacing: 0.04em; color: #e040fb; }
+.detection-card h2 small { color: #b8b8b8; font-weight: 400; letter-spacing: 0; }
+.detection-card h3 { margin: 8px 0 4px; font-size: 1.1rem; color: #ffd54a; }
+.detection-steps { margin: 0; padding-left: 22px; }
+.detection-steps li { margin: 2px 0; color: #8a8a8a; }
+.detection-steps li.done { color: #c8c8c8; }
+.detection-steps li.current { color: #fff; font-weight: 700; }
+.detection-steps .tag { margin-left: 4px; padding: 0 4px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
+.detection-steps .tag.real { background: #1b5e20; color: #fff; }
+.detection-steps .tag.synthetic { background: #6a1b9a; color: #fff; }
+.detection-detail { margin: 8px 0 0; padding: 4px 8px; border-left: 4px solid #e040fb; }
+.detection-card .evidence li { color: #f2f2f2; }
+.detection-card .evidence .miss { color: #9a9a9a; }
+.detection-card .evidence .linked:hover, .detection-card .evidence .linked:focus { background: #2a2a2a; }
+.detection-card .status { color: #b8b8b8; font-size: 0.8rem; }
 .sat-monitor { position: absolute; left: 10px; bottom: 34px; z-index: 900; margin: 0; padding: 6px; background: #141414e6; color: #fff; border-radius: 6px; box-shadow: 0 2px 8px #0008; pointer-events: none; }
 .sat-monitor h2 { margin: 0 0 4px; font-size: 0.8rem; letter-spacing: 0.05em; color: #ffd54a; }
 .sat-monitor h2 small { color: #b8b8b8; font-weight: 400; letter-spacing: 0; }

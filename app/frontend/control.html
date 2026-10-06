@@ -30,7 +30,7 @@
     <section>
       <h2>Events</h2>
       <div class="control-grid">
-        <button type="button" data-command="satellite_detection">SATELLITE DETECTION</button>
+        <button type="button" data-command="satellite_detection" data-status="detection">SATELLITE DETECTION</button>
         <button type="button" data-command="sensor_failure" data-target="sensor-17">SENSOR FAILURE</button>
         <button type="button" data-command="satcom_failure" data-toggle-off="satcom_restore" data-status="satcom_down">SATCOM FAILURE</button>
         <button type="button" data-command="road_closed">ROAD CLOSED</button>
@@ -40,6 +40,11 @@
         <button type="button" data-command="space_view" data-status="space_view">SPACE VIEW</button>
         <button type="button" data-command="iot" data-status="iot">IOT PÅ/AV</button>
       </div>
+      <h3>Upptäckt från rymden</h3>
+      <div class="control-row detection-row">
+        <button id="next" type="button" data-command="next" disabled>NÄSTA ▸</button>
+      </div>
+      <div id="detection-step" class="status" aria-live="polite"></div>
       <h3>Filter</h3>
       <div class="control-grid filter-grid">
         <button type="button" data-command="filter" data-target="space" data-filter="space">SPACE</button>
