@@ -21,6 +21,10 @@ Demon har två skärmar:
 Båda skärmarna är sidor i webbläsaren. De hämtar allt från ett program på datorn,
 **backend**, som måste vara igång så länge demon körs.
 
+Samma skärmar kan också köra en andra demo: **översvämningen i Sundsvall 2026**, ett
+scenario byggt på det verkliga regnet i augusti 2026. Den beskrivs i Del 5. Del 1–4 gäller
+branddemon, och det mesta i dem gäller också översvämningen.
+
 ## Ord som används i guiden
 
 | Ord | Betydelse |
@@ -447,3 +451,160 @@ docker compose up -d tiles
 
 Om ett kommando skriver ett felmeddelande du inte förstår, spara det, till exempel som en
 skärmdump. Det gör det mycket lättare för någon annan att hjälpa till.
+
+---
+
+# Del 5 – Översvämningsdemon i Sundsvall
+
+## 14. Vad översvämningsdemon är
+
+Demon visar Sundsvall den 14–22 augusti 2026. Regnet är verkligt: det kommer från kommunens
+egna regnmätare och SMHI:s station Brämön A. Den 16 augusti föll som mest 10,6 mm på en timme
+(Fillan) och 29 mm på ett dygn, och den 19 augusti kom ett andra regn.
+
+Det är ett **scenario**, inte en återgiven händelse. Att Sundsvall översvämmades de dagarna är
+inte bekräftat i öppna källor. Det står överst på huvudskärmen: "Scenario byggt på verkligt
+regn augusti 2026 – inte en återgiven händelse". Säg det också till besökarna.
+
+Demon använder samma skärmar och knappar som branddemon. I stället för brandens delar visar den:
+
+- **Regn (SMHI)** i panelen: timmar och dygn vid den mätare du väljer, och ett stapeldiagram med
+  en röd linje för scenarioklockan. Varje mätare på kartan visar regnet den senaste timmen.
+- **Översvämningskartor (modell)**: kommunens skyfallsmodeller för 30-, 100- och 500-årsregn,
+  Selångersåns 100-årsflöde och MCF:s (tidigare MSB:s) karteringar av Ljungan och Indalsälven.
+  Välj dem i kartans lagerlista. Största vattendjup vid 100-årsregn är påslaget från början.
+- **Syntetiska bräddgivare DV1–DV8** vid kommunens kritiska dagvattenpunkter. Röd betyder att
+  den bräddar. Deras värden räknas ut ur det verkliga regnet och kommunens modell.
+- **Satellitbilder** från Landsat 8 och Sentinel-2 under "Satellitbild". Bilden är avslagen från
+  början, eftersom augustibilderna är molniga.
+
+Kommunens och MCF:s kartor hämtas från deras karttjänster medan demon körs. Datorn behöver
+därför internet för dem. Allt annat fungerar utan.
+
+## 15. Förbered översvämningsdemon
+
+Gör Del 1 först. Hämta sedan Sundsvalls data, en gång per dator. Alla kommandon körs från
+repots mapp och skriver till `data/sundsvall2026/`.
+
+```bash
+# 15.1 Välj scenariot för kommandona i den här terminalen
+export TECHSEED_SCENARIO=sundsvall2026
+
+# 15.2 Höjddata och 3D-terräng, offline-kartan (använder Sverigeutdraget från 5.3) och satellitbanorna 2026
+.venv/bin/python -m tools.fetch_copernicus_dem && .venv/bin/python -m tools.build_terrain
+.venv/bin/python -m tools.build_offline_tiles
+.venv/bin/python -m tools.fetch_tle_history
+
+# 15.3 Regnet från kommunens mätare och Brämön A
+.venv/bin/python -m tools.fetch_smhi_weather 2222813 2222814 2222818 2222811 2222812 2222819 127130 \
+  --period latest-months --parameters 7 --start 2026-08-14 --end 2026-08-22 --out data/sundsvall2026/smhi
+
+# 15.4 Kartdata från OpenStreetMap
+.venv/bin/python -m tools.fetch_osm_terrain --bbox 62.15,16.9,62.62,17.8 --out data/sundsvall2026/osm/terrain-sundsvall.geojson
+.venv/bin/python -m tools.fetch_osm_targets --bbox 62.15,16.9,62.62,17.8 --out data/sundsvall2026/osm/targets-sundsvall.geojson
+
+# 15.5 Satellitbilderna, kommunens dagvattenpunkter och flödesytor, och MCF:s flödesytor
+.venv/bin/python -m tools.fetch_landsat_scene
+.venv/bin/python -m tools.fetch_sentinel2_scene
+.venv/bin/python -m tools.fetch_municipal_features
+.venv/bin/python -m tools.fetch_mcf_flood_maps
+
+# 15.6 Databasen sundsvall2026 (skapas bredvid branddemons databas, som inte påverkas)
+.venv/bin/python -m tools.load_postgis
+```
+
+**Generalrepetition.** Kontrollen fungerar som i avsnitt 6. Byt först till Sundsvalls karta,
+se avsnitt 16, och kör sedan:
+
+```bash
+TECHSEED_SCENARIO=sundsvall2026 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-sundsvall-$(hostname)
+```
+
+Den kör översvämningens nio steg och ska sluta med `RESULTAT: GODKÄND`.
+
+## 16. Byta mellan demona
+
+Det finns en kartjänst, och den visar en demos karta i taget. Byt så här.
+
+**Till översvämningen:**
+
+1. Tryck Ctrl+C i terminal 1 så att branddemons backend stannar.
+2. Kör, i terminal 1:
+
+```bash
+TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
+.venv/bin/python -m app.backend.server --scenario sundsvall2026
+```
+
+3. Ladda om skärmarna. Adresserna är desamma som i avsnitt 8. Starta huvudskärmen med
+   <http://127.0.0.1:8765/3d.html?at=2026-08-16T05:00:00Z>, alltså 16 augusti kl. 07:00 svensk
+   tid, strax före den första radarbilden och regnets topp.
+
+Huvudskärmen ska ha rubriken "Översvämning i Sundsvall 2026 – scenario", och mission control
+"Scenario: FLOOD – Sundsvall 2026".
+
+**Tillbaka till branden:** stoppa backend med Ctrl+C och kör:
+
+```bash
+docker compose up -d tiles
+.venv/bin/python -m app.backend.server
+```
+
+Sensorerna i montern, terminal 2, behöver inte startas om. De visas i båda demona.
+
+## 17. Manuset, cirka tre minuter
+
+Börja med huvudskärmen på adressen i avsnitt 16 och hastigheten **10 MIN/S**. Gå lugnt fram,
+så att besökarna hinner se vad som händer.
+
+| Tid | Gör | Säg |
+|---|---|---|
+| 0:00 | Klicka "Flyg till Sundsvall" på huvudskärmen. | "Det här är Sundsvall i augusti 2026. Det är ett scenario byggt på det verkliga regnet, inte en återgiven händelse." |
+| 0:15 | Peka på "Regn (SMHI)" i panelen och på mätarna på kartan. | "Kommunen har egna regnmätare. Staplarna visar regnet timme för timme, och den röda linjen är tiden i scenariot." |
+| 0:30 | Peka på de färgade fälten på kartan. | "Det här är kommunens skyfallsmodell: hur djupt vattnet kan bli vid ett 100-årsregn. Det är en modell, inte en observation." |
+| 0:45 | Tryck **SPACE VIEW**, **1 MIN/S** och **PLAY**. Peka på satellitbevakningen. Tryck **SPACE VIEW** igen efter en stund. | "Sentinel-1 har radar som ser genom moln. Sentinel-2 och Landsat ser som en kamera, och de bilderna var molniga." |
+| 1:00 | Tryck **SATELLITE DETECTION**. Steg 1, **Bild tagen**: Sentinel-1C kl. 07:21 svensk tid. | "Det här är en verklig radarbild från Copernicus-katalogen, tagen över Sundsvall den morgonen." |
+| 1:10 | Tryck **NÄSTA ▸** två gånger: **Anomali upptäckt ombord** och **Nedlänk**, båda SYNTETISKT. | "I framtiden kan satelliten själv hitta vatten i bilden och slå larm. Här är det illustrerat." |
+| 1:25 | Tryck **NÄSTA ▸**. Steg 4, **Zoom till Sundsvall**. | "Vi har inte analyserat själva radarbilden. Regnet och kommunens modell visar var vatten kan stå." |
+| 1:35 | Tryck **NÄSTA ▸**. Steg 5, **IoT på marken**, SYNTETISKT. | "Bräddgivare i dagvattnet kontrollerar larmet. De är simulerade, men har samma format som kommunens sensorplattform." |
+| 1:45 | Tryck **NÄSTA ▸**. Steg 6, **Korrelering**: fyra regler med ✓ eller ✗. | "Reglerna väger regn, bräddning och modellen. Den sista säger öppet att radarbilden inte är analyserad." |
+| 2:00 | Tryck **NÄSTA ▸**, **10 MIN/S** och **PLAY**. Runt kl. 10 svensk tid kommer regnets topp, och bräddgivarna blir röda. | "Nu kommer det kraftigaste regnet. Fyra av åtta bräddgivare bräddar." |
+| 2:15 | Tryck **PAUSE**. Peka på AI ASSESSMENT och klicka "Why do you believe there is a flood?". | "Bedömningen visar varför: regnet och bräddningen. Varje rad pekar på sitt ställe på kartan." |
+| 2:30 | Klicka "Vilka byggnader ligger inom 100-årsflödet?" och sedan "SQL som kördes". | "Det här är en riktig fråga mot en kartdatabas, med kommunens och MCF:s flödeskartor." |
+| 2:45 | Klicka "Vad finns inom 200 m från de bräddande punkterna?". | "Här är det som ligger nära de bräddande punkterna. Underlaget är syntetiskt." |
+| 2:55 | Tryck **GOD VIEW**. | "From Orbit to Decision." |
+| Efteråt | Tryck **RESET** och ladda om huvudskärmen med adressen i avsnitt 16. | Demon är klar för nästa besökare. |
+
+**Om upptäcktssekvensen.** SATELLITE DETECTION tar alltid nästa verkliga Sentinel-1-bild efter
+scenarioklockan. Det finns åtta i perioden: morgon och kväll den 16, 17, 18 och 22 augusti.
+Trycker du efter kl. 07:21 den 16 augusti blir det kvällens bild kl. 18:37.
+
+**SATCOM FAILURE** fungerar som i branddemon, men det som köas är satellitbilder. Med
+**1 TIMME/S** kommer kvällens radarbild inom några sekunder, och efter **SATCOM FAILURE** igen
+listar SYNC den.
+
+**SENSOR FAILURE** slår ut bräddgivaren DV1. **Placera IoT-sensor** med högerklick fungerar
+också. En placerad sensor räknas ut ur regnet vid närmaste mätare, men har inget modelldjup.
+
+## 18. Riktigt, beräknat, modell och syntetiskt i översvämningen
+
+| Kategori | Vad | Säg |
+|---|---|---|
+| **Riktiga data** | Regnet från kommunens mätare och SMHI:s Brämön A, tiderna för Sentinel-1:s radarbilder (Copernicus-katalogen), Landsat 8- och Sentinel-2-bilderna, satelliternas banor (Space-Track), kommunens kritiska dagvattenpunkter, kartdata från OpenStreetMap (dagens läge) | "Riktiga data från augusti 2026, uppspelade. Det är inte live." |
+| **Modell** | Kommunens skyfallsmodeller, vattendjup och strömhastighet, Selångersåns 100-årsflöde, MCF:s karteringar av Ljungan och Indalsälven | "Modeller av vad som kan översvämmas. De visar inte vad som hände." |
+| **Beräknat** | Satelliternas positioner och passager, vattenmasken i Sentinel-2-bilden, bedömningens poäng och reglerna | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
+| **Syntetiskt och simulerat** | Bräddgivarna DV1–DV8 och placerade sensorer, sensorerna i montern, händelserna från mission control och sekvensens steg märkta SYNTETISKT | "Simulerat för demon. Det står på skärmen." |
+
+Säg inte att Sundsvall översvämmades den 16 augusti, att radarbilden är analyserad eller att
+bräddgivarna är MSVA:s eller kommunens mätningar. Regnet från kommunens mätare är de senaste
+månaderna inte alltid kvalitetsgranskat, och en timme utan värde räknas som torr.
+
+## 19. Felsökning för översvämningen
+
+| Det här ser du | Orsak | Gör så här |
+|---|---|---|
+| Kartan runt Sundsvall är tom, eller visar Västmanland | Kartjänsten visar brandens karta. | Kör `TILES_FILE=sundsvall.mbtiles docker compose up -d tiles` och ladda om. |
+| Rubriken säger "Skogsbranden i Västmanland 2014" | Backend kör branddemon. | Starta om backend med `--scenario sundsvall2026`, se avsnitt 16. |
+| Frågorna svarar "PostGIS svarar inte" eller att en tabell saknas | Databasen är inte igång eller inte fylld. | D i avsnitt 13, sedan `TECHSEED_SCENARIO=sundsvall2026 .venv/bin/python -m tools.load_postgis`. |
+| Översvämningskartorna syns inte | Datorn saknar internet, eller kommunens eller MCF:s karttjänst svarar inte. | Kontrollera nätverket. Resten av demon fungerar ändå. |
+| Inga bräddgivare | Kommunens dagvattenpunkter är inte hämtade. | Kör 15.5 och starta om backend. |
