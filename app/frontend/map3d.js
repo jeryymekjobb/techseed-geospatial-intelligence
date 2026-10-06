@@ -49,21 +49,23 @@ function svgImage(svg, size) {
 }
 
 // The wind barb of wind_barbs.js as a stand-alone image, with the styles of styles.css inlined.
-const BARB_STYLE = "<style>path,circle{fill:none;stroke:#0b3d91;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round}"
-  + ".halo{stroke:#fff;stroke-width:3;opacity:.85}.pennant{fill:#0b3d91}</style>";
+const BARB_STYLE = "<style>path,circle{fill:none;stroke:#0b3d91;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}"
+  + ".halo{stroke:#fff;stroke-width:4.5;opacity:.85}.pennant{fill:#0b3d91}</style>";
 const barbImages = new Map();
 function barbImage(speed) {
   const svg = windBarbSvg(speed);
-  if (!barbImages.has(svg)) barbImages.set(svg, svgImage(svg.replace(/^(<svg [^>]*>)/, `$1${BARB_STYLE}`), 56));
+  if (!barbImages.has(svg)) barbImages.set(svg, svgImage(svg.replace(/^(<svg [^>]*>)/, `$1${BARB_STYLE}`), 100));
   return barbImages.get(svg);
 }
 
 // Spread arrows pointing up (north), as in the 2D map: observed solid red, model dashed orange.
+// 180 px with a white edge, to be seen from the back of an auditorium and against the red hotspots.
+const SPREAD_HALO = '<path d="M0,0 L0,-30 M-5,-24 L0,-34 L5,-24 Z" stroke="#fff" stroke-width="6" fill="#fff" stroke-linecap="round" stroke-linejoin="round"/>';
 const SPREAD_ARROWS = {
-  observed: svgImage('<svg viewBox="-35 -35 70 70"><path d="M0,0 L0,-30" stroke="#b3261e" stroke-width="3" fill="none" stroke-linecap="round"/>'
-    + '<path d="M-5,-24 L0,-34 L5,-24 Z" fill="#b3261e"/></svg>', 70),
-  model: svgImage('<svg viewBox="-35 -35 70 70"><path d="M0,0 L0,-30" stroke="#d35400" stroke-width="2" fill="none" stroke-dasharray="4 3"/>'
-    + '<path d="M-5,-24 L0,-34 L5,-24 Z" fill="#d35400"/></svg>', 70),
+  observed: svgImage(`<svg viewBox="-35 -35 70 70">${SPREAD_HALO}<path d="M0,0 L0,-30" stroke="#b3261e" stroke-width="3" fill="none" stroke-linecap="round"/>`
+    + '<path d="M-5,-24 L0,-34 L5,-24 Z" fill="#b3261e"/></svg>', 180),
+  model: svgImage(`<svg viewBox="-35 -35 70 70">${SPREAD_HALO}<path d="M0,0 L0,-30" stroke="#d35400" stroke-width="2" fill="none" stroke-dasharray="4 3"/>`
+    + '<path d="M-5,-24 L0,-34 L5,-24 Z" fill="#d35400"/></svg>', 180),
 };
 
 // Billboard rotation is counter-clockwise from north when aligned with the Z axis.

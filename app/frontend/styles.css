@@ -32,15 +32,16 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .map-label-lake { font-style: italic; color: #1f5fa8; }
 .barb-icon { pointer-events: none; }
 .layer-panel { position: absolute; top: 10px; right: 10px; display: grid; gap: 3px; padding: 8px 10px; background: #fff; border-radius: 5px; box-shadow: 0 1px 5px #0006; font-size: 0.85rem; }
-.barb-icon svg { width: 56px; height: 56px; overflow: visible; pointer-events: auto; }
-.barb path, .barb circle { fill: none; stroke: #0b3d91; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
-.barb .halo { stroke: #fff; stroke-width: 3; opacity: 0.85; }
+.barb-icon svg { width: 100px; height: 100px; overflow: visible; pointer-events: auto; }
+.barb path, .barb circle { fill: none; stroke: #0b3d91; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.barb .halo { stroke: #fff; stroke-width: 4.5; opacity: 0.85; }
 .barb .pennant { fill: #0b3d91; }
 .forecast-label { margin: 2px 0 6px; padding: 3px 6px; border-left: 4px solid #b3261e; background: #fbe9e7; font-size: 0.8rem; font-weight: 600; }
 .forecast-values { display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; margin: 6px 0; font-size: 0.85rem; }
 .forecast-values dt { color: var(--muted); }
 .forecast-values dd { margin: 0; font-weight: 600; }
-.spread-arrow svg { width: 70px; height: 70px; overflow: visible; }
+.spread-arrow svg { width: 180px; height: 180px; overflow: visible; }
+.spread-arrow .halo { stroke: #fff; stroke-width: 6; fill: #fff; stroke-linecap: round; stroke-linejoin: round; }
 .spread-arrow .observed { stroke: #b3261e; stroke-width: 3; fill: none; stroke-linecap: round; }
 .spread-arrow .observed-head { fill: #b3261e; }
 .spread-arrow .model { stroke: #d35400; stroke-width: 2; fill: none; stroke-dasharray: 4 3; }

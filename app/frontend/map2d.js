@@ -3,9 +3,9 @@
 
 function spreadArrowIcon(observedDeg, modelDeg) {
   const arrow = (deg, cls) => (deg === null || deg === undefined ? "" :
-    `<g transform="rotate(${deg})"><path d="M0,0 L0,-30" class="${cls}"></path><path d="M-5,-24 L0,-34 L5,-24 Z" class="${cls}-head"></path></g>`);
+    `<g transform="rotate(${deg})"><path d="M0,0 L0,-30 M-5,-24 L0,-34 L5,-24 Z" class="halo"></path><path d="M0,0 L0,-30" class="${cls}"></path><path d="M-5,-24 L0,-34 L5,-24 Z" class="${cls}-head"></path></g>`);
   return L.divIcon({
-    className: "spread-arrow", iconSize: [70, 70], iconAnchor: [35, 35],
+    className: "spread-arrow", iconSize: [180, 180], iconAnchor: [90, 90],
     html: `<svg viewBox="-35 -35 70 70">${arrow(modelDeg, "model")}${arrow(observedDeg, "observed")}</svg>`,
   });
 }
@@ -155,7 +155,7 @@ function createLeafletMap(config) {
 
     setupWind(wind, onShow) {
       const layer = L.layerGroup();
-      const icon = L.divIcon({ className: "barb-icon", iconSize: [56, 56], iconAnchor: [28, 28], html: "" });
+      const icon = L.divIcon({ className: "barb-icon", iconSize: [100, 100], iconAnchor: [50, 50], html: "" });
       windMarkers = wind.points.map(([lat, lon]) => L.marker([lat, lon], { icon, keyboard: false })
         .bindTooltip("", { direction: "top" }).addTo(layer));
       overlays["Vind (ERA5-Land)"] = layer;

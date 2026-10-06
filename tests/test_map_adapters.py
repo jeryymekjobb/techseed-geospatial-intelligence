@@ -65,7 +65,7 @@ def test_rotation_turns_clockwise_from_north_like_the_2d_map() -> None:
 def test_barb_images_are_stand_alone_svg_with_inlined_styles_and_cached() -> None:
     image, same, calm = node("[barbImage(6.8), barbImage(6.9), barbImage(0.2)]")
     svg = unquote(image.split(",", 1)[1])
-    assert svg.startswith('<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" ')
+    assert svg.startswith('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" ')
     assert "<style>" in svg and "M0,15 L0,-15" in svg
     assert image == same and image != calm
 
