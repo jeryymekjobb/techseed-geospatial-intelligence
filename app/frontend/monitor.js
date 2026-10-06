@@ -1,4 +1,4 @@
-// The satellite monitor in a window of its own (monitor.html): the world map with the 2014
+// The satellite monitor in a window of its own (monitor.html): the world map with the scenario year's
 // orbits and the timeline of passes over the fire, filling the window, plus each satellite's
 // height, speed and next pass. It follows the shared scenario clock like every other screen.
 "use strict";
@@ -27,6 +27,8 @@ async function start() {
   const note = document.getElementById("monitor-note");
   const config = await getJson("/api/config");
   document.title = `Satellitbevakning – ${config.title}`;
+  document.getElementById("monitor-label").textContent =
+    `Satelliternas läge ${config.playback.start_utc.slice(0, 4)}, beräknat ur banelement – inte live`;
   const data = await getJson("/api/satellites");
   if (!data.available) {
     note.textContent = data.note;
@@ -35,6 +37,7 @@ async function start() {
   const lib = await import("/vendor/satellite.js-7.1.0/index.js");
   note.textContent = `${data.label}. Källa: ${data.source}.`;
   const centre = config.fire_centre;
+  const place = config.incident_place;
   // The satellite log: FIRMS passes and Landsat scenes once, the computed passes per day from passCache.
   const firms = firmsPasses((await getJson("/api/hotspots").catch(() => ({ features: [] }))).features);
   const scenes = config.layers.landsat?.scenes || [];
@@ -47,7 +50,8 @@ async function start() {
       name: satellite.name, instrument: satellite.instrument,
       passes: Array.from({ length: last - first + 1 }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat(),
     }));
-    const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [] }, clock.getTime());
+    const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [] }, clock.getTime(),
+      SATLOG_WINDOW_MS, SATLOG_LIMIT, place);
     const log = document.getElementById("monitor-log-lines");
     log.innerHTML = "";
     if (!lines.length) {
@@ -64,7 +68,7 @@ async function start() {
       time.textContent = `${dayShort.format(new Date(line.atMs))} ${hourMinute.format(new Date(line.atMs))}`;
       const source = document.createElement("span");
       source.className = "monitor-log-source";
-      source.textContent = SATLOG_SOURCES[line.source];
+      source.textContent = line.sourceText || SATLOG_SOURCES[line.source];
       row.append(time, ` ${line.text} `, source);
       log.append(row);
     });
@@ -76,7 +80,7 @@ async function start() {
     }
   };
   const monitor = createSatelliteMonitor(document.getElementById("monitor"), centre, (time) => hourMinute.format(time),
-    { width: 0, mapHeight: 0, rowHeight: 30, fit: true });
+    { width: 0, mapHeight: 0, rowHeight: 30, fit: true }, place, config.playback.start_utc.slice(0, 4));
   let drawnAt = null;
   // The pass of mission control's detection sequence, from /api/detection once per pass.
   let markPass = null;
@@ -114,8 +118,8 @@ async function start() {
     list.innerHTML = "";
     for (const item of items) {
       const next = item.passes?.find((pass) => pass.end > clock.getTime());
-      const pass = !item.passes ? "" : !next ? " · ingen passage över branden närmaste dygnet"
-        : next.start <= clock.getTime() ? " · ÖVER BRANDEN NU" : ` · nästa passage över branden ${hourMinute.format(new Date(next.start))}`;
+      const pass = !item.passes ? "" : !next ? ` · ingen passage över ${place} närmaste dygnet`
+        : next.start <= clock.getTime() ? ` · ÖVER ${place.toUpperCase()} NU` : ` · nästa passage över ${place} ${hourMinute.format(new Date(next.start))}`;
       const row = document.createElement("li");
       const swatch = document.createElement("span");
       swatch.className = "monitor-swatch";

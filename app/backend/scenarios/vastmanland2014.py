@@ -6,6 +6,12 @@ from datetime import date, datetime, timezone
 
 from app.backend.scenarios import REPO_ROOT
 
+# The kind of incident, which decides the incident's own modules (FIRMS, fire spread and
+# forecast, wind barbs, fire sensors and assessment), and the words the screens use for it.
+INCIDENT = "wildfire"
+INCIDENT_PLACE = "branden"
+INCIDENT_AREA = "brandområdet"
+
 TITLE = "Skogsbranden i Västmanland 2014"
 DATA_LABEL = "Historiska data 2014 – uppspelning, inte live"
 # Mission control's header.

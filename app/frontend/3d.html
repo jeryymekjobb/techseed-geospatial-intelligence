@@ -15,7 +15,7 @@
     <a class="view-switch" href="/">2D-karta</a>
   </header>
   <main class="layout">
-    <div id="map" class="map" aria-label="3D-glob med brandområdet"></div>
+    <div id="map" class="map" aria-label="3D-glob med händelseområdet"></div>
     <aside class="panel">
       <section>
         <h2>Uppspelning</h2>
@@ -36,10 +36,10 @@
             </select>
           </label>
         </div>
-        <div id="counts" class="counts">0 detektioner visas</div>
+        <div id="counts" class="counts" data-incident="wildfire">0 detektioner visas</div>
         <div id="stream-status" class="status" aria-live="polite"></div>
       </section>
-      <section class="forecast-section">
+      <section class="forecast-section" data-incident="wildfire">
         <h2>Prognos (modell)</h2>
         <div id="forecast-label" class="forecast-label">Modellprognos med stor osäkerhet – inte beslutsunderlag</div>
         <label>Horisont
@@ -60,7 +60,19 @@
         </ul>
         <div id="forecast-places" class="status"></div>
       </section>
-      <section>
+      <section data-incident="flood">
+        <h2>Regn (SMHI)</h2>
+        <label>Mätare <select id="rain-station"></select></label>
+        <svg id="rain-chart" class="timeline" role="img" aria-label="Regn per timme vid mätaren"></svg>
+        <dl id="rain-values" class="forecast-values"></dl>
+        <div id="rain-note" class="status"></div>
+      </section>
+      <section data-incident="flood">
+        <h2>Översvämningskartor (modell)</h2>
+        <ul id="flood-legend" class="legend"></ul>
+        <div class="status">Modeller av vad som kan översvämmas, inte observationer av augusti 2026. Välj lager i kartans lagerlista.</div>
+      </section>
+      <section data-incident="wildfire">
         <h2>Väder (SMHI)</h2>
         <label>Station <select id="weather-station"></select></label>
         <div id="weather" class="weather">
@@ -72,18 +84,18 @@
         </div>
         <div id="weather-note" class="status"></div>
       </section>
-      <section>
+      <section data-incident="wildfire">
         <h2>Detektioner per dygn (UTC)</h2>
         <svg id="timeline" class="timeline" role="img" aria-label="Antal detektioner per dygn"></svg>
       </section>
-      <section>
+      <section data-incident="wildfire">
         <h2>Vind (ERA5-Land, modell)</h2>
         <ul class="legend">
           <li>Pilen pekar dit vinden blåser. Streck vid basen, avrundat till närmaste 2,5 m/s: kort 2,5 m/s, långt 5 m/s, triangel 25 m/s. Pil utan streck: 1–1,2 m/s. Ring: lugnt (under 1 m/s).</li>
           <li id="wind-note" class="status"></li>
         </ul>
       </section>
-      <section>
+      <section data-incident="wildfire">
         <h2>Hotspots</h2>
         <ul class="legend">
           <li><span class="swatch" style="background:#ff2a00"></span>senaste 12 timmarna</li>
@@ -108,6 +120,7 @@
   <script src="/orbits.js"></script>
   <script src="/satmonitor.js"></script>
   <script src="/landsat.js"></script>
+  <script src="/rain.js"></script>
   <script src="/panel.js"></script>
   <script src="/map3d.js"></script>
   <script src="/app3d.js"></script>

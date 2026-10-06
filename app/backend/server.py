@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, forecast, iot, landsat, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial
+from app.backend import assessment, detection, forecast, iot, landsat, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial, wms
 from app.backend.scenario_engine import CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -273,6 +273,10 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
     west, south, east, north = scenario.MAP_BBOX
     return {
         "scenario": scenario.NAME,
+        # The incident's own modules run only for its kind; the words name its place on the screens.
+        "incident": scenario.INCIDENT,
+        "incident_place": scenario.INCIDENT_PLACE,
+        "incident_area": scenario.INCIDENT_AREA,
         "title": scenario.TITLE,
         "data_label": scenario.DATA_LABEL,
         "control_label": scenario.CONTROL_LABEL,
@@ -295,6 +299,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
             "terrain3d": (TERRAIN_DIR / "layer.json").is_file(),
             "satellites": satellites.satellites()["available"],
             "landsat": landsat.layer(),
+            "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "lantmateriet_fastighet": settings.fastighet_enabled,
             "lantmateriet_fastighet_layers": settings.fastighet_layers if settings.fastighet_enabled else "",
@@ -356,6 +361,8 @@ class Handler(BaseHTTPRequestHandler):
                 "features": [feature(item) for item in items],
                 "daily": daily_summary(items),
             })
+        elif path in {"/api/forecast", "/api/wind", "/api/assessment", "/api/sensors/synthetic"} and not scenario.WILDFIRE:
+            self.send_json({"error": "not_in_scenario"}, HTTPStatus.NOT_FOUND)
         elif path == "/api/forecast":
             self.send_json(forecast.forecasts())
         elif path == "/api/wind":
@@ -369,7 +376,8 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/satellites":
             self.send_json(satellites.satellites())
         elif path == "/api/questions":
-            self.send_json([{"id": key, "question": value["question"]} for key, value in spatial.QUESTIONS.items()])
+            questions = spatial.QUESTIONS if scenario.WILDFIRE else {}
+            self.send_json([{"id": key, "question": value["question"]} for key, value in questions.items()])
         elif path == "/api/ask":
             self.ask(query.get("q", ""))
         elif path == "/api/detection":
@@ -394,8 +402,11 @@ class Handler(BaseHTTPRequestHandler):
             self.offline_tile(path)
         elif path.startswith("/terrain/"):
             self.terrain(path)
-        elif path.startswith("/landsat/"):
-            body = landsat.image(path.removeprefix("/landsat/"))
+        elif path.startswith("/wms/"):
+            self.wms_map(path.removeprefix("/wms/"), query)
+        elif path.startswith(("/landsat/", "/sentinel2/")):
+            prefix, _, name = path.lstrip("/").partition("/")
+            body = landsat.image(name, landsat.LANDSAT_DIR if prefix == "landsat" else landsat.SENTINEL2_DIR)
             if body is None:
                 self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
             else:
@@ -518,14 +529,15 @@ class Handler(BaseHTTPRequestHandler):
                     last_queue = queue
                 last_seq = state["events"][-1]["seq"] if state["events"] else last_seq
                 last_reading, health = self.send_sensor_events(last_reading, health)
-                synthetic = synthetic_at(state)
-                if synthetic != last_synthetic:
-                    self.send_event("synthetic_sensors", {**synthetic, "clock_utc": state["clock_utc"]})
-                    last_synthetic = synthetic
-                judged = assessment_at(state, synthetic)
-                if judged != last_assessment:
-                    self.send_event("assessment", {**judged, "clock_utc": state["clock_utc"]})
-                    last_assessment = judged
+                if scenario.WILDFIRE:
+                    synthetic = synthetic_at(state)
+                    if synthetic != last_synthetic:
+                        self.send_event("synthetic_sensors", {**synthetic, "clock_utc": state["clock_utc"]})
+                        last_synthetic = synthetic
+                    judged = assessment_at(state, synthetic)
+                    if judged != last_assessment:
+                        self.send_event("assessment", {**judged, "clock_utc": state["clock_utc"]})
+                        last_assessment = judged
                 if state["finished"] and not ended:
                     self.send_event("end", state)
                 ended = state["finished"]
@@ -558,6 +570,20 @@ class Handler(BaseHTTPRequestHandler):
         return max([last_reading, *(reading["seq"] for reading in sensors)]), {
             (reading["node"], reading["kind"]): reading["online"] for reading in sensors
         }
+
+    def wms_map(self, source: str, query: dict[str, str]) -> None:
+        try:
+            body, content_type = wms.get_map(source, query)
+        except KeyError:
+            self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        except ValueError as exc:
+            self.send_json({"error": "invalid_wms_request", "detail": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        except wms.UpstreamError as exc:
+            self.send_json({"error": "wms_upstream_error", "status": exc.status}, HTTPStatus.BAD_GATEWAY)
+            return
+        self.send_bytes(body, content_type, "max-age=3600")
 
     def offline_tile(self, path: str) -> None:
         parts = path.strip("/").split("/")
@@ -636,9 +662,6 @@ def main(argv: list[str] | None = None) -> int:
         # The modules read the scenario when they are imported: start again with it chosen.
         os.environ["TECHSEED_SCENARIO"] = args.scenario
         os.execv(sys.executable, [sys.executable, "-m", "app.backend.server", *(argv if argv is not None else sys.argv[1:])])
-    if not scenario.SCREENS_READY:
-        parser.exit(2, f"The scenario {scenario.NAME} has its data tools but not yet its screens; "
-                       f"run the backend with another scenario.\n")
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.daemon_threads = True
     settings = Handler.settings
@@ -649,8 +672,9 @@ def main(argv: list[str] | None = None) -> int:
         host, _, port = args.mqtt.rpartition(":")
         iot.start(Handler.sensors, host or "127.0.0.1", int(port))
     print(f"IoT: {Handler.sensors.detail}")
-    # The assessment needs the forecasts, which take a few seconds; compute them before the first screen connects.
-    assessor()
+    if scenario.WILDFIRE:
+        # The assessment needs the forecasts, which take a few seconds; compute them before the first screen connects.
+        assessor()
     # Slow the playback down around every satellite pass in the data and the Landsat scene.
     Handler.engine.set_slow_windows(slow_windows())
     # Start psql now, so the first question is answered without the start-up time.

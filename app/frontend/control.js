@@ -130,6 +130,8 @@ for (const button of document.querySelectorAll("[data-command]")) {
 // The scenario's name in the header.
 fetch("/api/config").then((response) => response.json()).then((config) => {
   $("control-label").textContent = config.control_label;
+  // Only the buttons of the scenario's kind of incident (styles.css).
+  document.body.dataset.incident = config.incident;
 }).catch(() => {});
 fetch("/api/sensors").then((response) => response.json()).then((snapshot) => {
   iotConnection = snapshot;

@@ -1,11 +1,13 @@
 // Satellite monitor: a fixed box on the main screen, always visible wherever the camera is.
-// A world map with the 2014 orbits and where the satellites are now, and a timeline of
+// A world map with the orbits of the scenario's year and where the satellites are now, and a timeline of
 // their passes over the fire (from orbits.js), with "now" marked. panel.js feeds it every
 // tick; the timeline functions are pure so they can be tested in Node.
 "use strict";
 
 // By instrument; Terra and Aqua both carry MODIS and get two shades of orange of their own.
-const MONITOR_COLORS = { Terra: "#ff8c00", Aqua: "#ffb000", MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7" };
+const MONITOR_COLORS = {
+  Terra: "#ff8c00", Aqua: "#ffb000", MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7", SAR: "#b388ff", MSI: "#69f0ae",
+};
 const MONITOR_WINDOW = { beforeMs: 3600000, afterMs: 5 * 3600000 };
 const MONITOR_SIZE = { width: 400, mapHeight: 200, rowHeight: 18 };
 const MARK_COLOR = "#e040fb";
@@ -71,11 +73,12 @@ function timelineTicks(clockMs, window = MONITOR_WINDOW, stepMs = 3600000) {
 // monitor fill its container (the stand-alone monitor page) and follow its size.
 // setMark() takes the pass of mission control's detection sequence, { atMs, firms }, to
 // mark on the timeline and around its satellite; null when no sequence runs.
-function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITOR_SIZE) {
+// `place` names the incident's place in the texts ("branden", "Sundsvall"), `year` the scenario's.
+function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITOR_SIZE, place = "branden", year = "2014") {
   const box = document.createElement("section");
   box.className = "sat-monitor";
   box.setAttribute("aria-label", "Satellitbevakning");
-  box.innerHTML = '<h2>SATELLITBEVAKNING <small>läge 2014, beräknat</small></h2><canvas></canvas><div class="sat-monitor-now"></div>';
+  box.innerHTML = `<h2>SATELLITBEVAKNING <small>läge ${year}, beräknat</small></h2><canvas></canvas><div class="sat-monitor-now"></div>`;
   container.append(box);
   const canvas = box.querySelector("canvas");
   const rowsHeight = 22;
@@ -221,7 +224,7 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
       g.fillStyle = "#ffd54a";
       g.fillRect(nowX - 1, top + 12, 2, height - top - 12);
       const text = box.querySelector(".sat-monitor-now");
-      text.textContent = overNow.length ? `ÖVER BRANDEN NU: ${overNow.join(", ")}` : "Ingen satellit över branden just nu";
+      text.textContent = overNow.length ? `ÖVER ${place.toUpperCase()} NU: ${overNow.join(", ")}` : `Ingen satellit över ${place} just nu`;
       text.classList.toggle("active", overNow.length > 0);
     },
     redraw() {

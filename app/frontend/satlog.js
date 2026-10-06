@@ -42,13 +42,16 @@ function satlogDecimal(value) {
 // The log lines, newest first: { atMs, text, source, kind }.
 // `satellites`: [{ name, instrument, passes: [{ start, end }] }] over the fire (orbits.js);
 // `firms`: firmsPasses(); `scenes`: config.layers.landsat.scenes; `events`: the scenario's events.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [] }, clockMs, windowMs = SATLOG_WINDOW_MS, limit = SATLOG_LIMIT) {
+// `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
+// `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+  limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
     const label = `${satellite.name}${satellite.instrument ? ` (${satellite.instrument})` : ""}`;
     for (const pass of satellite.passes || []) {
-      lines.push({ atMs: pass.start, text: `${label} över branden`, source: "computed", kind: "enter" });
-      lines.push({ atMs: pass.end, text: `${label} lämnar branden`, source: "computed", kind: "leave" });
+      lines.push({ atMs: pass.start, text: `${label} över ${place}`, source: "computed", kind: "enter" });
+      lines.push({ atMs: pass.end, text: `${label} lämnar ${place}`, source: "computed", kind: "leave" });
     }
   }
   for (const pass of firms) {
@@ -59,7 +62,12 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [] },
     });
   }
   for (const scene of scenes) {
-    lines.push({ atMs: Date.parse(scene.acquired_utc), text: "Landsat 8 tar bild över branden", source: "landsat", kind: "landsat" });
+    const satellite = scene.satellite || "Landsat 8";
+    lines.push({
+      atMs: Date.parse(scene.acquired_utc), text: `${satellite} tar bild över ${place}`, source: "landsat", kind: "landsat",
+      // "Landsat 2014", "Sentinel-2 2026": the mission without the unit.
+      sourceText: `${satellite.replace(/(Sentinel-\d)[A-Z]$/, "$1").replace(/ \d$/, "")} ${scene.acquired_utc.slice(0, 4)}`,
+    });
   }
   const eventTexts = {
     satellite_detection: "Mission control startar detektionssekvensen",

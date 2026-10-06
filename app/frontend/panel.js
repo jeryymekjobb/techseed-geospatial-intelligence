@@ -31,6 +31,8 @@ const state = {
   windHour: null,
   weather: null,
   weatherStation: null,
+  rainStation: null,
+  rainShownAt: null,
   daily: [],
   playing: false,
   controlToken: null,
@@ -39,7 +41,7 @@ const state = {
   // Mission-control status (scenario_events.js): applied when it changes.
   scenarioStatus: null,
   hiddenLayers: [],
-  // Satellites in 2014 (/api/satellites, orbits.js with satellite.js).
+  // The scenario's satellites (/api/satellites, orbits.js with satellite.js).
   satellites: null,
   satelliteLib: null,
   satelliteInfoAt: null,
@@ -168,6 +170,88 @@ function showWeather(clock) {
   arrow.style.transform = `rotate(${(observation.wind_dir_deg + 180) % 360}deg)`;
 }
 
+// The flood: rain at the chosen gauge (rain.js), a bar per playback hour, and every
+// gauge's last hour on the map.
+function showRain(clock) {
+  if (!state.weather || state.config.incident !== "flood") return;
+  const hour = Math.floor(clock.getTime() / 3600000);
+  if (hour === state.rainShownAt) return;
+  state.rainShownAt = hour;
+  const labels = {};
+  for (const station of state.weather.stations) {
+    labels[station.id] = `${station.name}: ${decimal(rainSums(station.observations, clock.getTime()).hour)} mm/h`;
+  }
+  state.map.labelStations(labels);
+  const station = state.weather.stations.find((item) => item.id === state.rainStation);
+  if (!station) return;
+  const sums = rainSums(station.observations, clock.getTime());
+  $("rain-values").innerHTML = [
+    ["Senaste timmen", `${decimal(sums.hour)} mm`],
+    ["Senaste dygnet", `${decimal(sums.day)} mm`],
+    ["Sedan start", `${decimal(sums.total)} mm`],
+  ].map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
+  drawRain(station, clock);
+}
+
+function decimal(value) {
+  return String(value).replace(".", ",");
+}
+
+function drawRain(station, clock) {
+  const start = Date.parse(state.config.playback.start_utc);
+  const end = Date.parse(state.config.playback.end_utc);
+  const values = hourlyRain(station.observations, start, end);
+  const width = 300;
+  const height = 100;
+  const step = width / values.length;
+  const max = Math.max(5, ...values);
+  const parts = values.map((value, index) => {
+    const barHeight = (value / max) * (height - 20);
+    const at = new Date(start + (index + 1) * HOUR_MS).toISOString();
+    return `<rect class="rain-bar" x="${index * step}" y="${height - 14 - barHeight}" width="${Math.max(1, step - 0.5)}" height="${barHeight}">`
+      + `<title>${formatLocal(at)}: ${decimal(value)} mm</title></rect>`;
+  });
+  for (let day = start; day < end; day += 86400000) {
+    const x = ((day - start) / HOUR_MS) * step;
+    parts.push(`<text x="${x + 1}" y="${height - 3}">${new Date(day).toISOString().slice(5, 10)}</text>`);
+  }
+  const x = ((clock.getTime() - start) / HOUR_MS) * step;
+  parts.push(`<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`);
+  parts.push(`<text x="${width - 2}" y="10" text-anchor="end">max ${decimal(max)} mm/h</text>`);
+  const svg = $("rain-chart");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = parts.join("");
+}
+
+function setupRain(config) {
+  const select = $("rain-station");
+  for (const station of state.weather.stations) select.append(new Option(`${station.name} (${station.distance_km} km)`, station.id));
+  state.map.addStations(state.weather.stations);
+  state.rainStation = state.weather.stations[0]?.id || null;
+  select.addEventListener("change", () => {
+    state.rainStation = select.value;
+    state.rainShownAt = null;
+    showRain(state.clock);
+  });
+  state.map.addAttribution(config.attribution.smhi);
+  $("rain-note").textContent = "Timsummor från SMHI. Kommunens mätare redovisar bara timmar med regn; "
+    + "en timme utan värde räknas som torr. Senaste månaderna är inte alltid kvalitetsgranskade.";
+}
+
+// The flood maps (config.layers.wms): the municipality's and MCF's models, through the backend.
+function setupFloodMaps(config) {
+  const legend = $("flood-legend");
+  for (const source of config.layers.wms || []) {
+    state.map.addWms(source);
+    state.map.addAttribution(source.attribution);
+    for (const title of Object.values(source.layers)) {
+      const item = document.createElement("li");
+      item.textContent = `${title} – ${source.attribution}`;
+      legend.append(item);
+    }
+  }
+}
+
 function windAt(clock) {
   // The latest ERA5-Land hour at or before the playback clock.
   const times = state.wind.times_utc;
@@ -241,8 +325,11 @@ function setClock(clock) {
   $("sim-time").textContent = formatLocal(clock.toISOString());
   state.map.restyleHotspots(clock);
   $("counts").textContent = `${state.map.hotspotCount()} detektioner visas`;
-  drawTimeline(state.daily, clock);
-  showWeather(clock);
+  if (state.config.incident === "wildfire") {
+    drawTimeline(state.daily, clock);
+    showWeather(clock);
+  }
+  showRain(clock);
   showWind(clock);
   drawForecast(clock);
   showSatellites(clock);
@@ -251,16 +338,19 @@ function setClock(clock) {
 
 async function setupLandsat(config) {
   const section = document.createElement("section");
-  section.innerHTML = '<h2>Satellitbild (Landsat 8)</h2>'
-    + '<label>Datum <select id="landsat-date"><option value="auto" selected>senaste fram till scenariotiden</option>'
-    + '<option value="before">före branden</option><option value="during">under branden</option>'
-    + '<option value="after">efter branden (jämförelse)</option></select></label> '
-    + '<label>Bild <select id="landsat-choice"><option value="swir" selected>falska färger (SWIR)</option>'
-    + '<option value="natural">naturliga färger</option><option value="ndmi">fukt i vegetationen (NDMI)</option>'
-    + '<option value="off">av</option></select></label>'
+  section.innerHTML = '<h2>Satellitbild</h2>'
+    + '<label>Datum <select id="landsat-date"><option value="auto" selected>senaste fram till scenariotiden</option></select></label> '
+    + '<label>Bild <select id="landsat-choice"></select></label>'
     + '<div id="landsat-legend" class="ndmi-legend" hidden></div><div id="landsat-note" class="status"></div>';
   $("satellite-section").after(section);
   const info = config.layers.landsat;
+  // One date per scene and the images the scenes have; the fire starts with SWIR, the flood with no
+  // image, so the rain and the flood maps are seen (its August scenes are cloudy).
+  for (const scene of info?.scenes || []) $("landsat-date").append(new Option(scene.label, scene.scene));
+  for (const [name, text] of Object.entries(info?.names || {})) $("landsat-choice").append(new Option(text, name));
+  $("landsat-choice").append(new Option("av", "off"));
+  state.landsatChoice = config.incident !== "wildfire" ? "off" : info?.names?.swir ? "swir" : "natural";
+  $("landsat-choice").value = state.landsatChoice;
   if (!info) {
     $("landsat-note").textContent = "Satellitbilden är inte hämtad (tools/fetch_landsat_scene.py).";
     $("landsat-choice").disabled = true;
@@ -304,8 +394,8 @@ function showLandsatAt(clock) {
     "not-yet": scene ? `Bilden togs ${formatLocal(scene.acquired_utc)} och visas när scenariot når dit.` : "",
   };
   $("landsat-note").textContent = notes[selection.reason]
-    || `${scene.label}, ${String(scene.cloud_pct).replace(".", ",")} % moln över brandområdet. ${state.landsat.names[state.landsatChoice]}.`
-      + (selection.reason === "comparison" ? " Tagen efter branden – inte läget vid scenariotiden." : "");
+    || `${scene.label}, ${String(scene.cloud_pct).replace(".", ",")} % moln över ${state.config.incident_area}. ${state.landsat.names[state.landsatChoice]}.`
+      + (selection.reason === "comparison" ? " Tagen senare – inte läget vid scenariotiden." : "");
   $("landsat-legend").hidden = !(key && state.landsatChoice === "ndmi");
   if (key === state.landsatShown) return;
   state.landsatShown = key;
@@ -317,7 +407,8 @@ const SATELLITE_JS = "/vendor/satellite.js-7.1.0/index.js";
 async function setupSatellites(config) {
   const section = document.createElement("section");
   section.id = "satellite-section";
-  section.innerHTML = '<h2>Satelliter 2014</h2><ul id="satellite-list" class="scenario-status"></ul><div id="satellite-note" class="status"></div>';
+  section.innerHTML = `<h2>Satelliter ${config.playback.start_utc.slice(0, 4)}</h2><ul id="satellite-list"`
+    + ' class="scenario-status"></ul><div id="satellite-note" class="status"></div>';
   $("assessment-evidence").closest("section").after(section);
   if (!config.layers.satellites) {
     $("satellite-note").textContent = "Banelementen är inte hämtade (tools/fetch_tle_history.py); inga satelliter visas.";
@@ -336,7 +427,8 @@ async function setupSatellites(config) {
   // The satellite monitor has its own window (monitor.html); ?monitor=1 also shows it in a corner here.
   if (new URLSearchParams(window.location.search).get("monitor") === "1") {
     const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
-    state.monitor = createSatelliteMonitor($("map"), config.fire_centre, (time) => hourMinute.format(time));
+    state.monitor = createSatelliteMonitor($("map"), config.fire_centre, (time) => hourMinute.format(time), MONITOR_SIZE, config.incident_place,
+      config.playback.start_utc.slice(0, 4));
   }
   precomputePasses();
 }
@@ -412,9 +504,10 @@ function showSatellites(clock) {
     let pass = "";
     if (item.half_swath_km) {
       const next = passFor(item, clock);
-      pass = next === null ? " · ingen passage över branden inom 24 h"
-        : next.start <= clock.getTime() ? " · över branden nu"
-        : ` · nästa passage över branden ${clockTime.format(new Date(next.start))} svensk tid`;
+      const place = state.config.incident_place;
+      pass = next === null ? ` · ingen passage över ${place} inom 24 h`
+        : next.start <= clock.getTime() ? ` · över ${place} nu`
+        : ` · nästa passage över ${place} ${clockTime.format(new Date(next.start))} svensk tid`;
     }
     return { level: "info", text: `${item.name}${instrument}: ${Math.round(item.point.height_km)} km, `
       + `${item.point.speed_km_s.toFixed(1).replace(".", ",")} km/s${pass}` };
@@ -477,6 +570,8 @@ function setupScenarioView() {
     + '<ul id="satcom-sync" class="scenario-status"></ul><div id="iot-confirms" class="iot-confirms"></div>';
   document.querySelector(".panel section").after(section);
   const assessmentSection = document.createElement("section");
+  // The flood's assessment and questions come later; until then the section is the fire's.
+  if (state.config.incident !== "wildfire") assessmentSection.dataset.incident = "wildfire";
   assessmentSection.innerHTML = '<h2>AI ASSESSMENT</h2><div id="assessment-outcome" class="assessment-outcome">–</div>'
     + '<div id="assessment-score" class="status"></div><h3>Evidence</h3><ul id="assessment-evidence" class="evidence"></ul>'
     + '<div class="status">Klicka på en rad för att visa objektet på kartan.</div>'
@@ -487,8 +582,8 @@ function setupScenarioView() {
   section.after(assessmentSection);
   const iotSection = document.createElement("section");
   iotSection.innerHTML = '<h2>IoT</h2><h3>Noder i montern</h3><ul id="real-sensors" class="scenario-status"></ul>'
-    + '<div id="iot-connection" class="status"></div><h3>Syntetiska sensorer i brandområdet</h3>'
-    + '<ul id="synthetic-sensors" class="scenario-status"></ul><div id="synthetic-label" class="status"></div>';
+    + `<div id="iot-connection" class="status"></div><div data-incident="wildfire"><h3>Syntetiska sensorer i ${state.config.incident_area}</h3>`
+    + '<ul id="synthetic-sensors" class="scenario-status"></ul><div id="synthetic-label" class="status"></div></div>';
   assessmentSection.after(iotSection);
   const banner = document.createElement("div");
   banner.id = "event-banner";
@@ -869,6 +964,9 @@ async function startApp(createMap) {
   $("title").textContent = config.title;
   document.title = `${config.title}${document.body.dataset.titleSuffix || ""}`;
   $("data-label").textContent = config.data_label;
+  // Only the parts of the scenario's kind of incident are shown (styles.css).
+  document.body.dataset.incident = config.incident;
+  if ($("fly")) $("fly").textContent = `Flyg till ${config.incident_place}`;
   state.map = await createMap(config);
   setupMapMenu();
   const summary = await getJson("/api/hotspots");
@@ -888,7 +986,9 @@ async function startApp(createMap) {
   }
 
   state.weather = await loadOptional("/api/weather", (error) => { $("weather-note").textContent = `Väderdata kunde inte laddas: ${error.message}.`; });
-  if (state.weather) {
+  const wildfire = config.incident === "wildfire";
+  if (state.weather && !wildfire) setupRain(config);
+  if (state.weather && wildfire) {
     const select = $("weather-station");
     for (const station of state.weather.stations) {
       select.append(new Option(`${station.name} (${station.distance_km} km)`, station.id));
@@ -900,16 +1000,18 @@ async function startApp(createMap) {
       showWeather(state.clock);
     });
     state.map.addAttribution(config.attribution.smhi);
-    $("weather-note").textContent = "Mätningar vid stationen, inte i brandområdet.";
+    $("weather-note").textContent = `Mätningar vid stationen, inte i ${config.incident_area}.`;
   }
 
-  state.wind = await loadOptional("/api/wind", (error) => { $("wind-note").textContent = `Vinddata kunde inte laddas: ${error.message}.`; });
+  if (!wildfire) setupFloodMaps(config);
+  // The fire's wind field and spread forecast.
+  if (wildfire) state.wind = await loadOptional("/api/wind", (error) => { $("wind-note").textContent = `Vinddata kunde inte laddas: ${error.message}.`; });
   if (state.wind) {
     state.map.setupWind(state.wind, () => { state.windHour = null; showWind(state.clock); });
     state.map.addAttribution(config.attribution.era5_land);
   }
 
-  state.forecast = await loadOptional("/api/forecast", (error) => { $("forecast-places").textContent = `Prognosen kunde inte laddas: ${error.message}.`; });
+  if (wildfire) state.forecast = await loadOptional("/api/forecast", (error) => { $("forecast-places").textContent = `Prognosen kunde inte laddas: ${error.message}.`; });
   if (state.forecast) {
     $("forecast-label").textContent = state.forecast.label;
     state.map.setupForecast();
@@ -921,6 +1023,8 @@ async function startApp(createMap) {
 
   state.map.finish();
   setupScenarioView();
+  // The flood's rain and maps right after the status, where the fire has its forecast.
+  if (!wildfire) $("scenario-status").closest("section").after($("rain-station").closest("section"), $("flood-legend").closest("section"));
   await setupQuestions();
   await setupSatellites(config);
   await setupLandsat(config);

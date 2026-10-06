@@ -46,22 +46,28 @@ function createLeafletMap(config) {
   } else {
     addNote("Fastighetsindelning är inte aktiverad (inloggning via Geotorget saknas).");
   }
-  overlays["FIRMS-urval"] = L.rectangle(config.fire_selection_bounds, {
-    color: "#202020", weight: 1, dashArray: "4 4", fill: false, interactive: false,
-  });
   const hotspots = L.layerGroup().addTo(map);
-  overlays["Hotspots"] = hotspots;
   const syntheticLayer = L.layerGroup().addTo(map);
-  overlays["Syntetiska sensorer"] = syntheticLayer;
+  // The fire's own layers.
+  if (config.incident === "wildfire") {
+    overlays["FIRMS-urval"] = L.rectangle(config.fire_selection_bounds, {
+      color: "#202020", weight: 1, dashArray: "4 4", fill: false, interactive: false,
+    });
+    overlays["Hotspots"] = hotspots;
+    overlays["Syntetiska sensorer"] = syntheticLayer;
+  }
   const queryLayer = L.layerGroup().addTo(map);
   overlays["Svar på fråga"] = queryLayer;
   const stationLayer = L.layerGroup().addTo(map);
   // The Landsat 8 scene below the hotspots and other overlays. It is in WGS 84 and
   // stretched to its bounds; over this small area the distortion is about one per cent.
   map.createPane("landsat").style.zIndex = 350;
+  // The flood maps above the satellite image, below the markers.
+  map.createPane("wms").style.zIndex = 360;
   const landsatOverlays = {};
   let windLayer = null;
-  map.attributionControl.addAttribution(config.attribution.firms);
+  if (config.attribution.firms) map.attributionControl.addAttribution(config.attribution.firms);
+  const stationMarkers = new Map();  // SMHI station id -> marker
   let markers = [];
   let windMarkers = [];
   let forecastLayer = null;
@@ -120,9 +126,27 @@ function createLeafletMap(config) {
 
     addStations(stations) {
       for (const station of stations) {
-        L.circleMarker([station.latitude, station.longitude], {
+        stationMarkers.set(station.id, L.circleMarker([station.latitude, station.longitude], {
           radius: 6, color: "#1f5fa8", fillColor: "#fff", fillOpacity: 1, weight: 3,
-        }).bindTooltip(`SMHI ${station.name}`, { permanent: true, direction: "right" }).addTo(stationLayer);
+        }).bindTooltip(`SMHI ${station.name}`, { permanent: true, direction: "right" }).addTo(stationLayer));
+      }
+    },
+
+    // New texts for the station labels, by station id (the flood's rain per hour).
+    labelStations(texts) {
+      for (const [id, text] of Object.entries(texts)) stationMarkers.get(id)?.setTooltipContent(text);
+    },
+
+    // The scenario's WMS layers (wms.py, through the backend) in the layer control; `visible` start shown.
+    // In WGS 84: MCF's service has no Web Mercator.
+    addWms(source) {
+      for (const [name, title] of Object.entries(source.layers)) {
+        const layer = L.tileLayer.wms(source.url, {
+          layers: name, format: "image/png", transparent: true, version: "1.1.1", crs: L.CRS.EPSG4326,
+          opacity: 0.7, attribution: source.attribution, pane: "wms",
+        });
+        overlays[`${title} (modell)`] = layer;
+        if ((source.visible || []).includes(name)) layer.addTo(map);
       }
     },
 

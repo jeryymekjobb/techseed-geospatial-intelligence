@@ -45,11 +45,33 @@ def test_config_gives_the_screens_the_scenario_texts_camera_and_map_area() -> No
     assert config["camera_route"][-1] == {"lon": 16.3, "lat": 59.6, "height": 160_000, "pitch": -60, "seconds": 2.2}
 
 
-def test_sundsvall_2026_loads_for_the_tools_but_not_yet_for_the_screens() -> None:
-    result = run_python("from app.backend import scenario; print(scenario.NAME, scenario.DATABASE, scenario.SCREENS_READY, "
+def test_sundsvall_2026_is_a_flood_with_its_own_data_and_the_municipality_s_layers() -> None:
+    result = run_python("from app.backend import scenario; print(scenario.NAME, scenario.INCIDENT, scenario.DATABASE, "
                         "len(scenario.TLE_SATELLITES), scenario.TERRAIN_DIR.relative_to(scenario.REPO_ROOT))", "sundsvall2026")
-    assert result.stdout.split() == ["sundsvall2026", "sundsvall2026", "False", "8", "data/sundsvall2026/terrain"]
+    assert result.stdout.split() == ["sundsvall2026", "flood", "sundsvall2026", "8", "data/sundsvall2026/terrain"]
     layers = run_python("from app.backend import scenario; print(*scenario.MUNICIPAL_WMS['layers'])", "sundsvall2026").stdout.split()
     assert len(layers) == 12 and all(layer.startswith("SundsvallsKommun:") for layer in layers)  # only the municipality's own
-    server = run_python("from app.backend import server; server.main(['--port', '0'])", "sundsvall2026")
-    assert server.returncode == 2 and "not yet its screens" in server.stderr
+    config = run_python("from app.backend import server, lantmateriet; import json; "
+                        "c = server.config(lantmateriet.Settings(None, None, None, None, None)); "
+                        "print(json.dumps([c['incident'], c['incident_place'], [w['id'] for w in c['layers']['wms']]]))", "sundsvall2026")
+    assert config.stdout.strip() == '["flood", "Sundsvall", ["municipal", "mcf"]]'
+    assert run_python("from app.backend import scenario; print(scenario.INCIDENT)", None).stdout.strip() == "wildfire"
+
+
+def test_the_wms_proxy_forwards_only_get_map_for_the_scenario_s_layers() -> None:
+    code = """
+from app.backend import wms
+for query in [{'REQUEST': 'GetCapabilities', 'SERVICE': 'WMS'},
+              {'REQUEST': 'GetMap', 'LAYERS': 'SundsvallsKommun:Elsewhere'},
+              {'REQUEST': 'GetMap', 'LAYERS': 'SundsvallsKommun:100-ar_maxvattendjup', 'CQL_FILTER': 'x'}]:
+    try:
+        wms.get_map('municipal', query)
+        print('forwarded')
+    except ValueError:
+        print('refused')
+try:
+    wms.get_map('elsewhere', {})
+except KeyError:
+    print('unknown')
+"""
+    assert run_python(code, "sundsvall2026").stdout.split() == ["refused", "refused", "refused", "unknown"]

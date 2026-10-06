@@ -7,8 +7,9 @@ comes from Sundsvall municipality's own gauges in SMHI's open data. The user con
 on 2026-10-06 that the municipality's layers in bxkarta, among them its cloudburst
 models, may be used in the demo (MUNICIPAL_WMS).
 
-Its data live in the unversioned data/sundsvall2026/. The screens cannot run it yet:
-the flood's own modules come in a later step; until then only the tools use it.
+Its data live in the unversioned data/sundsvall2026/. The screens show the rain, the
+municipality's and MCF's flood maps and the satellite images; the flood's sensors,
+assessment and questions come in later steps.
 """
 
 from __future__ import annotations
@@ -18,8 +19,10 @@ from datetime import date, datetime, timezone
 from app.backend.scenarios import REPO_ROOT
 
 DATA = REPO_ROOT / "data" / "sundsvall2026"
-# Whether the backend and the screens can run this scenario.
-SCREENS_READY = False
+
+INCIDENT = "flood"
+INCIDENT_PLACE = "Sundsvall"
+INCIDENT_AREA = "Sundsvall"
 
 TITLE = "Översvämning i Sundsvall 2026 – scenario"
 DATA_LABEL = "Scenario byggt på verkligt regn augusti 2026 – inte en återgiven händelse"
@@ -118,7 +121,8 @@ SENTINEL2_SIZE = (2320, 2613)
 # public access and no conditions according to the INSPIRE record; name MCF as the source.
 FLOOD_HAZARD_WMS = {
     "url": "https://gis-tjanster.mcf.se/arcgis/services/Oversvamningskarteringar/karteringar/MapServer/WMSServer",
-    "layers": {"2": "100-årsflöde", "5": "Beräknat högsta flöde"},
+    # The WMS numbers its layers otherwise than the service's REST interface (2 and 5 there).
+    "layers": {"13": "100-årsflöde", "9": "Beräknat högsta flöde"},
     "attribution": "Översvämningskartering © MCF (tidigare MSB)",
 }
 
@@ -143,6 +147,8 @@ MUNICIPAL_WMS = {
         "SundsvallsKommun:td_hojdkurva_1m_linje": "Höjdkurvor, 1 m",
     },
     "attribution": "© Sundsvalls kommun",
+    # Shown from the start: the depth a 100-year cloudburst would give.
+    "visible": ["SundsvallsKommun:100-ar_maxvattendjup"],
 }
 
 FORECAST_WEATHER_FILES: list = []

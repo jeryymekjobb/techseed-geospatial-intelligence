@@ -13,7 +13,9 @@ const GOD_VIEW = { lon: 15, lat: 55, height: 12_000_000, seconds: 4.0 };
 const SPACE_VIEW = { lon: 16, lat: 45, height: 20_000_000, seconds: 4.0 };
 // The detection sequence: from the south and high enough to see the satellite and the fire.
 const DETECTION_VIEW = { latOffset: -12, height: 2_500_000, pitch: -60, seconds: 3.0 };
-const SATELLITE_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7" };
+const SATELLITE_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7", SAR: "#b388ff", MSI: "#69f0ae" };
+// The flood maps (WMS) over the offline map, partly transparent.
+const WMS_ALPHA = 0.7;
 
 function cesiumColor(hex, alpha = 1) {
   return Cesium.Color.fromCssColorString(hex).withAlpha(alpha);
@@ -97,7 +99,7 @@ async function createCesiumMap(config) {
   viewer.scene.globe.enableLighting = false;
   viewer.scene.skyAtmosphere.show = true;
   const credits = viewer.creditDisplay;
-  const addCredit = (text) => credits.addStaticCredit(new Cesium.Credit(text, true));
+  const addCredit = (text) => { if (text) credits.addStaticCredit(new Cesium.Credit(text, true)); };
   addCredit("Natural Earth II");
   addCredit(config.attribution.firms);
   const [south, west] = config.view_bounds[0];
@@ -110,7 +112,7 @@ async function createCesiumMap(config) {
       credit: new Cesium.Credit("© OpenStreetMap contributors", true),
     }));
   } else {
-    addNote("Offline-kartan är inte igång; 3D-globen visar bara Natural Earth II över brandområdet.");
+    addNote(`Offline-kartan är inte igång; 3D-globen visar bara Natural Earth II över ${config.incident_area}.`);
   }
   if (terrainProvider) {
     addCredit(config.attribution.copernicus_dem);
@@ -140,8 +142,10 @@ async function createCesiumMap(config) {
   const stationLayer = group("stations");
   const satelliteLayer = group("satellites");
   const satelliteEntities = new Map();  // norad -> { point, track }
+  const stationEntities = new Map();  // SMHI station id -> entity
   let highlighted = null;  // the detection sequence's satellite: { entry, line }
   const landsatLayers = {};  // composite name -> imagery layer
+  const wmsLayers = [];  // the flood maps, kept above the satellite images
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
   let terrainLayer = null;
@@ -222,7 +226,7 @@ async function createCesiumMap(config) {
 
     addStations(stations) {
       for (const station of stations) {
-        stationLayer.entities.add({
+        stationEntities.set(station.id, stationLayer.entities.add({
           name: `SMHI ${station.name}`,
           position: Cesium.Cartesian3.fromDegrees(station.longitude, station.latitude),
           point: {
@@ -234,8 +238,16 @@ async function createCesiumMap(config) {
             outlineColor: cesiumColor("#ffffff"), outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
             pixelOffset: new Cesium.Cartesian2(10, 0), horizontalOrigin: Cesium.HorizontalOrigin.LEFT, ...ON_GROUND,
           },
-          description: `SMHI-station ${station.name}, ${station.distance_km} km från branden`,
-        });
+          description: `SMHI-station ${station.name}, ${station.distance_km} km från ${config.incident_place}`,
+        }));
+      }
+    },
+
+    // New texts for the station labels, by station id (the flood's rain per hour).
+    labelStations(texts) {
+      for (const [id, text] of Object.entries(texts)) {
+        const entity = stationEntities.get(id);
+        if (entity) entity.label.text = text;
       }
     },
 
@@ -347,10 +359,12 @@ async function createCesiumMap(config) {
 
     // A layer panel like Leaflet's, in the corner of the globe.
     finish() {
-      layers.unshift(["Hotspots", (visible) => { points.show = visible; }, () => points.show]);
-      layers.push(["Syntetiska sensorer", (visible) => { syntheticLayer.show = visible; }, () => syntheticLayer.show]);
+      if (config.incident === "wildfire") {
+        layers.unshift(["Hotspots", (visible) => { points.show = visible; }, () => points.show]);
+        layers.push(["Syntetiska sensorer", (visible) => { syntheticLayer.show = visible; }, () => syntheticLayer.show]);
+      }
       layers.push(["Svar på fråga", (visible) => { queryLayer.show = visible; }, () => queryLayer.show]);
-      layers.push(["Satelliter (2014)", (visible) => { satelliteLayer.show = visible; }, () => satelliteLayer.show]);
+      layers.push([`Satelliter (${config.playback.start_utc.slice(0, 4)})`, (visible) => { satelliteLayer.show = visible; }, () => satelliteLayer.show]);
       const panel = document.createElement("form");
       panel.className = "layer-panel";
       panel.setAttribute("aria-label", "Lager");
@@ -433,7 +447,7 @@ async function createCesiumMap(config) {
       for (const [box, shown] of layerBoxes) box.checked = shown();
     },
 
-    // The 2014 satellites at the clock (panel.js computes them with orbits.js): a point at
+    // The scenario's satellites at the clock (panel.js computes them with orbits.js): a point at
     // its height with its name, and the orbit 50 minutes back and ahead.
     drawSatellites(items) {
       for (const item of items) {
@@ -445,7 +459,7 @@ async function createCesiumMap(config) {
           entry = {
             point: satelliteLayer.entities.add({
               name: escapeText(`${item.name} – ${item.role}`),
-              description: escapeText(`${item.name}${item.instrument ? ` (${item.instrument})` : ""}: position 2014, beräknad ur banelement (SGP4) – inte en observation.`),
+              description: escapeText(`${item.name}${item.instrument ? ` (${item.instrument})` : ""}: position ${config.playback.start_utc.slice(0, 4)}, beräknad ur banelement (SGP4) – inte en observation.`),
               position,
               point: { pixelSize: 9, color, outlineColor: cesiumColor("#ffffff"), outlineWidth: 2 },
               label: {
@@ -539,6 +553,21 @@ async function createCesiumMap(config) {
     },
 
     // The Landsat 8 scene as imagery over the map area, one hidden layer per composite.
+    // The scenario's WMS layers (wms.py, through the backend) in the layer panel; `visible` start shown.
+    addWms(source) {
+      const [[south, west], [north, east]] = config.map_bounds;
+      for (const [name, title] of Object.entries(source.layers)) {
+        const layer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapServiceImageryProvider({
+          url: source.url, layers: name, rectangle: Cesium.Rectangle.fromDegrees(west, south, east, north),
+          parameters: { transparent: true, format: "image/png" },
+        }));
+        layer.alpha = WMS_ALPHA;
+        wmsLayers.push(layer);
+        layer.show = (source.visible || []).includes(name);
+        layers.push([`${title} (modell)`, (visible) => { layer.show = visible; }, () => layer.show]);
+      }
+    },
+
     setupLandsat(info) {
       const [[south, west], [north, east]] = info.bounds;
       const rectangle = Cesium.Rectangle.fromDegrees(west, south, east, north);
@@ -548,7 +577,9 @@ async function createCesiumMap(config) {
         const layer = viewer.imageryLayers.addImageryProvider(await Cesium.SingleTileImageryProvider.fromUrl(url, { rectangle }));
         layer.show = false;
         landsatLayers[key] = layer;
-      }));
+      })).then(() => {
+        for (const layer of wmsLayers) viewer.imageryLayers.raiseToTop(layer);
+      });
     },
 
     showLandsat(name) {
