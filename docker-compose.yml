@@ -6,7 +6,8 @@
 #   (loaded with `python3 -m tools.load_postgis`). The password is for this local
 #   database only; override it with FIREMAP_DB_PASSWORD.
 # - tiles: offline map tiles for the map area, served from data/tiles/ (built with
-#   `python3 -m tools.build_offline_tiles`).
+#   `python3 -m tools.build_offline_tiles`). TILES_FILE picks the scenario's file
+#   (its TILES_FILE in app/backend/scenarios/; default vastmanland.mbtiles).
 # - mosquitto: MQTT broker for the TechSeed IoT nodes (topics techseed/<node>/<kind>;
 #   see app/backend/iot.py). Started with `docker compose up -d mosquitto`.
 services:
@@ -28,7 +29,7 @@ services:
   tiles:
     image: maptiler/tileserver-gl:latest
     # The preview style renders without text here; the GUI draws place and lake names itself.
-    command: ["--file", "/data/vastmanland.mbtiles", "--port", "8080"]
+    command: ["--file", "/data/${TILES_FILE:-vastmanland.mbtiles}", "--port", "8080"]
     ports:
       - "127.0.0.1:8081:8080"
     volumes:

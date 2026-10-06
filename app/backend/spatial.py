@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 from app.backend import scenario
 
-SOURCE = "PostGIS (lokal databas): OSM-mål © OpenStreetMap contributors, brandfront och prognos ur FIRMS 2014 (forecast.py)"
+SOURCE = scenario.SPATIAL_SOURCE
 DISTANCE_M = 5000
 FORECAST_HORIZON_H = 6
 MAX_ROWS = 1000
@@ -96,7 +96,7 @@ class Psql:
 
     def __init__(self, command: list[str] | None = None) -> None:
         self.command = command or [
-            "docker", "compose", "exec", "-T", "postgis", "psql", "-U", "firemap", "-d", "firemap",
+            "docker", "compose", "exec", "-T", "postgis", "psql", "-U", "firemap", "-d", scenario.DATABASE,
             "-q", "-A", "-t", "-X", "-v", "ON_ERROR_STOP=0",
         ]
         self.process: subprocess.Popen[str] | None = None

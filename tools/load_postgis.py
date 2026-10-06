@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Load the fire-map data into the local PostGIS database.
+"""Load the fire-map data into the local PostGIS database of the scenario (scenario.DATABASE).
 
 Writes one SQL script (tables, rows as GeoJSON geometries, spatial indexes) and
 runs it with `psql` inside the `postgis` service of docker-compose.yml, so no
@@ -23,7 +23,7 @@ from typing import Any, Iterable
 
 from app.backend import scenario
 
-TARGETS_FILE = scenario.REPO_ROOT / "osm_data" / "targets-vastmanland.geojson"
+TARGETS_FILE = scenario.TARGETS_FILE
 SCHEMA = """
 DROP TABLE IF EXISTS targets, terrain, detections, fronts, forecasts;
 CREATE TABLE targets (id serial PRIMARY KEY, kind text NOT NULL, type text, name text, osm_id text, geom geometry(Geometry, 4326) NOT NULL);
@@ -104,7 +104,7 @@ def build_sql() -> str:
 
 
 def run_psql(sql: str, *, compose_dir: Path = scenario.REPO_ROOT, quiet: bool = True) -> str:
-    command = ["docker", "compose", "exec", "-T", "postgis", "psql", "-v", "ON_ERROR_STOP=1", "-U", "firemap", "-d", "firemap"]
+    command = ["docker", "compose", "exec", "-T", "postgis", "psql", "-v", "ON_ERROR_STOP=1", "-U", "firemap", "-d", scenario.DATABASE]
     if quiet:
         command += ["-q", "-A", "-t"]
     result = subprocess.run(command, input=sql, text=True, capture_output=True, cwd=compose_dir, check=False)
