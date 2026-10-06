@@ -26,6 +26,7 @@ function passesOn(lib, item, day, centre) {
 async function start() {
   const note = document.getElementById("monitor-note");
   const config = await getJson("/api/config");
+  document.title = `Satellitbevakning – ${config.title}`;
   const data = await getJson("/api/satellites");
   if (!data.available) {
     note.textContent = data.note;

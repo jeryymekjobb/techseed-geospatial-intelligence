@@ -4,13 +4,7 @@
 // from Copernicus DEM GLO-30 (tools/build_terrain.py).
 "use strict";
 
-// Camera route from space to the fire, about ten seconds in total, so visitors can follow it.
-const FLIGHT = [
-  { lon: 12, lat: 50, height: 16_000_000, pitch: -90, seconds: 1.8 },  // Earth over Europe
-  { lon: 15, lat: 58, height: 3_500_000, pitch: -90, seconds: 2.0 },   // Europe
-  { lon: 16, lat: 61, height: 1_100_000, pitch: -80, seconds: 2.0 },   // Sweden
-  { lon: 16.3, lat: 59.6, height: 160_000, pitch: -60, seconds: 2.2 }, // Mälardalen
-];
+// The camera route from space to the incident is the scenario's (config.camera_route).
 // Last step: look at the fire's centre from the south at this pitch and range.
 const FIRE_VIEW = { pitch: -50, range: 42_000, seconds: 2.2 };
 // GOD VIEW: the whole of Europe, so satellites and other layers fit around the fire.
@@ -109,9 +103,10 @@ async function createCesiumMap(config) {
   const [south, west] = config.view_bounds[0];
   const [north, east] = config.view_bounds[1];
   if (config.layers.offline_tiles) {
+    const [[mapSouth, mapWest], [mapNorth, mapEast]] = config.map_bounds;
     viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
       url: "/tiles/{z}/{x}/{y}.png", maximumLevel: 18,
-      rectangle: Cesium.Rectangle.fromDegrees(15.5, 59.55, 16.8, 60.3),
+      rectangle: Cesium.Rectangle.fromDegrees(mapWest, mapSouth, mapEast, mapNorth),
       credit: new Cesium.Credit("© OpenStreetMap contributors", true),
     }));
   } else {
@@ -375,7 +370,7 @@ async function createCesiumMap(config) {
     // Fly from space to the fire; resolves when the camera has arrived.
     flyToIncident() {
       const [lat, lon] = config.fire_centre;
-      const flight = FLIGHT.reduce((previous, step) => previous.then(() => new Promise((resolve) => {
+      const flight = config.camera_route.reduce((previous, step) => previous.then(() => new Promise((resolve) => {
         viewer.camera.flyTo({
           destination: Cesium.Cartesian3.fromDegrees(step.lon, step.lat, step.height),
           orientation: { heading: 0, pitch: Cesium.Math.toRadians(step.pitch), roll: 0 },

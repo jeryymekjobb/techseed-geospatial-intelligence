@@ -127,6 +127,10 @@ for (const button of document.querySelectorAll("[data-command]")) {
     });
   });
 }
+// The scenario's name in the header.
+fetch("/api/config").then((response) => response.json()).then((config) => {
+  $("control-label").textContent = config.control_label;
+}).catch(() => {});
 fetch("/api/sensors").then((response) => response.json()).then((snapshot) => {
   iotConnection = snapshot;
   showIot();

@@ -867,6 +867,7 @@ async function startApp(createMap) {
   const config = await getJson("/api/config");
   state.config = config;
   $("title").textContent = config.title;
+  document.title = `${config.title}${document.body.dataset.titleSuffix || ""}`;
   $("data-label").textContent = config.data_label;
   state.map = await createMap(config);
   setupMapMenu();
