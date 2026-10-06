@@ -21,12 +21,9 @@ import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
-from pathlib import Path
 
 from app.backend import scenario
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-DATA = REPO_ROOT / "data"
 DEM_DIR = scenario.DEM_DIR
 TERRAIN_DIR = scenario.TERRAIN_DIR
 CTB_IMAGE = "tumgis/ctb-quantized-mesh:latest"
@@ -48,7 +45,9 @@ def build_script(tiles: list[str], bbox: str) -> str:
 
 
 def docker_command(script: str) -> list[str]:
-    return ["docker", "run", "--rm", "-u", user(), "-v", f"{DATA}:/data", CTB_IMAGE, "sh", "-c", script]
+    # The scenario's own DEM and terrain directories, at the paths the script uses.
+    return ["docker", "run", "--rm", "-u", user(), "-v", f"{DEM_DIR}:/data/dem:ro", "-v", f"{TERRAIN_DIR}:/data/terrain",
+            CTB_IMAGE, "sh", "-c", script]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -56,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.parse_args(argv)
     source_file = DEM_DIR / "SOURCE.json"
     if not source_file.is_file():
-        raise SystemExit("data/dem/SOURCE.json is missing; run python3 -m tools.fetch_copernicus_dem first")
+        raise SystemExit(f"{source_file} is missing; run python3 -m tools.fetch_copernicus_dem first")
     source = json.loads(source_file.read_text(encoding="utf-8"))
     tiles = [record["file"] for record in source["tiles"]]
     if TERRAIN_DIR.exists():

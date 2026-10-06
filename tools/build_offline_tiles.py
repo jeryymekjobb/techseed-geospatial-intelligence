@@ -5,7 +5,8 @@
    Debian container with osmium-tool).
 2. tilemaker turns it into OpenMapTiles-schema vector tiles in
    `data/tiles/<the scenario's TILES_FILE>`, for example `vastmanland.mbtiles`.
-3. `data/tiles/SOURCE.json` records the input file, its SHA-256 and the area.
+3. `data/tiles/<tiles>.SOURCE.json`, for example `vastmanland.SOURCE.json`, records the input
+   file, its SHA-256 and the area, so the scenarios' tiles can share the directory.
 
 The `tiles` service of docker-compose.yml (tileserver-gl) then renders them as
 map images, and the backend serves those at /tiles/{z}/{x}/{y}.png. Map data
@@ -78,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     if output.exists():
         output.unlink()
     subprocess.run(tilemaker_command(area, output, args.bbox), check=True, stdout=subprocess.DEVNULL)
-    (output.parent / "SOURCE.json").write_text(json.dumps({
+    (output.parent / f"{output.stem}.SOURCE.json").write_text(json.dumps({
         "source_file": source.name,
         "source_url": args.source_url,
         "source_sha256": sha256_of(source),

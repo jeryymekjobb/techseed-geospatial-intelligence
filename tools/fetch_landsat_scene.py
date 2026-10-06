@@ -226,8 +226,8 @@ def main(argv: list[str] | None = None) -> int:
         except RuntimeError as exc:
             parser.exit(1, f"fetch_landsat_scene: {exc}\n")
         records.append({"role": role, **record})
-        warning = "" if record["fire_area_coverage_pct"] >= MIN_COVERAGE_PCT else " – VARNING: täcker inte brandområdet"
-        print(f"{role}: {record['scene']} – data över {record['fire_area_coverage_pct']} % av brandområdet, "
+        warning = "" if record["fire_area_coverage_pct"] >= MIN_COVERAGE_PCT else " – VARNING: täcker inte fokusområdet"
+        print(f"{role}: {record['scene']} – data över {record['fire_area_coverage_pct']} % av fokusområdet, "
               f"moln över {record['fire_area_cloud_pct']} %{warning}")
     west, south, east, north = BBOX
     (args.out / "SOURCE.json").write_text(json.dumps({
