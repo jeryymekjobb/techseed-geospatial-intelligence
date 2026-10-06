@@ -202,7 +202,7 @@ Kontrollen startar en egen.
 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-$(hostname)
 ```
 
-Två webbläsarfönster öppnas och demon körs av sig själv i några minuter. Rör inte
+Tre webbläsarfönster öppnas och demon körs av sig själv i några minuter. Rör inte
 fönstren under tiden. När den är klar skriver den en rapport, som också sparas i
 `~/demo-check-<datorns namn>/report.txt` tillsammans med en skärmdump per steg. Skicka
 mappen till den som ansvarar för demon, så att datorerna kan jämföras.
@@ -210,7 +210,7 @@ mappen till den som ansvarar för demon, så att datorerna kan jämföras.
 Så här läser du rapporten:
 
 - **Grafik** visar vilket grafikkort Chrome använde.
-- Alla åtta steg ska stå som **GODKÄND**, och sista raden ska vara `RESULTAT: GODKÄND`.
+- Alla tio steg ska stå som **GODKÄND**, och sista raden ska vara `RESULTAT: GODKÄND`.
 - **Bilder per sekund i 3D** säger hur jämnt 3D-vyn rör sig. Under 20 skriver rapporten en
   **VARNING**: kameran och satelliterna kommer att kännas ryckiga. Gränsen är en tumregel.
 
@@ -261,12 +261,17 @@ fungera.
 
 ## 8. Öppna skärmarna
 
-Öppna två fönster i Chrome:
+Öppna tre fönster i Chrome:
 
 | Skärm | Adress | Var |
 |---|---|---|
 | Huvudskärmen | <http://127.0.0.1:8765/3d.html?at=2014-08-04T09:30:00Z> | Stora skärmen. Tryck F11 för helskärm. |
+| Satellitbevakningen | <http://127.0.0.1:8765/monitor.html> | Bredvid huvudskärmen, så att besökarna ser båda. |
 | Mission control | <http://127.0.0.1:8765/control.html> | Din skärm bredvid. |
+
+Satellitbevakningen visar hela tiden var satelliterna är och när de passerar över branden.
+Har du bara en stor skärm, lägg fönstren sida vid sida: huvudskärmen till vänster,
+satellitbevakningen i mitten och mission control till höger. Öppna huvudskärmen först.
 
 Slutet av huvudskärmens adress, `?at=2014-08-04T09:30:00Z`, ställer scenarioklockan på den
 4 augusti 2014 kl. 11:30 svensk tid. Då hinner du visa en satellitpassage och
@@ -296,27 +301,40 @@ behöver `&token=din-token` i slutet.
 
 # Del 3 – Köra demon
 
-## 10. Tvåminutersmanuset
+## 10. Manuset, cirka tre minuter
 
-Knapparna i **fetstil** finns i mission control, också hastigheten: **1 MINUT/S** och
-**1 TIMME/S** under PLAY, PAUSE och RESET. Den hastighet som gäller lyser.
+Knapparna i **fetstil** finns i mission control, också hastigheten: **1 MIN/S**, **10 MIN/S**
+och **1 TIMME/S** under PLAY, PAUSE och RESET. Den hastighet som gäller lyser.
 
 Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 
 | Tid | Gör | Säg |
 |---|---|---|
 | 0:00 | Klicka "Flyg till branden" på huvudskärmen. Kameran åker ut till jorden och flyger in till branden. | "Det här är skogsbranden i Västmanland sommaren 2014, återuppspelad med riktiga satellitdata." |
-| 0:10 | Tryck **SPACE VIEW**, **1 MINUT/S** och **PLAY**. | "Det här är satelliterna som såg branden, Aqua, Terra och Suomi NPP, där de var den dagen." |
-| 0:30 | Kl. 11:48 svensk tid passerar Suomi NPP. Den blir större, med en gul linje ner till branden. | "Här upptäcker Suomi NPP värmen från branden." |
-| 0:40 | Tryck **SPACE VIEW** igen. Kameran flyger tillbaka. Kl. 12:06 svensk tid kommer Landsat-bilden. | "Landsat 8 fotograferade branden tjugo minuter senare. Det mörka är bränd skog, det orange är brandfronten." |
-| 0:50 | Tryck **1 TIMME/S**. | "Sensorer på marken bekräftar branden. I demon är de simulerade." |
-| 1:00 | Peka på AI ASSESSMENT till höger. Klicka "Why do you believe there is a fire?". | "Bedömningen visar varför den tror att det brinner. Varje rad pekar på sitt objekt på kartan." |
-| 1:15 | Klicka "Show infrastructure within 5 km of the incident". Klicka på "SQL som kördes". | "Det här är en riktig fråga mot en kartdatabas. Frågan syns här." |
-| 1:25 | Tryck **+60 MIN**, och tryck igen för att stänga. | "Prognosen är en enkel modell med stor osäkerhet." |
-| 1:35 | Tryck **SATCOM FAILURE**. Vänta några sekunder. | "Satellitlänken bryts. Sensorerna fortsätter, och satellitdatan köas." |
-| 1:50 | Tryck **SATCOM FAILURE** igen. | "Länken är tillbaka, och här är det som hände under avbrottet." |
-| 2:00 | Tryck **GOD VIEW**, och prova filterknapparna om det finns tid. | "From Orbit to Decision." |
+| 0:10 | Tryck **SPACE VIEW**, **1 MIN/S** och **PLAY**. Peka på satellitbevakningen. | "Det här är satelliterna som såg branden, Aqua, Terra och Suomi NPP, där de var den dagen. Tidslinjen visar när de passerar över branden." |
+| 0:25 | Tryck **SPACE VIEW** igen. Kameran flyger tillbaka. | |
+| 0:30 | Tryck **SATELLITE DETECTION**. Uppspelningen stannar, och ett kort med sex steg visas nere till höger på huvudskärmen. Steg 1, **Bild tagen**: kameran går ut så att satelliten syns, med en lila linje ner till branden. | "Här passerar Suomi NPP över branden. Det är den verkliga passagen från 2014." |
+| 0:40 | Tryck **NÄSTA ▸**. Steg 2, **Anomali upptäckt ombord**, märkt SYNTETISKT. | "I framtiden kan satelliten själv se värmen och slå larm. 2014 gjordes det på marken, därför står det syntetiskt." |
+| 0:50 | Tryck **NÄSTA ▸**. Steg 3, **Nedlänk till markstation**, märkt SYNTETISKT. | "Larmet skickas ner till en markstation och vidare till lägescentralen." |
+| 0:55 | Tryck **NÄSTA ▸**. Steg 4, **Zoom till branden**: kameran flyger in och passagens detektioner visas. | "Det här är vad satelliten faktiskt såg. Antalet står på kortet." |
+| 1:05 | Tryck **NÄSTA ▸**. Steg 5, **IoT på marken**, märkt SYNTETISKT. | "Sensorer på marken kontrollerar larmet. I demon är de simulerade." |
+| 1:15 | Tryck **NÄSTA ▸**. Steg 6, **Korrelering**: kortet visar utfallet och fem regler med ✓ eller ✗. | "Reglerna jämför med kartan: brinner det i skog eller vid en industri? Det är regler som håller eller inte, ingen sannolikhet." |
+| 1:30 | Tryck **NÄSTA ▸** en sista gång. Kortet försvinner. Tryck **PLAY**. Kl. 12:06 svensk tid kommer Landsat-bilden. | "Landsat 8 fotograferade branden tjugo minuter senare. Det mörka är bränd skog, det orange är brandfronten." |
+| 1:45 | Tryck **1 TIMME/S**. | "Nu går tiden fortare, och branden växer." |
+| 1:55 | Peka på AI ASSESSMENT till höger. Klicka "Why do you believe there is a fire?". | "Bedömningen visar varför den tror att det brinner. Varje rad pekar på sitt objekt på kartan." |
+| 2:10 | Klicka "Show infrastructure within 5 km of the incident". Klicka på "SQL som kördes". | "Det här är en riktig fråga mot en kartdatabas. Frågan syns här." |
+| 2:20 | Tryck **+60 MIN**, och tryck igen för att stänga. | "Prognosen är en enkel modell med stor osäkerhet." |
+| 2:30 | Tryck **SATCOM FAILURE**. Vänta några sekunder. | "Satellitlänken bryts. Sensorerna fortsätter, och satellitdatan köas." |
+| 2:45 | Tryck **SATCOM FAILURE** igen. | "Länken är tillbaka, och här är det som hände under avbrottet." |
+| 2:55 | Tryck **GOD VIEW**, och prova filterknapparna om det finns tid. | "From Orbit to Decision." |
 | Efteråt | Tryck **RESET**. | Inom ungefär fem sekunder är demon tillbaka i början och klar för nästa besökare. |
+
+**Om upptäcktssekvensen.** SATELLITE DETECTION tar alltid nästa verkliga satellitpassage
+efter scenarioklockan. Trycker du före kl. 11:35 svensk tid blir det Terra kl. 11:35, annars
+Suomi NPP kl. 11:48. Båda fungerar, och kortet säger vilken satellit det är. Mission control
+visar vilket steg du är på, till exempel "Steg 2/6". **NÄSTA ▸** går bara att trycka på
+medan en sekvens pågår. Uppspelningen står still under hela sekvensen tills du trycker
+**PLAY**.
 
 Efter **RESET** står klockan på demons startpunkt, den 31 juli. Ladda om huvudskärmen med
 adressen i avsnitt 8 för att börja kl. 11:30 den 4 augusti igen.
@@ -330,8 +348,10 @@ inte läget vid scenariotiden – det står också på skärmen.
 Fler knappar om besökarna frågar:
 
 - **SENSOR FAILURE**: en sensor slutar fungera och räknas inte längre.
-- **SATELLITE DETECTION**, **ROAD CLOSED** och **POWER FAILURE** visar bara en text, märkt
-  syntetisk. Det finns inga väg- eller elnätsdata kopplade till dem.
+- **IOT PÅ/AV**: stänger av alla sensorer, både de i montern och de i brandområdet. Bedömningen
+  räknas då bara på satellitdata. Tryck igen för att slå på dem.
+- **ROAD CLOSED** och **POWER FAILURE** visar bara en text, märkt syntetisk. Det finns inga
+  väg- eller elnätsdata kopplade till dem.
 
 ## 11. Riktigt, beräknat och simulerat
 
@@ -340,9 +360,9 @@ att det du säger stämmer med märkningen.
 
 | Kategori | Vad | Säg |
 |---|---|---|
-| **Riktiga data** | Satelliternas upptäckter av branden (NASA FIRMS), Landsat-bilden (USGS), väderobservationer från SMHI, satelliternas banor (Space-Track), kartdata från OpenStreetMap (dagens läge, inte 2014) | "Riktiga data från 2014, uppspelade. Det är inte live." |
-| **Beräknat** | Satelliternas positioner, vinden (ERA5-Land, en modell), brandprognosen, bedömningens poäng | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
-| **Simulerat** | Sensorerna i montern (TEMP, WATER, AIR, NTN), sensorerna i brandområdet, satellitavbrottet och händelserna från mission control | "Simulerat för demon. Det står på skärmen." |
+| **Riktiga data** | Satelliternas upptäckter av branden (NASA FIRMS), också passagen och detektionerna i upptäcktssekvensen, Landsat-bilderna (USGS), väderobservationer från SMHI, satelliternas banor (Space-Track), kartdata från OpenStreetMap (dagens läge, inte 2014) | "Riktiga data från 2014, uppspelade. Det är inte live." |
+| **Beräknat** | Satelliternas positioner, vinden (ERA5-Land, en modell), brandprognosen, bedömningens poäng, reglerna i sekvensens korreleringssteg | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
+| **Simulerat** | Sensorerna i montern (TEMP, WATER, AIR, NTN), sensorerna i brandområdet, satellitavbrottet, händelserna från mission control och sekvensens steg märkta SYNTETISKT: anomali ombord, nedlänk och IoT på marken | "Simulerat för demon. Det står på skärmen." |
 
 Säg inte att något är live, att sensorerna fanns i skogen 2014 eller att poängen är en
 träffsäkerhet. Nämn inte partnernamn som Dacreo eller BruhnBruhn förrän det finns ett
@@ -373,7 +393,7 @@ Hitta det du ser i vänstra kolumnen. Åtgärderna A–F står i kodblocket unde
 | Frågorna svarar "PostGIS svarar inte" | Databasen är inte igång. | D, sedan A. |
 | Inga satelliter, eller ingen satellitbild | Steg 5.6 eller 5.7 är inte gjort. | E. Före 12:06 svensk tid den 4 augusti visas bilden från 10 juni; bilden från 4 augusti tar över när scenariot når dit. |
 | Kartan runt brandområdet är tom eller ljus | Kartjänsten är inte igång. | F. |
-| 3D-vyn rör sig ryckigt | För hög hastighet eller för svagt grafikkort. | Tryck **1 MINUT/S** i SPACE VIEW. Kör generalrepetitionen i avsnitt 6. |
+| 3D-vyn rör sig ryckigt | För hög hastighet eller för svagt grafikkort. | Tryck **1 MIN/S** i SPACE VIEW. Kör generalrepetitionen i avsnitt 6. |
 | Mission control säger "fel eller saknad token" | Backend kräver token. | Lägg till `?token=din-token` i adressen, se avsnitt 9. |
 | GOD VIEW blir tom på 2D-kartan | Känd begränsning: den sparade kartan täcker bara brandområdet. | Använd 3D-vyn (`3d.html`). |
 | En röd ruta på huvudskärmen: "An error occurred while rendering. Rendering has stopped." | 3D-vyn har slutat rita, oftast på grund av grafikkortet. Panelen till höger fungerar fortfarande. | Ladda om huvudskärmen med adressen i avsnitt 8. Kommer rutan igen, starta om Chrome på vanligt sätt och kör generalrepetitionen i avsnitt 6. |
