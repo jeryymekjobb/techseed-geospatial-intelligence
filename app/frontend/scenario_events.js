@@ -71,9 +71,14 @@ function statusLines(status) {
 }
 
 // A SATCOM outage (app/backend/server.py): the queue while it lasts, the SYNC when it ends.
+// The unit of the queue in the singular, for one held-back item.
+const QUEUE_SINGULAR = { detektioner: "detektion", satellitbilder: "satellitbild" };
+
 function queueText(queue) {
   if (!queue.since_utc) return "";
-  return `EDGE PROCESSING – ${queue.queued} ${queue.unit || "detektioner"} köade sedan ${queue.since_utc.slice(11, 16)} UTC (simulerat avbrott)`;
+  const unit = queue.unit || "detektioner";
+  return `EDGE PROCESSING – ${queue.queued} ${queue.queued === 1 ? QUEUE_SINGULAR[unit] || unit : unit} köade `
+    + `sedan ${queue.since_utc.slice(11, 16)} UTC (simulerat avbrott)`;
 }
 
 function syncBanner(summary) {

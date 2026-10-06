@@ -138,3 +138,15 @@ def test_queue_and_sync_texts() -> None:
     assert queued == "EDGE PROCESSING – 37 detektioner köade sedan 00:00 UTC (simulerat avbrott)" and quiet == ""
     assert title == "SYNC – 1 NEW EVENTS"
     assert lines == ["08-03 01:48 UTC – 37 nya detektioner (MODIS, VIIRS)", "Brandfrontens yta ökade 17 %"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_one_held_back_item_is_named_in_the_singular() -> None:
+    script = Path(__file__).resolve().parents[1] / "app" / "frontend" / "scenario_events.js"
+    expression = ('[queueText({since_utc: "2026-08-16T08:33:00Z", queued: 1, unit: "satellitbilder"}), '
+                  'queueText({since_utc: "2026-08-16T08:33:00Z", queued: 2, unit: "satellitbilder"}), '
+                  'queueText({since_utc: "2014-08-03T00:00:00Z", queued: 1})]')
+    code = f"const s = require({json.dumps(str(script))}); with (s) {{ console.log(JSON.stringify({expression})); }}"
+    one, two, fire = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+    assert one == "EDGE PROCESSING – 1 satellitbild köade sedan 08:33 UTC (simulerat avbrott)"
+    assert two.startswith("EDGE PROCESSING – 2 satellitbilder köade") and fire.startswith("EDGE PROCESSING – 1 detektion köade")
