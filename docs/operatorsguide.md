@@ -270,8 +270,8 @@ fungera.
 | Mission control | <http://127.0.0.1:8765/control.html> | Din skärm bredvid. |
 
 Satellitbevakningen visar hela tiden var satelliterna är och när de passerar över branden.
-Har du bara en stor skärm, lägg fönstren sida vid sida: huvudskärmen till vänster,
-satellitbevakningen i mitten och mission control till höger. Öppna huvudskärmen först.
+Har du bara en stor skärm, lägg fönstren sida vid sida: satellitbevakningen till vänster,
+huvudskärmen i mitten och mission control till höger. Öppna huvudskärmen först.
 
 Slutet av huvudskärmens adress, `?at=2014-08-04T09:30:00Z`, ställer scenarioklockan på den
 4 augusti 2014 kl. 11:30 svensk tid. Då hinner du visa en satellitpassage och
