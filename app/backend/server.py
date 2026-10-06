@@ -636,6 +636,9 @@ def main(argv: list[str] | None = None) -> int:
         # The modules read the scenario when they are imported: start again with it chosen.
         os.environ["TECHSEED_SCENARIO"] = args.scenario
         os.execv(sys.executable, [sys.executable, "-m", "app.backend.server", *(argv if argv is not None else sys.argv[1:])])
+    if not scenario.SCREENS_READY:
+        parser.exit(2, f"The scenario {scenario.NAME} has its data tools but not yet its screens; "
+                       f"run the backend with another scenario.\n")
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.daemon_threads = True
     settings = Handler.settings

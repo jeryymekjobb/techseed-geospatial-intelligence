@@ -57,3 +57,11 @@ FORECAST_METHOD = _module.FORECAST_METHOD
 FORECAST_REPORT = _module.FORECAST_REPORT
 SPATIAL_SOURCE = _module.SPATIAL_SOURCE
 ATTRIBUTION = _module.ATTRIBUTION
+# Only some scenarios have these.
+SCREENS_READY = getattr(_module, "SCREENS_READY", True)
+RAIN_STATIONS = getattr(_module, "RAIN_STATIONS", {})
+SENTINEL2_DIR = getattr(_module, "SENTINEL2_DIR", None)
+SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})
+SENTINEL2_SIZE = getattr(_module, "SENTINEL2_SIZE", None)
+FLOOD_HAZARD_WMS = getattr(_module, "FLOOD_HAZARD_WMS", None)
+MUNICIPAL_WMS = getattr(_module, "MUNICIPAL_WMS", None)
