@@ -18,6 +18,7 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 - Decided 2026-10-04: for the exhibition demo the booth IoT nodes run simulated (`tools/mqtt_node_sim.py`) and are shown as simulated. Questions that only concern a real implementation are deferred to the backlog.
 - Decided 2026-10-06: a second demo, flooding in Sundsvall 2026, uses the Västmanland fire demo as its template (same screens and parts; the scenario is chosen at start, the two demos need not run at the same time). It is a scenario built on the real rain of 16–19 August 2026 and the municipality's cloudburst models, clearly marked as a scenario rather than a replayed event; a flood in Sundsvall that day is not confirmed in open sources. See `reports/2026-10-06-datakallor-oversvamning-sundsvall-claude-opus-5-5.md`.
 - Decided 2026-10-06: the user confirmed that the municipality's layers in its geoserver (bxkarta), among them the cloudburst models, may be used in the Sundsvall demo, although the service's terms limit use to five municipalities unless agreed. Only Sundsvall municipality's own layers are used; those of MSVAB, the county board and Lantmäteriet in the same service have other owners.
+- A working Sundsvall flood scenario exists in `app/` (`--scenario sundsvall2026`): the municipality's rain gauges, its cloudburst models and MCF's flood maps, synthetic overflow sensors, a flood assessment, a detection sequence from real Sentinel-1 acquisitions and PostGIS questions; see Del 5 of the operator guide.
 
 ## Backlog
 
