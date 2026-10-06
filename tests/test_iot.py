@@ -218,8 +218,12 @@ def test_two_backends_both_receive_the_nodes() -> None:
     publisher.publish("techseed/test-node/temp", message(21.5), qos=1).wait_for_publish()
     publisher.loop_stop()
     publisher.disconnect()
+    # The booth simulator may publish on the same broker; look for this test's node only.
+    def test_value(store: iot.SensorStore) -> object:
+        return next((sensor["value"] for sensor in store.snapshot()["sensors"] if sensor["node"] == "test-node"), None)
+
     deadline = time.time() + 10
-    while time.time() < deadline and not (first.snapshot()["sensors"] and second.snapshot()["sensors"]):
+    while time.time() < deadline and not (test_value(first) is not None and test_value(second) is not None):
         time.sleep(0.1)
     assert first.connection == second.connection == "connected"
-    assert first.snapshot()["sensors"][0]["value"] == second.snapshot()["sensors"][0]["value"] == 21.5
+    assert test_value(first) == test_value(second) == 21.5
