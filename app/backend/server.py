@@ -394,8 +394,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/satellites":
             self.send_json(satellites.satellites())
         elif path == "/api/questions":
-            questions = spatial.QUESTIONS if scenario.WILDFIRE else {}
-            self.send_json([{"id": key, "question": value["question"]} for key, value in questions.items()])
+            self.send_json([{"id": key, "question": value["question"]} for key, value in spatial.QUESTIONS.items()])
         elif path == "/api/ask":
             self.ask(query.get("q", ""))
         elif path == "/api/detection":

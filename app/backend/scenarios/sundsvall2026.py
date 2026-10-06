@@ -40,6 +40,8 @@ LANDSAT_DIR = DATA / "landsat"
 SENTINEL2_DIR = DATA / "sentinel2"
 # The municipality's critical stormwater points and flood areas (tools/fetch_municipal_features.py).
 MUNICIPAL_DIR = DATA / "municipal"
+# MCF's flood areas (tools/fetch_mcf_flood_maps.py).
+MCF_DIR = DATA / "mcf"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2026.json"
 
@@ -172,7 +174,8 @@ MUNICIPAL_WMS = {
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""
 FORECAST_REPORT = ""
-SPATIAL_SOURCE = "PostGIS (lokal databas): OSM-mål © OpenStreetMap contributors"
+SPATIAL_SOURCE = ("PostGIS (lokal databas): OSM-mål © OpenStreetMap contributors, 100-årsflöden © Sundsvalls kommun "
+                  "och MCF (tidigare MSB), bräddgivare syntetiska (flood_sensors.py)")
 
 ATTRIBUTION = {
     "osm": "© OpenStreetMap contributors (ODbL)",

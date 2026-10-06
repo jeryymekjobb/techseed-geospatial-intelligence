@@ -36,7 +36,7 @@ INFRASTRUCTURE = """(t.kind IN ('place', 'railway')
 ROWS = """SELECT json_build_object('pass_utc', (SELECT to_char(pass_time AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') FROM front),
   'rows', coalesce((SELECT json_agg(r) FROM ({query}) r), '[]'::json));"""
 
-QUESTIONS: dict[str, dict[str, str]] = {
+FIRE_QUESTIONS: dict[str, dict[str, str]] = {
     "why_fire": {"question": "Why do you believe there is a fire?"},
     "infrastructure_5km": {
         "question": "Show infrastructure within 5 km of the incident",
@@ -72,6 +72,47 @@ QUESTIONS: dict[str, dict[str, str]] = {
 }
 KIND_NAMES = {"place": "orter", "road": "större vägsträckor", "railway": "järnvägssträckor", "building": "industribyggnader"}
 
+# The flood: OSM targets against the 100-year flood areas (the municipality's and MCF's
+# models) and round the synthetic overflow sensors of the assessment.
+NEAR_OVERFLOW_M = 200
+FLOOD_ROWS = """SELECT json_build_object('pass_utc', NULL, 'rows', coalesce((SELECT json_agg(r) FROM ({query}) r), '[]'::json));"""
+AREA_SEPARATOR = " · "
+IN_100Y = (f"SELECT string_agg(DISTINCT f.name, '{AREA_SEPARATOR}') FROM flood_areas f "
+           "WHERE f.kind = '100ar' AND ST_Intersects(t.geom, f.geom)")
+FLOOD_QUESTIONS: dict[str, dict[str, str]] = {
+    "why_flood": {"question": "Why do you believe there is a flood?"},
+    "buildings_100y": {
+        "question": "Vilka byggnader ligger inom 100-årsflödet?",
+        "sql": FLOOD_ROWS.format(query=f"""SELECT t.kind, t.type, t.name, 0 AS distance_m, ({IN_100Y}) AS area,
+    count(*) OVER () AS total, ST_AsGeoJSON(t.geom, 5)::json AS geometry
+  FROM targets t
+  WHERE t.kind = 'building' AND EXISTS (SELECT 1 FROM flood_areas f WHERE f.kind = '100ar' AND ST_Intersects(t.geom, f.geom))
+  ORDER BY area, t.type, t.name LIMIT {MAX_ROWS}"""),
+    },
+    "roads_100y": {
+        "question": "Vilka vägar och järnvägar korsar 100-årsflödet?",
+        "sql": FLOOD_ROWS.format(query=f"""SELECT t.kind, t.type, t.name, 0 AS distance_m, ({IN_100Y}) AS area,
+    count(*) OVER () AS total, ST_AsGeoJSON(t.geom, 5)::json AS geometry
+  FROM targets t
+  WHERE t.kind IN ('road', 'railway') AND EXISTS (SELECT 1 FROM flood_areas f WHERE f.kind = '100ar' AND ST_Intersects(t.geom, f.geom))
+  ORDER BY t.kind, area, t.name LIMIT {MAX_ROWS}"""),
+    },
+    "near_overflow": {
+        "question": f"Vad finns inom {NEAR_OVERFLOW_M} m från de bräddande punkterna?",
+        # {points}: the overflowing synthetic sensors of the assessment at the clock, as VALUES rows.
+        "sql": FLOOD_ROWS.format(query=f"""SELECT t.kind, t.type, t.name,
+    round(min(ST_Distance(t.geom::geography, p.geom::geography)))::int AS distance_m, string_agg(DISTINCT p.name, ', ') AS area,
+    count(*) OVER () AS total, ST_AsGeoJSON(t.geom, 5)::json AS geometry
+  FROM targets t JOIN (VALUES {{points}}) AS p(name, geom)
+    ON ST_DWithin(t.geom::geography, p.geom::geography, {NEAR_OVERFLOW_M})
+  WHERE t.kind IN ('building', 'road', 'railway')
+  GROUP BY t.id, t.kind, t.type, t.name, t.geom
+  ORDER BY distance_m, t.kind, t.name LIMIT {MAX_ROWS}"""),
+    },
+}
+QUESTIONS = FIRE_QUESTIONS if scenario.WILDFIRE else FLOOD_QUESTIONS
+FLOOD_KINDS = {"building": "byggnader", "road": "vägsträckor", "railway": "järnvägssträckor"}
+
 
 class Unavailable(RuntimeError):
     pass
@@ -85,10 +126,21 @@ def utc_literal(clock: datetime) -> str:
     return "'" + clock.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") + "'"
 
 
-def sql_for(question_id: str, clock: datetime) -> str:
+def overflow_points(assessment: dict[str, Any]) -> list[tuple[str, float, float]]:
+    """The overflowing synthetic sensors of the flood's assessment: name, latitude, longitude."""
+    return [(item["text"].removeprefix("IoT ").split(":")[0], item["ref"]["latitude"], item["ref"]["longitude"])
+            for item in assessment["evidence"] if item["key"].startswith("iot:") and item["status"] == "ok" and item["ref"]]
+
+
+def points_sql(points: list[tuple[str, float, float]]) -> str:
+    return ", ".join(f"('{name.replace(chr(39), chr(39) * 2)}', ST_SetSRID(ST_MakePoint({lon}, {lat}), 4326))" for name, lat, lon in points)
+
+
+def sql_for(question_id: str, clock: datetime, points: list[tuple[str, float, float]] | None = None) -> str:
     if question_id not in QUESTIONS or "sql" not in QUESTIONS[question_id]:
         raise UnknownQuestion(question_id)
-    return QUESTIONS[question_id]["sql"].replace("{clock}", utc_literal(clock))
+    sql = QUESTIONS[question_id]["sql"].replace("{clock}", utc_literal(clock))
+    return sql.replace("{points}", points_sql(points)) if points else sql
 
 
 class Psql:
@@ -183,6 +235,26 @@ def summary(question_id: str, rows: list[dict[str, Any]], pass_utc: str | None) 
     return f"Närmaste by: {name(nearest)}, {kilometres} km från brandfronten (passage {pass_utc})."
 
 
+def flood_summary(question_id: str, rows: list[dict[str, Any]], points: list[tuple[str, float, float]] | None) -> str:
+    total = rows[0]["total"] if rows else 0
+    limited = f" (de första {MAX_ROWS} visas)" if total > len(rows) else ""
+    if question_id == "near_overflow":
+        if not points:
+            return "Inga bräddande punkter vid scenariotiden (syntetiska bräddgivare)."
+        counts = ", ".join(f"{sum(1 for row in rows if row['kind'] == kind)} {text}" for kind, text in FLOOD_KINDS.items())
+        return (f"Inom {NEAR_OVERFLOW_M} m från {len(points)} bräddande punkter ({', '.join(name for name, _, _ in points)}; "
+                f"syntetiskt underlag): {counts}{limited}.")
+    areas: dict[str, int] = {}
+    for row in rows:
+        for area in (row["area"] or "").split(AREA_SEPARATOR):
+            areas[area] = areas.get(area, 0) + 1
+    by_area = ", ".join(f"{area}: {count}" for area, count in sorted(areas.items()))
+    what = "byggnader" if question_id == "buildings_100y" else "väg- och järnvägssträckor"
+    if not rows:
+        return f"Inga {what} inom 100-årsflödet i kartdata."
+    return f"{total} {what} inom 100-årsflödet ({by_area}){limited}. Kommunens och MCF:s modeller, inte observationer."
+
+
 def why_fire(result: dict[str, Any]) -> dict[str, Any]:
     """Answered from the assessment, without SQL: the lines that hold, each on the map."""
     held = [item for item in result["evidence"] if item["status"] == "ok"]
@@ -201,16 +273,22 @@ def ask(question_id: str, clock: datetime, psql: Psql, assessment: Callable[[], 
     if question_id not in QUESTIONS:
         raise UnknownQuestion(question_id)
     started = time.perf_counter()
-    if question_id == "why_fire":
+    points = None
+    if question_id in {"why_fire", "why_flood"}:
         answer = why_fire(assessment())
     else:
-        sql = sql_for(question_id, clock)
+        if question_id == "near_overflow":
+            points = overflow_points(assessment())
+            if not points:
+                return {"id": question_id, "question": QUESTIONS[question_id]["question"], "answer": flood_summary(question_id, [], points),
+                        "features": features([]), "sql": None, "source": SOURCE, "elapsed_ms": round((time.perf_counter() - started) * 1000, 1)}
+        sql = sql_for(question_id, clock, points)
         output = psql.query(sql).strip()
         try:
             data = json.loads(output)
         except json.JSONDecodeError as exc:
             raise Unavailable(f"oväntat svar från PostGIS: {output[:200]}") from exc
-        answer = {"answer": summary(question_id, data["rows"], data["pass_utc"]), "features": features(data["rows"]),
-                  "sql": sql, "source": SOURCE}
+        text = summary(question_id, data["rows"], data["pass_utc"]) if scenario.WILDFIRE else flood_summary(question_id, data["rows"], points)
+        answer = {"answer": text, "features": features(data["rows"]), "sql": sql, "source": SOURCE}
     return {"id": question_id, "question": QUESTIONS[question_id]["question"], **answer,
             "elapsed_ms": round((time.perf_counter() - started) * 1000, 1)}

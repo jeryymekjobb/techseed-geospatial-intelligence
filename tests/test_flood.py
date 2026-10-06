@@ -121,3 +121,37 @@ def test_sentinel_1_passes_are_the_catalogue_acquisitions() -> None:
     passes = node("orbits.js", f"satellitePasses(null, {json.dumps(item)}, {day}, 62.39, 17.31)")
     assert [(entry["end"] - entry["start"]) for entry in passes] == [25000, 25000]
     assert node("orbits.js", f"[hasPasses({json.dumps(item)}), hasPasses({{half_swath_km: null}}), hasPasses({{half_swath_km: 92.5}})]") == [True, False, True]
+
+
+def run_flood(code: str) -> str:
+    import os
+    import sys
+    env = {**os.environ, "TECHSEED_SCENARIO": "sundsvall2026"}
+    return subprocess.run([sys.executable, "-c", code], cwd=FRONTEND.parents[1], env=env, capture_output=True, text=True, check=True).stdout
+
+
+def test_the_flood_has_its_own_questions_and_the_overflow_question_uses_the_assessment_s_points() -> None:
+    code = """
+from app.backend import spatial
+print(list(spatial.QUESTIONS))
+assessment = {"evidence": [
+    {"key": "iot:dv-01", "status": "ok", "text": "IoT DV1 Bergsåker: bräddning", "ref": {"latitude": 62.42, "longitude": 17.21}},
+    {"key": "iot:dv-02", "status": "miss", "text": "IoT DV2 Granlo: 40 % fyllt", "ref": {"latitude": 62.40, "longitude": 17.25}},
+    {"key": "rain_hour", "status": "ok", "text": "Regn", "ref": {"latitude": 62.39, "longitude": 17.33}}]}
+points = spatial.overflow_points(assessment)
+print(points)
+from datetime import datetime, timezone
+sql = spatial.sql_for("near_overflow", datetime(2026, 8, 16, 8, 30, tzinfo=timezone.utc), points)
+print("ST_MakePoint(17.21, 62.42)" in sql, "{points}" in sql, "ST_DWithin" in sql)
+rows = [{"kind": "building", "area": "Ljungan (MCF)", "total": 3}, {"kind": "building", "area": "Ljungan (MCF) · Selångersån (kommunen, 2009)", "total": 3}]
+print(spatial.flood_summary("buildings_100y", rows, None))
+print(spatial.flood_summary("near_overflow", [], []))
+"""
+    lines = run_flood(code).splitlines()
+    assert lines[0] == "['why_flood', 'buildings_100y', 'roads_100y', 'near_overflow']"
+    assert lines[1] == "[('DV1 Bergsåker', 62.42, 17.21)]"  # only the overflowing sensors
+    assert lines[2] == "True False True"
+    # Two rows of three shown; a building can lie in two areas.
+    assert lines[3] == ("3 byggnader inom 100-årsflödet (Ljungan (MCF): 2, Selångersån (kommunen, 2009): 1) (de första 1000 visas). "
+                        "Kommunens och MCF:s modeller, inte observationer.")
+    assert lines[4] == "Inga bräddande punkter vid scenariotiden (syntetiska bräddgivare)."
