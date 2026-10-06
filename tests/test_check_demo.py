@@ -62,3 +62,31 @@ def test_the_report_names_the_computer_and_graphics_and_warns_on_a_low_frame_rat
     assert report.passed  # a low frame rate warns but does not fail
     report.frames_per_second = 45.0
     assert "VARNING" not in report.text()
+
+
+def test_the_tiles_file_is_read_from_the_tiles_service() -> None:
+    import json
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class Tiles(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            body = json.dumps([{"basename": "sundsvall.mbtiles", "id": "sundsvall"}]).encode() if self.path == "/data.json" else b""
+            self.send_response(200 if body else 404)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args: object) -> None:
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Tiles)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        port = server.server_address[1]
+        assert check_demo.served_tiles_file(f"http://127.0.0.1:{port}/styles/basic-preview/256/{{z}}/{{x}}/{{y}}.png") == "sundsvall.mbtiles"
+    finally:
+        server.shutdown()
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        closed = probe.getsockname()[1]
+    assert check_demo.served_tiles_file(f"http://127.0.0.1:{closed}/{{z}}/{{x}}/{{y}}.png") is None

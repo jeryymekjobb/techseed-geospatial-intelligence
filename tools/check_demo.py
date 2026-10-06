@@ -37,9 +37,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 from urllib.error import URLError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
-from app.backend import scenario
+from app.backend import offline_tiles, scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
@@ -152,7 +153,25 @@ class Demo:
         self.main.screenshot(path=str(self.out / f"{name}.png"))
 
 
+def served_tiles_file(template: str) -> str | None:
+    """The file the tiles service (tileserver-gl) serves, from its data.json; None when it does not answer."""
+    parts = urlsplit(template)
+    try:
+        with urlopen(f"{parts.scheme}://{parts.netloc}/data.json", timeout=5) as response:
+            sources = json.loads(response.read())
+    except (URLError, OSError, ValueError):
+        return None
+    return sources[0].get("basename") if sources else None
+
+
 def opening(demo: Demo) -> str:
+    # The offline map must be the scenario's: another file gives an empty map round the incident.
+    served = served_tiles_file(offline_tiles.url_template())
+    if served is None:
+        raise RuntimeError("kartjänsten svarar inte – kör docker compose up -d tiles")
+    if served != scenario.TILES_FILE:
+        raise RuntimeError(f"kartjänsten visar {served}, scenariot behöver {scenario.TILES_FILE} – "
+                           f"kör TILES_FILE={scenario.TILES_FILE} docker compose up -d tiles")
     # A playback left running would pass 11:48 during the flight, before step 2 waits for it.
     demo.command({"command": "pause"})
     demo.main.goto(f"{demo.base_url}/3d.html?at={START_UTC}&fly=1")
@@ -168,7 +187,8 @@ def opening(demo: Demo) -> str:
     if not scenario.WILDFIRE:
         demo.main.wait_for_function("document.getElementById('rain-values').textContent.includes('Senaste timmen')", timeout=WAIT_MS, polling=POLL_MS)
     demo.shot("1-opening")
-    return f"kameraresan klar; {demo.text('counts') if scenario.WILDFIRE else 'regnet visas: ' + demo.text('rain-values').replace(chr(10), ' ')}"
+    shown = demo.text('counts') if scenario.WILDFIRE else 'regnet visas: ' + demo.text('rain-values').replace(chr(10), ' ')
+    return f"kameraresan klar; karta {served}; {shown}"
 
 
 def space_view(demo: Demo) -> str:
