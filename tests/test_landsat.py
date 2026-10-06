@@ -33,7 +33,7 @@ def test_the_script_cuts_the_map_area_writes_the_composites_and_the_raw_bands() 
     script = fetch.warp_script({band: f"https://example.org/{band}.TIF?token=abc" for band in bands}, "SCENE")
     assert script.count("gdalwarp ") == 7
     assert "--config GDAL_DISABLE_READDIR_ON_OPEN EMPTY_DIR" in script
-    assert "-t_srs EPSG:4326 -te 15.85 59.75 16.45 60.08 -ts 1100 1220" in script
+    assert "-t_srs EPSG:4326 -te 15.5 59.55 16.8 60.3 -ts 2410 2780" in script
     assert "-r near '/vsicurl/https://example.org/qa_pixel.TIF?token=abc' qa_pixel.tif" in script  # bit flags: never interpolated
     assert "-r bilinear '/vsicurl/https://example.org/swir22.TIF?token=abc' swir22.tif" in script
     for band in ["nir08", "swir16", "qa_pixel"]:
@@ -56,27 +56,26 @@ def test_the_fire_area_rows_and_columns() -> None:
 
 
 @pytest.mark.skipif(not HAS_NUMPY, reason="needs numpy and Pillow (the .venv)")
-def test_ndmi_masks_clouds_and_water_and_counts_coverage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ndmi_masks_clouds_and_water_and_counts_coverage(tmp_path: Path) -> None:
     import numpy as np
     from PIL import Image
 
     size = (60, 33)
-    monkeypatch.setattr(fetch, "BBOX", (15.85, 59.75, 16.45, 60.08))
     nir = np.full((33, 60), fetch.dn_for(0.30), dtype="<u2")
     swir = np.full((33, 60), fetch.dn_for(0.10), dtype="<u2")  # NDMI 0.5: moist
     qa = np.zeros((33, 60), dtype="<u2")
-    qa[:, :20] = fetch.QA_FILL  # the western third has no data
-    qa[10, 30] = 1 << 3          # one cloud pixel inside the fire area
-    qa[12, 30] = fetch.QA_WATER  # one water pixel
+    qa[:, :30] = fetch.QA_FILL  # the western half has no data, cutting the fire area (columns 24-36)
+    qa[15, 33] = 1 << 3          # one cloud pixel inside the fire area (rows 13-20)
+    qa[17, 34] = fetch.QA_WATER  # one water pixel
     for band, data in {"nir08": nir, "swir16": swir, "qa_pixel": qa}.items():
         data.tofile(tmp_path / f"S-{band}.bil")
     coverage, cloud = fetch.ndmi_image(tmp_path, "S", size)
     image = np.asarray(Image.open(tmp_path / "S-ndmi.png"))
-    assert image[5, 40, 3] == 230 and image[10, 30, 3] == 0 and image[12, 30, 3] == 0 and image[5, 5, 3] == 0
+    assert image[5, 40, 3] == 230 and image[15, 33, 3] == 0 and image[17, 34, 3] == 0 and image[5, 5, 3] == 0
     assert tuple(image[5, 40, :3]) == (60, 154, 146)  # NDMI 0.5: a third of the way from the 0.45 to the 0.6 colour
     rows, cols = fetch.fire_area_rows_cols(size)
     area = (rows.stop - rows.start) * (cols.stop - cols.start)
-    assert coverage == pytest.approx(100 * (rows.stop - rows.start) * (cols.stop - 20) / area, abs=0.1)
+    assert coverage == pytest.approx(100 * (rows.stop - rows.start) * (cols.stop - 30) / area, abs=0.1)
     assert cloud == pytest.approx(100 / area, abs=0.1)
 
 

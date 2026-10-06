@@ -172,7 +172,7 @@ Cut the map area out of them once (needs Docker, no account; numpy and Pillow fr
 the `.venv`):
 
 ```bash
-.venv/bin/python -m tools.fetch_landsat_scene    # Planetary Computer -> data/landsat/ (nine PNGs, about 12 MB)
+.venv/bin/python -m tools.fetch_landsat_scene    # Planetary Computer -> data/landsat/ (nine PNGs, about 105 MB)
 ```
 
 The tool reads the scenes from Microsoft Planetary Computer's open STAC catalogue

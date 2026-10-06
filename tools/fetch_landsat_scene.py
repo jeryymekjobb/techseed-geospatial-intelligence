@@ -62,10 +62,12 @@ MIN_COVERAGE_PCT = 95.0  # a scene must have data over this share of the fire ar
 RAW_BANDS = {"nir08": "B5", "swir16": "B6", "qa_pixel": "QA"}
 GDAL_IMAGE = "tumgis/ctb-quantized-mesh:latest"
 HOST_CA_BUNDLE = Path("/etc/ssl/certs/ca-certificates.crt")
-# The map view of app/backend/scenario.py as west, south, east, north.
-BBOX = (15.85, 59.75, 16.45, 60.08)
-# About 30 m, the Landsat resolution: 0.6 degrees of longitude and 0.33 of latitude at 60 N.
-SIZE = (1100, 1220)
+# The area of the offline map tiles (tools/build_offline_tiles.py) as west, south, east, north:
+# wider than the map view of app/backend/scenario.py, so the image fills the whole map on a
+# wide screen and where the 2D map can be panned.
+BBOX = (15.5, 59.55, 16.8, 60.3)
+# About 30 m, the Landsat resolution: 1.3 degrees of longitude and 0.75 of latitude at 60 N.
+SIZE = (2410, 2780)
 # Collection 2 Level-2 surface reflectance = DN * 0.0000275 - 0.2.
 SCALE, OFFSET = 0.0000275, -0.2
 COMPOSITES = {
