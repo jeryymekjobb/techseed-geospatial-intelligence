@@ -350,6 +350,11 @@ Fler knappar om besökarna frågar:
 - **SENSOR FAILURE**: en sensor slutar fungera och räknas inte längre.
 - **IOT PÅ/AV**: stänger av alla sensorer, både de i montern och de i brandområdet. Bedömningen
   räknas då bara på satellitdata. Tryck igen för att slå på dem.
+- **Placera IoT-sensor**: högerklicka på kartan på huvudskärmen och välj **Placera IoT-sensor**
+  i menyn. En syntetisk sensor placeras där du klickade. Den heter Sensor P1, P2 och så vidare,
+  visas i listan över syntetiska sensorer och räknas med i "IoT bekräftar" och i AI ASSESSMENT.
+  Säg att sensorn är simulerad: värdena räknas ut ur brandfronten och vinden. Högst tio sensorer
+  kan placeras, och **RESET** tar bort dem alla.
 - **ROAD CLOSED** och **POWER FAILURE** visar bara en text, märkt syntetisk. Det finns inga
   väg- eller elnätsdata kopplade till dem.
 
