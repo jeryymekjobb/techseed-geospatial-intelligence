@@ -19,11 +19,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
+from app.backend import scenario
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEM_DIR = REPO_ROOT / "data" / "dem"
+DEM_DIR = scenario.DEM_DIR
 BUCKET = "https://copernicus-dem-30m.s3.amazonaws.com"
-# Same area as the offline map (lon/lat, west,south,east,north).
-DEFAULT_BBOX = "15.5,59.55,16.8,60.3"
+# The scenario's map area, as the offline map (lon/lat, west,south,east,north).
+DEFAULT_BBOX = ",".join(str(value) for value in scenario.MAP_BBOX)
 # The licence's notice for modified data; the terrain mesh is derived from the DEM.
 ATTRIBUTION = (
     "produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 "

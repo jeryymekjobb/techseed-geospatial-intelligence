@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch the 2014 orbital elements of the fire's satellites from Space-Track into data/tle/.
+"""Fetch the orbital elements of the scenario's satellites from Space-Track into its TLE directory.
 
 The globe shows where Aqua and Terra (MODIS), Suomi NPP (VIIRS), Landsat 8 and the
 ISS were at the scenario clock, so it needs their historical two-line elements
@@ -8,8 +8,8 @@ is read from ~/.spacetrackrc (`identity=` and `password=` lines, as on the
 Space-Track login form) or from --credentials, and is never printed or stored.
 One query fetches all satellites, well inside Space-Track's rate limits.
 
-`data/tle/tle-2014.json` holds the elements per satellite and
-`data/tle/SOURCE.json` the query, the time of fetching and the terms; data/ is not
+The scenario's TLE file (for Västmanland `data/tle/tle-2014.json`) holds the
+elements per satellite and `SOURCE.json` next to it the query, the time of fetching and the terms; data/ is not
 versioned, so the elements are not redistributed through the repository. Only
 the Python standard library is used.
 """
@@ -26,23 +26,16 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
+from app.backend import scenario
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
-TLE_DIR = REPO_ROOT / "data" / "tle"
+TLE_DIR = scenario.TLE_DIR
 BASE_URL = "https://www.space-track.org"
 TERMS_URL = "https://www.space-track.org/documentation#/user_agree"
 DEFAULT_CREDENTIALS = Path.home() / ".spacetrackrc"
-# NORAD catalogue numbers. Sentinel-1A was still in commissioning in August 2014
-# and Sentinel-2A was launched in 2015, so neither is here.
-SATELLITES = {
-    "25994": "Terra",
-    "27424": "Aqua",
-    "37849": "Suomi NPP",
-    "39084": "Landsat 8",
-    "25544": "ISS",
-}
-# A few days around the playback (2014-07-31 – 2014-08-15), so an element set
-# from before the start is there as well.
-DEFAULT_START, DEFAULT_END = "2014-07-27", "2014-08-17"
+# NORAD catalogue numbers and the epoch days, from the scenario.
+SATELLITES = scenario.TLE_SATELLITES
+DEFAULT_START, DEFAULT_END = scenario.TLE_START, scenario.TLE_END
 USER_AGENT = "techseed-geospatial-intelligence/0.1"
 
 
@@ -135,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
     except FetchError as exc:
         parser.exit(1, f"fetch_tle_history: {exc}\n")
     args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / "tle-2014.json").write_text(json.dumps({"satellites": satellites}, indent=1) + "\n", encoding="utf-8")
+    (args.out / scenario.TLE_FILE_NAME).write_text(json.dumps({"satellites": satellites}, indent=1) + "\n", encoding="utf-8")
     counts = {entry["name"]: len(entry["elements"]) for entry in satellites.values()}
     (args.out / "SOURCE.json").write_text(json.dumps({
         "source": "Space-Track.org, class gp_history",

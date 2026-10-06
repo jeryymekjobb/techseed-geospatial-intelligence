@@ -34,10 +34,12 @@ from typing import Any, Callable
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+from app.backend import scenario
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
-# 09:30 UTC on 4 August: a VIIRS pass at 09:48 and the Landsat scene at 10:06 come within minutes.
-START_UTC = "2014-08-04T09:30:00Z"
+# Where the check starts on the scenario clock (for Västmanland a satellite pass and the Landsat scene follow within minutes).
+START_UTC = scenario.CHECK_START_UTC
 RESET_LIMIT_S = 5.0
 # Below this the camera and satellites feel jerky. A rule of thumb, not measured at the
 # exhibition, so a lower rate gives a warning and does not fail the check.

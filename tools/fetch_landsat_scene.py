@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Cut three Landsat 8 scenes - before, during and after the fire - over the fire-map area into images in data/landsat/.
+"""Cut the scenario's Landsat 8 scenes - before, during and after the incident - over its map area into images.
 
-The scenes (Collection 2 Level-2 surface reflectance, cloud over the whole scene):
+The scenes are the scenario's LANDSAT_SCENES (Collection 2 Level-2 surface
+reflectance); for Västmanland 2014, cloud over the whole scene:
 
 - 10 June 2014, 10:00 UTC (path 193): before the fire, clear over the fire area;
 - 4 August 2014, 10:06 UTC (path 194): Landsat 8 over the fire as it spread fastest;
@@ -41,17 +42,15 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from app.backend import scenario
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
-LANDSAT_DIR = REPO_ROOT / "data" / "landsat"
+LANDSAT_DIR = scenario.LANDSAT_DIR
 STAC = "https://planetarycomputer.microsoft.com/api/stac/v1"
 TOKEN_URL = "https://planetarycomputer.microsoft.com/api/sas/v1/token/landsat-c2-l2"
-SCENES = {
-    "before": "LC08_L2SP_193018_20140610_02_T1",
-    "during": "LC08_L2SP_194018_20140804_02_T1",
-    "after": "LC08_L2SP_193018_20140914_02_T1",
-}
-# The FIRMS selection of the fire (scenario.FIRE_BBOX) as west, south, east, north, for the cloud share.
-FIRE_AREA = (16.01, 59.83, 16.30, 60.01)
+SCENES = scenario.LANDSAT_SCENES
+# The area each scene's coverage and cloud share is reported for, as west, south, east, north.
+FIRE_AREA = scenario.LANDSAT_FOCUS_AREA
 # QA_PIXEL bits: 0 fill, 1 dilated cloud, 2 cirrus, 3 cloud, 4 cloud shadow, 7 water.
 QA_FILL, QA_CLOUDY, QA_WATER = 1, (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4), 1 << 7
 # NDMI colours, brown dry to blue moist (stops: index, RGB).
@@ -62,12 +61,10 @@ MIN_COVERAGE_PCT = 95.0  # a scene must have data over this share of the fire ar
 RAW_BANDS = {"nir08": "B5", "swir16": "B6", "qa_pixel": "QA"}
 GDAL_IMAGE = "tumgis/ctb-quantized-mesh:latest"
 HOST_CA_BUNDLE = Path("/etc/ssl/certs/ca-certificates.crt")
-# The area of the offline map tiles (tools/build_offline_tiles.py) as west, south, east, north:
-# wider than the map view of app/backend/scenario.py, so the image fills the whole map on a
-# wide screen and where the 2D map can be panned.
-BBOX = (15.5, 59.55, 16.8, 60.3)
-# About 30 m, the Landsat resolution: 1.3 degrees of longitude and 0.75 of latitude at 60 N.
-SIZE = (2410, 2780)
+# The scenario's map area, as the offline map tiles (west, south, east, north), so the image
+# fills the whole map on a wide screen and where the 2D map can be panned; about 30 m per pixel.
+BBOX = scenario.MAP_BBOX
+SIZE = scenario.LANDSAT_SIZE
 # Collection 2 Level-2 surface reflectance = DN * 0.0000275 - 0.2.
 SCALE, OFFSET = 0.0000275, -0.2
 COMPOSITES = {

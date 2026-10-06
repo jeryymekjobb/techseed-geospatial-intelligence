@@ -23,10 +23,12 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.backend import scenario
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA = REPO_ROOT / "data"
-DEM_DIR = DATA / "dem"
-TERRAIN_DIR = DATA / "terrain"
+DEM_DIR = scenario.DEM_DIR
+TERRAIN_DIR = scenario.TERRAIN_DIR
 CTB_IMAGE = "tumgis/ctb-quantized-mesh:latest"
 
 

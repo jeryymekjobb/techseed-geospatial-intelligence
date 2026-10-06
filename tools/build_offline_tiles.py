@@ -4,7 +4,7 @@
 1. `osmium extract` cuts the area out of a country extract (in a throw-away
    Debian container with osmium-tool).
 2. tilemaker turns it into OpenMapTiles-schema vector tiles in
-   `data/tiles/vastmanland.mbtiles`.
+   `data/tiles/<the scenario's TILES_FILE>`, for example `vastmanland.mbtiles`.
 3. `data/tiles/SOURCE.json` records the input file, its SHA-256 and the area.
 
 The `tiles` service of docker-compose.yml (tileserver-gl) then renders them as
@@ -23,10 +23,13 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.backend import scenario
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA = REPO_ROOT / "data"
-# The map view with the margin the GUI allows for panning (lon/lat, west,south,east,north).
-DEFAULT_BBOX = "15.5,59.55,16.8,60.3"
+# The scenario's map area: the map view with the margin the GUI allows for panning
+# (lon/lat, west,south,east,north).
+DEFAULT_BBOX = ",".join(str(value) for value in scenario.MAP_BBOX)
 TILEMAKER_IMAGE = "ghcr.io/systemed/tilemaker:master"
 OSMIUM_IMAGE = "debian:stable-slim"
 
@@ -68,8 +71,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bbox", default=DEFAULT_BBOX, help="west,south,east,north")
     args = parser.parse_args(argv)
     source = args.source.resolve()
-    area = source.parent / "firemap-area.osm.pbf"
-    output = DATA / "tiles" / "vastmanland.mbtiles"
+    area = source.parent / f"{scenario.NAME}-area.osm.pbf"
+    output = DATA / "tiles" / scenario.TILES_FILE
     output.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(extract_command(source, area, args.bbox), check=True)
     if output.exists():
