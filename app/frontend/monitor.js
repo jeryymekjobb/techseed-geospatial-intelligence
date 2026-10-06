@@ -7,6 +7,7 @@ const DAY = 86400000;
 const passCache = new Map();
 const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
 const dayTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const dayShort = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short" });
 
 async function getJson(path) {
   const response = await fetch(path);
@@ -33,6 +34,46 @@ async function start() {
   const lib = await import("/vendor/satellite.js-7.1.0/index.js");
   note.textContent = `${data.label}. Källa: ${data.source}.`;
   const centre = config.fire_centre;
+  // The satellite log: FIRMS passes and Landsat scenes once, the computed passes per day from passCache.
+  const firms = firmsPasses((await getJson("/api/hotspots").catch(() => ({ features: [] }))).features);
+  const scenes = config.layers.landsat?.scenes || [];
+  let logShown = null;
+  const showLog = (scenarioState, clock) => {
+    logShown = [scenarioState, clock];
+    const first = Math.floor((clock.getTime() - SATLOG_WINDOW_MS) / DAY);
+    const last = Math.floor(clock.getTime() / DAY);
+    const satellites = data.satellites.filter((satellite) => satellite.half_swath_km).map((satellite) => ({
+      name: satellite.name, instrument: satellite.instrument,
+      passes: Array.from({ length: last - first + 1 }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat(),
+    }));
+    const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [] }, clock.getTime());
+    const log = document.getElementById("monitor-log-lines");
+    log.innerHTML = "";
+    if (!lines.length) {
+      const empty = document.createElement("li");
+      empty.className = "monitor-log-empty";
+      empty.textContent = "Inga satellithändelser det senaste dygnet.";
+      log.append(empty);
+      return;
+    }
+    lines.forEach((line, index) => {
+      const row = document.createElement("li");
+      row.className = `${index === 0 ? "latest " : ""}${line.source}`;
+      const time = document.createElement("time");
+      time.textContent = `${dayShort.format(new Date(line.atMs))} ${hourMinute.format(new Date(line.atMs))}`;
+      const source = document.createElement("span");
+      source.className = "monitor-log-source";
+      source.textContent = SATLOG_SOURCES[line.source];
+      row.append(time, ` ${line.text} `, source);
+      log.append(row);
+    });
+    // Show only whole lines: drop the oldest that do not fit the space below the overview.
+    const bottom = log.getBoundingClientRect().bottom;
+    for (const row of [...log.children].reverse()) {
+      if (row.getBoundingClientRect().bottom <= bottom + 0.5 || log.children.length === 1) break;
+      row.remove();
+    }
+  };
   const monitor = createSatelliteMonitor(document.getElementById("monitor"), centre, (time) => hourMinute.format(time),
     { width: 0, mapHeight: 0, rowHeight: 30, fit: true });
   let drawnAt = null;
@@ -54,6 +95,8 @@ async function start() {
     const slowed = scenarioState.playing && scenarioState.slowed ? " · saktar in vid passage" : "";
     document.getElementById("monitor-clock").textContent = `${dayTime.format(clock)} svensk tid${slowed}`;
     followDetection(scenarioState.status.detection);
+    // Mission control's events can change while the clock stands still.
+    showLog(scenarioState, clock);
     if (drawnAt === clock.getTime()) return;
     drawnAt = clock.getTime();
     const first = Math.floor((clock.getTime() - MONITOR_WINDOW.beforeMs) / DAY);
@@ -88,7 +131,10 @@ async function start() {
   source.addEventListener("sync", follow);
   source.addEventListener("state", follow);
   source.onerror = () => { note.textContent = "Anslutningen till backend bröts – försöker igen …"; };
-  window.addEventListener("resize", () => monitor.redraw());
+  window.addEventListener("resize", () => {
+    monitor.redraw();
+    if (logShown) showLog(...logShown);
+  });
 }
 
 start().catch((error) => { document.getElementById("monitor-note").textContent = `Fel vid start: ${error.message}`; });

@@ -113,10 +113,25 @@ body.control { background: #141414; color: #f2f2f2; }
 .sat-monitor-now.active { color: #ffd54a; font-weight: 700; }
 body.monitor-page { display: flex; flex-direction: column; height: 100%; background: #101010; color: #fff; }
 .monitor-clock { margin-left: auto; font-weight: 700; }
-.monitor-main { position: relative; flex: 1; min-height: 0; padding: 12px; }
+/* The overview takes a fixed share of the window; the satellite log fills the rest below it. */
+.monitor-main { position: relative; flex: 0 0 62vh; min-height: 0; padding: 12px; box-sizing: border-box; }
 .monitor-main .sat-monitor { position: static; display: inline-block; box-shadow: none; background: none; }
 .monitor-main .sat-monitor h2 { display: none; }
 .monitor-main .sat-monitor-now { font-size: 1.2rem; }
+.monitor-log { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0 12px 6px; }
+.monitor-log h2 { margin: 0 0 4px; font-size: 0.9rem; letter-spacing: 0.05em; color: #ffd54a; }
+.monitor-log h2 small { color: #b8b8b8; font-weight: 400; letter-spacing: 0; }
+.monitor-log ol { flex: 1; min-height: 0; overflow: hidden; margin: 0; padding: 0; list-style: none; font-size: 1.15rem; }
+.monitor-log li { padding: 2px 8px; border-left: 4px solid #555; }
+.monitor-log li.latest { color: #ffd54a; font-weight: 700; background: #ffd54a1a; }
+.monitor-log li.firms { border-color: #ff2a00; }
+.monitor-log li.computed { border-color: #4fc3f7; }
+.monitor-log li.landsat { border-color: #7cb342; }
+.monitor-log li.simulated { border-color: #e040fb; }
+.monitor-log time { display: inline-block; min-width: 7.5em; color: #b8b8b8; font-variant-numeric: tabular-nums; }
+.monitor-log li.latest time { color: inherit; }
+.monitor-log-source { font-size: 0.75em; font-weight: 400; color: #b8b8b8; border: 1px solid #555; border-radius: 3px; padding: 0 4px; }
+.monitor-log-empty { color: #b8b8b8; }
 .monitor-list { margin: 0; padding: 0 12px 4px; list-style: none; font-size: 1rem; columns: 2; }
 .monitor-list .active { color: #ffd54a; font-weight: 700; }
 .monitor-swatch { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 0.4em; border-radius: 50%; vertical-align: -0.1em; }
