@@ -50,3 +50,13 @@ def test_parameters_merge_per_hour_within_the_period() -> None:
     assert rows[0]["precip_mm"] == ""  # parameter not supplied
     assert smhi.slug_for("Sala A", "96560") == "sala-a-96560"
     assert smhi.slug_for("Kloten A", "95540") == "kloten-a-95540"
+
+
+def test_the_period_and_the_parameters_can_be_chosen() -> None:
+    assert smhi.archive_url(7, "2222813", "latest-months") == (
+        f"{smhi.API}/parameter/7/station/2222813/period/latest-months/data.csv")
+    assert smhi.archive_url(7, "2222813").endswith("/period/corrected-archive/data.csv")
+    # A precipitation gauge: only parameter 7, the other columns stay empty.
+    archives = {7: smhi.parse_archive(archive("Nederbördsmängd", "millimeter", ["2026-08-16;08:00:00;10.6;Y"]))}
+    rows = smhi.merge(archives, date(2026, 8, 14), date(2026, 8, 22))
+    assert (rows[0]["precip_mm"], rows[0]["precip_mm_quality"], rows[0]["temp_c"]) == ("10.6", "Y", "")

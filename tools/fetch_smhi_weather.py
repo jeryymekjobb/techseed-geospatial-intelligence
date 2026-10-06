@@ -4,6 +4,10 @@
 Downloads the quality-controlled archive (`corrected-archive`) of SMHI's
 meteorological observations API for each station and parameter, keeps the
 period, and writes one merged hourly CSV per station plus `stations.json`.
+`--period latest-months` reads the last four months instead, for a period the
+archive does not reach; SMHI may not have quality-controlled them yet (quality flag Y).
+`--parameters` limits the parameters, for stations that measure only some of
+them, such as precipitation gauges.
 
 SMHI open data is licensed under Creative Commons Attribution 4.0 SE: name SMHI
 as the source and state changes (here: period selection and merging of
@@ -34,8 +38,11 @@ PARAMETERS = {
 }
 
 
-def archive_url(parameter: int, station: str) -> str:
-    return f"{API}/parameter/{parameter}/station/{station}/period/corrected-archive/data.csv"
+PERIODS = ("corrected-archive", "latest-months")
+
+
+def archive_url(parameter: int, station: str, period: str = "corrected-archive") -> str:
+    return f"{API}/parameter/{parameter}/station/{station}/period/{period}/data.csv"
 
 
 def download(url: str) -> str:
@@ -121,29 +128,34 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--end", required=True, type=date.fromisoformat)
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--raw-dir", type=Path, help="reuse or keep downloaded archives here (raw-<station>-<parameter>.csv)")
+    parser.add_argument("--period", choices=PERIODS, default="corrected-archive",
+                        help="SMHI period: the quality-controlled archive or the last four months (not yet controlled)")
+    parser.add_argument("--parameters", type=int, nargs="+", choices=sorted(PARAMETERS), default=list(PARAMETERS),
+                        help="SMHI parameter keys, for example 7 for hourly precipitation")
     args = parser.parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=True)
     records = []
     for station in args.stations:
         archives = {}
-        for parameter in PARAMETERS:
+        for parameter in args.parameters:
             raw_path = args.raw_dir / f"raw-{station}-{parameter}.csv" if args.raw_dir else None
             if raw_path and raw_path.is_file():
                 text = raw_path.read_text(encoding="utf-8-sig")
             else:
-                text = download(archive_url(parameter, station))
+                text = download(archive_url(parameter, station, args.period))
                 if raw_path:
                     raw_path.parent.mkdir(parents=True, exist_ok=True)
                     raw_path.write_text(text, encoding="utf-8")
             archives[parameter] = parse_archive(text)
         rows = merge(archives, args.start, args.end)
-        slug = slug_for(archives[1]["station_name"], station)
+        slug = slug_for(next(iter(archives.values()))["station_name"], station)
         write_station(args.out, slug, rows)
         records.append({**station_record(archives, slug), "hours": len(rows)})
         print(f"{slug}: {len(rows)} hours")
     (args.out / "stations.json").write_text(json.dumps({
         "source": ATTRIBUTION,
         "api": API,
+        "smhi_period": args.period,
         "period_utc": {"start": args.start.isoformat(), "end": args.end.isoformat()},
         "stations": records,
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
