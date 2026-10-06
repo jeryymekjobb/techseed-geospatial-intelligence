@@ -11,9 +11,10 @@ from tools import check_demo
 
 def test_the_steps_follow_the_demo_and_end_with_reset() -> None:
     names = [name for name, _ in check_demo.STEPS]
-    assert [name.split(" ", 1)[0] for name in names] == ["1", "2", "3", "4", "5", "6", "7", "8"]
-    assert "SPACE VIEW" in names[1] and "SATCOM" in names[5] and "GOD VIEW" in names[6]
-    assert names[-1] == "8 RESET inom 5 s" and check_demo.RESET_LIMIT_S == 5.0
+    assert [name.split(" ", 1)[0] for name in names] == [str(number) for number in range(1, 11)]
+    assert "SPACE VIEW" in names[1] and "SATELLITE DETECTION" in names[2] and "IOT" in names[4]
+    assert "SATCOM" in names[7] and "GOD VIEW" in names[8]
+    assert names[-1] == "10 RESET inom 5 s" and check_demo.RESET_LIMIT_S == 5.0
 
 
 def test_the_report_passes_only_when_every_step_does_and_there_are_no_errors() -> None:
@@ -29,8 +30,8 @@ def test_the_report_passes_only_when_every_step_does_and_there_are_no_errors() -
     report.javascript_errors.append("huvudskärm: TypeError: x is undefined")
     assert not report.passed and report.text().endswith("RESULTAT: UNDERKÄND")
     report.javascript_errors.clear()
-    report.steps.append(check_demo.Step("8 RESET inom 5 s", "UNDERKÄND", "AssertionError: 5.40 s, kravet är 5 s", 6.0))
-    assert not report.passed and "UNDERKÄND 8 RESET inom 5 s" in report.text()
+    report.steps.append(check_demo.Step("10 RESET inom 5 s", "UNDERKÄND", "AssertionError: 5.40 s, kravet är 5 s", 6.0))
+    assert not report.passed and "UNDERKÄND 10 RESET inom 5 s" in report.text()
 
 
 def test_the_backend_is_started_on_a_free_local_port() -> None:
@@ -46,7 +47,7 @@ def test_after_a_failure_the_rest_is_not_run() -> None:
     report = check_demo.Report("http://x", False, "2026-10-05T12:00:00Z")
     report.steps.append(check_demo.Step("1 Öppning: jorden till branden", "UNDERKÄND", "RuntimeError: sidan startade inte", 60.0))
     report.skip_rest([name for name, _ in check_demo.STEPS[1:]])
-    assert [step.verdict for step in report.steps] == ["UNDERKÄND"] + ["EJ KÖRD"] * 7
+    assert [step.verdict for step in report.steps] == ["UNDERKÄND"] + ["EJ KÖRD"] * 9
     assert not report.passed and "headless" in report.text()
 
 

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Run the two-minute demo from mission control and report each step, for the exhibition PC.
 
-Opens the 3D main screen and mission control in Chrome, drives the demo in the
-one-pager's order - the flight to the fire, SPACE VIEW, detections with Landsat
-and IoT, the assessment and questions, +60 MIN, a SATCOM outage with SYNC, GOD
-VIEW with its filter - and checks that RESET brings both screens back within
+Opens the 3D main screen, the satellite monitor and mission control in Chrome,
+drives the demo in the operator guide's order - the flight to the fire, SPACE
+VIEW, the detection sequence with NEXT, detections with Landsat and IoT, the IoT
+switch, the assessment and questions, +60 MIN, a SATCOM outage with SYNC, GOD
+VIEW with its filter - and checks that RESET brings the screens back within
 5 seconds. It also measures the frame rate of the 3D view during playback.
 
 Without --base-url it starts the backend and the simulated booth nodes itself
@@ -124,7 +125,8 @@ class Demo:
         # One browser context each: two windows, both active.
         self.main = browser.new_context(viewport={"width": 1600, "height": 900}).new_page()
         self.control = browser.new_context(viewport={"width": 1024, "height": 900}).new_page()
-        for name, page in [("huvudskärm", self.main), ("mission control", self.control)]:
+        self.monitor = browser.new_context(viewport={"width": 1200, "height": 900}).new_page()
+        for name, page in [("huvudskärm", self.main), ("mission control", self.control), ("satellitbevakning", self.monitor)]:
             page.on("pageerror", lambda exc, name=name: errors.append(f"{name}: {exc}"))
             page.on("console", lambda msg, name=name: errors.append(f"{name}: {msg.text}") if msg.type == "error" else None)
 
@@ -144,6 +146,8 @@ class Demo:
 
 
 def opening(demo: Demo) -> str:
+    # A playback left running would pass 11:48 during the flight, before step 2 waits for it.
+    demo.command({"command": "pause"})
     demo.main.goto(f"{demo.base_url}/3d.html?at={START_UTC}&fly=1")
     try:
         demo.main.wait_for_selector("body[data-ready=true]", timeout=WAIT_MS)
@@ -152,6 +156,7 @@ def opening(demo: Demo) -> str:
         raise RuntimeError(f"sidan startade inte: {demo.text('stream-status') or 'ingen statustext'}") from exc
     demo.main.wait_for_selector("body[data-flight=arrived]", timeout=WAIT_MS)
     demo.control.goto(f"{demo.base_url}/control.html")
+    demo.monitor.goto(f"{demo.base_url}/monitor.html")
     demo.control.wait_for_function("document.getElementById('scenario-status').children.length > 0", timeout=WAIT_MS, polling=POLL_MS)
     demo.shot("1-opening")
     return f"kameraresan klar; {demo.text('counts')}"
@@ -172,15 +177,48 @@ def space_view(demo: Demo) -> str:
     return f"{before} -> {after}"
 
 
+def detection_sequence(demo: Demo) -> str:
+    demo.button("SATELLITE DETECTION").click()
+    demo.control.wait_for_function("document.getElementById('detection-step').textContent.startsWith('Steg 1/6')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.wait_for_function("!document.getElementById('detection-card').hidden", timeout=WAIT_MS, polling=POLL_MS)
+    demo.monitor.wait_for_function("Boolean(document.body.dataset.mark)", timeout=WAIT_MS, polling=POLL_MS)
+    passed = demo.text("detection-pass")
+    demo.shot("3-detection-acquired")
+    for step in range(2, 7):
+        demo.button("NÄSTA ▸").click()
+        demo.control.wait_for_function(f"document.getElementById('detection-step').textContent.startsWith('Steg {step}/6')",
+                                       timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.wait_for_function("!document.getElementById('detection-rules').hidden", timeout=WAIT_MS, polling=POLL_MS)
+    outcome = demo.text("detection-outcome")
+    rules = demo.main.eval_on_selector_all("#detection-rule-list li", "els => els.length")
+    assert outcome == "Vegetationsbrand" and rules == 5, (outcome, rules)
+    demo.shot("3-detection-correlate")
+    demo.button("NÄSTA ▸").click()
+    demo.main.wait_for_function("document.getElementById('detection-card').hidden", timeout=WAIT_MS, polling=POLL_MS)
+    demo.monitor.wait_for_function("!document.body.dataset.mark", timeout=WAIT_MS, polling=POLL_MS)
+    demo.button("PLAY").click()  # the sequence paused the playback
+    return f"{passed}: {outcome}, {rules} regler; kortet och markeringen borta efter sista steget"
+
+
 def detections(demo: Demo) -> str:
     demo.command({"command": "speed", "speed": 3600})
-    demo.main.wait_for_function("document.getElementById('landsat-note').textContent.includes('riktig satellitbild')", timeout=WAIT_MS, polling=POLL_MS)
-    demo.main.wait_for_function("document.getElementById('sim-time').textContent.includes(' 15:')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.wait_for_function("document.getElementById('landsat-note').textContent.startsWith('Under branden: Landsat 8')", timeout=WAIT_MS, polling=POLL_MS)
+    # The playback slows down around the passes, so 14:00 comes within the minute but 15:00 may not.
+    demo.main.wait_for_function("document.getElementById('sim-time').textContent.includes(' 14:')", timeout=WAIT_MS, polling=POLL_MS)
     demo.button("PAUSE").click()
     nodes = demo.main.eval_on_selector_all("#real-sensors li", "els => els.map(e => e.textContent)")
     assert len(nodes) == 4 and all("simulerad" in line or "live" in line for line in nodes), nodes
     demo.shot("3-detections")
     return f"{demo.text('sim-time')}; {demo.text('iot-confirms')}; Landsat synlig; {len(nodes)} monternoder"
+
+
+def iot_switch(demo: Demo) -> str:
+    demo.button("IOT PÅ/AV").click()
+    demo.main.wait_for_function("document.getElementById('real-sensors').textContent.includes('IoT avstängt')", timeout=WAIT_MS, polling=POLL_MS)
+    off = demo.text("iot-confirms")
+    demo.button("IOT PÅ/AV").click()
+    demo.main.wait_for_function("document.querySelectorAll('#real-sensors li').length === 4", timeout=WAIT_MS, polling=POLL_MS)
+    return f"av: {off}; på igen med 4 monternoder"
 
 
 def assessment(demo: Demo) -> str:
@@ -234,7 +272,8 @@ def reset(demo: Demo) -> str:
     demo.main.wait_for_function("""() => document.getElementById('counts').textContent.startsWith('0 ')
         && document.getElementById('scenario-status').textContent.includes('Inga händelser')
         && document.getElementById('god-filter').hidden
-        && document.getElementById('satcom-queue').textContent === ''""", timeout=WAIT_MS, polling=50)
+        && document.getElementById('satcom-queue').textContent === ''
+        && document.getElementById('detection-card').hidden""", timeout=WAIT_MS, polling=50)
     main_ready = time.time() - pressed
     demo.control.wait_for_function("document.getElementById('event-log').children.length === 0", timeout=WAIT_MS, polling=50)
     both_ready = time.time() - pressed
@@ -260,12 +299,14 @@ CANVAS_SIZE = """() => {
 STEPS: list[tuple[str, Callable[[Demo], str]]] = [
     ("1 Öppning: jorden till branden", opening),
     ("2 SPACE VIEW och RETURN TO INCIDENT", space_view),
-    ("3 Detektioner, Landsat och IoT", detections),
-    ("4 Bedömning och frågor", assessment),
-    ("5 +60 MIN", plus60),
-    ("6 SATCOM FAILURE och SYNC", satcom),
-    ("7 GOD VIEW med filter", god_view),
-    ("8 RESET inom 5 s", reset),
+    ("3 SATELLITE DETECTION och NÄSTA", detection_sequence),
+    ("4 Detektioner, Landsat och IoT", detections),
+    ("5 IOT PÅ/AV", iot_switch),
+    ("6 Bedömning och frågor", assessment),
+    ("7 +60 MIN", plus60),
+    ("8 SATCOM FAILURE och SYNC", satcom),
+    ("9 GOD VIEW med filter", god_view),
+    ("10 RESET inom 5 s", reset),
 ]
 
 
@@ -309,7 +350,7 @@ def run(base_url: str, out: Path, headed: bool, min_fps: float = DEFAULT_MIN_FPS
                     report.canvas_px = demo.main.evaluate(CANVAS_SIZE)
                 except Exception:  # noqa: BLE001 - the renderer is information only
                     report.webgl_renderer = None
-            if name.startswith("3 "):
+            if action is detections:
                 try:
                     report.frames_per_second = frames_per_second(demo)
                 except Exception:  # noqa: BLE001 - the measurement is optional

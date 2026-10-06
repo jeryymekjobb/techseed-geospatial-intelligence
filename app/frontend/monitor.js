@@ -46,6 +46,7 @@ async function start() {
     const info = pass ? await getJson("/api/detection").catch(() => null) : null;
     if (markPass !== pass) return;
     monitor.setMark(info ? { atMs: Date.parse(info.pass.pass_utc), firms: info.pass.satellite } : null);
+    document.body.dataset.mark = info ? info.pass.pass_utc : "";  // read by tools/check_demo.py
   };
 
   const show = (scenarioState) => {
