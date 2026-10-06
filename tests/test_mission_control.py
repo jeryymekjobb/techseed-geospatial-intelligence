@@ -57,7 +57,7 @@ def node(expression: str) -> object:
 
 
 QUIET = {"satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False, "failed_sensors": [], "closed_roads": [],
-         "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True}
+         "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "detection": None}
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")

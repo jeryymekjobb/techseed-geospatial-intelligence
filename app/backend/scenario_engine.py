@@ -34,6 +34,10 @@ MIN_SPEED, MAX_SPEED = 60.0, 4 * 86400.0
 # Ten scenario minutes per second: slow enough to follow, a scenario day in under 2.5 minutes.
 DEFAULT_SPEED = 600.0
 SLOW_SPEED = 60.0
+# Phase 2: SATELLITE DETECTION with the time of a satellite pass starts a sequence the
+# operator steps through with `next`, in their own time.
+DETECTION_STEPS = ("acquired", "anomaly", "downlink", "zoom", "iot", "correlate")
+DETECTION_BEFORE, DETECTION_AFTER = timedelta(minutes=2), timedelta(minutes=6)
 # Events mission control can trigger. Toggles switch a view on and off; the others
 # are kept until `reset`. `target` names a sensor or road and is optional.
 EVENT_KINDS = (
@@ -74,6 +78,7 @@ class ScenarioEngine:
     events: list[dict[str, Any]] = field(default_factory=list, init=False)
     event_seq: int = field(default=0, init=False)
     _slow: list[tuple[datetime, datetime]] = field(default_factory=list, init=False)
+    _detection: dict[str, Any] | None = field(default=None, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
 
     def __post_init__(self) -> None:
@@ -143,7 +148,7 @@ class ScenarioEngine:
                 "revision": self.revision,
                 "jump": self.jump,
                 "events": list(self.events),
-                "status": self._status(),
+                "status": {**self._status(), "detection": self._detection_status()},
             }
 
     def _status(self) -> dict[str, Any]:
@@ -181,6 +186,36 @@ class ScenarioEngine:
                 hidden.remove(target) if target in hidden else hidden.append(target)
         return status
 
+    def _detection_status(self) -> dict[str, Any] | None:
+        if self._detection is None:
+            return None
+        step = self._detection["step"]
+        return {"pass_utc": self._detection["pass_utc"], "step": step, "name": DETECTION_STEPS[step], "steps": len(DETECTION_STEPS)}
+
+    def _start_detection(self, at: str) -> None:
+        """Stand just before the pass, paused, so the operator tells the sequence step by step."""
+        try:
+            moment = parse_utc(at)
+        except ValueError as exc:
+            raise CommandError("invalid pass time") from exc
+        self._detection = {"pass_utc": utc_text(moment), "step": 0}
+        self._playing = False
+        self._clock = max(self.start, min(self.end, moment - DETECTION_BEFORE))
+        self.jump += 1
+
+    def _next_detection_step(self) -> None:
+        if self._detection is None:
+            raise CommandError("no detection sequence to step through")
+        self._detection["step"] += 1
+        step = self._detection["step"]
+        if step >= len(DETECTION_STEPS):
+            self._detection = None
+            return
+        if DETECTION_STEPS[step] == "zoom":
+            # The pass's detections appear on the map.
+            self._clock = min(self.end, parse_utc(self._detection["pass_utc"]) + DETECTION_AFTER)
+            self.jump += 1
+
     def _record_event(self, kind: str, target: str | None) -> None:
         if target is not None and not TARGET_PATTERN.fullmatch(target):
             raise CommandError("target must be 1–64 characters a-z, 0-9, _ or -")
@@ -206,6 +241,7 @@ class ScenarioEngine:
                 self._playing = False
                 self._clock = self.start
                 self.events.clear()
+                self._detection = None
                 self.jump += 1
             elif name == "seek":
                 if not at:
@@ -220,6 +256,11 @@ class ScenarioEngine:
                 if speed is None or not MIN_SPEED <= float(speed) <= MAX_SPEED:
                     raise CommandError(f"speed must be {MIN_SPEED:.0f}–{MAX_SPEED:.0f}")
                 self.speed = float(speed)
+            elif name == "satellite_detection" and at:
+                self._start_detection(at)
+                self._record_event(name, target)
+            elif name == "next":
+                self._next_detection_step()
             elif name in EVENT_KINDS:
                 self._record_event(name, target)
             else:

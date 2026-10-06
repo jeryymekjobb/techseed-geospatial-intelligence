@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, forecast, iot, landsat, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial
+from app.backend import assessment, detection, forecast, iot, landsat, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial
 from app.backend.scenario_engine import CommandError, ScenarioEngine
 from tools.firms_extract import daily_summary, select_detections
 
@@ -199,6 +199,22 @@ def assessment_at(state: dict[str, Any], synthetic: dict[str, Any] | None = None
 
 
 @lru_cache(maxsize=1)
+def firms_passes() -> detection.Detections:
+    return detection.Detections(list(detections()))
+
+
+def detection_info(state: dict[str, Any]) -> dict[str, Any] | None:
+    """The pass and classification of the running detection sequence, if any."""
+    running = state["status"]["detection"]
+    if running is None:
+        return None
+    summary = firms_passes().pass_at(running["pass_utc"])
+    if summary is None:
+        return None
+    return {**running, "pass": summary, "classification": detection.classify(firms_passes(), summary)}
+
+
+@lru_cache(maxsize=1)
 def timed_features() -> tuple[list[datetime], list[dict[str, Any]]]:
     """Detection times and features in time order, for slicing by the scenario clock."""
     items = detections()
@@ -346,6 +362,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json([{"id": key, "question": value["question"]} for key, value in spatial.QUESTIONS.items()])
         elif path == "/api/ask":
             self.ask(query.get("q", ""))
+        elif path == "/api/detection":
+            self.send_json(detection_info(self.engine.snapshot()))
         elif path == "/api/assessment":
             state = self.engine.snapshot()
             self.send_json({**assessment_at(state), "clock_utc": state["clock_utc"]})
@@ -410,9 +428,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             body = json.loads(self.rfile.read(length))
+            at = body.get("at")
+            if body.get("command") == "satellite_detection" and not at:
+                # The sequence is built on the next real pass after the scenario clock.
+                upcoming = firms_passes().next_pass(parse_utc(self.engine.snapshot()["clock_utc"]))
+                if upcoming is None:
+                    raise CommandError("no satellite pass with detections after the scenario clock")
+                at = upcoming["pass_utc"]
             snapshot = self.engine.command(
                 str(body.get("command")),
-                at=body.get("at"),
+                at=at,
                 speed=float(body["speed"]) if body.get("speed") is not None else None,
                 target=str(body["target"]) if body.get("target") is not None else None,
             )

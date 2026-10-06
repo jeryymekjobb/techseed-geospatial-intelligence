@@ -74,7 +74,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
 
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
-        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True,
+        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "detection": None,
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -93,7 +93,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert state["status"] == {
         "satcom_up": False, "plus60": True, "god_view": True, "space_view": False, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
-        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True,
+        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True, "detection": None,
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
