@@ -4,7 +4,8 @@
 // tick; the timeline functions are pure so they can be tested in Node.
 "use strict";
 
-const MONITOR_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7" };
+// By instrument; Terra and Aqua both carry MODIS and get two shades of orange of their own.
+const MONITOR_COLORS = { Terra: "#ff8c00", Aqua: "#ffb000", MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7" };
 const MONITOR_WINDOW = { beforeMs: 3600000, afterMs: 5 * 3600000 };
 const MONITOR_SIZE = { width: 400, mapHeight: 200, rowHeight: 18 };
 const MARK_COLOR = "#e040fb";
@@ -13,7 +14,19 @@ const WORLD_TILES = ["/vendor/cesium-1.146.0/Assets/Textures/NaturalEarthII/0/0/
   "/vendor/cesium-1.146.0/Assets/Textures/NaturalEarthII/0/1/0.jpg"];
 
 function monitorColor(item) {
-  return MONITOR_COLORS[item.instrument] || "#d0d0d0";
+  return MONITOR_COLORS[item.firms] || MONITOR_COLORS[item.instrument] || "#d0d0d0";
+}
+
+// The track split where the satellite is now: the part already flown and the part ahead
+// (orbitTrack() runs from before to after the clock, so the point nearest the satellite is now).
+function splitTrack(track, point) {
+  if (!track.length) return { past: [], ahead: [] };
+  let nearest = 0;
+  track.forEach((item, index) => {
+    const distance = (lat, lon) => (lat - point.latitude) ** 2 + (lon - point.longitude) ** 2;
+    if (distance(item.latitude, item.longitude) < distance(track[nearest].latitude, track[nearest].longitude)) nearest = index;
+  });
+  return { past: track.slice(0, nearest + 1), ahead: track.slice(nearest) };
 }
 
 // Equirectangular: longitude -180..180 and latitude 90..-90 onto the map box.
@@ -93,50 +106,78 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
       if (tiles.every((image) => image.complete && image.naturalWidth)) {
         g.drawImage(tiles[0], 0, 0, width / 2, mapHeight);
         g.drawImage(tiles[1], width / 2, 0, width / 2, mapHeight);
+        // Darkened so the orbits stand out against the bright world image.
+        g.fillStyle = "#00000080";
+        g.fillRect(0, 0, width, mapHeight);
       } else {
         g.fillStyle = "#1b2a3a";
         g.fillRect(0, 0, width, mapHeight);
       }
-      for (const item of items) {
-        g.strokeStyle = monitorColor(item);
-        g.lineWidth = 1.5;
+      // Thick enough to be followed from a distance: the stand-alone page is seen across the booth.
+      const line = size.fit ? 4 : 2.5;
+      const path = (points) => {
         g.beginPath();
         let previous = null;
-        for (const point of item.track) {
+        for (const point of points) {
           const [x, y] = mapPoint(point.longitude, point.latitude, width, mapHeight);
           // Do not draw a line across the map where the track wraps at 180 degrees.
           if (previous && Math.abs(x - previous[0]) < width / 2) g.lineTo(x, y); else g.moveTo(x, y);
           previous = [x, y];
         }
-        g.stroke();
+      };
+      g.lineJoin = "round";
+      g.lineCap = "round";
+      for (const item of items) {
+        // The part already flown faint, the part ahead strong, each over a dark edge.
+        const { past, ahead } = splitTrack(item.track, item.point);
+        for (const [points, alpha] of [[past, 0.35], [ahead, 1]]) {
+          g.globalAlpha = alpha;
+          path(points);
+          g.strokeStyle = "#000000b0";
+          g.lineWidth = line + 3;
+          g.stroke();
+          g.strokeStyle = monitorColor(item);
+          g.lineWidth = line;
+          g.stroke();
+        }
+        g.globalAlpha = 1;
       }
       const [fx, fy] = mapPoint(fireCentre[1], fireCentre[0], width, mapHeight);
       g.fillStyle = "#ffd54a";
       g.strokeStyle = "#000";
+      g.lineWidth = 2;
       g.beginPath();
-      g.arc(fx, fy, 5, 0, 2 * Math.PI);
+      g.arc(fx, fy, size.fit ? 9 : 6, 0, 2 * Math.PI);
       g.fill();
       g.stroke();
-      g.font = `${size.fit ? 15 : 11}px system-ui, sans-serif`;
+      const dot = size.fit ? 9 : 5;
+      const font = `${size.fit ? 15 : 11}px system-ui, sans-serif`;
+      g.font = `bold ${size.fit ? 20 : 12}px system-ui, sans-serif`;
       for (const item of items) {
         const [x, y] = mapPoint(item.point.longitude, item.point.latitude, width, mapHeight);
+        const radius = rows.get(item)?.overNow ? dot + 3 : dot;
         g.fillStyle = monitorColor(item);
         g.beginPath();
-        g.arc(x, y, rows.get(item)?.overNow ? 6 : 4, 0, 2 * Math.PI);
+        g.arc(x, y, radius, 0, 2 * Math.PI);
         g.fill();
         g.strokeStyle = "#fff";
+        g.lineWidth = 2;
         g.stroke();
         if (mark && item.firms === mark.firms) {
           g.strokeStyle = MARK_COLOR;
           g.lineWidth = 3;
           g.beginPath();
-          g.arc(x, y, 11, 0, 2 * Math.PI);
+          g.arc(x, y, radius + 6, 0, 2 * Math.PI);
           g.stroke();
-          g.lineWidth = 1.5;
         }
+        g.strokeStyle = "#000";
+        g.lineWidth = 4;
+        g.strokeText(item.name, x + radius + 4, y + 6);
         g.fillStyle = "#fff";
-        g.fillText(item.name, x + 7, y + 4);
+        g.fillText(item.name, x + radius + 4, y + 6);
       }
+      g.font = font;
+      g.lineWidth = 1.5;
       // The timeline of passes over the fire.
       const top = mapHeight + 4;
       const left = 72;
@@ -200,4 +241,4 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
   return monitor;
 }
 
-if (typeof module !== "undefined") module.exports = { mapPoint, timelineRow, timelineTicks, timelineX, MONITOR_WINDOW };
+if (typeof module !== "undefined") module.exports = { mapPoint, splitTrack, timelineRow, timelineTicks, timelineX, MONITOR_WINDOW };

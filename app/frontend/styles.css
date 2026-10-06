@@ -119,6 +119,7 @@ body.monitor-page { display: flex; flex-direction: column; height: 100%; backgro
 .monitor-main .sat-monitor-now { font-size: 1.2rem; }
 .monitor-list { margin: 0; padding: 0 12px 4px; list-style: none; font-size: 1rem; columns: 2; }
 .monitor-list .active { color: #ffd54a; font-weight: 700; }
+.monitor-swatch { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 0.4em; border-radius: 50%; vertical-align: -0.1em; }
 .monitor-note { padding: 0 12px 10px; font-size: 0.8rem; color: #b8b8b8; }
 .ndmi-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; margin: 6px 0; font-size: 0.8rem; color: var(--muted); }
 .ndmi-legend[hidden] { display: none; }

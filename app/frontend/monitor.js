@@ -73,8 +73,11 @@ async function start() {
       const pass = !item.passes ? "" : !next ? " · ingen passage över branden närmaste dygnet"
         : next.start <= clock.getTime() ? " · ÖVER BRANDEN NU" : ` · nästa passage över branden ${hourMinute.format(new Date(next.start))}`;
       const row = document.createElement("li");
-      row.textContent = `${item.name}${item.instrument ? ` (${item.instrument})` : ""}: ${Math.round(item.point.height_km)} km, `
-        + `${item.point.speed_km_s.toFixed(1).replace(".", ",")} km/s${pass}`;
+      const swatch = document.createElement("span");
+      swatch.className = "monitor-swatch";
+      swatch.style.background = monitorColor(item);
+      row.append(swatch, `${item.name}${item.instrument ? ` (${item.instrument})` : ""}: ${Math.round(item.point.height_km)} km, `
+        + `${item.point.speed_km_s.toFixed(1).replace(".", ",")} km/s${pass}`);
       row.className = next && next.start <= clock.getTime() ? "active" : "";
       list.append(row);
     }

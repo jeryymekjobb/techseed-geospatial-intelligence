@@ -55,3 +55,11 @@ def test_the_axis_has_a_mark_every_hour() -> None:
 def test_a_moment_is_placed_on_the_timeline_only_inside_the_window() -> None:
     assert node(f"[timelineX({CLOCK}, {CLOCK}), timelineX({CLOCK + 2 * HOUR}, {CLOCK}), timelineX({CLOCK - 2 * HOUR}, {CLOCK}), timelineX({CLOCK + 6 * HOUR}, {CLOCK})]") == [
         pytest.approx(1 / 6), pytest.approx(0.5), None, None]
+
+
+def test_the_track_splits_where_the_satellite_is_now() -> None:
+    track = [{"latitude": lat, "longitude": 10.0} for lat in (-20.0, -10.0, 0.0, 10.0, 20.0)]
+    split = node(f"splitTrack({json.dumps(track)}, {{latitude: 1.0, longitude: 10.0}})")
+    assert [point["latitude"] for point in split["past"]] == [-20.0, -10.0, 0.0]
+    assert [point["latitude"] for point in split["ahead"]] == [0.0, 10.0, 20.0]
+    assert node("splitTrack([], {latitude: 0, longitude: 0})") == {"past": [], "ahead": []}
