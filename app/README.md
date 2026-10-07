@@ -36,7 +36,7 @@ From the repository root, with the local services and the IoT client:
 
 ```bash
 docker compose up -d tiles postgis mosquitto
-.venv/bin/pip install -r app/requirements-iot.txt   # once
+.venv/bin/pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt   # once
 .venv/bin/python -m app.backend.server
 .venv/bin/python -m tools.mqtt_node_sim             # in a second terminal: the booth nodes, simulated
 ```

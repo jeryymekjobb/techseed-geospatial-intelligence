@@ -153,7 +153,7 @@ påverkas:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r app/requirements-iot.txt -r tools/requirements-record.txt
+.venv/bin/pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt -r tools/requirements-record.txt
 ```
 
 Det tar någon minut. Sista raden ska börja med `Successfully installed`.

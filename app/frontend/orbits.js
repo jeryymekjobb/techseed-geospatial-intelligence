@@ -85,11 +85,6 @@ function nextPass(lib, elements, from, latitude, longitude, halfSwathKm, hours =
   return null;
 }
 
-// Every pass over the point between two times, as { start, end } in ms: the fire inside
-// half the swath. The ground track is sampled at a step short enough not to jump a
-// whole swath (30 s, less for Landsat's narrow one), and each entry and exit is found by
-// halving the step down to 1 s. The globe computes this once per scenario day and looks
-// the next pass up, instead of searching every tick.
 // A catalogue acquisition (Sentinel-1) as a pass: the product's first 25 seconds.
 const ACQUISITION_MS = 25000;
 
@@ -107,6 +102,12 @@ function satellitePasses(lib, item, startMs, endMs, latitude, longitude) {
   return passesBetween(lib, item.elements, startMs, endMs, latitude, longitude, item.half_swath_km);
 }
 
+// Every pass over the point between two times, as { start, end } in ms: the incident inside
+// half the swath. The ground track is sampled at a step short enough not to jump a
+// whole swath (30 s, less for Landsat's narrow one), and each entry and exit is found by
+// halving the step down to 1 s. The globe computes this once per scenario day and looks
+// the next pass up, instead of searching every tick.
+// app/backend/passes.py computes the same for the scenario clock.
 function passesBetween(lib, elements, startMs, endMs, latitude, longitude, halfSwathKm) {
   const inside = (ms) => {
     const point = subpoint(lib, elements, new Date(ms));

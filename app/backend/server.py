@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, flood_assessment, flood_sensors, forecast, iot, landsat, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial, wms
+from app.backend import assessment, detection, flood_assessment, flood_sensors, forecast, iot, landsat, passes, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial, wms
 from app.backend.scenario_engine import DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -189,16 +189,29 @@ SLOW_BEFORE, SLOW_AFTER = timedelta(minutes=2), timedelta(minutes=6)
 
 
 def slow_windows() -> list[tuple[datetime, datetime]]:
-    """Two minutes before to six after each FIRMS pass (a granule lasts up to five), each Sentinel-1 radar
-    acquisition of the flood and each satellite image in the playback."""
+    """Two minutes before to six after each FIRMS pass (a granule lasts up to five) and each satellite image
+    in the playback; for the flood, round every pass of a satellite over the incident (passes.py), as the
+    satellite monitor shows them, since it has no detections to slow down for."""
     moments = {parse_utc(item["acq_datetime_utc"]) for item in detections()}
     moments |= {parse_utc(item["time_utc"]) for item in scenario.SENTINEL1_ACQUISITIONS}
+    windows: list[tuple[datetime, datetime]] = []
+    if not scenario.WILDFIRE:
+        windows = [(begin - SLOW_BEFORE, end + SLOW_AFTER) for begin, end, _ in incident_passes()]
     scenes = landsat.layer()
     for scene in scenes["scenes"] if scenes else []:
         moment = parse_utc(scene["acquired_utc"])
         if scenario.PLAYBACK_START <= moment <= scenario.PLAYBACK_END:  # the scenes before and after are outside
             moments.add(moment)
-    return [(moment - SLOW_BEFORE, moment + SLOW_AFTER) for moment in sorted(moments)]
+    return sorted(windows + [(moment - SLOW_BEFORE, moment + SLOW_AFTER) for moment in moments])
+
+
+@lru_cache(maxsize=1)
+def incident_passes() -> tuple[tuple[datetime, datetime, str], ...]:
+    """The satellites' passes over the incident in the playback (passes.py)."""
+    data = satellites.satellites()
+    if not data["available"]:
+        return ()
+    return tuple(passes.incident_passes(data["satellites"], scenario.PLAYBACK_START, scenario.PLAYBACK_END, scenario.FIRE_CENTRE))
 
 
 def satellite_until(state: dict[str, Any]) -> datetime:
@@ -698,6 +711,9 @@ def main(argv: list[str] | None = None) -> int:
     wms.watch()
     # Slow the playback down around every satellite pass in the data and the Landsat scene.
     Handler.engine.set_slow_windows(slow_windows())
+    if not scenario.WILDFIRE:
+        computed = "" if passes.available() else " – sgp4 saknas (app/requirements-orbits.txt), bara kända bildtagningar"
+        print(f"Satellite passes over the incident: {len(incident_passes())}{computed}")
     # Start psql now, so the first question is answered without the start-up time.
     try:
         Handler.psql.query("SELECT 1")

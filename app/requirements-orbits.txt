@@ -1,0 +1,1 @@
+sgp4>=2.22  # app/backend/passes.py: the satellites' passes over the incident, for the scenario clock

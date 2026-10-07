@@ -374,7 +374,9 @@ def flood_assessment(demo: Demo) -> str:
 
 
 def flood_satcom(demo: Demo) -> str:
-    demo.command({"command": "speed", "speed": 10800})  # the next radar acquisition, 17 August 05:13 UTC, within seconds
+    # From the evening, so only the clock's slow-down round the next radar acquisition, 17 August 05:13 UTC, lies before it.
+    demo.command({"command": "seek", "at": "2026-08-16T21:00:00Z"})
+    demo.command({"command": "speed", "speed": 10800})
     demo.button("SATCOM FAILURE").click()
     demo.button("PLAY").click()
     demo.main.wait_for_function("/ [1-9][0-9]* satellitbilder köade/.test(document.getElementById('satcom-queue').textContent)", timeout=WAIT_MS, polling=POLL_MS)
