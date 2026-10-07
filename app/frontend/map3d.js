@@ -251,6 +251,16 @@ async function createCesiumMap(config) {
       }
     },
 
+    // The rain at each station in SMHI's classes (rain.js): the point's size and colour, by station id.
+    markRain(classes) {
+      for (const [id, rain] of Object.entries(classes)) {
+        const entity = stationEntities.get(id);
+        if (!entity) continue;
+        entity.point.pixelSize = rain.radius * 2;
+        entity.point.color = cesiumColor(rain.color);
+      }
+    },
+
     clearHotspots() {
       points.removeAll();
       hotspots = [];

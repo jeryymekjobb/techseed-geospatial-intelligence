@@ -31,4 +31,19 @@ function hourlyRain(observations, startMs, endMs) {
   return values;
 }
 
-if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, HOUR_MS };
+// SMHI's classes of rain by the hour's sum (smhi.se, Kunskapsbanken: Nederbördsintensitet):
+// light at most 0.5 mm, moderate 0.5–4 mm, heavy more than 4 mm, a cloudburst at least 50 mm.
+// An hourly sum cannot tell showers from steady rain, so the classes of rain are used.
+const RAIN_CLASSES = [
+  { key: "none", label: "inget regn", below: 0.05, color: "#ffffff", radius: 6 },
+  { key: "light", label: "lätt regn", below: 0.5 + 1e-9, color: "#a6cdf2", radius: 9 },
+  { key: "moderate", label: "måttligt regn", below: 4 + 1e-9, color: "#3d8fd9", radius: 13 },
+  { key: "heavy", label: "kraftigt regn", below: 50, color: "#123f8c", radius: 18 },
+  { key: "cloudburst", label: "skyfall", below: Infinity, color: "#7a1fa2", radius: 24 },
+];
+
+function rainClass(millimetres) {
+  return RAIN_CLASSES.find((item) => millimetres < item.below);
+}
+
+if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainClass, RAIN_CLASSES, HOUR_MS };

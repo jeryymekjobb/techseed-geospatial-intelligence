@@ -137,6 +137,13 @@ function createLeafletMap(config) {
       for (const [id, text] of Object.entries(texts)) stationMarkers.get(id)?.setTooltipContent(text);
     },
 
+    // The rain at each station in SMHI's classes (rain.js): the marker's size and colour, by station id.
+    markRain(classes) {
+      for (const [id, rain] of Object.entries(classes)) {
+        stationMarkers.get(id)?.setRadius(rain.radius).setStyle({ fillColor: rain.color });
+      }
+    },
+
     // The scenario's WMS layers (wms.py, through the backend) in the layer control; `visible` start shown.
     // In WGS 84: MCF's service has no Web Mercator.
     addWms(source) {

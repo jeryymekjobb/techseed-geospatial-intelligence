@@ -498,7 +498,11 @@ regn augusti 2026 – inte en återgiven händelse". Säg det också till besök
 Demon använder samma skärmar och knappar som branddemon. I stället för brandens delar visar den:
 
 - **Regn (SMHI)** i panelen: timmar och dygn vid den mätare du väljer, och ett stapeldiagram med
-  en röd linje för scenarioklockan. Varje mätare på kartan visar regnet den senaste timmen.
+  en röd linje för scenarioklockan. Varje mätare på kartan visar regnet den senaste timmen, och
+  markeringens storlek och färg följer SMHI:s klasser för regn: lätt (högst 0,5 mm på en timme),
+  måttligt (0,5–4 mm), kraftigt (mer än 4 mm) och skyfall (minst 50 mm). En timsumma skiljer inte
+  skurar från ihållande regn, så klasserna för regn används.
+- **Vind (ERA5-Land, modell)**: vindpilar över kartan, som i branddemon, timme för timme.
 - **Översvämningskartor (modell)**: kommunens skyfallsmodeller för 30-, 100- och 500-årsregn,
   Selångersåns 100-årsflöde och MCF:s (tidigare MSB:s) karteringar av Ljungan och Indalsälven.
   Välj dem i kartans lagerlista. Största vattendjup vid 100-årsregn är påslaget från början.
@@ -529,6 +533,10 @@ export TECHSEED_SCENARIO=sundsvall2026
 # 15.3 Regnet från kommunens mätare och Brämön A
 .venv/bin/python -m tools.fetch_smhi_weather 2222813 2222814 2222818 2222811 2222812 2222819 127130 \
   --period latest-months --parameters 7 --start 2026-08-14 --end 2026-08-22 --out data/sundsvall2026/smhi
+
+# 15.3b Vinden för pilarna (ERA5-Land; behöver ett konto hos Copernicus CDS med nyckeln i ~/.cdsapirc)
+.venv/bin/python tools/fetch_era5_land.py --area 62.6,16.9,62.2,17.8 --start 2026-08-14 --end 2026-08-22 \
+  --raw-dir /tmp/era5-land-sundsvall --out data/sundsvall2026/era5-land/era5-land-sundsvall-2026.csv
 
 # 15.4 Kartdata från OpenStreetMap
 .venv/bin/python -m tools.fetch_osm_terrain --bbox 62.15,16.9,62.62,17.8 --out data/sundsvall2026/osm/terrain-sundsvall.geojson
@@ -641,7 +649,7 @@ också. En placerad sensor räknas ut ur regnet vid närmaste mätare, men har i
 | Kategori | Vad | Säg |
 |---|---|---|
 | **Riktiga data** | Regnet från kommunens mätare och SMHI:s Brämön A, Sentinel-1:s radarbilder (inte terrängkorrigerade), Landsat 8- och Sentinel-2-bilderna, satelliternas banor (Space-Track), kommunens kritiska dagvattenpunkter, kartdata från OpenStreetMap (dagens läge) | "Riktiga data från augusti 2026, uppspelade. Det är inte live." |
-| **Modell** | Kommunens skyfallsmodeller, vattendjup och strömhastighet, Selångersåns 100-årsflöde, MCF:s karteringar av Ljungan och Indalsälven | "Modeller av vad som kan översvämmas. De visar inte vad som hände." |
+| **Modell** | Vinden (ERA5-Land, en väderanalys från Copernicus, inte SMHI:s mätningar), kommunens skyfallsmodeller, vattendjup och strömhastighet, Selångersåns 100-årsflöde, MCF:s karteringar av Ljungan och Indalsälven | "Modeller av vad som kan översvämmas. De visar inte vad som hände." |
 | **Beräknat** | Satelliternas positioner och passager, vattenmasken i Sentinel-2-bilden, vattnet i radarbilden utanför sjöar och hav (en enkel tröskel), bedömningens poäng och reglerna | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
 | **Syntetiskt och simulerat** | Bräddgivarna DV1–DV8 och placerade sensorer, sensorerna i montern, händelserna från mission control och sekvensens steg märkta SYNTETISKT | "Simulerat för demon. Det står på skärmen." |
 

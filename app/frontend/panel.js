@@ -179,10 +179,14 @@ function showRain(clock) {
   if (hour === state.rainShownAt) return;
   state.rainShownAt = hour;
   const labels = {};
+  const classes = {};
   for (const station of state.weather.stations) {
-    labels[station.id] = `${station.name}: ${decimal(rainSums(station.observations, clock.getTime()).hour)} mm/h`;
+    const hourSum = rainSums(station.observations, clock.getTime()).hour;
+    classes[station.id] = rainClass(hourSum);
+    labels[station.id] = `${station.name}: ${decimal(hourSum)} mm/h`;
   }
   state.map.labelStations(labels);
+  state.map.markRain(classes);
   const station = state.weather.stations.find((item) => item.id === state.rainStation);
   if (!station) return;
   const sums = rainSums(station.observations, clock.getTime());
@@ -235,6 +239,10 @@ function setupRain(config) {
     showRain(state.clock);
   });
   state.map.addAttribution(config.attribution.smhi);
+  // The markers' classes, as SMHI names rain by the hour's sum.
+  const limits = ["0 mm", "högst 0,5 mm", "0,5–4 mm", "mer än 4 mm", "minst 50 mm"];
+  $("rain-legend").innerHTML = RAIN_CLASSES.map((item, index) => `<li><span class="swatch" style="background:${item.color};`
+    + `border:2px solid #1f5fa8;border-radius:50%"></span>${item.label}: ${limits[index]} på en timme</li>`).join("");
   $("rain-note").textContent = "Timsummor från SMHI. Kommunens mätare redovisar bara timmar med regn; "
     + "en timme utan värde räknas som torr. Senaste månaderna är inte alltid kvalitetsgranskade.";
 }
@@ -1050,7 +1058,7 @@ async function startApp(createMap) {
 
   if (!wildfire) setupFloodMaps(config);
   // The fire's wind field and spread forecast.
-  if (wildfire) state.wind = await loadOptional("/api/wind", (error) => { $("wind-note").textContent = `Vinddata kunde inte laddas: ${error.message}.`; });
+  state.wind = await loadOptional("/api/wind", (error) => { $("wind-note").textContent = `Vinddata kunde inte laddas: ${error.message}.`; });
   if (state.wind) {
     state.map.setupWind(state.wind, () => { state.windHour = null; showWind(state.clock); });
     state.map.addAttribution(config.attribution.era5_land);

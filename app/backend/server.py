@@ -392,7 +392,7 @@ class Handler(BaseHTTPRequestHandler):
                 "features": [feature(item) for item in items],
                 "daily": daily_summary(items),
             })
-        elif path in {"/api/forecast", "/api/wind"} and not scenario.WILDFIRE:
+        elif (path == "/api/forecast" and not scenario.WILDFIRE) or (path == "/api/wind" and not scenario.WIND_FILE.exists()):
             self.send_json({"error": "not_in_scenario"}, HTTPStatus.NOT_FOUND)
         elif path == "/api/forecast":
             self.send_json(forecast.forecasts())

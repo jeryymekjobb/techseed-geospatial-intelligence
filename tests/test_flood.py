@@ -173,3 +173,18 @@ def test_the_radar_image_s_water_counts_only_where_it_can_tell_water_from_land(t
     assert clear["holds"] and clear["text"].startswith("Radarbilden: vatten utanför sjöar och hav på 1,5 % av stans land")
     line = {item["key"]: item for item in assessor.at(at("2026-08-17T06:00:00Z"), flood.at(at("2026-08-17T06:00:00Z")))["evidence"]}["radar"]
     assert line["text"].startswith("Senaste radarbild: Sentinel-1D 08-17 05:13 UTC – vatten utanför sjöar och hav på 1,5 %")
+
+
+def test_the_flood_shows_the_era5_land_wind_as_the_fire_does() -> None:
+    code = """
+from app.backend import scenario, server
+print(scenario.ATTRIBUTION["era5_land"].startswith("Innehåller bearbetad information från Copernicus"))
+print(scenario.WIND_FILE.exists())
+if scenario.WIND_FILE.exists():
+    field = server.wind_field()
+    print(len(field["points"]), field["times_utc"][0], field["times_utc"][-1])
+"""
+    lines = run_flood(code).splitlines()
+    assert lines[0] == "True"
+    if lines[1] == "True":  # data/ is not in the repository; fetched with tools/fetch_era5_land.py
+        assert lines[2] == "39 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z"  # 11 of 50 points are at sea

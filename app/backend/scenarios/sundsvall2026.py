@@ -184,6 +184,7 @@ ATTRIBUTION = {
     "lantmateriet": "© Lantmäteriet",
     "smhi": "SMHI öppna data (CC BY 4.0 SE), Sundsvalls kommuns nederbördsmätare och Brämön A; senaste månaderna, ej kvalitetsgranskade",
     "sentinel": "Innehåller bearbetade Copernicus Sentinel-data 2026",
+    "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land), CC BY 4.0",
     "mcf": "Översvämningskartering © MCF (tidigare MSB)",
     "sundsvall": "Skyfallsmodeller och kartlager © Sundsvalls kommun",
     "copernicus_dem": (

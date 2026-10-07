@@ -39,3 +39,8 @@ def test_the_hour_and_the_day_up_to_the_clock() -> None:
 def test_one_value_per_playback_hour_for_the_chart() -> None:
     values = node(f"hourlyRain({json.dumps(OBSERVATIONS)}, Date.parse('2026-08-16T05:00:00Z'), Date.parse('2026-08-16T10:00:00Z'))")
     assert values == [0, 4.2, 10.6, 0, 0]
+
+
+def test_the_markers_follow_smhi_s_classes_of_rain_by_the_hour() -> None:
+    classes = node("[0, 0.3, 0.5, 0.6, 4, 4.1, 49.9, 50].map((mm) => rainClass(mm).key)")
+    assert classes == ["none", "light", "light", "moderate", "moderate", "heavy", "heavy", "cloudburst"]
