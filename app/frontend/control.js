@@ -15,6 +15,7 @@ let config = null;
 let latestImage = "swir";  // the image "auto" shows: SWIR in the fire, radar in the flood (as panel.js)
 let imageList = "";  // the values in the image list, to rebuild it only when they change
 let clockShown = null;  // the scenario clock last shown, for when /api/config arrives after it
+let pendingPick = null;  // an image chosen in the list, shown on the screens only with VISA VALD BILD
 const realSensors = new Map();
 let iotConnection = null;
 
@@ -92,6 +93,7 @@ function showImages(clockUtc) {
   const select = $("image-pick");
   if (!info) {
     select.disabled = true;
+    $("show-pick").disabled = true;
     for (const button of document.querySelectorAll("[data-image]")) button.disabled = true;
     $("image-shown").textContent = "Satellitbilderna är inte hämtade.";
     return;
@@ -113,9 +115,13 @@ function showImages(clockUtc) {
   const pick = status.image || "auto";
   const selection = landsatSelection(info.scenes, clockMs, pick, latestImage);
   // A chosen image not taken yet gives way to the latest, as on the main screen.
-  select.value = selection.key === pick || pick === "off" ? pick : "auto";
+  const current = selection.key === pick || pick === "off" ? pick : "auto";
+  // The list keeps an image chosen in it until VISA VALD BILD, unless it is shown already or has left the list.
+  if (pendingPick === current || ![...select.options].some((option) => option.value === pendingPick)) pendingPick = null;
+  select.value = pendingPick ?? current;
+  $("show-pick").disabled = pendingPick === null;
   for (const button of document.querySelectorAll("[data-image]")) {
-    const on = button.dataset.image === select.value;
+    const on = button.dataset.image === current;
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   }
@@ -125,10 +131,11 @@ function showImages(clockUtc) {
     scene, image, reason: selection.reason, choice: latestImage, mapData: config.layers.map_data,
     offlineTiles: config.layers.offline_tiles, formatTime: (isoUtc) => `${localTime.format(new Date(isoUtc))} svensk tid`,
     formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
-  });
+  }) + (pendingPick === null ? "" : `\nVald i listan: ${select.options[select.selectedIndex].text} – tryck VISA VALD BILD.`);
 }
 
 function chooseImage(value) {
+  pendingPick = null;
   send("image", value).then((state) => {
     showState(state);
     $("command-status").textContent = "";
@@ -199,7 +206,11 @@ $("switch-demo").addEventListener("click", async () => {
   $("command-status").textContent = !response ? "BYT DEMO: backend svarar inte."
     : error ? `BYT DEMO gick inte: ${error.detail || error.error}` : "Demon avslutas – menyn visas strax här.";
 });
-$("image-pick").addEventListener("change", (event) => chooseImage(event.target.value));
+$("image-pick").addEventListener("change", (event) => {
+  pendingPick = event.target.value;
+  showImages(clockShown);
+});
+$("show-pick").addEventListener("click", () => { if (pendingPick !== null) chooseImage(pendingPick); });
 // The scenario's name in the header.
 fetch("/api/config").then((response) => response.json()).then((loaded) => {
   config = loaded;

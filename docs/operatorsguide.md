@@ -340,7 +340,8 @@ Huvudskärmen ska visa kartan över brandområdet, och i panelen till höger ska
 datum: till exempel "Visas: Satellitbild – Landsat 8, falska färger, kortvågig IR, tagen 4 aug.
 2014 12:06 svensk tid", eller "Visas: Karta – OpenStreetMap, data från …" med datumet då kartans
 OpenStreetMap-data hämtades. Du väljer i gruppen **Satellitbilder** i mission control: knapparna
-**KARTA** och **SENASTE SATELLITBILD**, eller en bild i listan **Bild**. Senaste satellitbild är
+**KARTA** och **SENASTE SATELLITBILD**, eller en bild i listan **Bild** som du sedan visar med
+**VISA VALD BILD**. Senaste satellitbild är
 den senaste bilden som är tagen fram till scenariotiden. Valet gäller alla skärmar, och
 **RESET** ställer tillbaka det på senaste satellitbild.
 
@@ -406,7 +407,8 @@ Efter **RESET** står klockan på demons startpunkt, den 31 juli. Ladda om huvud
 adressen i avsnitt 8 för att börja kl. 11:30 den 4 augusti igen.
 
 **Före och efter branden.** Listan **Bild** i mission control har varje bild som är tagen fram
-till scenariotiden, den senaste överst, och fylls på när klockan går. Längst ner står bilden
+till scenariotiden, den senaste överst, och fylls på när klockan går. Ett val i listan syns på
+skärmarna först när du trycker **VISA VALD BILD**, så du kan förbereda nästa bild i lugn och ro. Längst ner står bilden
 från 14 september, **jämförelse – tagen senare**, med hela det brända området ovanpå dagens
 brandfront; den går alltid att välja. Välj en bild med **fukt i vegetationen (NDMI)** för att
 visa hur torrt det var: brunt är torrt, blått är fuktigt. Säg att bilden efter branden är en jämförelse,
