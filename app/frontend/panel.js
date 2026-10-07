@@ -269,6 +269,12 @@ function setupFloodMaps(config) {
   }
 }
 
+// The cloudburst model's depth colours (flood_legend.js), shown while a depth layer is.
+function setupDepthLegend() {
+  $("depth-classes").innerHTML = DEPTH_CLASSES.map((item) => `<li><span class="swatch" style="background:${item.color}"></span>${item.text}</li>`).join("");
+  state.map.onWmsChange((names) => { $("depth-legend").hidden = !depthLegendShown(names); });
+}
+
 function windAt(clock) {
   // The latest ERA5-Land hour at or before the playback clock.
   const times = state.wind.times_utc;
@@ -1057,6 +1063,7 @@ async function startApp(createMap) {
   }
 
   if (!wildfire) setupFloodMaps(config);
+  if (!wildfire) setupDepthLegend();
   // The fire's wind field and spread forecast.
   state.wind = await loadOptional("/api/wind", (error) => { $("wind-note").textContent = `Vinddata kunde inte laddas: ${error.message}.`; });
   if (state.wind) {

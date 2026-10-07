@@ -147,6 +147,8 @@ async function createCesiumMap(config) {
   let highlighted = null;  // the detection sequence's satellite: { entry, line }
   const landsatLayers = {};  // composite name -> imagery layer
   const wmsLayers = [];  // the flood maps, kept above the satellite images
+  const wmsNames = new Map();  // imagery layer -> WMS layer name
+  let wmsListener = () => {};
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
   let terrainLayer = null;
@@ -574,9 +576,16 @@ async function createCesiumMap(config) {
         }));
         layer.alpha = WMS_ALPHA;
         wmsLayers.push(layer);
+        wmsNames.set(layer, name);
         layer.show = (source.visible || []).includes(name);
-        layers.push([`${title} (modell)`, (visible) => { layer.show = visible; }, () => layer.show]);
+        layers.push([`${title} (modell)`, (visible) => { layer.show = visible; wmsListener(); }, () => layer.show]);
       }
+    },
+
+    // callback(names) with the WMS layers shown, now and whenever one is switched on or off.
+    onWmsChange(callback) {
+      wmsListener = () => callback(wmsLayers.filter((layer) => layer.show).map((layer) => wmsNames.get(layer)));
+      wmsListener();
     },
 
     setupLandsat(info) {

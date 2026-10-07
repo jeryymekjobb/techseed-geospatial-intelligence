@@ -506,6 +506,10 @@ Demon använder samma skärmar och knappar som branddemon. I stället för brand
 - **Översvämningskartor (modell)**: kommunens skyfallsmodeller för 30-, 100- och 500-årsregn,
   Selångersåns 100-årsflöde och MCF:s (tidigare MSB:s) karteringar av Ljungan och Indalsälven.
   Välj dem i kartans lagerlista. Största vattendjup vid 100-årsregn är påslaget från början.
+  När ett lager med största vattendjup är påslaget visar panelen kommunens färger: grönt
+  0,1–0,2 m, ljusgrönt 0,2–0,3 m, gult 0,3–0,4 m, ljusorange 0,4–0,5 m, orange 0,5–1 m, rött
+  1–2 m och mörkrött mer än 2 m. Det är modellens största djup vid ett sådant regn, inte vad som
+  hände i augusti 2026.
 - **Syntetiska bräddgivare DV1–DV8** vid kommunens kritiska dagvattenpunkter. Röd betyder att
   den bräddar. Deras värden räknas ut ur det verkliga regnet och kommunens modell.
 - **Satellitbilder** under "Satellitbild": Sentinel-1:s radarbilder, som ser genom moln, och

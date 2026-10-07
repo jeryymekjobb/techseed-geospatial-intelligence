@@ -66,6 +66,7 @@ function createLeafletMap(config) {
   map.createPane("wms").style.zIndex = 360;
   const landsatOverlays = {};
   let windLayer = null;
+  const wmsLayers = new Map();  // WMS layer name -> Leaflet layer
   if (config.attribution.firms) map.attributionControl.addAttribution(config.attribution.firms);
   const stationMarkers = new Map();  // SMHI station id -> marker
   let markers = [];
@@ -144,6 +145,13 @@ function createLeafletMap(config) {
       }
     },
 
+    // callback(names) with the WMS layers shown, now and whenever one is switched on or off.
+    onWmsChange(callback) {
+      const notify = () => callback([...wmsLayers].filter(([, layer]) => map.hasLayer(layer)).map(([name]) => name));
+      map.on("overlayadd overlayremove", notify);
+      notify();
+    },
+
     // The scenario's WMS layers (wms.py, through the backend) in the layer control; `visible` start shown.
     // In WGS 84: MCF's service has no Web Mercator.
     addWms(source) {
@@ -153,6 +161,7 @@ function createLeafletMap(config) {
           opacity: 0.7, attribution: source.attribution, pane: "wms",
         });
         overlays[`${title} (modell)`] = layer;
+        wmsLayers.set(name, layer);
         if ((source.visible || []).includes(name)) layer.addTo(map);
       }
     },

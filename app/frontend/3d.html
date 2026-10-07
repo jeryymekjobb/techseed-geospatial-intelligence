@@ -71,6 +71,11 @@
       <section data-incident="flood">
         <h2>Översvämningskartor (modell)</h2>
         <ul id="flood-legend" class="legend"></ul>
+        <div id="depth-legend" hidden>
+          <h3>Största vattendjup (modell)</h3>
+          <ul id="depth-classes" class="legend"></ul>
+          <div class="status">Färgerna enligt Sundsvalls kommuns teckenförklaring; samma för 30-, 100- och 500-årsregn.</div>
+        </div>
         <div class="status">Modeller av vad som kan översvämmas, inte observationer av augusti 2026. Välj lager i kartans lagerlista.</div>
       </section>
       <section data-incident="wildfire">
@@ -122,6 +127,7 @@
   <script src="/satmonitor.js"></script>
   <script src="/landsat.js"></script>
   <script src="/rain.js"></script>
+  <script src="/flood_legend.js"></script>
   <script src="/panel.js"></script>
   <script src="/map3d.js"></script>
   <script src="/app3d.js"></script>
