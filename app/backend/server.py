@@ -127,21 +127,27 @@ def labels() -> dict[str, Any]:
 def wind_field() -> dict[str, Any]:
     """ERA5-Land 10 m wind per grid point and hour, compact: one list per hour, in point order."""
     points: list[tuple[float, float]] = []
+    sources: list[str] = []
     index: dict[tuple[float, float], int] = {}
     hours: dict[str, dict[int, tuple[float, int, float]]] = {}
-    with scenario.WIND_FILE.open(encoding="utf-8", newline="") as stream:
-        for row in csv.DictReader(stream):
-            point = (float(row["latitude"]), float(row["longitude"]))
-            if point not in index:
-                index[point] = len(points)
-                points.append(point)
-            hours.setdefault(row["time_utc"], {})[index[point]] = (
-                float(row["wind_speed_ms"]), int(row["wind_from_deg"]), float(row["t2m_c"]),
-            )
-    times = sorted(hours)
+    # ERA5-Land, and in some scenarios ERA5 over the sea where ERA5-Land has no values.
+    files = [scenario.WIND_FILE] + ([scenario.WIND_SEA_FILE] if scenario.WIND_SEA_FILE and scenario.WIND_SEA_FILE.exists() else [])
+    for path in files:
+        with path.open(encoding="utf-8", newline="") as stream:
+            for row in csv.DictReader(stream):
+                point = (float(row["latitude"]), float(row["longitude"]))
+                if point not in index:
+                    index[point] = len(points)
+                    points.append(point)
+                    sources.append(row.get("source") or "ERA5-Land")
+                hours.setdefault(row["time_utc"], {})[index[point]] = (
+                    float(row["wind_speed_ms"]), int(row["wind_from_deg"]), float(row["t2m_c"]),
+                )
+    times = [moment for moment in sorted(hours) if len(hours[moment]) == len(points)]
     return {
         "source": scenario.ATTRIBUTION["era5_land"],
         "points": [list(point) for point in points],
+        "sources": sources,  # per point: ERA5-Land, or ERA5 interpolated over the sea
         "times_utc": times,
         # [speed m/s, direction the wind blows from in degrees, 2 m temperature °C] per point
         "values": [[list(hours[moment][position]) for position in range(len(points))] for moment in times],

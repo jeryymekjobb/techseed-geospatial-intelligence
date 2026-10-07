@@ -290,13 +290,14 @@ function showWind(clock) {
   if (hour === state.windHour) return;
   state.windHour = hour;
   state.map.showWind(hour, state.wind);
-  $("wind-note").textContent = hour < 0 ? "Inga vinddata för tiden." : `Modellvärden för ${formatLocal(state.wind.times_utc[hour])}.`;
+  const sea = state.wind.sources?.some((source) => source !== "ERA5-Land") ? " Över havet: ERA5, interpolerad från 0,25°." : "";
+  $("wind-note").textContent = hour < 0 ? "Inga vinddata för tiden." : `Modellvärden för ${formatLocal(state.wind.times_utc[hour])}.${sea}`;
 }
 
 function windTooltip(position, hour) {
   const [speed, from, temperature] = state.wind.values[hour][position];
   const [lat, lon] = state.wind.points[position];
-  return `ERA5-Land ${lat.toFixed(1)} N ${lon.toFixed(1)} E<br>${speed.toFixed(1)} m/s från ${compassPoint(from)} (${from}°), ${temperature} °C`
+  return `${state.wind.sources?.[position] || "ERA5-Land"} ${lat.toFixed(1)} N ${lon.toFixed(1)} E<br>${speed.toFixed(1)} m/s från ${compassPoint(from)} (${from}°), ${temperature} °C`
     + `<br>${formatLocal(state.wind.times_utc[hour])}`;
 }
 

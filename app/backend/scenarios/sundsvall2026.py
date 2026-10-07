@@ -34,6 +34,8 @@ TERRAIN_FILE = DATA / "osm" / "terrain-sundsvall.geojson"
 TARGETS_FILE = DATA / "osm" / "targets-sundsvall.geojson"
 WEATHER_DIR = DATA / "smhi"
 WIND_FILE = DATA / "era5-land" / "era5-land-sundsvall-2026.csv"
+# ERA5 over the sea, where ERA5-Land has no values (tools/fetch_era5_sea.py).
+WIND_SEA_FILE = DATA / "era5-land" / "era5-sea-sundsvall-2026.csv"
 DEM_DIR = DATA / "dem"
 TERRAIN_DIR = DATA / "terrain"
 LANDSAT_DIR = DATA / "landsat"
@@ -184,7 +186,7 @@ ATTRIBUTION = {
     "lantmateriet": "© Lantmäteriet",
     "smhi": "SMHI öppna data (CC BY 4.0 SE), Sundsvalls kommuns nederbördsmätare och Brämön A; senaste månaderna, ej kvalitetsgranskade",
     "sentinel": "Innehåller bearbetade Copernicus Sentinel-data 2026",
-    "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land), CC BY 4.0",
+    "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land och ERA5 över havet), CC BY 4.0",
     "mcf": "Översvämningskartering © MCF (tidigare MSB)",
     "sundsvall": "Skyfallsmodeller och kartlager © Sundsvalls kommun",
     "copernicus_dem": (

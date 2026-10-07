@@ -529,7 +529,9 @@ Demon använder samma skärmar och knappar som branddemon. I stället för brand
   markeringens storlek och färg följer SMHI:s klasser för regn: lätt (högst 0,5 mm på en timme),
   måttligt (0,5–4 mm), kraftigt (mer än 4 mm) och skyfall (minst 50 mm). En timsumma skiljer inte
   skurar från ihållande regn, så klasserna för regn används.
-- **Vind (ERA5-Land, modell)**: vindpilar över kartan, som i branddemon, timme för timme.
+- **Vind (ERA5-Land, modell)**: vindpilar över kartan, som i branddemon, timme för timme. Över
+  havet, där ERA5-Land saknar värden, kommer pilarna från ERA5 (0,25°, interpolerad); det står
+  när man håller musen över en pil.
 - **Översvämningskartor (modell)**: kommunens skyfallsmodeller för 30-, 100- och 500-årsregn,
   Selångersåns 100-årsflöde och MCF:s (tidigare MSB:s) karteringar av Ljungan och Indalsälven.
   Välj dem i kartans lagerlista. Största vattendjup vid 100-årsregn är påslaget från början.
@@ -569,6 +571,10 @@ export TECHSEED_SCENARIO=sundsvall2026
 # 15.3b Vinden för pilarna (ERA5-Land; behöver ett konto hos Copernicus CDS med nyckeln i ~/.cdsapirc)
 .venv/bin/python tools/fetch_era5_land.py --area 62.6,16.9,62.2,17.8 --start 2026-08-14 --end 2026-08-22 \
   --raw-dir /tmp/era5-land-sundsvall --out data/sundsvall2026/era5-land/era5-land-sundsvall-2026.csv
+# och vinden över havet, där ERA5-Land saknar värden (ERA5, samma CDS-konto)
+.venv/bin/python -m tools.fetch_era5_sea --area 62.6,16.9,62.2,17.8 --start 2026-08-14 --end 2026-08-22 \
+  --land data/sundsvall2026/era5-land/era5-land-sundsvall-2026.csv --raw-dir /tmp/era5-sea \
+  --out data/sundsvall2026/era5-land/era5-sea-sundsvall-2026.csv
 
 # 15.4 Kartdata från OpenStreetMap
 .venv/bin/python -m tools.fetch_osm_terrain --bbox 62.15,16.9,62.62,17.8 --out data/sundsvall2026/osm/terrain-sundsvall.geojson

@@ -300,8 +300,8 @@ async function createCesiumMap(config) {
     },
 
     setupWind(wind, onShow) {
-      windEntities = wind.points.map(([lat, lon]) => windLayer.entities.add({
-        name: "Vind (ERA5-Land)",
+      windEntities = wind.points.map(([lat, lon], index) => windLayer.entities.add({
+        name: `Vind (${wind.sources?.[index] || "ERA5-Land"})`,
         position: Cesium.Cartesian3.fromDegrees(lon, lat),
         billboard: { image: barbImage(0), alignedAxis: Cesium.Cartesian3.UNIT_Z, show: false, ...ON_GROUND },
       }));

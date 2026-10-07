@@ -182,9 +182,10 @@ print(scenario.ATTRIBUTION["era5_land"].startswith("Innehåller bearbetad inform
 print(scenario.WIND_FILE.exists())
 if scenario.WIND_FILE.exists():
     field = server.wind_field()
-    print(len(field["points"]), field["times_utc"][0], field["times_utc"][-1])
+    print(len(field["points"]), field["times_utc"][0], field["times_utc"][-1], field["sources"].count("ERA5-Land"))
 """
     lines = run_flood(code).splitlines()
     assert lines[0] == "True"
-    if lines[1] == "True":  # data/ is not in the repository; fetched with tools/fetch_era5_land.py
-        assert lines[2] == "39 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z"  # 11 of 50 points are at sea
+    if lines[1] == "True":  # data/ is not in the repository; fetched with tools/fetch_era5_land.py and fetch_era5_sea.py
+        # 39 ERA5-Land points on land; with the sea file also the 11 at sea from ERA5
+        assert lines[2] in ("39 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39", "50 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39")
