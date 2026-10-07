@@ -58,6 +58,20 @@ def test_sundsvall_2026_is_a_flood_with_its_own_data_and_the_municipality_s_laye
     assert run_python("from app.backend import scenario; print(scenario.INCIDENT)", None).stdout.strip() == "wildfire"
 
 
+def test_skane_2024_is_a_flood_with_smhi_s_flows_and_levels_and_mcf_s_maps() -> None:
+    result = run_python("from app.backend import scenario; print(scenario.NAME, scenario.INCIDENT, scenario.DATABASE, scenario.TILES_FILE, "
+                        "len(scenario.HYDRO_STATIONS), scenario.MUNICIPAL_DIR, scenario.HYDRO_DIR.relative_to(scenario.REPO_ROOT))", "skane2024")
+    assert result.stdout.split() == ["skane2024", "flood", "skane2024", "skane.mbtiles", "6", "None", "data/skane2024/hydro"]
+    config = run_python("from app.backend import server, lantmateriet; import json; "
+                        "c = server.config(lantmateriet.Settings(None, None, None, None, None)); "
+                        "print(json.dumps([c['title'], c['incident_place'], [w['id'] for w in c['layers']['wms']], c['playback']['start_utc']], ensure_ascii=False))", "skane2024")
+    assert config.stdout.strip() == '["Översvämningarna i Skåne 2024", "Ringsjöarna", ["mcf"], "2024-01-20T00:00:00Z"]'
+    # Without the municipality's stormwater points the flood has no synthetic overflow sensors, and no error.
+    sensors = run_python("from app.backend import server; from datetime import datetime, timezone; "
+                         "print(len(server.synthetic_sensors().nodes))", "skane2024")
+    assert sensors.returncode == 0 and sensors.stdout.strip() == "0"
+
+
 def test_the_wms_proxy_forwards_only_get_map_for_the_scenario_s_layers() -> None:
     code = """
 from app.backend import wms

@@ -71,8 +71,8 @@ def reservoir(rain_mm: Sequence[float], inflow_factor: float) -> list[tuple[floa
 
 
 class FloodSensors:
-    def __init__(self, points_file: Path, stations: Sequence[dict[str, Any]], start: datetime, end: datetime) -> None:
-        features = json.loads(points_file.read_text(encoding="utf-8"))["features"] if points_file.is_file() else []
+    def __init__(self, points_file: Path | None, stations: Sequence[dict[str, Any]], start: datetime, end: datetime) -> None:
+        features = json.loads(points_file.read_text(encoding="utf-8"))["features"] if points_file and points_file.is_file() else []
         self.start = start
         self.hours = [start + HOUR * (index + 1) for index in range(int((end - start) / HOUR))]
         self.stations = list(stations)

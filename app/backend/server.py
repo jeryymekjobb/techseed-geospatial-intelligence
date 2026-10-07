@@ -158,7 +158,9 @@ def wind_field() -> dict[str, Any]:
 def synthetic_sensors() -> sensor_sim.SyntheticSensors | flood_sensors.FloodSensors:
     """The incident's synthetic sensors: heat and smoke round the fire, overflow at the flood's stormwater points."""
     if not scenario.WILDFIRE:
-        return flood_sensors.FloodSensors(scenario.MUNICIPAL_DIR / "critical-stormwater.geojson", weather()["stations"],
+        # The municipality's stormwater points, where the scenario has them; none otherwise.
+        points = scenario.MUNICIPAL_DIR / "critical-stormwater.geojson" if scenario.MUNICIPAL_DIR else None
+        return flood_sensors.FloodSensors(points, weather()["stations"],
                                           scenario.PLAYBACK_START, scenario.PLAYBACK_END)
     items = [(parse_utc(item["acq_datetime_utc"]), item["latitude"], item["longitude"]) for item in detections()]
     return sensor_sim.SyntheticSensors(items, wind_field(), scenario.FIRE_CENTRE)

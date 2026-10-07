@@ -710,3 +710,49 @@ månaderna inte alltid kvalitetsgranskat, och en timme utan värde räknas som t
 | Översvämningskartorna syns inte, eller panelen säger att en karttjänst inte svarar | Datorn saknar internet, eller kommunens eller MCF:s karttjänst svarar inte. Backend frågar tjänsterna var 30:e sekund och lämnar en tyst tjänst utanför, så resten av demon fungerar ändå. | Kontrollera nätverket. Ladda om huvudskärmen när tjänsten svarar igen. |
 | Fönstren hamnar fel på skärmarna | Chrome öppnar nya fönster där det vill. | Öppna skärmarna med `tools.open_screens`, se avsnitt 8 och 16. |
 | Inga bräddgivare | Kommunens dagvattenpunkter är inte hämtade. | Kör 15.5 och starta om backend. |
+
+---
+
+# Del 6 – Översvämningarna i Skåne 2024 (under uppbyggnad)
+
+## 20. Vad demon visar
+
+Vintern 2024 svämmade Ringsjöarna, Hörbyån, Kävlingeån och Vombsjön över. Det här är en
+**återgiven händelse med verkliga data**, inte ett scenario som i Sundsvall. Enligt SMHI:s
+mätningar satte vattenföringen nya rekord 24–27 januari, till exempel 30,3 m³/s vid Heåkra i
+Hörbyån mot tidigare högsta 25,8 m³/s (2005), och Ringsjöarna nådde 54,94 m den 10 februari,
+det högsta sedan mätningarna började 1974.
+
+Välj **Översvämningarna i Skåne 2024** i menyn (avsnitt 7). Hittills visar demon:
+
+- **Vattenföring och vattenstånd (SMHI)** i panelen: vattenföringen vid Heåkra, Ellinge,
+  Högsmölla och Eggelstad och vattenståndet i Ringsjöarna och Vombsjön, med ett diagram över
+  perioden, en streckad linje för det tidigare högsta värdet och "rekord" vid stationen på
+  kartan när värdet är högre än allt som mätts där tidigare. Ett par stationer är ännu inte
+  kvalitetsgranskade av SMHI; det står i panelen.
+- **Regn (SMHI)** vid Hörby A och VA-huvudmännens mätare, **SMHI:s väderradar**, **vind
+  (ERA5-Land)** och **MCF:s översvämningskartering** av Kävlingeån.
+
+Satellitbilderna, sensorerna, bedömningen och frågorna kommer i senare steg. `check_demo`
+gäller ännu inte den här demon.
+
+## 21. Förbered demon
+
+Gör Del 1 först. Kommandona körs från repots mapp och skriver till `data/skane2024/`.
+
+```bash
+export TECHSEED_SCENARIO=skane2024
+.venv/bin/python -m tools.fetch_copernicus_dem && .venv/bin/python -m tools.build_terrain
+.venv/bin/python -m tools.build_offline_tiles
+.venv/bin/python -m tools.fetch_tle_history
+.venv/bin/python -m tools.fetch_smhi_hydro
+.venv/bin/python -m tools.fetch_smhi_weather 53530 22128523 22128522 22128520 22128524 22128144 \
+  --parameters 7 --start 2024-01-20 --end 2024-02-25 --out data/skane2024/smhi
+.venv/bin/python tools/fetch_era5_land.py --area 56.0,13.0,55.6,13.9 --start 2024-01-20 --end 2024-02-25 \
+  --raw-dir /tmp/era5-skane --out data/skane2024/era5-land/era5-land-skane-2024.csv
+.venv/bin/python -m tools.fetch_smhi_radar --start 2024-01-20 --end 2024-02-25 --step 30 --out data/skane2024/radar
+.venv/bin/python -m tools.fetch_osm_terrain --bbox 55.6,13.0,55.98,13.9 --out data/skane2024/osm/terrain-skane.geojson
+.venv/bin/python -m tools.fetch_osm_targets --bbox 55.6,13.0,55.98,13.9 --out data/skane2024/osm/targets-skane.geojson
+```
+
+Radarbilderna tas var 30:e minut, eftersom perioden är fem veckor lång.
