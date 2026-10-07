@@ -128,10 +128,11 @@ function createLeafletMap(config) {
       layer.addTo(map);
     },
 
-    addStations(stations) {
+    // style: { color, fill } for another kind of station (the flood's flows and lake levels).
+    addStations(stations, style = {}) {
       for (const station of stations) {
         stationMarkers.set(station.id, L.circleMarker([station.latitude, station.longitude], {
-          radius: 6, color: "#1f5fa8", fillColor: "#fff", fillOpacity: 1, weight: 3,
+          radius: 6, color: style.color || "#1f5fa8", fillColor: style.fill || "#fff", fillOpacity: 1, weight: 3,
         }).bindTooltip(`SMHI ${station.name}`, { permanent: true, direction: "right" }).addTo(stationLayer));
       }
     },

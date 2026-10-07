@@ -231,13 +231,14 @@ async function createCesiumMap(config) {
       layers.push(["Ortnamn", (visible) => { labelLayer.show = visible; }, () => labelLayer.show]);
     },
 
-    addStations(stations) {
+    // style: { color, fill } for another kind of station (the flood's flows and lake levels).
+    addStations(stations, style = {}) {
       for (const station of stations) {
         stationEntities.set(station.id, stationLayer.entities.add({
           name: `SMHI ${station.name}`,
           position: Cesium.Cartesian3.fromDegrees(station.longitude, station.latitude),
           point: {
-            pixelSize: 10, color: cesiumColor("#ffffff"), outlineColor: cesiumColor("#1f5fa8"), outlineWidth: 3,
+            pixelSize: 10, color: cesiumColor(style.fill || "#ffffff"), outlineColor: cesiumColor(style.color || "#1f5fa8"), outlineWidth: 3,
             ...ON_GROUND,
           },
           label: {

@@ -217,7 +217,9 @@ function drawRain(station, clock) {
     return `<rect class="rain-bar" x="${index * step}" y="${height - 14 - barHeight}" width="${Math.max(1, step - 0.5)}" height="${barHeight}">`
       + `<title>${formatLocal(at)}: ${decimal(value)} mm</title></rect>`;
   });
-  for (let day = start; day < end; day += 86400000) {
+  // A date every day, or every few days in a long period, so the dates do not overlap.
+  const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
+  for (let day = start; day < end; day += every * 86400000) {
     const x = ((day - start) / HOUR_MS) * step;
     parts.push(`<text x="${x + 1}" y="${height - 3}">${new Date(day).toISOString().slice(5, 10)}</text>`);
   }
@@ -246,6 +248,88 @@ function setupRain(config) {
     + `border:2px solid #1f5fa8;border-radius:50%"></span>${item.label}: ${limits[index]} på en timme</li>`).join("");
   $("rain-note").textContent = "Timsummor från SMHI. Kommunens mätare redovisar bara timmar med regn; "
     + "en timme utan värde räknas som torr. Senaste månaderna är inte alltid kvalitetsgranskade.";
+}
+
+// SMHI's measured flows and lake levels (/api/hydro, hydro.js): a section after the rain with a
+// chart of the chosen station, and a label on the map for each station.
+const HYDRO_STYLE = { color: "#0b6e4f", fill: "#d8f3e8" };
+
+function setupHydro(config) {
+  const section = document.createElement("section");
+  section.id = "hydro-section";
+  section.dataset.incident = "flood";
+  section.innerHTML = "<h2>Vattenföring och vattenstånd (SMHI)</h2>"
+    + '<label>Station <select id="hydro-station"></select></label>'
+    + '<svg id="hydro-chart" class="timeline" role="img" aria-label="Vattenföring eller vattenstånd vid stationen"></svg>'
+    + '<dl id="hydro-values" class="forecast-values"></dl><div id="hydro-note" class="status"></div>';
+  $("rain-station").closest("section").after(section);
+  for (const station of state.hydro.stations) {
+    $("hydro-station").append(new Option(`${station.name} (${station.kind === "level" ? "vattenstånd" : "vattenföring"})`, station.id));
+  }
+  state.map.addStations(state.hydro.stations.map((station) => ({ ...station, id: `hydro-${station.id}` })), HYDRO_STYLE);
+  state.hydroStation = state.hydro.stations[0]?.id || null;
+  $("hydro-station").addEventListener("change", (event) => {
+    state.hydroStation = event.target.value;
+    state.hydroShownAt = null;
+    showHydro(state.clock);
+  });
+  state.map.addAttribution(state.hydro.source);
+  showHydro(state.clock);
+}
+
+function showHydro(clock) {
+  if (!state.hydro || !clock) return;
+  const hour = Math.floor(clock.getTime() / HOUR_MS);
+  if (hour === state.hydroShownAt) return;
+  state.hydroShownAt = hour;
+  const labels = {};
+  for (const station of state.hydro.stations) {
+    const { latest, highest } = hydroAt(station.observations, clock.getTime());
+    labels[`hydro-${station.id}`] = `${station.name}: ${hydroText(station.kind, latest?.value)}${hydroRecord(station, highest) ? " – rekord" : ""}`;
+  }
+  state.map.labelStations(labels);
+  const station = state.hydro.stations.find((item) => item.id === state.hydroStation);
+  if (!station) return;
+  const { latest, highest } = hydroAt(station.observations, clock.getTime());
+  const earlier = station.earlier_max;
+  $("hydro-values").innerHTML = [
+    ["Nu", latest ? `${hydroText(station.kind, latest.value)} (${formatLocal(latest.time_utc)})` : "inga värden ännu"],
+    ["Högst i perioden", highest ? `${hydroText(station.kind, highest.value)} (${formatLocal(highest.time_utc)})` : "–"],
+    ["Tidigare högsta", earlier ? `${hydroText(station.kind, earlier.value)} (${earlier.time_utc.slice(0, 4)}, mätt sedan ${station.measured_since.slice(0, 4)})` : "–"],
+  ].map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
+  $("hydro-note").textContent = (hydroRecord(station, highest) ? "Högre än allt som mätts här tidigare. " : "")
+    + (station.kind === "level" ? "Vattenstånd per dygn i stationens höjdsystem. " : "Vattenföring, timmedelvärden. ")
+    + (station.unchecked ? "SMHI har ännu inte kvalitetsgranskat alla värden." : "Kvalitetsgranskade värden från SMHI.");
+  drawHydro(station, clock);
+}
+
+function drawHydro(station, clock) {
+  const start = Date.parse(state.config.playback.start_utc);
+  const end = Date.parse(state.config.playback.end_utc);
+  const width = 300;
+  const height = 100;
+  const values = station.observations.map((item) => item.value);
+  const top = Math.max(...values, station.earlier_max?.value ?? -Infinity);
+  const bottom = Math.min(...values);
+  const span = Math.max(top - bottom, 1e-6);
+  const xOf = (ms) => ((ms - start) / (end - start)) * width;
+  const yOf = (value) => 6 + (1 - (value - bottom) / span) * (height - 26);
+  const path = station.observations.map((item, index) => `${index ? "L" : "M"}${xOf(Date.parse(item.time_utc)).toFixed(1)},${yOf(item.value).toFixed(1)}`).join(" ");
+  const parts = [`<path class="hydro-line" d="${path}"></path>`];
+  if (station.earlier_max) {
+    const y = yOf(station.earlier_max.value);
+    parts.push(`<line class="hydro-record" x1="0" x2="${width}" y1="${y}" y2="${y}"></line>`,
+      `<text x="2" y="${y - 2}">tidigare högsta ${station.earlier_max.time_utc.slice(0, 4)}</text>`);
+  }
+  const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
+  for (let day = start; day < end; day += every * 86400000) {
+    parts.push(`<text x="${xOf(day) + 1}" y="${height - 3}">${new Date(day).toISOString().slice(5, 10)}</text>`);
+  }
+  const x = xOf(clock.getTime());
+  parts.push(`<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`);
+  const svg = $("hydro-chart");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = parts.join("");
 }
 
 // SMHI's weather radar as a rain layer (config.layers.radar, tools/fetch_smhi_radar.py), in the
@@ -377,6 +461,7 @@ function setClock(clock) {
     showWeather(clock);
   }
   showRain(clock);
+  showHydro(clock);
   showRadar(clock);
   showWind(clock);
   drawForecast(clock);
@@ -1079,6 +1164,10 @@ async function startApp(createMap) {
   const wildfire = config.incident === "wildfire";
   if (state.weather && !wildfire) setupRain(config);
   if (config.layers.radar) setupRadar(config);
+  if (!wildfire && state.weather && config.layers.hydro) {  // only some flood scenarios have it
+    state.hydro = await loadOptional("/api/hydro", () => {});
+    if (state.hydro) setupHydro(config);
+  }
   if (state.weather && wildfire) {
     const select = $("weather-station");
     for (const station of state.weather.stations) {
@@ -1116,7 +1205,10 @@ async function startApp(createMap) {
   state.map.finish();
   setupScenarioView();
   // The flood's rain and maps right after the status, where the fire has its forecast.
-  if (!wildfire) $("scenario-status").closest("section").after($("rain-station").closest("section"), $("flood-legend").closest("section"));
+  if (!wildfire) {
+    $("scenario-status").closest("section").after($("rain-station").closest("section"),
+      ...($("hydro-section") ? [$("hydro-section")] : []), $("flood-legend").closest("section"));
+  }
   await setupQuestions();
   await setupSatellites(config);
   await setupLandsat(config);

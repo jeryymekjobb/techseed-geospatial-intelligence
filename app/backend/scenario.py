@@ -68,6 +68,9 @@ SENTINEL1_DIR = getattr(_module, "SENTINEL1_DIR", None)
 # ERA5 wind where ERA5-Land has none (tools/fetch_era5_sea.py) and SMHI's radar (tools/fetch_smhi_radar.py).
 WIND_SEA_FILE = getattr(_module, "WIND_SEA_FILE", None)
 RADAR_DIR = getattr(_module, "RADAR_DIR", None)
+# SMHI's measured flows and lake levels (tools/fetch_smhi_hydro.py) and their stations.
+HYDRO_DIR = getattr(_module, "HYDRO_DIR", None)
+HYDRO_STATIONS = getattr(_module, "HYDRO_STATIONS", {})
 SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})
 SENTINEL2_SIZE = getattr(_module, "SENTINEL2_SIZE", None)
 FLOOD_HAZARD_WMS = getattr(_module, "FLOOD_HAZARD_WMS", None)
