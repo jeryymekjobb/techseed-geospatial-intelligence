@@ -237,8 +237,22 @@ att försöka byta grafikkort själv.
 
 ## 7. Starta demon
 
-Demon behöver två program som är igång hela dagen. Öppna **två terminaler** och gå in i
-repot i båda (`cd ~/techseed-geospatial-intelligence`).
+**Enklast:** ett kommando startar allt – tjänsterna, backend, sensorerna i montern och de tre
+skärmarna på sina platser. Öppna en terminal, gå in i repot (`cd ~/techseed-geospatial-intelligence`)
+och kör:
+
+```bash
+.venv/bin/python -m tools.start_demo vastmanland2014
+```
+
+Det skriver steg 1/4 till 4/4 och sedan "Demon går". Låt terminalen stå öppen hela dagen: demon
+går tills du trycker Ctrl+C i den, som stoppar backend och sensorerna. Står det att något redan
+svarar på port 8765 går en backend redan; stoppa den först. Sensorernas rader hamnar i
+`data/node-sim.log`. Skärmarna öppnas på 4 augusti 2014 kl. 11:30 svensk tid; avsnitt 8 beskriver
+dem.
+
+**Steg för steg**, om du hellre startar delarna själv: demon behöver två program som är igång
+hela dagen. Öppna **två terminaler** och gå in i repot i båda (`cd ~/techseed-geospatial-intelligence`).
 
 Kontrollera först att tjänsterna från avsnitt 5.4 är igång. Om datorn har startats om
 sedan dess, starta dem igen:
@@ -542,7 +556,16 @@ Den kör översvämningens nio steg och ska sluta med `RESULTAT: GODKÄND`.
 
 ## 16. Byta mellan demona
 
-Det finns en kartjänst, och den visar en demos karta i taget. Byt så här.
+**Enklast:** stoppa den demo som går med Ctrl+C i dess terminal och starta den andra:
+
+```bash
+.venv/bin/python -m tools.start_demo sundsvall2026     # tillbaka: tools.start_demo vastmanland2014
+```
+
+Kommandot byter karta i kartjänsten, startar backend och sensorerna och öppnar skärmarna på
+16 augusti kl. 07:00 svensk tid, strax före den första radarbilden och regnets topp.
+
+**Steg för steg:** det finns en kartjänst, och den visar en demos karta i taget. Byt så här.
 
 **Till översvämningen:**
 
