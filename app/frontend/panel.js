@@ -20,6 +20,7 @@ const AGE_COLORS = [[12, "#ff2a00"], [48, "#ff8c00"], [Infinity, "#7a1f1f"]];
 const COMPASS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "SV", "VSV", "V", "VNV", "NV", "NNV"];
 const clockTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const localTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short" });
+const localDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium" });
 
 const state = {
   config: null,
@@ -362,6 +363,8 @@ function setClock(clock) {
 async function setupLandsat(config) {
   const section = document.createElement("section");
   section.innerHTML = '<h2>Satellitbild</h2>'
+    + '<div class="view-choice" role="group" aria-label="Underlag"><button type="button" id="show-map">Karta</button>'
+    + '<button type="button" id="show-latest">Senaste satellitbild</button></div>'
     + '<label>Datum <select id="landsat-date"><option value="auto" selected>senaste fram till scenariotiden</option></select></label> '
     + '<label>Bild <select id="landsat-choice"></select></label>'
     + '<div id="landsat-legend" class="ndmi-legend" hidden></div><div id="landsat-note" class="status"></div>';
@@ -374,10 +377,12 @@ async function setupLandsat(config) {
   $("landsat-choice").append(new Option("av", "off"));
   state.landsatChoice = config.incident !== "wildfire" ? (info?.names?.radar ? "radar" : "off") : info?.names?.swir ? "swir" : "natural";
   $("landsat-choice").value = state.landsatChoice;
+  // The image "Senaste satellitbild" shows: the scenario's first choice.
+  state.landsatLatest = state.landsatChoice === "off" ? Object.keys(info?.names || {})[0] || "off" : state.landsatChoice;
   if (!info) {
     $("landsat-note").textContent = "Satellitbilden är inte hämtad (tools/fetch_landsat_scene.py).";
-    $("landsat-choice").disabled = true;
-    $("landsat-date").disabled = true;
+    for (const id of ["landsat-choice", "landsat-date", "show-map", "show-latest"]) $(id).disabled = true;
+    showViewCaption(null, null, "missing");
     return;
   }
   if (info.ndmi_colours) {
@@ -400,7 +405,34 @@ async function setupLandsat(config) {
     state.landsatDate = event.target.value;
     showLandsatAt(state.clock);
   });
+  // The map, or the latest image taken up to the scenario clock.
+  $("show-map").addEventListener("click", () => chooseView("off", state.landsatDate));
+  $("show-latest").addEventListener("click", () => chooseView(state.landsatLatest, "auto"));
   showLandsatAt(state.clock);
+}
+
+function chooseView(choice, date) {
+  state.landsatChoice = choice;
+  state.landsatDate = date;
+  $("landsat-choice").value = choice;
+  $("landsat-date").value = date;
+  showLandsatAt(state.clock);
+}
+
+// The main screen's caption: what is shown under the overlays, dated (landsat.js viewCaption).
+function showViewCaption(scene, image, reason) {
+  $("view-caption").textContent = viewCaption({
+    scene, image, reason, choice: state.landsatChoice, mapData: state.config.layers.map_data, offlineTiles: state.config.layers.offline_tiles,
+    formatTime: formatLocal, formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
+  });
+  $("show-map").setAttribute("aria-pressed", String(state.landsatChoice === "off"));
+  $("show-latest").setAttribute("aria-pressed", String(state.landsatChoice !== "off" && state.landsatDate === "auto"));
+}
+
+// The scene and image of a key "scene|image" (landsat.js).
+function sceneOfKey(key) {
+  const [name, image] = key.split("|");
+  return [state.landsat.scenes.find((item) => item.scene === name) || null, image];
 }
 
 // What an image says about its conditions: cloud for the optical, the water mask's certainty for the radar.
@@ -423,6 +455,7 @@ function showLandsatAt(clock) {
   if (state.detectionImage) {
     if (state.landsatShown !== state.detectionImage) state.map.showLandsat(state.detectionImage);
     state.landsatShown = state.detectionImage;
+    showViewCaption(...sceneOfKey(state.detectionImage), "shown");
     return;
   }
   const selection = landsatSelection(state.landsat.scenes, clock.getTime(), state.landsatDate, state.landsatChoice);
@@ -438,6 +471,8 @@ function showLandsatAt(clock) {
     || `${scene.label}, ${sceneConditions(scene)}. ${state.landsat.names[state.landsatChoice]}.`
       + (selection.reason === "comparison" ? " Tagen senare – inte läget vid scenariotiden." : "");
   $("landsat-legend").hidden = !(key && state.landsatChoice === "ndmi");
+  if (key) showViewCaption(...sceneOfKey(key), selection.reason);
+  else showViewCaption(null, null, selection.reason);
   if (key === state.landsatShown) return;
   state.landsatShown = key;
   state.map.showLandsat(key);

@@ -40,6 +40,7 @@ from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
+TILES_DIR = Path(__file__).resolve().parents[2] / "data" / "tiles"
 # Cesium terrain built by tools/build_terrain.py (not versioned).
 TERRAIN_DIR = scenario.TERRAIN_DIR
 TICK_SECONDS = 0.25
@@ -298,6 +299,15 @@ def playback_events(
     yield "end", {"sim_time_utc": utc_text(end)}
 
 
+def map_data() -> dict[str, str] | None:
+    """The offline map's source and the date its OpenStreetMap data was fetched (tools/build_offline_tiles.py)."""
+    try:
+        source = json.loads((TILES_DIR / f"{Path(scenario.TILES_FILE).stem}.SOURCE.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return {"source": "OpenStreetMap", "date_utc": source.get("source_downloaded_utc", "")}
+
+
 def config(settings: lantmateriet.Settings) -> dict[str, Any]:
     min_lat, max_lat, min_lon, max_lon = scenario.VIEW_BBOX
     fire = scenario.FIRE_BBOX
@@ -327,6 +337,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
         "layers": {
             "terrain": "/api/layers/terrain",
             "offline_tiles": offline_tiles.available(),
+            "map_data": map_data(),
             "terrain3d": (TERRAIN_DIR / "layer.json").is_file(),
             "satellites": satellites.satellites()["available"],
             "landsat": landsat.layer(),

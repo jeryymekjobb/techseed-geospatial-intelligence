@@ -4,6 +4,11 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .topbar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; padding: 8px 16px; background: #202020; color: #fff; }
 .topbar h1 { margin: 0; font-size: 1.2rem; }
 .data-label { padding: 2px 8px; border-radius: 4px; background: #ffd54a; color: #202020; font-weight: 600; font-size: 0.85rem; }
+/* What the main screen shows, dated (panel.js showViewCaption). */
+.view-caption { font-size: 1rem; font-weight: 600; color: #fff; }
+.view-choice { display: flex; gap: 6px; margin: 4px 0 8px; }
+.view-choice button { padding: 4px 10px; }
+.view-choice button[aria-pressed="true"] { background: #202020; color: #fff; border: 1px solid #202020; border-radius: 3px; }
 .view-switch { margin-left: auto; color: #ffd54a; font-weight: 600; text-decoration: none; }
 .view-switch:hover { text-decoration: underline; }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: minmax(0, 1fr); height: calc(100% - 44px); }

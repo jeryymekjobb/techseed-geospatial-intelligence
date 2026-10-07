@@ -1,4 +1,4 @@
-"""Tests for the flood's depth legend (app/frontend/flood_legend.js), in Node."""
+"""Tests for the main screen's caption (app/frontend/landsat.js) and the depth legend (flood_legend.js), in Node."""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ from pathlib import Path
 import pytest
 
 FRONTEND = Path(__file__).resolve().parents[1] / "app" / "frontend"
+RADAR = {"satellite": "Sentinel-1C", "acquired_utc": "2026-08-16T05:21:32Z"}
+MAP_DATA = {"source": "OpenStreetMap", "date_utc": "2026-10-02T09:40:23Z"}
+FORMATS = "formatTime: (t) => 'T' + t.slice(0, 16), formatDate: (t) => 'D' + t.slice(0, 10)"
 
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 
@@ -17,6 +20,22 @@ pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node
 def node(script: str, expression: str) -> object:
     code = f"const m = require({json.dumps(str(FRONTEND / script))}); with (m) {{ console.log(JSON.stringify({expression})); }}"
     return json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+
+
+def caption(scene: dict | None, image: str | None, reason: str, offline: bool = True) -> str:
+    return node("landsat.js", f"viewCaption({{ scene: {json.dumps(scene)}, image: {json.dumps(image)}, reason: {json.dumps(reason)}, choice: 'radar', "
+                f"mapData: {json.dumps(MAP_DATA)}, offlineTiles: {json.dumps(offline)}, {FORMATS} }})")
+
+
+def test_the_caption_names_the_image_and_when_it_was_taken() -> None:
+    assert caption(RADAR, "radar", "shown") == "Visas: Satellitbild – Sentinel-1C, radar, tagen T2026-08-16T05:21"
+    assert caption(RADAR, "radar", "comparison").endswith("(jämförelse, tagen senare än scenariotiden)")
+
+
+def test_without_an_image_the_caption_names_the_map_and_its_data_date() -> None:
+    assert caption(None, None, "off") == "Visas: Karta – OpenStreetMap, data från D2026-10-02"
+    assert caption(None, None, "none-yet") == "Visas: Karta – OpenStreetMap, data från D2026-10-02; ingen bild (radar) tagen ännu vid scenariotiden"
+    assert caption(None, None, "off", offline=False) == "Visas: Karta – Natural Earth II (offline-kartan är inte igång)"
 
 
 def test_the_depth_legend_has_the_municipality_s_seven_classes_and_shows_with_a_depth_layer() -> None:

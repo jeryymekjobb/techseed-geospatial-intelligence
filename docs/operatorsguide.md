@@ -331,6 +331,13 @@ Landsat-bilden inom en minut.
 Huvudskärmen ska visa kartan över brandområdet, och i panelen till höger ska det stå "4 aug.
 2014 11:30 svensk tid".
 
+Överst på huvudskärmen, efter den gula märkningen, står vad kartan visar under sina lager, med
+datum: till exempel "Visas: Satellitbild – Landsat 8, falska färger, kortvågig IR, tagen 4 aug.
+2014 12:06 svensk tid", eller "Visas: Karta – OpenStreetMap, data från …" med datumet då kartans
+OpenStreetMap-data hämtades. Byt med knapparna **Karta** och **Senaste satellitbild** under
+"Satellitbild" i panelen. Senaste satellitbild är den senaste bilden som är tagen fram till
+scenariotiden.
+
 ## 9. Mission control på en surfplatta (valfritt)
 
 Hoppa över det här avsnittet om mission control körs på samma dator som huvudskärmen.
@@ -514,7 +521,8 @@ Demon använder samma skärmar och knappar som branddemon. I stället för brand
   den bräddar. Deras värden räknas ut ur det verkliga regnet och kommunens modell.
 - **Satellitbilder** under "Satellitbild": Sentinel-1:s radarbilder, som ser genom moln, och
   Landsat 8 och Sentinel-2, vars augustibilder är molniga. Från början visas den senaste
-  radarbilden fram till scenariotiden. Radarbilden kan också visas som **vatten i radarbilden
+  radarbilden fram till scenariotiden. Knapparna **Karta** och **Senaste satellitbild** byter,
+  och raden överst på huvudskärmen säger vad som visas och när bilden togs. Radarbilden kan också visas som **vatten i radarbilden
   utanför sjöar och hav**, en beräknad mask.
 
 Kommunens och MCF:s kartor hämtas från deras karttjänster medan demon körs. Datorn behöver

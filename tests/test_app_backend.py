@@ -186,3 +186,11 @@ def test_http_forecast_endpoint(base_url: str) -> None:
 
     data = json.loads(body)
     assert status == 200 and data["states"] and data["report"].startswith("reports/")
+
+
+def test_config_dates_the_offline_map_from_its_source_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "vastmanland.SOURCE.json").write_text('{"source_downloaded_utc": "2026-10-01T08:00:00Z"}', encoding="utf-8")
+    monkeypatch.setattr(server, "TILES_DIR", tmp_path)
+    assert server.map_data() == {"source": "OpenStreetMap", "date_utc": "2026-10-01T08:00:00Z"}
+    monkeypatch.setattr(server, "TILES_DIR", tmp_path / "missing")
+    assert server.map_data() is None
