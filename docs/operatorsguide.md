@@ -344,9 +344,9 @@ OpenStreetMap-data hämtades. Du väljer i gruppen **Satellitbilder** i mission 
 **VISA VALD BILD**. Senaste satellitbild är
 den senaste bilden som är tagen fram till scenariotiden. Valet gäller alla skärmar, och
 **RESET** ställer tillbaka det på senaste satellitbild. Under upptäcktssekvensen i branden
-nämner raden först passagens detektioner och sedan underlaget med bildens ålder, till exempel
-"Visas: VIIRS-detektioner 5 aug. 2014 03:17 svensk tid · underlag: Landsat 8, …, tagen 4 aug.
-2014 12:06 svensk tid (15 h före)".
+nämner raden först passagens detektioner och sedan underlaget, till exempel
+"Visas: VIIRS-detektioner 5 aug. 2014 03:17 svensk tid · underlag: Satellitbild – Landsat 8, …,
+tagen 4 aug. 2014 12:06 svensk tid".
 
 ## 9. Mission control på en surfplatta (valfritt)
 

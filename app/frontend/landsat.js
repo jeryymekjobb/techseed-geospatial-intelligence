@@ -62,11 +62,7 @@ function viewCaption({ scene, image, reason, choice, mapData, offlineTiles, form
       + (reason === "none-yet" ? `; ingen bild (${IMAGE_KINDS[choice] || choice}) tagen ännu vid scenariotiden` : "");
   }
   if (!detection) return `Visas: ${shown}` + (scene && image && reason === "comparison" ? " (jämförelse, tagen senare än scenariotiden)" : "");
-  const hours = scene && image ? (Date.parse(detection.pass_utc) - Date.parse(scene.acquired_utc)) / 3600000 : null;
-  // In hours, and in days from two days.
-  const span = (value) => (value >= 48 ? `${Math.round(value / 24)} dygn` : `${Math.round(value)} h`);
-  const when = hours === null ? "" : hours >= 0 ? ` (${span(hours)} före)` : ` (${span(-hours)} efter)`;
-  return `Visas: ${detection.instrument}-detektioner ${formatTime(detection.pass_utc)} · underlag: ${shown}${when}`;
+  return `Visas: ${detection.instrument}-detektioner ${formatTime(detection.pass_utc)} · underlag: ${shown}`;
 }
 
 if (typeof module !== "undefined") module.exports = { landsatSelection, imageOptions, viewCaption, IMAGE_KINDS };
