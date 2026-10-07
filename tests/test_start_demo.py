@@ -17,6 +17,7 @@ def test_each_scenario_starts_with_its_own_map_and_time() -> None:
     assert start_demo.scenario_settings("vastmanland2014") == ("vastmanland.mbtiles", "2014-08-04T09:30:00Z")
     assert start_demo.scenario_settings("sundsvall2026") == ("sundsvall.mbtiles", "2026-08-16T05:00:00Z")
     assert start_demo.scenario_settings("skane2024") == ("skane.mbtiles", "2024-01-27T16:30:00Z")
+    assert start_demo.scenario_settings("ljusdal2018") == ("ljusdal.mbtiles", "2018-07-17T08:30:00Z")
     assert start_demo.services_command() == ["docker", "compose", "up", "-d", "tiles", "postgis", "mosquitto"]
 
 
@@ -32,11 +33,12 @@ def test_a_port_in_use_is_found() -> None:
     assert not start_demo.port_in_use(free)
 
 
-def test_the_menu_lists_both_demos_with_their_titles_and_labels() -> None:
+def test_the_menu_lists_the_demos_with_their_titles_and_labels() -> None:
     assert [(demo["name"], demo["title"]) for demo in start_demo.demos()] == [
         ("vastmanland2014", "Skogsbranden i Västmanland 2014"),
         ("sundsvall2026", "Översvämning i Sundsvall 2026 – scenario"),
         ("skane2024", "Översvämningarna i Skåne 2024"),
+        ("ljusdal2018", "Skogsbranden vid Kårböle 2018"),
     ]
     assert all(demo["label"] for demo in start_demo.demos())
 

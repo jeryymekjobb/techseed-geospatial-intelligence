@@ -111,3 +111,12 @@ print(calls, wms.available('municipal'), [source['available'] for source in wms.
     # One wait of 5 s, then refused at once; the probe does not ask the silent service again, MCF is asked once.
     assert lines[:3] == ["504", "503", "503"]
     assert lines[3] == "[5, 5] False [False, False]"
+
+
+def test_ljusdal_2018_is_a_fire_from_four_firms_satellites_with_its_own_forecast_station() -> None:
+    result = run_python("from app.backend import scenario; print(scenario.NAME, scenario.INCIDENT, scenario.DATABASE, scenario.TILES_FILE, "
+                        "scenario.FORECAST_STATION.replace(' ', '_'), all(path.is_file() for path in scenario.FIRMS_FILES), "
+                        "sorted(role['firms'] for role in scenario.SATELLITE_ROLES.values() if role['firms']))", "ljusdal2018")
+    assert result.stdout.strip().split(maxsplit=6) == ["ljusdal2018", "wildfire", "ljusdal2018", "ljusdal.mbtiles", "SMHI_Hamra_A", "True",
+                                               "['Aqua', 'N20', 'SNPP', 'Terra']"]
+    assert run_python("from app.backend import scenario; print(scenario.FORECAST_STATION)", None).stdout.strip() == "SMHI Sala A"

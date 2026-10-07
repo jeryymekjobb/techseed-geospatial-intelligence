@@ -768,3 +768,45 @@ Radarbilderna tas var 30:e minut, eftersom perioden är fem veckor lång. Satell
 .venv/bin/python -m tools.fetch_sentinel1_scene
 .venv/bin/python -m tools.fetch_sentinel2_scene
 ```
+
+---
+
+# Del 7 – Skogsbranden vid Kårböle 2018 (under uppbyggnad)
+
+## 22. Vad demon visar
+
+Blixten tände skogen nära Kårböle i Ljusdals kommun den 14 juli 2018. Branden växte snabbt
+kring 17–18 juli; räddningstjänsten bedömde den till omkring 8 500 hektar, 70–90 personer i
+Kårböle evakuerades och 7–8 byggnader brann. Det är en **återgiven händelse med verkliga
+data**, som Västmanland 2014, och demon fungerar på samma sätt: FIRMS-detektioner,
+upptäcktssekvensen, prognosen, vinden och de syntetiska sensorerna.
+
+Välj **Skogsbranden vid Kårböle 2018** i menyn (avsnitt 7). Skillnader mot Västmanland:
+
+- FIRMS-detektionerna kommer från **fyra satelliter**: Terra och Aqua (MODIS) och Suomi NPP och
+  **NOAA-20** (VIIRS), 2 540 detektioner 14–28 juli.
+- Prognosens brandväder kommer från **SMHI Hamra A**, 39 km från branden; i juli 2018 var
+  brandfaran extrem (FWI över 40 den 17 juli).
+- Skärmarna börjar 17 juli kl. 10:30 svensk tid. **SATELLITE DETECTION** tar då NOAA-20 kl.
+  11:34.
+
+Satellitbilderna (Sentinel-2 och Landsat) och Copernicus EMS:s avgränsningar av branden kommer i
+nästa steg. `check_demo` gäller ännu inte den här demon.
+
+## 23. Förbered demon
+
+FIRMS-uttagen för 2018 finns i repot under `satellite_data/firms/`. Övriga data hämtas till
+`data/ljusdal2018/`:
+
+```bash
+export TECHSEED_SCENARIO=ljusdal2018
+.venv/bin/python -m tools.fetch_copernicus_dem && .venv/bin/python -m tools.build_terrain
+.venv/bin/python -m tools.build_offline_tiles
+.venv/bin/python -m tools.fetch_tle_history
+.venv/bin/python -m tools.fetch_smhi_weather 114410 124030 --start 2018-07-12 --end 2018-08-08 --out data/ljusdal2018/smhi
+.venv/bin/python -m tools.fetch_smhi_weather 114410 --start 2018-05-01 --end 2018-07-11 --out data/ljusdal2018/smhi/spinup
+.venv/bin/python tools/fetch_era5_land.py --area 62.2,14.9,61.75,15.8 --start 2018-07-12 --end 2018-08-08 \
+  --raw-dir /tmp/era5-ljusdal --out data/ljusdal2018/era5-land/era5-land-ljusdal-2018.csv
+.venv/bin/python -m tools.fetch_osm_terrain --bbox 61.75,14.9,62.2,15.8 --out data/ljusdal2018/osm/terrain-ljusdal.geojson
+.venv/bin/python -m tools.fetch_osm_targets --bbox 61.75,14.9,62.2,15.8 --out data/ljusdal2018/osm/targets-ljusdal.geojson
+```
