@@ -90,3 +90,10 @@ def test_the_tiles_file_is_read_from_the_tiles_service() -> None:
         probe.bind(("127.0.0.1", 0))
         closed = probe.getsockname()[1]
     assert check_demo.served_tiles_file(f"http://127.0.0.1:{closed}/{{z}}/{{x}}/{{y}}.png") is None
+
+
+def test_in_a_visible_window_the_screens_go_where_open_screens_puts_them() -> None:
+    from tools import open_screens
+
+    window = open_screens.Window("main", "/3d.html", 1190, 192, 2250, 1408)
+    assert check_demo.bounds(window) == {"left": 1190, "top": 192, "width": 2250, "height": 1408}

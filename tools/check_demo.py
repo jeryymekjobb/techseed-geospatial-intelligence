@@ -41,6 +41,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from app.backend import offline_tiles, scenario
+from tools import open_screens
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
@@ -125,15 +126,50 @@ def wait_for(url: str, seconds: float = 60.0) -> None:
     raise RuntimeError(f"{url} did not answer within {seconds:.0f} s")
 
 
-class Demo:
-    """The browser pages and the commands the steps use."""
+def screen_places() -> dict[str, open_screens.Window]:
+    """Where tools/open_screens.py puts each screen on this computer's monitors; empty without xrandr."""
+    try:
+        listing = subprocess.run(["xrandr", "--listmonitors"], capture_output=True, text=True, check=False).stdout
+        prop = subprocess.run(["xprop", "-root", "_GTK_WORKAREAS_D0"], capture_output=True, text=True, check=False).stdout
+    except OSError:
+        return {}
+    found = open_screens.monitors(listing)
+    if not found:
+        return {}
+    return {window.screen: window for window in open_screens.layout(open_screens.within_work_areas(found, open_screens.work_areas(prop)))}
 
-    def __init__(self, browser: Any, base_url: str, out: Path, errors: list[str]) -> None:
+
+def bounds(window: open_screens.Window) -> dict[str, Any]:
+    """The window's place for Chrome's Browser.setWindowBounds."""
+    return {"left": window.x, "top": window.y, "width": window.width, "height": window.height}
+
+
+class Demo:
+    """The browser pages and the commands the steps use. In a visible window (`places` given, from
+    screen_places()) each screen is put where tools/open_screens.py puts it and fills its window,
+    as at the exhibition; headless they have fixed sizes."""
+
+    def __init__(self, browser: Any, base_url: str, out: Path, errors: list[str],
+                 places: dict[str, open_screens.Window] | None = None) -> None:
         self.base_url, self.out = base_url, out
-        # One browser context each: two windows, both active.
-        self.main = browser.new_context(viewport={"width": 1600, "height": 900}).new_page()
-        self.control = browser.new_context(viewport={"width": 1024, "height": 900}).new_page()
-        self.monitor = browser.new_context(viewport={"width": 1200, "height": 900}).new_page()
+        places = places or {}
+        sizes = {"main": (1600, 900), "control": (1024, 900), "monitor": (1200, 900)}
+
+        def page_for(screen: str) -> Any:
+            # One browser context each: separate windows, all active.
+            if screen not in places:
+                width, height = sizes[screen]
+                return browser.new_context(viewport={"width": width, "height": height}).new_page()
+            page = browser.new_context(no_viewport=True).new_page()
+            session = page.context.new_cdp_session(page)
+            window_id = session.send("Browser.getWindowForTarget")["windowId"]
+            session.send("Browser.setWindowBounds", {"windowId": window_id, "bounds": {"windowState": "normal"}})
+            session.send("Browser.setWindowBounds", {"windowId": window_id, "bounds": bounds(places[screen])})
+            return page
+
+        self.monitor = page_for("monitor")
+        self.main = page_for("main")
+        self.control = page_for("control")
         for name, page in [("huvudskärm", self.main), ("mission control", self.control), ("satellitbevakning", self.monitor)]:
             page.on("pageerror", lambda exc, name=name: errors.append(f"{name}: {exc}"))
             page.on("console", lambda msg, name=name: errors.append(f"{name}: {msg.text}") if msg.type == "error" else None)
@@ -453,7 +489,10 @@ def run(base_url: str, out: Path, headed: bool, min_fps: float = DEFAULT_MIN_FPS
     with sync_playwright() as playwright:
         args = KEEP_BOTH_RUNNING + ([] if headed else SOFTWARE_WEBGL)
         browser = playwright.chromium.launch(channel="chrome", headless=not headed, args=args)
-        demo = Demo(browser, base_url, out, report.javascript_errors)
+        places = screen_places() if headed else {}
+        if headed and not places:
+            print("Fönstren kunde inte placeras (xrandr hittade inga skärmar); de öppnas där Chrome vill.")
+        demo = Demo(browser, base_url, out, report.javascript_errors, places)
         for index, (name, action) in enumerate(STEPS):
             started = time.time()
             try:
