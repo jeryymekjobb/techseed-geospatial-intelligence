@@ -239,9 +239,17 @@ function setupRain(config) {
 }
 
 // The flood maps (config.layers.wms): the municipality's and MCF's models, through the backend.
+// A service that does not answer is left out, so its requests do not hold up the screens.
 function setupFloodMaps(config) {
   const legend = $("flood-legend");
   for (const source of config.layers.wms || []) {
+    if (source.available === false) {
+      const item = document.createElement("li");
+      item.className = "alert";
+      item.textContent = `${source.attribution}: karttjänsten svarar inte – dess översvämningskartor visas inte.`;
+      legend.append(item);
+      continue;
+    }
     state.map.addWms(source);
     state.map.addAttribution(source.attribution);
     for (const title of Object.values(source.layers)) {

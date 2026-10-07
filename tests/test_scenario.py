@@ -75,3 +75,25 @@ except KeyError:
     print('unknown')
 """
     assert run_python(code, "sundsvall2026").stdout.split() == ["refused", "refused", "refused", "unknown"]
+
+
+def test_a_silent_map_service_is_refused_at_once_and_reported_unavailable() -> None:
+    code = """
+from app.backend import wms
+calls = []
+def silent(request, timeout):
+    calls.append(timeout)
+    raise TimeoutError("The read operation timed out")
+wms.urlopen = silent
+query = {'SERVICE': 'WMS', 'REQUEST': 'GetMap', 'LAYERS': 'SundsvallsKommun:100-ar_maxvattendjup'}
+for _ in range(3):
+    try:
+        wms.get_map('municipal', query)
+    except wms.UpstreamError as exc:
+        print(exc.status)
+print(calls, wms.available('municipal'), [source['available'] for source in wms.sources()])
+"""
+    lines = run_python(code, "sundsvall2026").stdout.splitlines()
+    # One wait of 5 s, then refused at once; the probe does not ask the silent service again, MCF is asked once.
+    assert lines[:3] == ["504", "503", "503"]
+    assert lines[3] == "[5, 5] False [False, False]"

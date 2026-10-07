@@ -693,6 +693,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"IoT: {Handler.sensors.detail}")
     # The fire's assessment needs the forecasts, which take a few seconds; compute them before the first screen connects.
     assessor()
+    # The flood's map services are outside the demo: watch whether they answer.
+    wms.watch()
     # Slow the playback down around every satellite pass in the data and the Landsat scene.
     Handler.engine.set_slow_windows(slow_windows())
     # Start psql now, so the first question is answered without the start-up time.

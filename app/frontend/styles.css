@@ -164,3 +164,4 @@ body.monitor-page { display: flex; flex-direction: column; height: 100%; backgro
 body[data-incident="flood"] [data-incident="wildfire"], body[data-incident="wildfire"] [data-incident="flood"] { display: none; }
 .rain-bar { fill: #1f5fa8; }
 .rain-now { stroke: #b3261e; stroke-width: 2; }
+.legend .alert { color: var(--accent); font-weight: 600; }

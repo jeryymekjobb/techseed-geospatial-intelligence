@@ -188,7 +188,11 @@ def opening(demo: Demo) -> str:
         demo.main.wait_for_function("document.getElementById('rain-values').textContent.includes('Senaste timmen')", timeout=WAIT_MS, polling=POLL_MS)
     demo.shot("1-opening")
     shown = demo.text('counts') if scenario.WILDFIRE else 'regnet visas: ' + demo.text('rain-values').replace(chr(10), ' ')
-    return f"kameraresan klar; karta {served}; {shown}"
+    # The flood maps come from services outside the demo: a silent one is reported, not failed.
+    with urlopen(f"{demo.base_url}/api/config", timeout=10) as response:
+        silent = [source["attribution"] for source in json.loads(response.read())["layers"].get("wms") or [] if not source["available"]]
+    warning = f"; VARNING: svarar inte: {', '.join(silent)}" if silent else ""
+    return f"kameraresan klar; karta {served}; {shown}{warning}"
 
 
 def space_view(demo: Demo) -> str:
