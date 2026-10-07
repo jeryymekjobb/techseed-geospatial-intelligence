@@ -58,8 +58,8 @@ PERIOD_START = date(2024, 1, 20)
 PERIOD_END = date(2024, 2, 25)
 PLAYBACK_START = datetime(2024, 1, 20, 0, 0, tzinfo=timezone.utc)
 PLAYBACK_END = datetime(2024, 2, 26, 0, 0, tzinfo=timezone.utc)
-# Sentinel-1A passes over Ringsjöarna at 05:33 UTC on 8 February, two days before the lake's peak.
-CHECK_START_UTC = "2024-02-08T05:00:00Z"
+# Sentinel-1A passes over Ringsjöarna at 16:45 UTC on 27 January, as the flows set their records.
+CHECK_START_UTC = "2024-01-27T16:30:00Z"
 
 DATABASE = "skane2024"
 TILES_FILE = "skane.mbtiles"
@@ -71,6 +71,9 @@ CAMERA_ROUTE = [
     {"lon": 13.45, "lat": 55.62, "height": 90_000, "pitch": -60, "seconds": 2.2},  # Mid-Skåne
 ]
 
+# The flood's words for the land the radar's water is counted on and for the gauges.
+FOCUS_LAND = "marken runt Ringsjöarna"
+RAIN_GAUGES = "VA-huvudmännens mätare"
 # The rain gauges with hourly sums in SMHI's open data (parameter 7): SMHI's Hörby A and
 # the water utilities' gauges round Ringsjöarna and the Kävlingeån catchment. Härlösa PST
 # is left out: it has two hours in the period.
@@ -107,14 +110,37 @@ SATELLITE_ROLES = {
 }
 SATELLITE_LABEL = "Position 2024, beräknad ur banelement (SGP4) – inte en observation"
 
-# The satellite images come in a later step.
+# Landsat has no usable scene over the area in January-February 2024 (the clearest, 8 March,
+# has 34 % cloud): the optical images are Sentinel-2's.
 LANDSAT_SCENES: dict = {}
 LANDSAT_ROLES = {"before": "Före översvämningen", "during": "Under översvämningen", "after": "Efter översvämningen"}
 LANDSAT_FOCUS_AREA = (13.35, 55.82, 13.65, 55.95)  # Ringsjöarna and the lower Hörbyån
 # About 30 m over MAP_BBOX: 0.9 degrees of longitude and 0.38 of latitude at 55.8 N.
 LANDSAT_SIZE = (1880, 1410)
-SENTINEL1_ACQUISITIONS: list = []
-SENTINEL2_SCENES: dict = {}
+# Sentinel-1A acquisitions over the focus area in the playback (Planetary Computer catalogue,
+# sentinel-1-grd, checked 2026-10-07; the start of the pass's product). Only passes that cover
+# the whole focus area: the descending passes at 05:33 UTC (27 January, 8 and 20 February)
+# cover 6-8 % of it.
+SENTINEL1_ACQUISITIONS = [
+    {"time_utc": "2024-01-20T16:53:26Z", "satellite": "Sentinel-1A", "norad": "39634"},
+    {"time_utc": "2024-01-22T05:24:38Z", "satellite": "Sentinel-1A", "norad": "39634"},
+    {"time_utc": "2024-01-27T16:45:22Z", "satellite": "Sentinel-1A", "norad": "39634"},
+    {"time_utc": "2024-01-29T05:16:29Z", "satellite": "Sentinel-1A", "norad": "39634"},
+    {"time_utc": "2024-02-03T05:24:37Z", "satellite": "Sentinel-1A", "norad": "39634"},
+    {"time_utc": "2024-02-15T05:24:37Z", "satellite": "Sentinel-1A", "norad": "39634"},
+    {"time_utc": "2024-02-20T16:45:21Z", "satellite": "Sentinel-1A", "norad": "39634"},
+    {"time_utc": "2024-02-22T05:16:28Z", "satellite": "Sentinel-1A", "norad": "39634"},
+]
+# Sentinel-2 (tools/fetch_sentinel2_scene.py): the clearest datatakes before, during and after,
+# by product name up to the relative orbit (catalogue tile cloud 2-5 %; the tool measures the
+# focus area's own). In winter the sun is low and snow can lie on the fields.
+SENTINEL2_SCENES = {
+    "before": "S2B_MSIL2A_20240116T102259_R065",
+    "during": "S2A_MSIL2A_20240203T103231_R108",
+    "after": "S2A_MSIL2A_20240304T102921_R108",
+}
+# About 20 m over MAP_BBOX.
+SENTINEL2_SIZE = (2820, 2115)
 
 # MCF's (formerly MSB's) overview flood maps; in the area they map Kävlingeån (2020) and
 # Höje å (2025). Same service and layers as the Sundsvall scenario.

@@ -732,9 +732,16 @@ Välj **Översvämningarna i Skåne 2024** i menyn (avsnitt 7). Hittills visar d
   kvalitetsgranskade av SMHI; det står i panelen.
 - **Regn (SMHI)** vid Hörby A och VA-huvudmännens mätare, **SMHI:s väderradar**, **vind
   (ERA5-Land)** och **MCF:s översvämningskartering** av Kävlingeån.
+- **Satellitbilder**: åtta Sentinel-1-radarbilder som täcker Ringsjöarna, från 20 januari till
+  22 februari, och Sentinel-2 före (16 januari), under (3 februari) och efter (4 mars, en
+  jämförelse). Landsat har ingen användbar bild under perioden. Radarbilden kan visas som
+  beräknat vatten utanför sjöar och hav; det är störst 27 januari och 3 februari, med 2–3 % av
+  marken runt Ringsjöarna. Det är en enkel beräknad mask, inte en kartlagd översvämning.
+- **SATELLITE DETECTION** tar nästa Sentinel-1-bild efter klockan. Kontrollen och skärmarna
+  börjar 27 januari kl. 17:30 svensk tid, strax före passagen 17:45 när flödena satte rekord.
 
-Satellitbilderna, sensorerna, bedömningen och frågorna kommer i senare steg. `check_demo`
-gäller ännu inte den här demon.
+Sensorerna, bedömningen och frågorna kommer i nästa steg: tills dess säger korreleringen
+"Okänd" och "IoT bekräftar 0/0". `check_demo` gäller ännu inte den här demon.
 
 ## 21. Förbered demon
 
@@ -755,4 +762,9 @@ export TECHSEED_SCENARIO=skane2024
 .venv/bin/python -m tools.fetch_osm_targets --bbox 55.6,13.0,55.98,13.9 --out data/skane2024/osm/targets-skane.geojson
 ```
 
-Radarbilderna tas var 30:e minut, eftersom perioden är fem veckor lång.
+Radarbilderna tas var 30:e minut, eftersom perioden är fem veckor lång. Satellitbilderna:
+
+```bash
+.venv/bin/python -m tools.fetch_sentinel1_scene
+.venv/bin/python -m tools.fetch_sentinel2_scene
+```
