@@ -74,3 +74,9 @@ def test_barb_images_are_stand_alone_svg_with_inlined_styles_and_cached() -> Non
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_osm_names_are_escaped_before_they_reach_the_info_box() -> None:
     assert node('escapeText("<b>Sjö & Å</b>")') == "&lt;b&gt;Sjö &amp; Å&lt;/b&gt;"
+
+
+def test_the_3d_wms_layers_ask_for_maps_only_as_the_backend_forwards() -> None:
+    source = (FRONTEND / "map3d.js").read_text(encoding="utf-8")
+    provider = source[source.index("new Cesium.WebMapServiceImageryProvider("):]
+    assert "enablePickFeatures: false" in provider[:provider.index("}));")]  # a click would send GetFeatureInfo, refused with 400

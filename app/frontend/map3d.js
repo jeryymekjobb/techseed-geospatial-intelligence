@@ -573,6 +573,8 @@ async function createCesiumMap(config) {
         const layer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapServiceImageryProvider({
           url: source.url, layers: name, rectangle: Cesium.Rectangle.fromDegrees(west, south, east, north),
           parameters: { transparent: true, format: "image/png" },
+          // No GetFeatureInfo on a click: the backend forwards only GetMap (wms.py).
+          enablePickFeatures: false,
         }));
         layer.alpha = WMS_ALPHA;
         wmsLayers.push(layer);
