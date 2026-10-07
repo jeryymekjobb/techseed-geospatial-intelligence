@@ -36,6 +36,77 @@ function marked(item, mark) {
   return Boolean(mark) && ((Boolean(mark.firms) && item.firms === mark.firms) || (Boolean(mark.norad) && item.norad === mark.norad));
 }
 
+// The sun at a moment: where it stands overhead, by the usual low-precision formulas for its
+// declination and the equation of time (about 0.1 degree; enough for a world map).
+function subsolarPoint(ms) {
+  const rad = Math.PI / 180;
+  const d = ms / 86400000 + 2440587.5 - 2451545.0;  // days from J2000
+  const g = (357.528 + 0.9856003 * d) * rad;
+  const lambda = (280.460 + 0.9856474 * d + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * rad;
+  const epsilon = (23.439 - 0.0000004 * d) * rad;
+  const declination = Math.asin(Math.sin(epsilon) * Math.sin(lambda)) / rad;
+  const rightAscension = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda)) / rad;
+  const sidereal = (18.697374558 + 24.06570982441908 * d) * 15;
+  const longitude = ((((rightAscension - sidereal) % 360) + 540) % 360) - 180;
+  return { latitude: declination, longitude };
+}
+
+// The sun's height above the horizon at a place, in degrees; below 0 it is night.
+function solarElevation(latitude, longitude, ms, sun = subsolarPoint(ms)) {
+  const rad = Math.PI / 180;
+  const cosine = Math.sin(latitude * rad) * Math.sin(sun.latitude * rad)
+    + Math.cos(latitude * rad) * Math.cos(sun.latitude * rad) * Math.cos((longitude - sun.longitude) * rad);
+  return Math.asin(Math.max(-1, Math.min(1, cosine))) / rad;
+}
+
+// How dark the night layer is at a sun height: none by day, full below civil twilight (-6 degrees).
+const NIGHT_ALPHA = 0.75;
+function nightShade(elevation) {
+  return elevation >= 0 ? 0 : elevation <= -6 ? NIGHT_ALPHA : (NIGHT_ALPHA * -elevation) / 6;
+}
+
+// The night over the map: a coarse grid of shades, drawn stretched so its edge is soft.
+const NIGHT_GRID = { width: 180, height: 90 };
+function nightLayer(ms) {
+  const sun = subsolarPoint(ms);
+  const canvas = document.createElement("canvas");
+  canvas.width = NIGHT_GRID.width;
+  canvas.height = NIGHT_GRID.height;
+  const g = canvas.getContext("2d");
+  const image = g.createImageData(NIGHT_GRID.width, NIGHT_GRID.height);
+  for (let row = 0; row < NIGHT_GRID.height; row += 1) {
+    const latitude = 90 - ((row + 0.5) * 180) / NIGHT_GRID.height;
+    for (let col = 0; col < NIGHT_GRID.width; col += 1) {
+      const longitude = -180 + ((col + 0.5) * 360) / NIGHT_GRID.width;
+      const at = (row * NIGHT_GRID.width + col) * 4;
+      image.data[at] = 2;
+      image.data[at + 1] = 6;
+      image.data[at + 2] = 24;
+      image.data[at + 3] = Math.round(255 * nightShade(solarElevation(latitude, longitude, ms, sun)));
+    }
+  }
+  g.putImageData(image, 0, 0);
+  return { canvas, sun };
+}
+
+// The night at a place across the timeline: [from, to] fractions of the window where the sun is down.
+function nightSpans(latitude, longitude, clockMs, window = MONITOR_WINDOW, stepMs = 300000) {
+  const start = clockMs - window.beforeMs;
+  const span = window.beforeMs + window.afterMs;
+  const spans = [];
+  let open = null;
+  for (let t = start; t <= start + span; t += stepMs) {
+    const night = solarElevation(latitude, longitude, t) < 0;
+    if (night && open === null) open = (t - start) / span;
+    if (!night && open !== null) {
+      spans.push([open, (t - start) / span]);
+      open = null;
+    }
+  }
+  if (open !== null) spans.push([open, 1]);
+  return spans;
+}
+
 // Equirectangular: longitude -180..180 and latitude 90..-90 onto the map box.
 function mapPoint(longitude, latitude, width, height) {
   return [((longitude + 180) / 360) * width, ((90 - latitude) / 180) * height];
@@ -79,6 +150,8 @@ function timelineTicks(clockMs, window = MONITOR_WINDOW, stepMs = 3600000) {
 // setMark() takes the pass of mission control's detection sequence, { atMs, firms, norad }, to
 // mark on the timeline and around its satellite; null when no sequence runs.
 // `place` names the incident's place in the texts ("branden", "Sundsvall"), `year` the scenario's.
+// The night is shaded on the map and on the timeline, and the text says whether it is day or
+// night at the incident.
 function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITOR_SIZE, place = "branden", year = "2014") {
   const box = document.createElement("section");
   box.className = "sat-monitor";
@@ -89,6 +162,7 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
   const rowsHeight = 22;
   let latest = null;
   let mark = null;
+  let night = null;  // { atMs, canvas, sun }: recomputed when the clock has moved five minutes
   const monitor = {
     draw(items, clock) {
       latest = [items, clock];
@@ -114,13 +188,32 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
       if (tiles.every((image) => image.complete && image.naturalWidth)) {
         g.drawImage(tiles[0], 0, 0, width / 2, mapHeight);
         g.drawImage(tiles[1], width / 2, 0, width / 2, mapHeight);
-        // Darkened so the orbits stand out against the bright world image.
-        g.fillStyle = "#00000080";
+        // Darkened so the orbits stand out against the bright world image; the night darker still.
+        g.fillStyle = "#00000040";
         g.fillRect(0, 0, width, mapHeight);
       } else {
         g.fillStyle = "#1b2a3a";
         g.fillRect(0, 0, width, mapHeight);
       }
+      if (!night || Math.abs(clock.getTime() - night.atMs) >= 300000) night = { atMs: clock.getTime(), ...nightLayer(clock.getTime()) };
+      g.imageSmoothingEnabled = true;
+      g.drawImage(night.canvas, 0, 0, width, mapHeight);
+      // The sun where it stands overhead.
+      const [sunX, sunY] = mapPoint(night.sun.longitude, night.sun.latitude, width, mapHeight);
+      const sunRadius = size.fit ? 9 : 6;
+      g.strokeStyle = "#ffd54a";
+      g.fillStyle = "#ffd54a";
+      g.lineWidth = 2;
+      for (let ray = 0; ray < 8; ray += 1) {
+        const angle = (ray * Math.PI) / 4;
+        g.beginPath();
+        g.moveTo(sunX + Math.cos(angle) * sunRadius * 1.4, sunY + Math.sin(angle) * sunRadius * 1.4);
+        g.lineTo(sunX + Math.cos(angle) * sunRadius * 2, sunY + Math.sin(angle) * sunRadius * 2);
+        g.stroke();
+      }
+      g.beginPath();
+      g.arc(sunX, sunY, sunRadius, 0, 2 * Math.PI);
+      g.fill();
       // Thick enough to be followed from a distance: the stand-alone page is seen across the booth.
       const line = size.fit ? 4 : 2.5;
       const path = (points) => {
@@ -192,6 +285,11 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
       const span = width - left - 6;
       g.fillStyle = "#202020";
       g.fillRect(0, mapHeight, width, height - mapHeight);
+      // The hours of night at the incident, behind the rows: optical satellites see nothing then.
+      g.fillStyle = "#0b1220";
+      for (const [from, to] of nightSpans(fireCentre[0], fireCentre[1], clock.getTime())) {
+        g.fillRect(left + from * span, top + 12, (to - from) * span, height - top - 12);
+      }
       g.fillStyle = "#b8b8b8";
       for (const tick of timelineTicks(clock.getTime())) {
         const x = left + tick.x * span;
@@ -229,7 +327,9 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
       g.fillStyle = "#ffd54a";
       g.fillRect(nowX - 1, top + 12, 2, height - top - 12);
       const text = box.querySelector(".sat-monitor-now");
-      text.textContent = overNow.length ? `ÖVER ${place.toUpperCase()} NU: ${overNow.join(", ")}` : `Ingen satellit över ${place} just nu`;
+      const daylight = solarElevation(fireCentre[0], fireCentre[1], clock.getTime(), night.sun) >= 0 ? "Dag" : "Natt";
+      text.textContent = (overNow.length ? `ÖVER ${place.toUpperCase()} NU: ${overNow.join(", ")}` : `Ingen satellit över ${place} just nu`)
+        + ` · ${daylight} över ${place}`;
       text.classList.toggle("active", overNow.length > 0);
     },
     redraw() {
@@ -249,4 +349,4 @@ function createSatelliteMonitor(container, fireCentre, formatTime, size = MONITO
   return monitor;
 }
 
-if (typeof module !== "undefined") module.exports = { mapPoint, splitTrack, timelineRow, timelineTicks, timelineX, MONITOR_WINDOW };
+if (typeof module !== "undefined") module.exports = { subsolarPoint, solarElevation, nightShade, nightSpans, mapPoint, splitTrack, timelineRow, timelineTicks, timelineX, MONITOR_WINDOW };

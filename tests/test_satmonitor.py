@@ -63,3 +63,26 @@ def test_the_track_splits_where_the_satellite_is_now() -> None:
     assert [point["latitude"] for point in split["past"]] == [-20.0, -10.0, 0.0]
     assert [point["latitude"] for point in split["ahead"]] == [0.0, 10.0, 20.0]
     assert node("splitTrack([], {latitude: 0, longitude: 0})") == {"past": [], "ahead": []}
+
+
+def test_the_sun_stands_overhead_where_the_almanac_puts_it() -> None:
+    # The June solstice 2026, 12:00 UTC: about 23.4 N, and still about 0.4 E: with the equation of time at
+    # -1.6 min the sun crosses Greenwich at 12:01:36 UTC.
+    sun = node("subsolarPoint(Date.parse('2026-06-21T12:00:00Z'))")
+    assert sun["latitude"] == pytest.approx(23.44, abs=0.1) and sun["longitude"] == pytest.approx(0.4, abs=0.2)
+    # The September equinox 2026 (23 Sept): the sun over the equator.
+    assert node("subsolarPoint(Date.parse('2026-09-23T00:00:00Z')).latitude") == pytest.approx(0.0, abs=0.5)
+
+
+def test_night_and_day_in_sundsvall_in_august() -> None:
+    elevation = "solarElevation(62.391, 17.307, Date.parse('{}'))"
+    assert node(elevation.format("2026-08-16T00:00:00Z")) < -5   # two o'clock at night, Swedish summer time
+    assert node(elevation.format("2026-08-16T10:30:00Z")) > 35   # half past twelve, near noon
+    assert node("[nightShade(10), nightShade(-3), nightShade(-12)]") == [0, pytest.approx(0.375), 0.75]
+
+
+def test_the_timeline_marks_the_hours_of_night_at_the_incident() -> None:
+    # 16 August 2026 from 20:00 to 02:00 Swedish time: the sun sets at about 20:45 local.
+    spans = node(f"nightSpans(62.391, 17.307, Date.parse('2026-08-16T19:00:00Z'))")
+    assert len(spans) == 1 and spans[0][1] == 1
+    assert spans[0][0] == pytest.approx((18 * 60 + 45 - 18 * 60) / 360, abs=0.03)  # 18:45 UTC in a window from 18:00
