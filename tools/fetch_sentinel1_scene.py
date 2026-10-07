@@ -51,7 +51,8 @@ SEA_LEVEL_M = 0.5  # the DEM's sea, as known water
 LAND_PERCENTILE = 5.0
 NEIGHBOURS = 5  # of the 3 x 3 pixels round a pixel, at least this many dark
 WATER_RGBA = (0, 190, 255, 220)
-NOTICE = "Contains modified Copernicus Sentinel data 2026, processed by Techseed (Planetary Computer, sentinel-1-grd)"
+NOTICE = (f"Contains modified Copernicus Sentinel data {scenario.PERIOD_START.year}, processed by Techseed "
+          "(Planetary Computer, sentinel-1-grd)")
 LICENCE = "https://sentinels.copernicus.eu/documents/247904/690755/Sentinel_Data_Legal_Notice (free and open)"
 
 

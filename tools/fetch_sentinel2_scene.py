@@ -45,7 +45,8 @@ RAW_BANDS = ("B03", "B08", "SCL")
 SCL_NO_DATA = (0, 1)
 SCL_CLOUDY = (3, 8, 9, 10)
 WATER_RGBA = (30, 120, 220, 210)
-NOTICE = "Contains modified Copernicus Sentinel data 2026, processed by Techseed (Planetary Computer, sentinel-2-l2a)"
+NOTICE = (f"Contains modified Copernicus Sentinel data {scenario.PERIOD_START.year}, processed by Techseed "
+          "(Planetary Computer, sentinel-2-l2a)")
 LICENCE = "https://sentinels.copernicus.eu/documents/247904/690755/Sentinel_Data_Legal_Notice (free and open)"
 
 

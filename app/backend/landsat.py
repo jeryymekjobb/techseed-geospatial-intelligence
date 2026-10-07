@@ -32,7 +32,7 @@ NAMES = {
 }
 ROLES = scenario.LANDSAT_ROLES
 SATELLITES = {"LC08": "Landsat 8", "LC09": "Landsat 9", "S2A": "Sentinel-2A", "S2B": "Sentinel-2B", "S2C": "Sentinel-2C",
-              "S1C": "Sentinel-1C", "S1D": "Sentinel-1D"}
+              "S1A": "Sentinel-1A", "S1C": "Sentinel-1C", "S1D": "Sentinel-1D"}
 ROLE_TEXTS = {**ROLES, "radar": "Radarbild"}
 
 
