@@ -189,3 +189,15 @@ if scenario.WIND_FILE.exists():
     if lines[1] == "True":  # data/ is not in the repository; fetched with tools/fetch_era5_land.py and fetch_era5_sea.py
         # 39 ERA5-Land points on land; with the sea file also the 11 at sea from ERA5
         assert lines[2] in ("39 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39", "50 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39")
+
+
+def test_the_flood_s_words_come_from_the_scenario() -> None:
+    info = {"pass": {"kind": "flood", "instrument": "SAR", "satellite": "Sentinel-1A", "pass_utc": "2024-01-27T16:45:22Z"},
+            "name": "acquired", "classification": {"counts": {}, "rules": []}}
+    assert node("scenario_events.js", f"detectionDetail({json.dumps(info)}, null, 'Ringsjöarna')").startswith(
+        "Radar (SAR) på Sentinel-1A tar en bild över Ringsjöarna 16:45 UTC")
+    scene = {"separable": True, "new_water_pct": 2.13}
+    words = fa.FloodAssessor([], [], [], (55.9, 13.5), place_name="Ringsjöarna", focus_land="marken runt Ringsjöarna",
+                             gauges="VA-huvudmännens mätare")
+    assert words.radar_text(scene) == "vatten utanför sjöar och hav på 2,13 % av marken runt Ringsjöarna (beräknat, enkel tröskel)"
+    assert fa.FloodAssessor([], [], [], (62.4, 17.3)).radar_text(scene).endswith("av stans land (beräknat, enkel tröskel)")

@@ -246,7 +246,8 @@ function setupRain(config) {
   const limits = ["0 mm", "högst 0,5 mm", "0,5–4 mm", "mer än 4 mm", "minst 50 mm"];
   $("rain-legend").innerHTML = RAIN_CLASSES.map((item, index) => `<li><span class="swatch" style="background:${item.color};`
     + `border:2px solid #1f5fa8;border-radius:50%"></span>${item.label}: ${limits[index]} på en timme</li>`).join("");
-  $("rain-note").textContent = "Timsummor från SMHI. Kommunens mätare redovisar bara timmar med regn; "
+  const gauges = config.rain_gauges.charAt(0).toUpperCase() + config.rain_gauges.slice(1);
+  $("rain-note").textContent = `Timsummor från SMHI. ${gauges} redovisar bara timmar med regn; `
     + "en timme utan värde räknas som torr. Senaste månaderna är inte alltid kvalitetsgranskade.";
 }
 
@@ -522,7 +523,7 @@ function sceneConditions(scene) {
   }
   if (scene.separable === false) return "radar genom molnen; vatten och land skiljs dåligt åt i bilden";
   if (scene.new_water_pct !== undefined) {
-    return `radar genom molnen; beräknat vatten utanför sjöar och hav på ${String(scene.new_water_pct).replace(".", ",")} % av stans land`;
+    return `radar genom molnen; beräknat vatten utanför sjöar och hav på ${String(scene.new_water_pct).replace(".", ",")} % av ${state.config.focus_land}`;
   }
   return "radar genom molnen";
 }
@@ -821,7 +822,7 @@ function showDetection(info) {
     row.append(item.title, " ", tag);
     list.append(row);
   }
-  $("detection-detail").textContent = detectionDetail(info, state.synthetic ? confirmsText(state.synthetic) : null);
+  $("detection-detail").textContent = detectionDetail(info, state.synthetic ? confirmsText(state.synthetic) : null, state.config.incident_place);
   const rules = $("detection-rules");
   rules.hidden = info.name !== "correlate";
   if (rules.hidden) return;
@@ -954,7 +955,8 @@ function showSynthetic(result) {
   state.map.drawSyntheticSensors(result);
   // The IoT step of the detection sequence quotes the sensors at its time.
   if (state.detection && state.scenarioStatus?.detection?.name === "iot") {
-    $("detection-detail").textContent = detectionDetail({ ...state.detection, ...state.scenarioStatus.detection }, confirmsText(result));
+    $("detection-detail").textContent = detectionDetail({ ...state.detection, ...state.scenarioStatus.detection }, confirmsText(result),
+      state.config.incident_place);
   }
 }
 

@@ -76,6 +76,9 @@ CAMERA_ROUTE = [
     {"lon": 17.3, "lat": 62.2, "height": 160_000, "pitch": -60, "seconds": 2.2},  # Medelpad
 ]
 
+# The flood's words for the land the radar's water is counted on and for the gauges.
+FOCUS_LAND = "stans land"
+RAIN_GAUGES = "kommunens mätare"
 # The rain gauges (SMHI parameter 7, hourly precipitation): the municipality's own and
 # SMHI's Brämön A. Söråker (22228110) is left out: it gives implausible values.
 RAIN_STATIONS = {

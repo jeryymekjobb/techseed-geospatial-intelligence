@@ -4,7 +4,7 @@ The assessment (as assessment.py for the fire) adds up rule-based evidence with 
 weights: the real rain of the gauges, the synthetic overflow sensors (flood_sensors.py)
 and, as context, the municipality's cloudburst model and the satellite images. The
 detection sequence (as detection.py) is anchored in a real Sentinel-1 radar acquisition
-over Sundsvall from the Copernicus catalogue; its image's water is a simple computed
+over the scenario's place from the Copernicus catalogue; its image's water is a simple computed
 mask (tools/fetch_sentinel1_scene.py), which the rules call so and leave out where the
 image cannot tell water from land.
 """
@@ -52,7 +52,10 @@ def rain_sums(observations: Sequence[dict[str, Any]], clock: datetime) -> tuple[
 
 class FloodAssessor:
     def __init__(self, stations: Sequence[dict[str, Any]], acquisitions: Sequence[dict[str, str]],
-                 scenes: Sequence[dict[str, Any]], centre: tuple[float, float]) -> None:
+                 scenes: Sequence[dict[str, Any]], centre: tuple[float, float], *, place_name: str = "Sundsvall",
+                 focus_land: str = "stans land", gauges: str = "kommunens mätare") -> None:
+        # The scenario's words: its place, the land the radar's water is counted on and its rain gauges.
+        self.place_name, self.focus_land, self.gauges = place_name, focus_land, gauges
         self.stations = list(stations)
         self.acquisitions = sorted(acquisitions, key=lambda item: item["time_utc"])
         self.scenes = [scene for scene in scenes if "water" in scene["images"]]
@@ -73,7 +76,7 @@ class FloodAssessor:
             value, station = self._wettest(clock, day)
             ref = place(station["latitude"], station["longitude"]) if station else None
             where = f" vid {station['name']}" if station else ""
-            text = f"Regn {span}: högst {sv(value)} mm{where} (SMHI, kommunens mätare; regel ≥ {sv(limit)} mm)"
+            text = f"Regn {span}: högst {sv(value)} mm{where} (SMHI, {self.gauges}; regel ≥ {sv(limit)} mm)"
             evidence.append(line(key, "ok" if value >= limit else "miss", text, ref, WEIGHTS[key]))
         return evidence
 
@@ -89,7 +92,7 @@ class FloodAssessor:
         if images:
             scene = images[-1]
             evidence.append(line("image", "info", f"Senaste optiska bild med vatten: {scene['label']}, {sv(scene['cloud_pct'])} % moln över "
-                                 "Sundsvall (NDWI)", None))
+                                 f"{self.place_name} (NDWI)", None))
         else:
             evidence.append(line("image", "info", "Ingen klar optisk satellitbild under regnet", None))
         return evidence
@@ -97,13 +100,12 @@ class FloodAssessor:
     def radar_scene(self, moment: str) -> dict[str, Any] | None:
         return next((scene for scene in self.radar if scene["acquired_utc"] == moment), None)
 
-    @staticmethod
-    def radar_text(scene: dict[str, Any] | None) -> str:
+    def radar_text(self, scene: dict[str, Any] | None) -> str:
         if scene is None:
             return "bilden är inte hämtad (tools/fetch_sentinel1_scene.py)"
         if not scene["separable"]:
             return "vatten och land skiljs dåligt åt i bilden (vind eller regn), vattenmasken är osäker"
-        return f"vatten utanför sjöar och hav på {sv(scene['new_water_pct'])} % av stans land (beräknat, enkel tröskel)"
+        return f"vatten utanför sjöar och hav på {sv(scene['new_water_pct'])} % av {self.focus_land} (beräknat, enkel tröskel)"
 
     def at(self, clock: datetime, synthetic: dict[str, Any], satellite_until: datetime | None = None) -> dict[str, Any]:
         """The assessment at the clock; `satellite_until` is the start of a SATCOM outage."""

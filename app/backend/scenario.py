@@ -71,6 +71,9 @@ RADAR_DIR = getattr(_module, "RADAR_DIR", None)
 # SMHI's measured flows and lake levels (tools/fetch_smhi_hydro.py) and their stations.
 HYDRO_DIR = getattr(_module, "HYDRO_DIR", None)
 HYDRO_STATIONS = getattr(_module, "HYDRO_STATIONS", {})
+# The flood's words: the land the radar's water is counted on, and who runs the rain gauges.
+FOCUS_LAND = getattr(_module, "FOCUS_LAND", "fokusområdets land")
+RAIN_GAUGES = getattr(_module, "RAIN_GAUGES", "SMHI:s mätare")
 SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})
 SENTINEL2_SIZE = getattr(_module, "SENTINEL2_SIZE", None)
 FLOOD_HAZARD_WMS = getattr(_module, "FLOOD_HAZARD_WMS", None)

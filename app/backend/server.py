@@ -185,7 +185,9 @@ def _assessor() -> assessment.Assessor | flood_assessment.FloodAssessor:
     if not scenario.WILDFIRE:
         images = landsat.layer()
         return flood_assessment.FloodAssessor(weather()["stations"], scenario.SENTINEL1_ACQUISITIONS,
-                                              images["scenes"] if images else [], scenario.FIRE_CENTRE)
+                                              images["scenes"] if images else [], scenario.FIRE_CENTRE,
+                                              place_name=scenario.INCIDENT_PLACE, focus_land=scenario.FOCUS_LAND,
+                                              gauges=scenario.RAIN_GAUGES)
     return assessment.Assessor(detections(), wind_field(), forecast.forecasts()["states"], scenario.FIRE_CENTRE)
 
 
@@ -326,6 +328,9 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
         "incident": scenario.INCIDENT,
         "incident_place": scenario.INCIDENT_PLACE,
         "incident_area": scenario.INCIDENT_AREA,
+        # The flood's words: the land the radar's water is counted on and the rain gauges.
+        "focus_land": scenario.FOCUS_LAND,
+        "rain_gauges": scenario.RAIN_GAUGES,
         "title": scenario.TITLE,
         "data_label": scenario.DATA_LABEL,
         "control_label": scenario.CONTROL_LABEL,

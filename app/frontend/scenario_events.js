@@ -117,18 +117,18 @@ function decimalText(value) {
 }
 
 // The flood's sequence: a real Sentinel-1 acquisition; the radar image is not analysed in the demo.
-function floodDetectionDetail(info, iotText) {
+function floodDetectionDetail(info, iotText, place) {
   const pass = info.pass;
   const { counts, rules } = info.classification;
   switch (info.name) {
     case "acquired":
-      return `Radar (${pass.instrument}) på ${pass.satellite} tar en bild över Sundsvall ${pass.pass_utc.slice(11, 16)} UTC – den verkliga radarbilden visas på kartan.`;
+      return `Radar (${pass.instrument}) på ${pass.satellite} tar en bild över ${place} ${pass.pass_utc.slice(11, 16)} UTC – den verkliga radarbilden visas på kartan.`;
     case "anomaly":
       return `Illustrativt: ${pass.satellite} flaggar vatten på marken i bilden. Sentinel-1 analyserar inte bilderna ombord.`;
     case "downlink":
       return "Illustrativt: satelliten skickar larmet till en markstation och vidare till lägescentralen.";
     case "zoom":
-      return "Kartan zoomar till Sundsvall och den verkliga radarbilden: släta vattenytor är mörka. Nästa steg visar beräknat vatten utanför sjöar och hav.";
+      return `Kartan zoomar till ${place} och den verkliga radarbilden: släta vattenytor är mörka. Nästa steg visar beräknat vatten utanför sjöar och hav.`;
     case "iot":
       return `Blått på kartan är vatten i radarbilden utanför sjöar och hav – en beräknad mask, inte en kartlagd översvämning. `
         + `Bräddgivarna på marken kontrollerar larmet: ${iotText || "inga sensorvärden ännu"}.`;
@@ -140,8 +140,9 @@ function floodDetectionDetail(info, iotText) {
 }
 
 // The detail of the current step; `info` is /api/detection, `iotText` the synthetic sensors' line.
-function detectionDetail(info, iotText) {
-  if (info.pass.kind === "flood") return floodDetectionDetail(info, iotText);
+// `place` is the flood scenario's place (config.incident_place).
+function detectionDetail(info, iotText, place = "Sundsvall") {
+  if (info.pass.kind === "flood") return floodDetectionDetail(info, iotText, place);
   const pass = info.pass;
   const satellite = FIRMS_SATELLITES[pass.satellite] || pass.satellite;
   const { counts, rules } = info.classification;
