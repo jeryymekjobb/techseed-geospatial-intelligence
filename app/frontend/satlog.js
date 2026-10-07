@@ -1,15 +1,15 @@
 // The satellite log under the satellite monitor (monitor.html): what has happened with the
 // satellites up to the scenario clock, newest first. Built from the clock every time, so it
 // is the same after a RESET, a jump or a reload. Each line says where it comes from:
-// passes computed from the element sets, FIRMS detections and Landsat scenes from 2014, and
+// passes computed from the element sets, FIRMS detections and satellite images of its year, and
 // mission control's simulated events. Pure, so it can be tested in Node.
 "use strict";
 
 const SATLOG_WINDOW_MS = 24 * 3600000;
 // More lines than fit; the page shows as many as its space allows and cuts the oldest.
 const SATLOG_LIMIT = 50;
-const SATLOG_SOURCES = { computed: "beräknat", firms: "FIRMS 2014", landsat: "Landsat 2014", simulated: "simulerat" };
-const SATLOG_FIRMS_NAMES = { Aqua: "Aqua", Terra: "Terra", SNPP: "Suomi NPP" };
+const SATLOG_SOURCES = { computed: "beräknat", firms: "FIRMS", landsat: "satellitbild", simulated: "simulerat" };
+const SATLOG_FIRMS_NAMES = { Aqua: "Aqua", Terra: "Terra", SNPP: "Suomi NPP", N20: "NOAA-20" };
 // FIRMS detections of one satellite this close in time come from the same pass.
 const SATLOG_PASS_GAP_MS = 15 * 60000;
 
@@ -59,6 +59,7 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [] },
     const count = pass.detections === 1 ? "1 detektion" : `${pass.detections} detektioner`;
     lines.push({
       atMs: pass.atMs, text: `${count} från ${name} (${pass.instrument}), starkast ${satlogDecimal(pass.maxFrp)} MW`, source: "firms", kind: "firms",
+      sourceText: `FIRMS ${new Date(pass.atMs).getUTCFullYear()}`,
     });
   }
   for (const scene of scenes) {

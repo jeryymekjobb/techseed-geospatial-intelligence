@@ -66,3 +66,9 @@ def test_the_log_keeps_the_last_day_and_a_few_lines() -> None:
     assert len(node(f"satelliteLog({{satellites: [{{name: 'Aqua', passes: {json.dumps(passes)}}}]}}, {CLOCK})")) == 8  # the 30 h old pass is out
     assert all(line["atMs"] > CLOCK - 24 * HOUR for line in node(f"satelliteLog({{satellites: [{{name: 'Aqua', passes: {json.dumps(passes)}}}]}}, {CLOCK}, 86400000, 99)"))
     assert node(f"satelliteLog({{}}, {CLOCK})") == []
+
+
+def test_firms_lines_name_their_year_and_noaa_20() -> None:
+    lines = node(f"satelliteLog({{ firms: firmsPasses([{json.dumps(hotspot('2018-07-17T11:20:00Z', 'N20'))}]) }}, "
+                 "Date.parse('2018-07-17T12:00:00Z'))")
+    assert [(line["text"], line["sourceText"]) for line in lines] == [("1 detektion från NOAA-20 (VIIRS), starkast 1 MW", "FIRMS 2018")]

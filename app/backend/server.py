@@ -331,6 +331,8 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
         # The flood's words: the land the radar's water is counted on and the rain gauges.
         "focus_land": scenario.FOCUS_LAND,
         "rain_gauges": scenario.RAIN_GAUGES,
+        # The fire's forecast weather station.
+        "forecast_station": scenario.FORECAST_STATION,
         "title": scenario.TITLE,
         "data_label": scenario.DATA_LABEL,
         "control_label": scenario.CONTROL_LABEL,

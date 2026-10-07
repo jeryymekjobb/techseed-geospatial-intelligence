@@ -158,3 +158,14 @@ def test_a_placed_sensor_is_named_as_on_the_map_and_listed_as_synthetic() -> Non
     assert node(f"eventText({event})")["title"] == "IOT-SENSOR PLACERAD P2"
     placed = {**QUIET, "placed_sensors": [{"id": "placed-1", "name": "Sensor P1"}, {"id": "placed-2", "name": "Sensor P2"}]}
     assert node(f"statusLines({json.dumps(placed)})") == [{"level": "info", "text": "Placerade sensorer: P1, P2 (syntetiska)"}]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_fire_s_texts_take_the_year_from_the_scenario_clock() -> None:
+    info = {"name": "acquired", "pass": {"kind": "wildfire", "instrument": "VIIRS", "satellite": "N20", "pass_utc": "2018-07-17T11:20:00Z"},
+            "classification": {"counts": {}, "rules": []}}
+    code = (f"const m = require({json.dumps(str(FRONTEND / 'scenario_events.js'))}); console.log(JSON.stringify([m.detectionDetail({json.dumps(info)}, null), "
+            "m.eventText({kind: 'space_view', clock_utc: '2018-07-17T11:00:00Z'}).detail]));")
+    acquired, space = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+    assert acquired == "VIIRS på NOAA-20 passerar över branden 11:20 UTC – verklig passage ur FIRMS 2018."
+    assert space == "Satelliternas läge 2018, beräknat ur banelement."

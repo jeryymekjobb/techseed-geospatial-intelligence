@@ -96,6 +96,7 @@ LANDSAT_FOCUS_AREA = (16.01, 59.83, 16.30, 60.01)
 LANDSAT_SIZE = (2410, 2780)
 
 # The fire's own modules: the forecast (app/backend/forecast.py) and the spatial questions.
+FORECAST_STATION = "SMHI Sala A"
 FORECAST_WEATHER_FILES = [WEATHER_DIR / "spinup" / "sala-a-96560.csv", WEATHER_DIR / "sala-a-96560.csv"]
 FORECAST_METHOD = ("FBP C-2, FWI från SMHI Sala A, rådande väder vid passagen, kalibrerad mot observerad spridning; "
                    "spann halva–dubbla hastigheten")

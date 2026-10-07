@@ -434,7 +434,7 @@ function drawForecast(clock) {
       ["Observerat", observed ? `${km(observed.km_per_h)} mot ${observed.towards} (${clockTime.format(new Date(observed.from_utc))}–${clockTime.format(new Date(observed.to_utc))} mellan passager)` : "ingen mätbar spridning ännu"],
       ["Modell, trolig", `${km(model.head_km_per_h.central)} mot ${model.towards} (spann ${km(model.head_km_per_h.low)}–${km(model.head_km_per_h.high)})`],
       ["Kalibrering", `× ${String(model.calibration_factor).replace(".", ",")} mot observerad spridning`],
-      ["Brandväder", weather.fwi !== undefined ? `FWI ${weather.fwi}, BUI ${weather.bui}, ISI ${weather.isi} (SMHI Sala A)` : "saknas"],
+      ["Brandväder", weather.fwi !== undefined ? `FWI ${weather.fwi}, BUI ${weather.bui}, ISI ${weather.isi} (${state.config.forecast_station})` : "saknas"],
     ].map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
   } else {
     values.innerHTML = "<dt>Prognos</dt><dd>ingen satellitdetektion ännu</dd>";
@@ -1197,6 +1197,7 @@ async function startApp(createMap) {
   if (wildfire) state.forecast = await loadOptional("/api/forecast", (error) => { $("forecast-places").textContent = `Prognosen kunde inte laddas: ${error.message}.`; });
   if (state.forecast) {
     $("forecast-label").textContent = state.forecast.label;
+    for (const item of document.querySelectorAll(".forecast-station")) item.textContent = config.forecast_station;
     state.map.setupForecast();
     $("forecast-horizon").addEventListener("change", (event) => {
       state.forecastHorizon = event.target.value;

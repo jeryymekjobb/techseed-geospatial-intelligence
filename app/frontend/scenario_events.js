@@ -14,7 +14,7 @@ const EVENT_TEXTS = {
   plus60: { title: "+60 MIN", detail: "Prognosen visas med kortaste horisonten – modell med stor osäkerhet." },
   god_view: { title: "GOD VIEW", detail: "Kameran visar hela lägesbilden." },
   iot: { title: "IOT PÅ", detail: "Sensorerna räknas med i lägesbilden och bedömningen igen." },
-  space_view: { title: "SPACE VIEW", detail: "Satelliternas läge 2014, beräknat ur banelement." },
+  space_view: { title: "SPACE VIEW", detail: "Satelliternas läge {year}, beräknat ur banelement." },
   filter: { title: "FILTER", detail: "Ett lager visas eller döljs på kartan." },
   place_sensor: { title: "IOT-SENSOR PLACERAD", detail: "Syntetisk sensor, placerad av operatören – värdena beräknas ur brandfronten och vädret." },
 };
@@ -35,7 +35,8 @@ function eventText(event) {
   // A placed sensor is named P1, P2 … as on the map; its id is placed-1, placed-2 …
   const placed = event.kind === "place_sensor" && event.target ? ` P${event.target.replace("placed-", "")}` : null;
   const target = category ? ` ${category.label.toUpperCase()}` : placed ?? (event.target ? ` ${event.target}` : "");
-  return { title: `${text.title}${target}`, detail: text.detail };
+  // {year} is the scenario's year, the year on the scenario clock when the event came.
+  return { title: `${text.title}${target}`, detail: text.detail.replace("{year}", (event.clock_utc || "").slice(0, 4)) };
 }
 
 // Toggles say whether they were switched on or off; `status` is the state after the event.
@@ -84,7 +85,7 @@ function queueText(queue) {
 function syncBanner(summary) {
   return {
     title: `SYNC – ${summary.passes.length} NEW EVENTS`,
-    detail: "Satellitpassager under det simulerade avbrottet, ur verkliga FIRMS-data 2014.",
+    detail: `Satellitpassager under det simulerade avbrottet, ur verkliga FIRMS-data ${(summary.passes[0]?.time_utc || "").slice(0, 4)}.`.replace(" .", "."),
   };
 }
 
@@ -110,7 +111,7 @@ const DETECTION_STEPS = [
   { name: "iot", title: "IoT på marken", real: false },
   { name: "correlate", title: "Korrelering", real: true },
 ];
-const FIRMS_SATELLITES = { Aqua: "Aqua", Terra: "Terra", SNPP: "Suomi NPP" };
+const FIRMS_SATELLITES = { Aqua: "Aqua", Terra: "Terra", SNPP: "Suomi NPP", N20: "NOAA-20" };
 
 function decimalText(value) {
   return String(value).replace(".", ",");
@@ -149,9 +150,9 @@ function detectionDetail(info, iotText, place = "Sundsvall") {
   const total = (category) => rules.filter((rule) => rule.category === category).length;
   switch (info.name) {
     case "acquired":
-      return `${pass.instrument} på ${satellite} passerar över branden ${pass.pass_utc.slice(11, 16)} UTC – verklig passage ur FIRMS 2014.`;
+      return `${pass.instrument} på ${satellite} passerar över branden ${pass.pass_utc.slice(11, 16)} UTC – verklig passage ur FIRMS ${pass.pass_utc.slice(0, 4)}.`;
     case "anomaly":
-      return `Illustrativt: ${satellite} flaggar ett varmt område i bilden. Satelliterna analyserade inte bilderna ombord 2014.`;
+      return `Illustrativt: ${satellite} flaggar ett varmt område i bilden. Satelliterna analyserade inte bilderna ombord ${pass.pass_utc.slice(0, 4)}.`;
     case "downlink":
       return "Illustrativt: satelliten skickar larmet till en markstation och vidare till lägescentralen.";
     case "zoom":
