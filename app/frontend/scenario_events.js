@@ -122,15 +122,16 @@ function floodDetectionDetail(info, iotText) {
   const { counts, rules } = info.classification;
   switch (info.name) {
     case "acquired":
-      return `Radar (${pass.instrument}) på ${pass.satellite} tar en bild över Sundsvall ${pass.pass_utc.slice(11, 16)} UTC – verklig tagning ur Copernicus-katalogen.`;
+      return `Radar (${pass.instrument}) på ${pass.satellite} tar en bild över Sundsvall ${pass.pass_utc.slice(11, 16)} UTC – den verkliga radarbilden visas på kartan.`;
     case "anomaly":
       return `Illustrativt: ${pass.satellite} flaggar vatten på marken i bilden. Sentinel-1 analyserar inte bilderna ombord.`;
     case "downlink":
       return "Illustrativt: satelliten skickar larmet till en markstation och vidare till lägescentralen.";
     case "zoom":
-      return "Kartan zoomar till Sundsvall. Radarbilden är inte analyserad i demon – regnet och kommunens modell visar var vatten kan stå.";
+      return "Kartan zoomar till Sundsvall och den verkliga radarbilden: släta vattenytor är mörka. Nästa steg visar beräknat vatten utanför sjöar och hav.";
     case "iot":
-      return `Bräddgivarna på marken kontrollerar larmet: ${iotText || "inga sensorvärden ännu"}.`;
+      return `Blått på kartan är vatten i radarbilden utanför sjöar och hav – en beräknad mask, inte en kartlagd översvämning. `
+        + `Bräddgivarna på marken kontrollerar larmet: ${iotText || "inga sensorvärden ännu"}.`;
     case "correlate":
       return `${info.classification.outcome} – ${counts.Översvämning} av ${rules.length} regler för översvämning håller.`;
     default:

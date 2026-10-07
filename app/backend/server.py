@@ -421,9 +421,10 @@ class Handler(BaseHTTPRequestHandler):
             self.terrain(path)
         elif path.startswith("/wms/"):
             self.wms_map(path.removeprefix("/wms/"), query)
-        elif path.startswith(("/landsat/", "/sentinel2/")):
+        elif path.startswith(("/landsat/", "/sentinel2/", "/sentinel1/")):
             prefix, _, name = path.lstrip("/").partition("/")
-            body = landsat.image(name, landsat.LANDSAT_DIR if prefix == "landsat" else landsat.SENTINEL2_DIR)
+            directory = {"landsat": landsat.LANDSAT_DIR, "sentinel2": landsat.SENTINEL2_DIR, "sentinel1": landsat.SENTINEL1_DIR}[prefix]
+            body = landsat.image(name, directory) if directory else None
             if body is None:
                 self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
             else:

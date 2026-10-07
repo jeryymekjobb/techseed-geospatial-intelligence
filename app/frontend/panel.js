@@ -63,6 +63,7 @@ const state = {
   // The detection sequence (scenario_events.js): /api/detection per pass and the step shown.
   detection: null,
   detectionKey: null,
+  detectionImage: null,  // "scene|image" the flood's sequence shows, or null
 };
 
 const $ = (id) => document.getElementById(id);
@@ -352,12 +353,12 @@ async function setupLandsat(config) {
     + '<div id="landsat-legend" class="ndmi-legend" hidden></div><div id="landsat-note" class="status"></div>';
   $("satellite-section").after(section);
   const info = config.layers.landsat;
-  // One date per scene and the images the scenes have; the fire starts with SWIR, the flood with no
-  // image, so the rain and the flood maps are seen (its August scenes are cloudy).
+  // One date per scene and the images the scenes have; the fire starts with SWIR, the flood with the
+  // latest radar image, which sees through the clouds of its August days.
   for (const scene of info?.scenes || []) $("landsat-date").append(new Option(scene.label, scene.scene));
   for (const [name, text] of Object.entries(info?.names || {})) $("landsat-choice").append(new Option(text, name));
   $("landsat-choice").append(new Option("av", "off"));
-  state.landsatChoice = config.incident !== "wildfire" ? "off" : info?.names?.swir ? "swir" : "natural";
+  state.landsatChoice = config.incident !== "wildfire" ? (info?.names?.radar ? "radar" : "off") : info?.names?.swir ? "swir" : "natural";
   $("landsat-choice").value = state.landsatChoice;
   if (!info) {
     $("landsat-note").textContent = "Satellitbilden är inte hämtad (tools/fetch_landsat_scene.py).";
@@ -388,10 +389,28 @@ async function setupLandsat(config) {
   showLandsatAt(state.clock);
 }
 
+// What an image says about its conditions: cloud for the optical, the water mask's certainty for the radar.
+function sceneConditions(scene) {
+  if (scene.cloud_pct !== null && scene.cloud_pct !== undefined) {
+    return `${String(scene.cloud_pct).replace(".", ",")} % moln över ${state.config.incident_area}`;
+  }
+  if (scene.separable === false) return "radar genom molnen; vatten och land skiljs dåligt åt i bilden";
+  if (scene.new_water_pct !== undefined) {
+    return `radar genom molnen; beräknat vatten utanför sjöar och hav på ${String(scene.new_water_pct).replace(".", ",")} % av stans land`;
+  }
+  return "radar genom molnen";
+}
+
 // The latest image taken up to the scenario clock, or the chosen date once the clock has
 // reached it; the image after the fire is a comparison (landsat.js).
 function showLandsatAt(clock) {
   if (!state.landsat || !clock) return;
+  // The flood's detection sequence shows its own radar image while it runs.
+  if (state.detectionImage) {
+    if (state.landsatShown !== state.detectionImage) state.map.showLandsat(state.detectionImage);
+    state.landsatShown = state.detectionImage;
+    return;
+  }
   const selection = landsatSelection(state.landsat.scenes, clock.getTime(), state.landsatDate, state.landsatChoice);
   const key = state.hiddenLayers.includes("space") ? null : selection.key;
   const scene = selection.scene;
@@ -402,7 +421,7 @@ function showLandsatAt(clock) {
     "not-yet": scene ? `Bilden togs ${formatLocal(scene.acquired_utc)} och visas när scenariot når dit.` : "",
   };
   $("landsat-note").textContent = notes[selection.reason]
-    || `${scene.label}, ${String(scene.cloud_pct).replace(".", ",")} % moln över ${state.config.incident_area}. ${state.landsat.names[state.landsatChoice]}.`
+    || `${scene.label}, ${sceneConditions(scene)}. ${state.landsat.names[state.landsatChoice]}.`
       + (selection.reason === "comparison" ? " Tagen senare – inte läget vid scenariotiden." : "");
   $("landsat-legend").hidden = !(key && state.landsatChoice === "ndmi");
   if (key === state.landsatShown) return;
@@ -617,6 +636,11 @@ async function followDetection(detection) {
   state.detectionKey = key;
   if (!detection) {
     state.detection = null;
+    if (state.detectionImage) {
+      state.detectionImage = null;
+      state.landsatShown = undefined;
+      showLandsatAt(state.clock);
+    }
     $("detection-card").hidden = true;
     state.map.highlightSatellite(null);
     state.monitor?.setMark(null);
@@ -630,6 +654,7 @@ async function followDetection(detection) {
   }
   const info = { ...state.detection, ...detection };
   showDetection(info);
+  showDetectionImage(info);
   // The fire's passes name the FIRMS satellite, the flood's the NORAD number.
   const satellite = state.satellites?.satellites.find((item) => (item.firms && item.firms === info.pass.satellite) || item.norad === info.pass.norad);
   if (info.name === "acquired") state.map.highlightSatellite(satellite?.norad, { fly: true });
@@ -637,6 +662,19 @@ async function followDetection(detection) {
     state.map.highlightSatellite(null);
     state.map.focusOn(info.pass.centre.latitude, info.pass.centre.longitude);
   }
+}
+
+// The flood's sequence: its radar image from "Bild tagen" to "Zoom", where the camera is close
+// enough to see it, and the image's computed water from "IoT på marken" on, over the map.
+// The fire's sequence shows its detections instead.
+function showDetectionImage(info) {
+  if (info.pass.kind !== "flood" || !state.landsat) return;
+  const scene = state.landsat.scenes.find((item) => item.acquired_utc === info.pass.pass_utc && item.images.radar);
+  const steps = DETECTION_STEPS.map((item) => item.name);
+  const image = steps.indexOf(info.name) >= steps.indexOf("iot") ? "radarwater" : "radar";
+  state.detectionImage = scene ? `${scene.scene}|${image}` : null;
+  state.landsatShown = undefined;
+  showLandsatAt(state.clock);
 }
 
 function showDetection(info) {

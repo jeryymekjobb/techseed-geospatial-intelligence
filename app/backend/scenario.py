@@ -64,6 +64,7 @@ WILDFIRE = INCIDENT == "wildfire"
 # Only some scenarios have these.
 RAIN_STATIONS = getattr(_module, "RAIN_STATIONS", {})
 SENTINEL2_DIR = getattr(_module, "SENTINEL2_DIR", None)
+SENTINEL1_DIR = getattr(_module, "SENTINEL1_DIR", None)
 SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})
 SENTINEL2_SIZE = getattr(_module, "SENTINEL2_SIZE", None)
 FLOOD_HAZARD_WMS = getattr(_module, "FLOOD_HAZARD_WMS", None)

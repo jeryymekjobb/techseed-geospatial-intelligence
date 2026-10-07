@@ -4,8 +4,9 @@ The assessment (as assessment.py for the fire) adds up rule-based evidence with 
 weights: the real rain of the gauges, the synthetic overflow sensors (flood_sensors.py)
 and, as context, the municipality's cloudburst model and the satellite images. The
 detection sequence (as detection.py) is anchored in a real Sentinel-1 radar acquisition
-over Sundsvall from the Copernicus catalogue; the radar image itself is not analysed in
-the demo, and its rules say so.
+over Sundsvall from the Copernicus catalogue; its image's water is a simple computed
+mask (tools/fetch_sentinel1_scene.py), which the rules call so and leave out where the
+image cannot tell water from land.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from app.backend.assessment import SCORE_LABEL, line, place, sv
 WEIGHTS = {"rain_hour": 0.30, "rain_day": 0.25, "iot": 0.25}
 OUTCOMES = ((0.75, "Flood probable"), (0.40, "Possible flood"), (0.0, "No flood indicated"))
 RAIN_HOUR_MM = 7.0     # demo rules, not SMHI's warning classes
+RADAR_WATER_PCT = 1.0  # the radar's computed water outside lakes and sea, of the town's land
 RAIN_DAY_MM = 20.0
 DEEP_MODEL_M = 0.3
 CATEGORY = "Översvämning"
@@ -54,6 +56,7 @@ class FloodAssessor:
         self.stations = list(stations)
         self.acquisitions = sorted(acquisitions, key=lambda item: item["time_utc"])
         self.scenes = [scene for scene in scenes if "water" in scene["images"]]
+        self.radar = [scene for scene in scenes if "radarwater" in scene["images"]]
         self.centre = centre
 
     def _wettest(self, clock: datetime, day: bool) -> tuple[float, dict[str, Any] | None]:
@@ -79,8 +82,9 @@ class FloodAssessor:
         taken = [item for item in self.acquisitions if parse_utc(item["time_utc"]) <= until]
         if taken:
             last = taken[-1]
-            evidence.append(line("radar", "info", f"Senaste radarbild: {last['satellite']} {last['time_utc'][5:16].replace('T', ' ')} UTC "
-                                 "(Copernicus-katalogen) – inte analyserad i demon", None))
+            scene = self.radar_scene(last["time_utc"])
+            evidence.append(line("radar", "info", f"Senaste radarbild: {last['satellite']} {last['time_utc'][5:16].replace('T', ' ')} UTC – "
+                                 + self.radar_text(scene), None))
         images = [scene for scene in self.scenes if parse_utc(scene["acquired_utc"]) <= until]
         if images:
             scene = images[-1]
@@ -89,6 +93,17 @@ class FloodAssessor:
         else:
             evidence.append(line("image", "info", "Ingen klar optisk satellitbild under regnet", None))
         return evidence
+
+    def radar_scene(self, moment: str) -> dict[str, Any] | None:
+        return next((scene for scene in self.radar if scene["acquired_utc"] == moment), None)
+
+    @staticmethod
+    def radar_text(scene: dict[str, Any] | None) -> str:
+        if scene is None:
+            return "bilden är inte hämtad (tools/fetch_sentinel1_scene.py)"
+        if not scene["separable"]:
+            return "vatten och land skiljs dåligt åt i bilden (vind eller regn), vattenmasken är osäker"
+        return f"vatten utanför sjöar och hav på {sv(scene['new_water_pct'])} % av stans land (beräknat, enkel tröskel)"
 
     def at(self, clock: datetime, synthetic: dict[str, Any], satellite_until: datetime | None = None) -> dict[str, Any]:
         """The assessment at the clock; `satellite_until` is the start of a SATCOM outage."""
@@ -118,7 +133,7 @@ class FloodAssessor:
 
     def outage(self, start: datetime, end: datetime) -> dict[str, Any]:
         """The radar acquisitions and optical images between start and end (the SYNC after a SATCOM outage)."""
-        passes = [{"time_utc": item["time_utc"], "text": f"{item['satellite']} radarbild (inte analyserad i demon)"}
+        passes = [{"time_utc": item["time_utc"], "text": f"{item['satellite']} radarbild – {self.radar_text(self.radar_scene(item['time_utc']))}"}
                   for item in self.acquisitions if start < parse_utc(item["time_utc"]) <= end]
         passes += [{"time_utc": scene["acquired_utc"], "text": f"{scene['label']} (optisk bild)"}
                    for scene in self.scenes if start < parse_utc(scene["acquired_utc"]) <= end]
@@ -138,6 +153,13 @@ class FloodAssessor:
         return {"pass_utc": item["time_utc"], "satellite": item["satellite"], "norad": item["norad"], "instrument": "SAR",
                 "kind": "flood", "centre": place(*self.centre), "strongest": place(*self.centre)}
 
+    def _radar_rule(self, summary: dict[str, Any]) -> dict[str, Any]:
+        """The radar image itself: water outside lakes and sea on at least RADAR_WATER_PCT of the town's land."""
+        scene = self.radar_scene(summary["pass_utc"])
+        holds = bool(scene) and scene["separable"] and scene["new_water_pct"] >= RADAR_WATER_PCT
+        return {"category": CATEGORY, "holds": holds, "ref": summary["centre"],
+                "text": f"Radarbilden: {self.radar_text(scene)}; regeln kräver minst {sv(RADAR_WATER_PCT)} %"}
+
     def classify(self, summary: dict[str, Any], synthetic: dict[str, Any]) -> dict[str, Any]:
         """Rules for a flood at the acquisition: the rain before it, the synthetic sensors and the model."""
         moment = parse_utc(summary["pass_utc"])
@@ -152,9 +174,8 @@ class FloodAssessor:
             {"category": CATEGORY, "holds": bool(deep), "ref": place(deep[0]["latitude"], deep[0]["longitude"]) if deep else None,
              "text": (f"Kommunens skyfallsmodell ger minst {sv(DEEP_MODEL_M)} m vatten vid {len(deep)} av de bräddande punkterna"
                       if overflowing else "Ingen bräddande punkt att jämföra med kommunens skyfallsmodell")},
-            {"category": CATEGORY, "holds": False, "ref": summary["centre"],
-             "text": "Radarbilden är inte analyserad i demon – vattenytan är inte uppmätt från rymden"},
+            self._radar_rule(summary),
         ]
         count = sum(rule["holds"] for rule in rules)
         return {"outcome": "Översvämning trolig" if count >= 2 else "Okänd", "rules": rules, "counts": {CATEGORY: count},
-                "label": "Regelbaserad klassificering ur regn, syntetiska bräddgivare och kommunens modell – ingen sannolikhet"}
+                "label": "Regelbaserad klassificering ur regn, syntetiska bräddgivare, kommunens modell och radarbilden – ingen sannolikhet"}

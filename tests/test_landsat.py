@@ -156,3 +156,8 @@ def test_the_maps_show_the_latest_image_up_to_the_clock_and_the_after_image_only
     assert select("2014-07-31T00:00:00Z", "after") == {"key": "LC08_after|swir", "reason": "comparison"}
     assert select("2014-08-05T00:00:00Z", "before", "off") == {"key": None, "reason": "off"}
     assert select("2014-08-05T00:00:00Z", "before", "natural") == {"key": None, "reason": "missing"}
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_an_image_kind_not_taken_yet_is_none_yet_not_missing() -> None:
+    assert select("2014-08-04T10:00:00Z", "auto", "natural") == {"key": None, "reason": "none-yet"}  # the scenes have no natural colour

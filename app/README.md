@@ -82,6 +82,9 @@ export TECHSEED_SCENARIO=sundsvall2026
 .venv/bin/python -m tools.fetch_osm_targets --bbox 62.15,16.9,62.62,17.8 --out data/sundsvall2026/osm/targets-sundsvall.geojson
 .venv/bin/python -m tools.fetch_landsat_scene       # Landsat 8 before and after the rain
 .venv/bin/python -m tools.fetch_sentinel2_scene     # Sentinel-2 natural colour and NDWI water
+.venv/bin/python -m tools.fetch_municipal_features  # the municipality's stormwater points and Selånger flood areas
+.venv/bin/python -m tools.fetch_mcf_flood_maps      # MCF's flood areas
+.venv/bin/python -m tools.fetch_sentinel1_scene     # Sentinel-1 radar and its computed water (after the terrain layer)
 ```
 
 `?speed=10800` sets the playback speed in simulated seconds per second and

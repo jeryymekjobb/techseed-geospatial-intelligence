@@ -75,7 +75,7 @@ def test_the_assessment_weighs_rain_and_overflow_and_keeps_the_model_and_images_
     keys = {item["key"]: item for item in peak["evidence"]}
     assert keys["rain_hour"]["status"] == "ok" and keys["rain_day"]["status"] == "miss"  # 10 mm in the hour, 14 in the day
     assert keys["iot:dv-01"]["status"] == "ok" and keys["model:dv-01"]["weight"] == 0.0
-    assert "inte analyserad" in keys["radar"]["text"] and keys["image"]["text"] == "Ingen klar optisk satellitbild under regnet"
+    assert "inte hämtad" in keys["radar"]["text"] and keys["image"]["text"] == "Ingen klar optisk satellitbild under regnet"
     assert (peak["outcome"], peak["score_pct"]) == ("Possible flood", 48)  # 1 - 0.70 x 0.75
     outage = assessor.at(at("2026-08-16T08:30:00Z"), flood.at(at("2026-08-16T08:30:00Z")), at("2026-08-16T05:00:00Z"))
     assert outage["evidence"][0]["key"] == "satcom" and "radar" not in {item["key"] for item in outage["evidence"]}
@@ -155,3 +155,21 @@ print(spatial.flood_summary("near_overflow", [], []))
     assert lines[3] == ("3 byggnader inom 100-årsflödet (Ljungan (MCF): 2, Selångersån (kommunen, 2009): 1) (de första 1000 visas). "
                         "Kommunens och MCF:s modeller, inte observationer.")
     assert lines[4] == "Inga bräddande punkter vid scenariotiden (syntetiska bräddgivare)."
+
+
+def radar_scene(moment: str, separable: bool, share: float) -> dict:
+    return {"acquired_utc": moment, "images": {"radar": "x", "radarwater": "y"}, "separable": separable, "new_water_pct": share}
+
+
+def test_the_radar_image_s_water_counts_only_where_it_can_tell_water_from_land(tmp_path: Path) -> None:
+    acquisitions = [{"time_utc": "2026-08-16T05:21:32Z", "satellite": "Sentinel-1C", "norad": "62261"},
+                    {"time_utc": "2026-08-17T05:13:33Z", "satellite": "Sentinel-1D", "norad": "66315"}]
+    scenes = [radar_scene("2026-08-16T05:21:32Z", False, 3.0), radar_scene("2026-08-17T05:13:33Z", True, 1.5)]
+    assessor = fa.FloodAssessor([STATION], acquisitions, scenes, (62.39, 17.31))
+    flood = sensors(tmp_path, [point(1, "Haga", 0.75)])
+    uncertain = assessor.classify(assessor.pass_at("2026-08-16T05:21:32Z"), flood.at(at("2026-08-16T08:30:00Z")))["rules"][3]
+    assert not uncertain["holds"] and "skiljs dåligt åt" in uncertain["text"]
+    clear = assessor.classify(assessor.pass_at("2026-08-17T05:13:33Z"), flood.at(at("2026-08-16T08:30:00Z")))["rules"][3]
+    assert clear["holds"] and clear["text"].startswith("Radarbilden: vatten utanför sjöar och hav på 1,5 % av stans land")
+    line = {item["key"]: item for item in assessor.at(at("2026-08-17T06:00:00Z"), flood.at(at("2026-08-17T06:00:00Z")))["evidence"]}["radar"]
+    assert line["text"].startswith("Senaste radarbild: Sentinel-1D 08-17 05:13 UTC – vatten utanför sjöar och hav på 1,5 %")

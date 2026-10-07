@@ -490,8 +490,10 @@ Demon använder samma skärmar och knappar som branddemon. I stället för brand
   Välj dem i kartans lagerlista. Största vattendjup vid 100-årsregn är påslaget från början.
 - **Syntetiska bräddgivare DV1–DV8** vid kommunens kritiska dagvattenpunkter. Röd betyder att
   den bräddar. Deras värden räknas ut ur det verkliga regnet och kommunens modell.
-- **Satellitbilder** från Landsat 8 och Sentinel-2 under "Satellitbild". Bilden är avslagen från
-  början, eftersom augustibilderna är molniga.
+- **Satellitbilder** under "Satellitbild": Sentinel-1:s radarbilder, som ser genom moln, och
+  Landsat 8 och Sentinel-2, vars augustibilder är molniga. Från början visas den senaste
+  radarbilden fram till scenariotiden. Radarbilden kan också visas som **vatten i radarbilden
+  utanför sjöar och hav**, en beräknad mask.
 
 Kommunens och MCF:s kartor hämtas från deras karttjänster medan demon körs. Datorn behöver
 därför internet för dem. Allt annat fungerar utan.
@@ -523,6 +525,7 @@ export TECHSEED_SCENARIO=sundsvall2026
 .venv/bin/python -m tools.fetch_sentinel2_scene
 .venv/bin/python -m tools.fetch_municipal_features
 .venv/bin/python -m tools.fetch_mcf_flood_maps
+.venv/bin/python -m tools.fetch_sentinel1_scene
 
 # 15.6 Databasen sundsvall2026 (skapas bredvid branddemons databas, som inte påverkas)
 .venv/bin/python -m tools.load_postgis
@@ -584,11 +587,11 @@ så att besökarna hinner se vad som händer.
 | 0:15 | Peka på "Regn (SMHI)" i panelen och på mätarna på kartan. | "Kommunen har egna regnmätare. Staplarna visar regnet timme för timme, och den röda linjen är tiden i scenariot." |
 | 0:30 | Peka på de färgade fälten på kartan. | "Det här är kommunens skyfallsmodell: hur djupt vattnet kan bli vid ett 100-årsregn. Det är en modell, inte en observation." |
 | 0:45 | Tryck **SPACE VIEW**, **1 MIN/S** och **PLAY**. Peka på satellitbevakningen. Tryck **SPACE VIEW** igen efter en stund. | "Sentinel-1 har radar som ser genom moln. Sentinel-2 och Landsat ser som en kamera, och de bilderna var molniga." |
-| 1:00 | Tryck **SATELLITE DETECTION**. Steg 1, **Bild tagen**: Sentinel-1C kl. 07:21 svensk tid. | "Det här är en verklig radarbild från Copernicus-katalogen, tagen över Sundsvall den morgonen." |
+| 1:00 | Tryck **SATELLITE DETECTION**. Steg 1, **Bild tagen**: Sentinel-1C kl. 07:21 svensk tid. | "Det här är en verklig radarbild från Sentinel-1, tagen över Sundsvall den morgonen." |
 | 1:10 | Tryck **NÄSTA ▸** två gånger: **Anomali upptäckt ombord** och **Nedlänk**, båda SYNTETISKT. | "I framtiden kan satelliten själv hitta vatten i bilden och slå larm. Här är det illustrerat." |
-| 1:25 | Tryck **NÄSTA ▸**. Steg 4, **Zoom till Sundsvall**. | "Vi har inte analyserat själva radarbilden. Regnet och kommunens modell visar var vatten kan stå." |
-| 1:35 | Tryck **NÄSTA ▸**. Steg 5, **IoT på marken**, SYNTETISKT. | "Bräddgivare i dagvattnet kontrollerar larmet. De är simulerade, men har samma format som kommunens sensorplattform." |
-| 1:45 | Tryck **NÄSTA ▸**. Steg 6, **Korrelering**: fyra regler med ✓ eller ✗. | "Reglerna väger regn, bräddning och modellen. Den sista säger öppet att radarbilden inte är analyserad." |
+| 1:25 | Tryck **NÄSTA ▸**. Steg 4, **Zoom till Sundsvall**: kartan visar radarbilden i grått. | "Radarn ser genom molnen. Släta vattenytor är mörka, och stan är ljus." |
+| 1:35 | Tryck **NÄSTA ▸**. Steg 5, **IoT på marken**, SYNTETISKT. Blått på kartan är vatten i radarbilden utanför sjöar och hav. | "Det blå är en enkel beräkning, inte en kartlagd översvämning. Bräddgivarna i dagvattnet är simulerade, men har samma format som kommunens sensorplattform." |
+| 1:45 | Tryck **NÄSTA ▸**. Steg 6, **Korrelering**: fyra regler med ✓ eller ✗. | "Reglerna väger regn, bräddning, modellen och radarbilden. Just den här morgonen skiljer radarn dåligt mellan vatten och land, och det säger regeln." |
 | 2:00 | Tryck **NÄSTA ▸**, **10 MIN/S** och **PLAY**. Runt kl. 10 svensk tid kommer regnets topp, och bräddgivarna blir röda. | "Nu kommer det kraftigaste regnet. Fyra av åtta bräddgivare bräddar." |
 | 2:15 | Tryck **PAUSE**. Peka på AI ASSESSMENT och klicka "Why do you believe there is a flood?". | "Bedömningen visar varför: regnet och bräddningen. Varje rad pekar på sitt ställe på kartan." |
 | 2:30 | Klicka "Vilka byggnader ligger inom 100-årsflödet?" och sedan "SQL som kördes". | "Det här är en riktig fråga mot en kartdatabas, med kommunens och MCF:s flödeskartor." |
@@ -596,13 +599,16 @@ så att besökarna hinner se vad som händer.
 | 2:55 | Tryck **GOD VIEW**. | "From Orbit to Decision." |
 | Efteråt | Tryck **RESET** och ladda om huvudskärmen med adressen i avsnitt 16. | Demon är klar för nästa besökare. |
 
-**Om upptäcktssekvensen.** SATELLITE DETECTION tar alltid nästa verkliga Sentinel-1-bild efter
-scenarioklockan. Det finns åtta i perioden: morgon och kväll den 16, 17, 18 och 22 augusti.
-Trycker du efter kl. 07:21 den 16 augusti blir det kvällens bild kl. 18:37.
+**Om upptäcktssekvensen.** SATELLITE DETECTION tar alltid nästa verkliga Sentinel-1-bild över
+stan efter scenarioklockan. Det finns fem i perioden: den 16 augusti kl. 07:21, den 17 augusti
+kl. 07:13 och 18:29, den 18 augusti kl. 18:21 och den 22 augusti kl. 07:21, svensk tid. Trycker
+du efter kl. 07:21 den 16 augusti blir det bilden nästa morgon. Varje radarbild visas på
+kartan under sekvensen. Bilden den 16 augusti är tagen mitt i regnet och vinden, och där
+skiljer radarn dåligt mellan vatten och land; bilderna efter den är tydligare.
 
 **SATCOM FAILURE** fungerar som i branddemon, men det som köas är satellitbilder. Med
-**1 TIMME/S** kommer kvällens radarbild inom några sekunder, och efter **SATCOM FAILURE** igen
-listar SYNC den.
+**1 TIMME/S** kommer nästa radarbild inom ungefär en halv minut, och efter **SATCOM FAILURE**
+igen listar SYNC den.
 
 **SENSOR FAILURE** slår ut bräddgivaren DV1. **Placera IoT-sensor** med högerklick fungerar
 också. En placerad sensor räknas ut ur regnet vid närmaste mätare, men har inget modelldjup.
@@ -611,13 +617,13 @@ också. En placerad sensor räknas ut ur regnet vid närmaste mätare, men har i
 
 | Kategori | Vad | Säg |
 |---|---|---|
-| **Riktiga data** | Regnet från kommunens mätare och SMHI:s Brämön A, tiderna för Sentinel-1:s radarbilder (Copernicus-katalogen), Landsat 8- och Sentinel-2-bilderna, satelliternas banor (Space-Track), kommunens kritiska dagvattenpunkter, kartdata från OpenStreetMap (dagens läge) | "Riktiga data från augusti 2026, uppspelade. Det är inte live." |
+| **Riktiga data** | Regnet från kommunens mätare och SMHI:s Brämön A, Sentinel-1:s radarbilder (inte terrängkorrigerade), Landsat 8- och Sentinel-2-bilderna, satelliternas banor (Space-Track), kommunens kritiska dagvattenpunkter, kartdata från OpenStreetMap (dagens läge) | "Riktiga data från augusti 2026, uppspelade. Det är inte live." |
 | **Modell** | Kommunens skyfallsmodeller, vattendjup och strömhastighet, Selångersåns 100-årsflöde, MCF:s karteringar av Ljungan och Indalsälven | "Modeller av vad som kan översvämmas. De visar inte vad som hände." |
-| **Beräknat** | Satelliternas positioner och passager, vattenmasken i Sentinel-2-bilden, bedömningens poäng och reglerna | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
+| **Beräknat** | Satelliternas positioner och passager, vattenmasken i Sentinel-2-bilden, vattnet i radarbilden utanför sjöar och hav (en enkel tröskel), bedömningens poäng och reglerna | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
 | **Syntetiskt och simulerat** | Bräddgivarna DV1–DV8 och placerade sensorer, sensorerna i montern, händelserna från mission control och sekvensens steg märkta SYNTETISKT | "Simulerat för demon. Det står på skärmen." |
 
-Säg inte att Sundsvall översvämmades den 16 augusti, att radarbilden är analyserad eller att
-bräddgivarna är MSVA:s eller kommunens mätningar. Regnet från kommunens mätare är de senaste
+Säg inte att Sundsvall översvämmades den 16 augusti, att det blå i radarbilden är en kartlagd
+översvämning eller att bräddgivarna är MSVA:s eller kommunens mätningar. Regnet från kommunens mätare är de senaste
 månaderna inte alltid kvalitetsgranskat, och en timme utan värde räknas som torr.
 
 ## 19. Felsökning för översvämningen

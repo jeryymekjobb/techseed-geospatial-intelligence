@@ -38,6 +38,8 @@ DEM_DIR = DATA / "dem"
 TERRAIN_DIR = DATA / "terrain"
 LANDSAT_DIR = DATA / "landsat"
 SENTINEL2_DIR = DATA / "sentinel2"
+# The Sentinel-1 radar images of the acquisitions (tools/fetch_sentinel1_scene.py).
+SENTINEL1_DIR = DATA / "sentinel1"
 # The municipality's critical stormwater points and flood areas (tools/fetch_municipal_features.py).
 MUNICIPAL_DIR = DATA / "municipal"
 # MCF's flood areas (tools/fetch_mcf_flood_maps.py).
@@ -114,17 +116,17 @@ LANDSAT_FOCUS_AREA = (17.15, 62.33, 17.45, 62.45)
 # About 30 m over MAP_BBOX: 0.9 degrees of longitude and 0.47 of latitude at 62.4 N.
 LANDSAT_SIZE = (1546, 1742)
 # Sentinel-1 radar acquisitions over the town in the playback (Planetary Computer catalogue,
-# sentinel-1-grd, checked 2026-10-06; the start of the first product of each pass). The
-# flood's detection sequence starts from them; the images are not analysed in the demo.
+# sentinel-1-grd, checked 2026-10-06/07; the start of the first product of each pass). Only
+# passes whose images cover at least 90 % of the town (LANDSAT_FOCUS_AREA): the evening
+# passes of 16 and 22 August graze only the map's western edge, and 18 August 05:05
+# covers 58 % of the town. The flood's detection sequence starts from them, and
+# tools/fetch_sentinel1_scene.py cuts their images.
 SENTINEL1_ACQUISITIONS = [
     {"time_utc": "2026-08-16T05:21:32Z", "satellite": "Sentinel-1C", "norad": "62261"},
-    {"time_utc": "2026-08-16T16:37:32Z", "satellite": "Sentinel-1C", "norad": "62261"},
     {"time_utc": "2026-08-17T05:13:33Z", "satellite": "Sentinel-1D", "norad": "66315"},
     {"time_utc": "2026-08-17T16:29:45Z", "satellite": "Sentinel-1D", "norad": "66315"},
-    {"time_utc": "2026-08-18T05:05:31Z", "satellite": "Sentinel-1C", "norad": "62261"},
     {"time_utc": "2026-08-18T16:21:13Z", "satellite": "Sentinel-1C", "norad": "62261"},
     {"time_utc": "2026-08-22T05:21:45Z", "satellite": "Sentinel-1D", "norad": "66315"},
-    {"time_utc": "2026-08-22T16:38:02Z", "satellite": "Sentinel-1D", "norad": "66315"},
 ]
 # Sentinel-2 (tools/fetch_sentinel2_scene.py): the clearest datatakes before and after the
 # rain, by product name up to the relative orbit; 16 August is 98 % cloud. Over the town

@@ -9,8 +9,8 @@ function landsatSelection(scenes, clockMs, dateChoice, imageChoice) {
   if (imageChoice === "off") return { scene: null, key: null, reason: "off" };
   let scene;
   if (dateChoice === "auto") {
-    const taken = scenes.filter((item) => Date.parse(item.acquired_utc) <= clockMs);
-    scene = [...taken].reverse().find((item) => item.images[imageChoice]) || taken[taken.length - 1];
+    // The latest scene with the chosen image; none yet when no such scene has been taken.
+    scene = scenes.filter((item) => Date.parse(item.acquired_utc) <= clockMs && item.images[imageChoice]).pop();
     if (!scene) return { scene: null, key: null, reason: "none-yet" };
   } else {
     scene = scenes.find((item) => item.scene === dateChoice) || scenes.find((item) => item.role === dateChoice);
