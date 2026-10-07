@@ -64,6 +64,9 @@ function createLeafletMap(config) {
   map.createPane("landsat").style.zIndex = 350;
   // The flood maps above the satellite image, below the markers.
   map.createPane("wms").style.zIndex = 360;
+  // SMHI's radar above the flood maps, below the markers.
+  map.createPane("radar").style.zIndex = 370;
+  let radarOverlay = null;
   const landsatOverlays = {};
   let windLayer = null;
   const wmsLayers = new Map();  // WMS layer name -> Leaflet layer
@@ -143,6 +146,19 @@ function createLeafletMap(config) {
       for (const [id, rain] of Object.entries(classes)) {
         stationMarkers.get(id)?.setRadius(rain.radius).setStyle({ fillColor: rain.color });
       }
+    },
+
+    // SMHI's weather radar: one overlay whose image follows the clock (showRadar).
+    setupRadar(info) {
+      radarOverlay = L.imageOverlay(info.frames[0].url, info.bounds, { pane: "radar", opacity: 0, interactive: false });
+      overlays["Nederbörd (SMHI radar)"] = radarOverlay;
+      radarOverlay.addTo(map);
+    },
+
+    showRadar(url) {
+      if (!radarOverlay) return;
+      if (url) radarOverlay.setUrl(url);
+      radarOverlay.setOpacity(url ? 0.85 : 0);
     },
 
     // callback(names) with the WMS layers shown, now and whenever one is switched on or off.

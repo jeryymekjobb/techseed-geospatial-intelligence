@@ -36,6 +36,8 @@ WEATHER_DIR = DATA / "smhi"
 WIND_FILE = DATA / "era5-land" / "era5-land-sundsvall-2026.csv"
 # ERA5 over the sea, where ERA5-Land has no values (tools/fetch_era5_sea.py).
 WIND_SEA_FILE = DATA / "era5-land" / "era5-sea-sundsvall-2026.csv"
+# SMHI's weather radar as rain images (tools/fetch_smhi_radar.py).
+RADAR_DIR = DATA / "radar"
 DEM_DIR = DATA / "dem"
 TERRAIN_DIR = DATA / "terrain"
 LANDSAT_DIR = DATA / "landsat"

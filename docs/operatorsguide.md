@@ -532,6 +532,9 @@ Demon använder samma skärmar och knappar som branddemon. I stället för brand
 - **Vind (ERA5-Land, modell)**: vindpilar över kartan, som i branddemon, timme för timme. Över
   havet, där ERA5-Land saknar värden, kommer pilarna från ERA5 (0,25°, interpolerad); det står
   när man håller musen över en pil.
+- **Nederbörd (SMHI radar)**: SMHI:s väderradar var 10:e minut, även över havet, omräknad till
+  regn (Z = 200·R^1,6) och färgad i samma klasser som mätarna. Det är en uppskattning från radarn,
+  inte en mätning på marken. Slå av och på lagret i kartans lagerlista.
 - **Översvämningskartor (modell)**: kommunens skyfallsmodeller för 30-, 100- och 500-årsregn,
   Selångersåns 100-årsflöde och MCF:s (tidigare MSB:s) karteringar av Ljungan och Indalsälven.
   Välj dem i kartans lagerlista. Största vattendjup vid 100-årsregn är påslaget från början.
@@ -575,6 +578,9 @@ export TECHSEED_SCENARIO=sundsvall2026
 .venv/bin/python -m tools.fetch_era5_sea --area 62.6,16.9,62.2,17.8 --start 2026-08-14 --end 2026-08-22 \
   --land data/sundsvall2026/era5-land/era5-land-sundsvall-2026.csv --raw-dir /tmp/era5-sea \
   --out data/sundsvall2026/era5-land/era5-sea-sundsvall-2026.csv
+
+# 15.3c SMHI:s väderradar som regnbilder, var 10:e minut (cirka 1 300 små bilder)
+.venv/bin/python -m tools.fetch_smhi_radar --start 2026-08-14 --end 2026-08-22 --out data/sundsvall2026/radar
 
 # 15.4 Kartdata från OpenStreetMap
 .venv/bin/python -m tools.fetch_osm_terrain --bbox 62.15,16.9,62.62,17.8 --out data/sundsvall2026/osm/terrain-sundsvall.geojson

@@ -17,7 +17,7 @@ FRONTEND = Path(__file__).resolve().parents[1] / "app" / "frontend"
 INTERFACE = {
     "wantsLabels", "addAttribution", "addTerrain", "addLabels", "addStations", "clearHotspots", "addHotspot",
     "hotspotCount", "restyleHotspots", "setupWind", "showWind", "setupForecast", "drawForecast", "finish", "showGodView", "drawSyntheticSensors", "focusOn", "drawQueryResult", "setCategoryVisible", "drawSatellites", "flashSatellite", "highlightSatellite", "onContextMenu", "showSpaceView", "setupLandsat", "showLandsat",
-    "labelStations", "markRain", "addWms", "onWmsChange",
+    "labelStations", "markRain", "addWms", "onWmsChange", "setupRadar", "showRadar",
 }
 
 

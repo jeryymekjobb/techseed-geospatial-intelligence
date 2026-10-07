@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, flood_assessment, flood_sensors, forecast, iot, landsat, passes, lantmateriet, offline_tiles, satellites, scenario, sensor_sim, spatial, wms
+from app.backend import assessment, detection, flood_assessment, flood_sensors, forecast, iot, landsat, passes, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, wms
 from app.backend.scenario_engine import DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -347,6 +347,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
             "terrain3d": (TERRAIN_DIR / "layer.json").is_file(),
             "satellites": satellites.satellites()["available"],
             "landsat": landsat.layer(),
+            "radar": radar.layer(),
             "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "lantmateriet_fastighet": settings.fastighet_enabled,
@@ -451,6 +452,12 @@ class Handler(BaseHTTPRequestHandler):
             self.terrain(path)
         elif path.startswith("/wms/"):
             self.wms_map(path.removeprefix("/wms/"), query)
+        elif path.startswith("/radar/"):
+            body = radar.image(path.removeprefix("/radar/"))
+            if body is None:
+                self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            else:
+                self.send_bytes(body, "image/png", "max-age=86400")
         elif path.startswith(("/landsat/", "/sentinel2/", "/sentinel1/")):
             prefix, _, name = path.lstrip("/").partition("/")
             directory = {"landsat": landsat.LANDSAT_DIR, "sentinel2": landsat.SENTINEL2_DIR, "sentinel1": landsat.SENTINEL1_DIR}[prefix]

@@ -65,8 +65,9 @@ WILDFIRE = INCIDENT == "wildfire"
 RAIN_STATIONS = getattr(_module, "RAIN_STATIONS", {})
 SENTINEL2_DIR = getattr(_module, "SENTINEL2_DIR", None)
 SENTINEL1_DIR = getattr(_module, "SENTINEL1_DIR", None)
-# ERA5 wind where ERA5-Land has none (tools/fetch_era5_sea.py).
+# ERA5 wind where ERA5-Land has none (tools/fetch_era5_sea.py) and SMHI's radar (tools/fetch_smhi_radar.py).
 WIND_SEA_FILE = getattr(_module, "WIND_SEA_FILE", None)
+RADAR_DIR = getattr(_module, "RADAR_DIR", None)
 SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})
 SENTINEL2_SIZE = getattr(_module, "SENTINEL2_SIZE", None)
 FLOOD_HAZARD_WMS = getattr(_module, "FLOOD_HAZARD_WMS", None)

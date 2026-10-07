@@ -248,6 +248,28 @@ function setupRain(config) {
     + "en timme utan värde räknas som torr. Senaste månaderna är inte alltid kvalitetsgranskade.";
 }
 
+// SMHI's weather radar as a rain layer (config.layers.radar, tools/fetch_smhi_radar.py), in the
+// stations' classes; it follows the scenario clock.
+function setupRadar(config) {
+  state.radar = config.layers.radar;
+  state.map.setupRadar(state.radar);
+  state.map.addAttribution(state.radar.attribution);
+  const item = document.createElement("li");
+  item.textContent = "Radarlagret Nederbörd (SMHI radar), även över havet: SMHI:s väderradar omräknad till regn "
+    + "(Z = 200·R^1,6) i samma klasser – en uppskattning från radarn, inte en mätning på marken.";
+  $("rain-legend").append(item);
+  showRadar(state.clock);
+}
+
+function showRadar(clock) {
+  if (!state.radar || !clock) return;
+  const frame = radarFrameAt(state.radar.frames, clock.getTime(), state.radar.step_minutes);  // rain.js
+  const url = frame ? frame.url : null;
+  if (url === state.radarShown) return;
+  state.radarShown = url;
+  state.map.showRadar(url);
+}
+
 // The flood maps (config.layers.wms): the municipality's and MCF's models, through the backend.
 // A service that does not answer is left out, so its requests do not hold up the screens.
 function setupFloodMaps(config) {
@@ -355,6 +377,7 @@ function setClock(clock) {
     showWeather(clock);
   }
   showRain(clock);
+  showRadar(clock);
   showWind(clock);
   drawForecast(clock);
   showSatellites(clock);
@@ -1055,6 +1078,7 @@ async function startApp(createMap) {
   state.weather = await loadOptional("/api/weather", (error) => { $("weather-note").textContent = `Väderdata kunde inte laddas: ${error.message}.`; });
   const wildfire = config.incident === "wildfire";
   if (state.weather && !wildfire) setupRain(config);
+  if (config.layers.radar) setupRadar(config);
   if (state.weather && wildfire) {
     const select = $("weather-station");
     for (const station of state.weather.stations) {

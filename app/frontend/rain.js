@@ -42,8 +42,19 @@ const RAIN_CLASSES = [
   { key: "cloudburst", label: "skyfall", below: Infinity, color: "#7a1fa2", radius: 24 },
 ];
 
+// SMHI's radar frame for the clock: the latest at or before it (the frames are in time
+// order), if it is no older than two steps; none otherwise.
+function radarFrameAt(frames, clockMs, stepMinutes) {
+  let found = null;
+  for (const frame of frames) {
+    if (Date.parse(frame.time_utc) > clockMs) break;
+    found = frame;
+  }
+  return found && clockMs - Date.parse(found.time_utc) <= 2 * stepMinutes * 60000 ? found : null;
+}
+
 function rainClass(millimetres) {
   return RAIN_CLASSES.find((item) => millimetres < item.below);
 }
 
-if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainClass, RAIN_CLASSES, HOUR_MS };
+if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainClass, radarFrameAt, RAIN_CLASSES, HOUR_MS };

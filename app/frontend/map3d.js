@@ -149,6 +149,10 @@ async function createCesiumMap(config) {
   const wmsLayers = [];  // the flood maps, kept above the satellite images
   const wmsNames = new Map();  // imagery layer -> WMS layer name
   let wmsListener = () => {};
+  let radarRectangle = null;  // SMHI's radar: one imagery layer at a time, replaced as the clock goes
+  let radarLayer = null;
+  let radarUrl = null;
+  let radarVisible = true;
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
   let terrainLayer = null;
@@ -582,6 +586,33 @@ async function createCesiumMap(config) {
         layer.show = (source.visible || []).includes(name);
         layers.push([`${title} (modell)`, (visible) => { layer.show = visible; wmsListener(); }, () => layer.show]);
       }
+    },
+
+    // SMHI's weather radar: an imagery layer per frame, the old one removed once the new is there.
+    setupRadar(info) {
+      const [[south, west], [north, east]] = info.bounds;
+      radarRectangle = Cesium.Rectangle.fromDegrees(west, south, east, north);
+      layers.push(["Nederbörd (SMHI radar)", (visible) => {
+        radarVisible = visible;
+        if (radarLayer) radarLayer.show = visible;
+      }, () => radarVisible]);
+    },
+
+    showRadar(url) {
+      radarUrl = url;
+      if (!url) {
+        if (radarLayer) viewer.imageryLayers.remove(radarLayer, true);
+        radarLayer = null;
+        return;
+      }
+      Cesium.SingleTileImageryProvider.fromUrl(url, { rectangle: radarRectangle }).then((provider) => {
+        if (radarUrl !== url) return;  // a newer frame came while this one loaded
+        const next = viewer.imageryLayers.addImageryProvider(provider);
+        next.alpha = 0.85;
+        next.show = radarVisible;
+        if (radarLayer) viewer.imageryLayers.remove(radarLayer, true);
+        radarLayer = next;
+      }).catch(() => {});
     },
 
     // callback(names) with the WMS layers shown, now and whenever one is switched on or off.
