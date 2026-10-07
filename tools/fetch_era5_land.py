@@ -104,6 +104,9 @@ def rows_from(records: Iterable[dict[str, Any]], start: date, end: date) -> list
         for moment, record in series.items():
             if not start <= moment.date() <= end:
                 continue
+            # ERA5-Land covers land only: a point at sea has no values.
+            if any(math.isnan(record[name]) for name in ("u10", "v10", "t2m", "d2m")):
+                continue
             speed, direction = wind(record["u10"], record["v10"])
             t_c, d_c = record["t2m"] - 273.15, record["d2m"] - 273.15
             rows.append({
@@ -151,14 +154,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     area = [float(value) for value in args.area.split(",")]
     paths = download(area, args.start, args.end, args.raw_dir)
-    rows = rows_from((record for path in paths for record in read_netcdf(path)), args.start, args.end)
+    records = [record for path in paths for record in read_netcdf(path)]
+    rows = rows_from(records, args.start, args.end)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=COLUMNS, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     points = len({(row["latitude"], row["longitude"]) for row in rows})
-    print(f"{len(rows)} rows, {points} grid points -> {args.out}")
+    without = len({(record["latitude"], record["longitude"]) for record in records}) - points
+    print(f"{len(rows)} rows, {points} grid points -> {args.out}"
+          + (f"; {without} grid points without values (at sea, outside ERA5-Land) left out" if without else ""))
     return 0
 
 

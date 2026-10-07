@@ -52,3 +52,13 @@ def test_rows_keep_the_period_and_derive_columns() -> None:
     assert [row["time_utc"] for row in rows] == ["2014-08-04T00:00:00Z", "2014-08-04T01:00:00Z"]
     assert (rows[0]["wind_from_deg"], rows[0]["t2m_c"], rows[0]["d2m_c"]) == (135, 31.5, 14.5)
     assert rows[1]["precip_mm"] == 0.0
+
+
+def test_a_point_at_sea_without_values_is_left_out() -> None:
+    moment = datetime(2026, 8, 16, 6, tzinfo=UTC)
+    land = {"time": moment, "latitude": 62.4, "longitude": 17.3, "u10": 3.0, "v10": 0.0, "t2m": 288.15, "d2m": 286.15, "tp": 0.0}
+    sea = {**land, "longitude": 17.8, "u10": math.nan, "v10": math.nan, "t2m": math.nan, "d2m": math.nan, "tp": math.nan}
+
+    rows = era5.rows_from([land, sea], date(2026, 8, 16), date(2026, 8, 16))
+
+    assert [(row["latitude"], row["longitude"]) for row in rows] == [(62.4, 17.3)]
