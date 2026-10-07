@@ -49,16 +49,24 @@ const IMAGE_KINDS = {
 // What the main screen shows under its overlays, dated: the satellite image and when it was
 // taken, or the map and when its data was fetched. `scene` and `image` are what is shown
 // (none for the map), `reason` why no image is (landsatSelection), `choice` the image asked for,
-// `mapData` config.layers.map_data.
-function viewCaption({ scene, image, reason, choice, mapData, offlineTiles, formatTime, formatDate }) {
+// `mapData` config.layers.map_data. During the fire's detection sequence `detection` is its
+// FIRMS pass (instrument, pass_utc): the caption names the detections, then what lies under them.
+function viewCaption({ scene, image, reason, choice, mapData, offlineTiles, formatTime, formatDate, detection }) {
+  let shown;
   if (scene && image) {
-    return `Visas: Satellitbild – ${scene.satellite}, ${IMAGE_KINDS[image] || image}, tagen ${formatTime(scene.acquired_utc)}`
-      + (reason === "comparison" ? " (jämförelse, tagen senare än scenariotiden)" : "");
+    shown = `Satellitbild – ${scene.satellite}, ${IMAGE_KINDS[image] || image}, tagen ${formatTime(scene.acquired_utc)}`;
+  } else {
+    shown = (offlineTiles && mapData
+      ? `Karta – ${mapData.source}, data från ${formatDate(mapData.date_utc)}`
+      : "Karta – Natural Earth II (offline-kartan är inte igång)")
+      + (reason === "none-yet" ? `; ingen bild (${IMAGE_KINDS[choice] || choice}) tagen ännu vid scenariotiden` : "");
   }
-  const map = offlineTiles && mapData
-    ? `Visas: Karta – ${mapData.source}, data från ${formatDate(mapData.date_utc)}`
-    : "Visas: Karta – Natural Earth II (offline-kartan är inte igång)";
-  return map + (reason === "none-yet" ? `; ingen bild (${IMAGE_KINDS[choice] || choice}) tagen ännu vid scenariotiden` : "");
+  if (!detection) return `Visas: ${shown}` + (scene && image && reason === "comparison" ? " (jämförelse, tagen senare än scenariotiden)" : "");
+  const hours = scene && image ? (Date.parse(detection.pass_utc) - Date.parse(scene.acquired_utc)) / 3600000 : null;
+  // In hours, and in days from two days.
+  const span = (value) => (value >= 48 ? `${Math.round(value / 24)} dygn` : `${Math.round(value)} h`);
+  const when = hours === null ? "" : hours >= 0 ? ` (${span(hours)} före)` : ` (${span(-hours)} efter)`;
+  return `Visas: ${detection.instrument}-detektioner ${formatTime(detection.pass_utc)} · underlag: ${shown}${when}`;
 }
 
 if (typeof module !== "undefined") module.exports = { landsatSelection, imageOptions, viewCaption, IMAGE_KINDS };

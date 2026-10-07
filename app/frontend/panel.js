@@ -395,6 +395,8 @@ function showViewCaption(scene, image, reason) {
   $("view-caption").textContent = viewCaption({
     scene, image, reason, choice: state.landsatLatest, mapData: state.config.layers.map_data, offlineTiles: state.config.layers.offline_tiles,
     formatTime: formatLocal, formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
+    // The fire's detection sequence: its FIRMS pass over the image or map (the flood's image is the detection).
+    detection: state.detection && state.detection.pass.kind !== "flood" ? state.detection.pass : null,
   });
 }
 
@@ -656,8 +658,8 @@ async function followDetection(detection) {
     if (state.detectionImage) {
       state.detectionImage = null;
       state.landsatShown = undefined;
-      showLandsatAt(state.clock);
     }
+    showLandsatAt(state.clock);  // the caption without the sequence's detections
     $("detection-card").hidden = true;
     state.map.highlightSatellite(null);
     state.monitor?.setMark(null);
@@ -672,6 +674,7 @@ async function followDetection(detection) {
   const info = { ...state.detection, ...detection };
   showDetection(info);
   showDetectionImage(info);
+  showLandsatAt(state.clock);  // the caption with the sequence's detections
   // The fire's passes name the FIRMS satellite, the flood's the NORAD number.
   const satellite = state.satellites?.satellites.find((item) => (item.firms && item.firms === info.pass.satellite) || item.norad === info.pass.norad);
   if (info.name === "acquired") state.map.highlightSatellite(satellite?.norad, { fly: true });

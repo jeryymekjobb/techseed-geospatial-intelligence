@@ -38,6 +38,22 @@ def test_without_an_image_the_caption_names_the_map_and_its_data_date() -> None:
     assert caption(None, None, "off", offline=False) == "Visas: Karta – Natural Earth II (offline-kartan är inte igång)"
 
 
+def test_during_the_fire_s_sequence_the_caption_names_the_detections_and_what_lies_under_them() -> None:
+    def during(scene: dict | None, image: str | None, reason: str) -> str:
+        return node("landsat.js", f"viewCaption({{ scene: {json.dumps(scene)}, image: {json.dumps(image)}, reason: {json.dumps(reason)}, choice: 'swir', "
+                    f"mapData: {json.dumps(MAP_DATA)}, offlineTiles: true, {FORMATS}, "
+                    "detection: { instrument: 'VIIRS', pass_utc: '2014-08-05T01:17:00Z' } })")
+
+    landsat = {"satellite": "Landsat 8", "acquired_utc": "2014-08-04T10:06:44Z"}
+    assert during(landsat, "ndmi", "shown") == ("Visas: VIIRS-detektioner T2014-08-05T01:17 · underlag: "
+                                                "Satellitbild – Landsat 8, fukt i vegetationen (NDMI), tagen T2014-08-04T10:06 (15 h före)")
+    after = {"satellite": "Landsat 8", "acquired_utc": "2014-09-14T10:00:42Z"}
+    assert during(after, "swir", "comparison").endswith("(40 dygn efter)")
+    june = {"satellite": "Landsat 8", "acquired_utc": "2014-06-10T10:00:15Z"}
+    assert during(june, "swir", "shown").endswith("(56 dygn före)")  # 55,6 dygn
+    assert during(None, None, "off") == "Visas: VIIRS-detektioner T2014-08-05T01:17 · underlag: Karta – OpenStreetMap, data från D2026-10-02"
+
+
 def test_the_depth_legend_has_the_municipality_s_seven_classes_and_shows_with_a_depth_layer() -> None:
     classes = node("flood_legend.js", "DEPTH_CLASSES")
     assert [(item["color"], item["text"]) for item in classes] == [
