@@ -55,6 +55,8 @@ Datorn behöver:
 - **Python 3** med `venv`, som demon är skriven i.
 - **Docker** med `docker compose`, för databasen, kartan och meddelandetjänsten.
 - **Google Chrome**, för skärmarna.
+- **wmctrl**, så att skärmarna kan öppnas på sina platser (avsnitt 8). Installeras med
+  `sudo apt install wmctrl`.
 - **Ett grafikkort** som klarar 3D i webbläsaren. De flesta datorer från de senaste åren
   gör det.
 - **Cirka 10 GB ledigt diskutrymme.**
@@ -69,6 +71,7 @@ python3 --version
 docker --version
 docker compose version
 google-chrome --version
+wmctrl --version
 ```
 
 Om en rad svarar `command not found` saknas programmet. Installera det enligt programmets
@@ -265,7 +268,19 @@ fungera.
 
 ## 8. Öppna skärmarna
 
-Öppna tre fönster i Chrome:
+Enklast är att låta ett kommando öppna de tre skärmarna, var och en på sin plats:
+
+```bash
+.venv/bin/python -m tools.open_screens --at 2014-08-04T09:30:00Z
+```
+
+Med två skärmar hamnar satellitbevakningen på vänstra tredjedelen av den största skärmen,
+huvudskärmen på resten av den och mission control på den andra skärmen. Med en skärm hamnar de
+sida vid sida. Varje skärm är ett eget Chrome-fönster utan adressfält. Din vanliga Chrome
+påverkas inte. Kör kommandot igen om ett fönster har hamnat fel eller stängts: det öppnar
+skärmarna på nytt på sina platser.
+
+Vill du hellre öppna fönstren själv, öppna tre fönster i Chrome:
 
 | Skärm | Adress | Var |
 |---|---|---|
@@ -536,9 +551,15 @@ TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
 .venv/bin/python -m app.backend.server --scenario sundsvall2026
 ```
 
-3. Ladda om skärmarna. Adresserna är desamma som i avsnitt 8. Starta huvudskärmen med
-   <http://127.0.0.1:8765/3d.html?at=2026-08-16T05:00:00Z>, alltså 16 augusti kl. 07:00 svensk
-   tid, strax före den första radarbilden och regnets topp.
+3. Öppna skärmarna på nytt, i terminal 2 eller en ny terminal:
+
+```bash
+.venv/bin/python -m tools.open_screens --at 2026-08-16T05:00:00Z
+```
+
+   Klockan blir då 16 augusti kl. 07:00 svensk tid, strax före den första radarbilden och
+   regnets topp. Öppnar du fönstren själv är adresserna desamma som i avsnitt 8, med
+   <http://127.0.0.1:8765/3d.html?at=2026-08-16T05:00:00Z> för huvudskärmen.
 
 Huvudskärmen ska ha rubriken "Översvämning i Sundsvall 2026 – scenario", och mission control
 "Scenario: FLOOD – Sundsvall 2026".
@@ -606,5 +627,6 @@ månaderna inte alltid kvalitetsgranskat, och en timme utan värde räknas som t
 | Kartan runt Sundsvall är tom, eller visar Västmanland | Kartjänsten visar brandens karta. | Kör `TILES_FILE=sundsvall.mbtiles docker compose up -d tiles` och ladda om. |
 | Rubriken säger "Skogsbranden i Västmanland 2014" | Backend kör branddemon. | Starta om backend med `--scenario sundsvall2026`, se avsnitt 16. |
 | Frågorna svarar "PostGIS svarar inte" eller att en tabell saknas | Databasen är inte igång eller inte fylld. | D i avsnitt 13, sedan `TECHSEED_SCENARIO=sundsvall2026 .venv/bin/python -m tools.load_postgis`. |
-| Översvämningskartorna syns inte | Datorn saknar internet, eller kommunens eller MCF:s karttjänst svarar inte. | Kontrollera nätverket. Resten av demon fungerar ändå. |
+| Översvämningskartorna syns inte, eller panelen säger att en karttjänst inte svarar | Datorn saknar internet, eller kommunens eller MCF:s karttjänst svarar inte. Backend frågar tjänsterna var 30:e sekund och lämnar en tyst tjänst utanför, så resten av demon fungerar ändå. | Kontrollera nätverket. Ladda om huvudskärmen när tjänsten svarar igen. |
+| Fönstren hamnar fel på skärmarna | Chrome öppnar nya fönster där det vill. | Öppna skärmarna med `tools.open_screens`, se avsnitt 8 och 16. |
 | Inga bräddgivare | Kommunens dagvattenpunkter är inte hämtade. | Kör 15.5 och starta om backend. |
