@@ -499,6 +499,8 @@ class Handler(BaseHTTPRequestHandler):
                 if upcoming is None:
                     raise CommandError("no satellite pass with detections after the scenario clock")
                 at = upcoming["pass_utc"]
+            if body.get("command") == "image" and not landsat.choice_exists(str(body.get("target"))):
+                raise CommandError("no such image in the scenario")
             snapshot = self.engine.command(
                 str(body.get("command")),
                 at=at,

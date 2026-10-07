@@ -6,9 +6,6 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .data-label { padding: 2px 8px; border-radius: 4px; background: #ffd54a; color: #202020; font-weight: 600; font-size: 0.85rem; }
 /* What the main screen shows, dated (panel.js showViewCaption). */
 .view-caption { font-size: 1rem; font-weight: 600; color: #fff; }
-.view-choice { display: flex; gap: 6px; margin: 4px 0 8px; }
-.view-choice button { padding: 4px 10px; }
-.view-choice button[aria-pressed="true"] { background: #202020; color: #fff; border: 1px solid #202020; border-radius: 3px; }
 .view-switch { margin-left: auto; color: #ffd54a; font-weight: 600; text-decoration: none; }
 .view-switch:hover { text-decoration: underline; }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: minmax(0, 1fr); height: calc(100% - 44px); }
@@ -75,7 +72,9 @@ body.control { background: #141414; color: #f2f2f2; }
 .control-layout h2 { margin: 0 0 8px; font-size: 1rem; color: #ffd54a; }
 .control-row, .control-grid { display: grid; gap: 10px; margin: 10px 0; }
 .control-row { grid-template-columns: repeat(3, 1fr); }
-.control-row.detection-row { grid-template-columns: 1fr; }
+.control-row.detection-row, .control-row.image-row { grid-template-columns: repeat(2, 1fr); }
+.image-pick { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin: 6px 0; font-size: 0.9rem; }
+.image-pick select { width: 100%; min-width: 0; padding: 8px; font-size: 1rem; }
 .control-row.speed-row { grid-template-columns: repeat(3, 1fr); }
 .control-grid { grid-template-columns: repeat(2, 1fr); }
 .control button { min-height: 64px; padding: 8px; border: 2px solid #5b5b57; border-radius: 8px; background: #2a2a2a; color: #fff; font-size: 1rem; font-weight: 700; letter-spacing: 0.03em; touch-action: manipulation; }

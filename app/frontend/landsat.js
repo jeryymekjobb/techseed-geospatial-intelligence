@@ -1,24 +1,43 @@
 // Which satellite image the maps show (config.layers.landsat from app/backend/landsat.py:
-// Landsat and, in some scenarios, Sentinel-2). By default the latest scene with the chosen
-// image taken up to the scenario clock; a chosen date - a scene, or a role such as "before" -
-// is shown once the clock has reached it, except a scene in the role "after", which is a
-// comparison shown whenever it is chosen. Pure, so it can be tested in Node.
+// Landsat and, in some scenarios, Sentinel-1 and -2), chosen in mission control and shared by
+// every screen (the scenario status's `image`): "auto" the latest scene with `latestImage`
+// taken up to the scenario clock, "off" the map, or one scene's image as "scene|image".
+// A chosen image not yet taken at the clock gives way to the latest; one in the role "after"
+// taken after the clock is a comparison, shown whenever it is chosen. Pure, so it can be
+// tested in Node.
 "use strict";
 
-function landsatSelection(scenes, clockMs, dateChoice, imageChoice) {
-  if (imageChoice === "off") return { scene: null, key: null, reason: "off" };
-  let scene;
-  if (dateChoice === "auto") {
-    // The latest scene with the chosen image; none yet when no such scene has been taken.
-    scene = scenes.filter((item) => Date.parse(item.acquired_utc) <= clockMs && item.images[imageChoice]).pop();
-    if (!scene) return { scene: null, key: null, reason: "none-yet" };
-  } else {
-    scene = scenes.find((item) => item.scene === dateChoice) || scenes.find((item) => item.role === dateChoice);
-    if (!scene) return { scene: null, key: null, reason: "missing" };
-    if (scene.role !== "after" && Date.parse(scene.acquired_utc) > clockMs) return { scene, key: null, reason: "not-yet" };
+function landsatSelection(scenes, clockMs, pick, latestImage) {
+  if (pick === "off") return { scene: null, key: null, reason: "off" };
+  if (pick && pick !== "auto") {
+    const [name, image] = pick.split("|");
+    const scene = scenes.find((item) => item.scene === name);
+    if (scene && scene.images[image]) {
+      const later = Date.parse(scene.acquired_utc) > clockMs;
+      if (!later) return { scene, key: pick, reason: "shown" };
+      if (scene.role === "after") return { scene, key: pick, reason: "comparison" };
+    }
   }
-  if (!scene.images[imageChoice]) return { scene, key: null, reason: "missing" };
-  return { scene, key: `${scene.scene}|${imageChoice}`, reason: scene.role === "after" ? "comparison" : "shown" };
+  // The latest scene with the image; none yet when no such scene has been taken.
+  const scene = scenes.filter((item) => Date.parse(item.acquired_utc) <= clockMs && item.images[latestImage]).pop();
+  if (!scene) return { scene: null, key: null, reason: "none-yet" };
+  return { scene, key: `${scene.scene}|${latestImage}`, reason: "shown" };
+}
+
+// Mission control's list of images: every image taken up to the clock, the latest first,
+// then the comparisons taken after it (role "after"), which can always be chosen.
+// `names` orders a scene's images (config.layers.landsat.names); `formatTime` dates them.
+function imageOptions(scenes, names, clockMs, formatTime) {
+  const order = Object.keys(names);
+  const entries = (scene) => order.filter((image) => scene.images[image])
+    .map((image) => ({ value: `${scene.scene}|${image}`, text: `${formatTime(scene.acquired_utc)} – ${scene.satellite} – ${IMAGE_KINDS[image] || image}` }));
+  const taken = scenes.filter((scene) => Date.parse(scene.acquired_utc) <= clockMs)
+    .sort((a, b) => Date.parse(b.acquired_utc) - Date.parse(a.acquired_utc));
+  const comparisons = scenes.filter((scene) => scene.role === "after" && Date.parse(scene.acquired_utc) > clockMs);
+  return [
+    ...taken.flatMap(entries),
+    ...comparisons.flatMap((scene) => entries(scene).map((item) => ({ ...item, text: `${item.text} (jämförelse – tagen senare)` }))),
+  ];
 }
 
 // Short names of the images for the main screen's caption.
@@ -42,4 +61,4 @@ function viewCaption({ scene, image, reason, choice, mapData, offlineTiles, form
   return map + (reason === "none-yet" ? `; ingen bild (${IMAGE_KINDS[choice] || choice}) tagen ännu vid scenariotiden` : "");
 }
 
-if (typeof module !== "undefined") module.exports = { landsatSelection, viewCaption, IMAGE_KINDS };
+if (typeof module !== "undefined") module.exports = { landsatSelection, imageOptions, viewCaption, IMAGE_KINDS };

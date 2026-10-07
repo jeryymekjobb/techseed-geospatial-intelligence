@@ -28,9 +28,23 @@
       </div>
     </section>
     <section>
+      <h2>Satellitbilder</h2>
+      <div class="control-row detection-row">
+        <button type="button" data-command="satellite_detection" data-status="detection">SATELLITE DETECTION</button>
+        <button id="next" type="button" data-command="next" disabled>NÄSTA ▸</button>
+      </div>
+      <div id="detection-step" class="status" aria-live="polite"></div>
+      <h3>Kartan visar</h3>
+      <div class="control-row image-row">
+        <button type="button" data-image="off">KARTA</button>
+        <button type="button" data-image="auto">SENASTE SATELLITBILD</button>
+      </div>
+      <label class="image-pick">Bild <select id="image-pick"></select></label>
+      <div id="image-shown" class="status" aria-live="polite"></div>
+    </section>
+    <section>
       <h2>Events</h2>
       <div class="control-grid">
-        <button type="button" data-command="satellite_detection" data-status="detection">SATELLITE DETECTION</button>
         <button type="button" data-command="sensor_failure" data-target="sensor-17" data-incident="wildfire">SENSOR FAILURE</button>
         <button type="button" data-command="sensor_failure" data-target="dv-01" data-incident="flood">SENSOR FAILURE</button>
         <button type="button" data-command="satcom_failure" data-toggle-off="satcom_restore" data-status="satcom_down">SATCOM FAILURE</button>
@@ -41,11 +55,6 @@
         <button type="button" data-command="space_view" data-status="space_view">SPACE VIEW</button>
         <button type="button" data-command="iot" data-status="iot">IOT PÅ/AV</button>
       </div>
-      <h3>Upptäckt från rymden</h3>
-      <div class="control-row detection-row">
-        <button id="next" type="button" data-command="next" disabled>NÄSTA ▸</button>
-      </div>
-      <div id="detection-step" class="status" aria-live="polite"></div>
       <h3>Filter</h3>
       <div class="control-grid filter-grid">
         <button type="button" data-command="filter" data-target="space" data-filter="space">SPACE</button>
@@ -74,6 +83,7 @@
   </main>
   <script src="/scenario_events.js"></script>
   <script src="/sensors.js"></script>
+  <script src="/landsat.js"></script>
   <script src="/control.js"></script>
 </body>
 </html>

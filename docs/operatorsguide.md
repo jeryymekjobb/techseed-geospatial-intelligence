@@ -334,9 +334,10 @@ Huvudskärmen ska visa kartan över brandområdet, och i panelen till höger ska
 Överst på huvudskärmen, efter den gula märkningen, står vad kartan visar under sina lager, med
 datum: till exempel "Visas: Satellitbild – Landsat 8, falska färger, kortvågig IR, tagen 4 aug.
 2014 12:06 svensk tid", eller "Visas: Karta – OpenStreetMap, data från …" med datumet då kartans
-OpenStreetMap-data hämtades. Byt med knapparna **Karta** och **Senaste satellitbild** under
-"Satellitbild" i panelen. Senaste satellitbild är den senaste bilden som är tagen fram till
-scenariotiden.
+OpenStreetMap-data hämtades. Du väljer i gruppen **Satellitbilder** i mission control: knapparna
+**KARTA** och **SENASTE SATELLITBILD**, eller en bild i listan **Bild**. Senaste satellitbild är
+den senaste bilden som är tagen fram till scenariotiden. Valet gäller alla skärmar, och
+**RESET** ställer tillbaka det på senaste satellitbild.
 
 ## 9. Mission control på en surfplatta (valfritt)
 
@@ -389,18 +390,20 @@ Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 
 **Om upptäcktssekvensen.** SATELLITE DETECTION tar alltid nästa verkliga satellitpassage
 efter scenarioklockan. Trycker du före kl. 11:35 svensk tid blir det Terra kl. 11:35, annars
-Suomi NPP kl. 11:48. Båda fungerar, och kortet säger vilken satellit det är. Mission control
-visar vilket steg du är på, till exempel "Steg 2/6". **NÄSTA ▸** går bara att trycka på
+Suomi NPP kl. 11:48. Båda fungerar, och kortet säger vilken satellit det är. Knapparna
+**SATELLITE DETECTION** och **NÄSTA ▸** står överst i gruppen **Satellitbilder** i mission
+control, som visar vilket steg du är på, till exempel "Steg 2/6". **NÄSTA ▸** går bara att trycka på
 medan en sekvens pågår. Uppspelningen står still under hela sekvensen tills du trycker
 **PLAY**.
 
 Efter **RESET** står klockan på demons startpunkt, den 31 juli. Ladda om huvudskärmen med
 adressen i avsnitt 8 för att börja kl. 11:30 den 4 augusti igen.
 
-**Före och efter branden.** Under "Satellitbild" i panelen kan du välja datum. Med
-**efter branden (jämförelse)** visas bilden från 14 september med hela det brända området,
-ovanpå dagens brandfront. Välj bilden **fukt i vegetationen (NDMI)** för att visa hur torrt
-det var: brunt är torrt, blått är fuktigt. Säg att bilden efter branden är en jämförelse,
+**Före och efter branden.** Listan **Bild** i mission control har varje bild som är tagen fram
+till scenariotiden, den senaste överst, och fylls på när klockan går. Längst ner står bilden
+från 14 september, **jämförelse – tagen senare**, med hela det brända området ovanpå dagens
+brandfront; den går alltid att välja. Välj en bild med **fukt i vegetationen (NDMI)** för att
+visa hur torrt det var: brunt är torrt, blått är fuktigt. Säg att bilden efter branden är en jämförelse,
 inte läget vid scenariotiden – det står också på skärmen.
 
 Fler knappar om besökarna frågar:
@@ -519,11 +522,11 @@ Demon använder samma skärmar och knappar som branddemon. I stället för brand
   hände i augusti 2026.
 - **Syntetiska bräddgivare DV1–DV8** vid kommunens kritiska dagvattenpunkter. Röd betyder att
   den bräddar. Deras värden räknas ut ur det verkliga regnet och kommunens modell.
-- **Satellitbilder** under "Satellitbild": Sentinel-1:s radarbilder, som ser genom moln, och
-  Landsat 8 och Sentinel-2, vars augustibilder är molniga. Från början visas den senaste
-  radarbilden fram till scenariotiden. Knapparna **Karta** och **Senaste satellitbild** byter,
-  och raden överst på huvudskärmen säger vad som visas och när bilden togs. Radarbilden kan också visas som **vatten i radarbilden
-  utanför sjöar och hav**, en beräknad mask.
+- **Satellitbilder**: Sentinel-1:s radarbilder, som ser genom moln, och Landsat 8 och
+  Sentinel-2, vars augustibilder är molniga. Från början visas den senaste radarbilden fram
+  till scenariotiden. Välj karta eller en annan bild i gruppen **Satellitbilder** i mission
+  control; raden överst på huvudskärmen säger vad som visas och när bilden togs. En radarbild
+  kan också visas som **vatten i radarbilden utanför sjöar och hav**, en beräknad mask.
 
 Kommunens och MCF:s kartor hämtas från deras karttjänster medan demon körs. Datorn behöver
 därför internet för dem. Allt annat fungerar utan.

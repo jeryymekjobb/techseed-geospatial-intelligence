@@ -74,7 +74,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
 
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
-        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None,
+        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -93,7 +93,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert state["status"] == {
         "satcom_up": False, "plus60": True, "god_view": True, "space_view": False, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
-        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None,
+        "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
@@ -206,6 +206,18 @@ def test_invalid_event_targets_are_refused_and_the_list_is_bounded() -> None:
         scenario.command("satellite_detection")
     events = scenario.snapshot()["events"]
     assert len(events) == 100 and events[-1]["seq"] == 150
+
+
+def test_the_image_choice_is_shared_kept_out_of_the_events_and_reset() -> None:
+    scenario, _ = engine()
+    assert scenario.snapshot()["status"]["image"] == "auto"
+    for choice in ["off", "LC08_L2SP_194018_20140804_02_T1|ndmi", "auto", "S1C_20260816T052132|radarwater"]:
+        assert scenario.command("image", target=choice)["status"]["image"] == choice
+    for choice in [None, "", "x|", "a|b|c", "../x|swir", "LC08|NDMI"]:
+        with pytest.raises(CommandError):
+            scenario.command("image", target=choice)
+    assert scenario.snapshot()["events"] == []  # a setting, not an event with a banner
+    assert scenario.command("reset")["status"]["image"] == "auto"
 
 
 @pytest.fixture()

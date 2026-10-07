@@ -9,14 +9,16 @@ import json
 import shutil
 import subprocess
 import threading
+from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import pytest
 
 from app.backend import landsat, lantmateriet, server
+from app.backend.scenario_engine import ScenarioEngine
 from tools import fetch_landsat_scene as fetch
 
 PNG = b"\x89PNG\r\n\x1a\nfake"
@@ -113,7 +115,10 @@ def base_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(landsat, "LANDSAT_DIR", tmp_path / "landsat")
     write_scenes(tmp_path / "landsat", ROLES, ["swir", "natural", "ndmi"])
     (tmp_path / "secret.png").write_bytes(PNG)
-    handler = type("TestHandler", (server.Handler,), {"settings": lantmateriet.Settings(None, None, None, None)})
+    handler = type("TestHandler", (server.Handler,), {
+        "settings": lantmateriet.Settings(None, None, None, None), "control_token": None,
+        "engine": ScenarioEngine(datetime(2014, 7, 31, tzinfo=timezone.utc), datetime(2014, 8, 15, tzinfo=timezone.utc)),
+    })
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{httpd.server_address[1]}"
@@ -138,26 +143,69 @@ def test_the_images_are_served_and_nothing_else(base_url: str) -> None:
         assert status(base_url + path) == 404, path
 
 
-def select(clock: str, date: str, image: str = "swir") -> dict:
-    scenes = [{"role": role, "scene": f"LC08_{role}", "acquired_utc": acquired, "images": {"swir": "x", "ndmi": "y"}}
-              for role, acquired in ROLES.items()]
+def scenes_js() -> list[dict]:
+    return [{"role": role, "scene": f"LC08_{role}", "satellite": "Landsat 8", "acquired_utc": acquired, "images": {"swir": "x", "ndmi": "y"}}
+            for role, acquired in ROLES.items()]
+
+
+def select(clock: str, pick: str, latest: str = "swir") -> dict:
     code = (f"const m = require({json.dumps(str(FRONTEND / 'landsat.js'))});"
-            f"const r = m.landsatSelection({json.dumps(scenes)}, Date.parse({json.dumps(clock)}), {json.dumps(date)}, {json.dumps(image)});"
+            f"const r = m.landsatSelection({json.dumps(scenes_js())}, Date.parse({json.dumps(clock)}), {json.dumps(pick)}, {json.dumps(latest)});"
             "console.log(JSON.stringify({key: r.key, reason: r.reason}));")
     return json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
-def test_the_maps_show_the_latest_image_up_to_the_clock_and_the_after_image_only_as_a_comparison() -> None:
+def test_the_maps_show_the_chosen_image_or_the_latest_up_to_the_clock_and_the_after_image_only_as_a_comparison() -> None:
     assert select("2014-08-04T10:00:00Z", "auto") == {"key": "LC08_before|swir", "reason": "shown"}
     assert select("2014-08-04T10:07:00Z", "auto", "ndmi") == {"key": "LC08_during|ndmi", "reason": "shown"}
     assert select("2014-08-14T00:00:00Z", "auto") == {"key": "LC08_during|swir", "reason": "shown"}  # never the after image by itself
-    assert select("2014-08-01T00:00:00Z", "during") == {"key": None, "reason": "not-yet"}
-    assert select("2014-07-31T00:00:00Z", "after") == {"key": "LC08_after|swir", "reason": "comparison"}
-    assert select("2014-08-05T00:00:00Z", "before", "off") == {"key": None, "reason": "off"}
-    assert select("2014-08-05T00:00:00Z", "before", "natural") == {"key": None, "reason": "missing"}
+    assert select("2014-08-05T00:00:00Z", "LC08_before|ndmi") == {"key": "LC08_before|ndmi", "reason": "shown"}
+    assert select("2014-07-31T00:00:00Z", "LC08_after|swir") == {"key": "LC08_after|swir", "reason": "comparison"}
+    assert select("2014-08-05T00:00:00Z", "off") == {"key": None, "reason": "off"}
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
-def test_an_image_kind_not_taken_yet_is_none_yet_not_missing() -> None:
+def test_a_chosen_image_not_taken_yet_gives_way_to_the_latest() -> None:
+    assert select("2014-08-01T00:00:00Z", "LC08_during|swir") == {"key": "LC08_before|swir", "reason": "shown"}
+    assert select("2014-08-01T00:00:00Z", "LC08_missing|swir") == {"key": "LC08_before|swir", "reason": "shown"}
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_an_image_kind_not_taken_yet_is_none_yet() -> None:
     assert select("2014-08-04T10:00:00Z", "auto", "natural") == {"key": None, "reason": "none-yet"}  # the scenes have no natural colour
+
+
+def options(clock: str) -> list[list[str]]:
+    code = (f"const m = require({json.dumps(str(FRONTEND / 'landsat.js'))});"
+            f"const r = m.imageOptions({json.dumps(scenes_js())}, {{swir: 'a', natural: 'b', ndmi: 'c'}}, Date.parse({json.dumps(clock)}), (t) => t.slice(0, 10));"
+            "console.log(JSON.stringify(r.map((item) => [item.value, item.text])));")
+    return json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_mission_control_s_list_grows_with_the_clock_latest_first_with_the_comparison_last() -> None:
+    assert options("2014-08-01T00:00:00Z") == [
+        ["LC08_before|swir", "2014-06-10 – Landsat 8 – falska färger, kortvågig IR"],
+        ["LC08_before|ndmi", "2014-06-10 – Landsat 8 – fukt i vegetationen (NDMI)"],
+        ["LC08_after|swir", "2014-09-14 – Landsat 8 – falska färger, kortvågig IR (jämförelse – tagen senare)"],
+        ["LC08_after|ndmi", "2014-09-14 – Landsat 8 – fukt i vegetationen (NDMI) (jämförelse – tagen senare)"],
+    ]
+    assert [value for value, _ in options("2014-08-05T00:00:00Z")] == [
+        "LC08_during|swir", "LC08_during|ndmi", "LC08_before|swir", "LC08_before|ndmi", "LC08_after|swir", "LC08_after|ndmi"]
+    assert [value for value, _ in options("2014-09-15T00:00:00Z")][:2] == ["LC08_after|swir", "LC08_after|ndmi"]  # taken by then: no comparison
+
+
+def test_mission_control_may_choose_only_the_scenario_s_images(base_url: str) -> None:
+    def post(target: str) -> int:
+        request = Request(f"{base_url}/api/scenario/command", data=json.dumps({"command": "image", "target": target}).encode(),
+                          headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urlopen(request, timeout=10) as response:
+                assert json.loads(response.read())["status"]["image"] == target
+                return response.status
+        except HTTPError as exc:
+            return exc.code
+
+    assert [post(target) for target in ["LC08_during|ndmi", "off", "auto"]] == [200, 200, 200]
+    assert [post(target) for target in ["LC08_during|water", "LC08_other|swir", "../x|swir", ""]] == [400, 400, 400, 400]

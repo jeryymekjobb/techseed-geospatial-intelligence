@@ -7,8 +7,14 @@
 const $ = (id) => document.getElementById(id);
 const token = new URLSearchParams(window.location.search).get("token");
 const localTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short" });
+const localDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium" });
+const shortTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 let status = null;
 let place = "branden";  // the incident's place, from /api/config
+let config = null;
+let latestImage = "swir";  // the image "auto" shows: SWIR in the fire, radar in the flood (as panel.js)
+let imageList = "";  // the values in the image list, to rebuild it only when they change
+let clockShown = null;  // the scenario clock last shown, for when /api/config arrives after it
 const realSensors = new Map();
 let iotConnection = null;
 
@@ -56,6 +62,7 @@ function showState(scenarioState) {
     button.setAttribute("aria-pressed", String(on));
   }
   $("next").disabled = !status.detection;
+  showImages(scenarioState.clock_utc);
   $("detection-step").textContent = detectionStepLine(status.detection, place);
   const list = $("scenario-status");
   list.innerHTML = "";
@@ -74,6 +81,60 @@ function showState(scenarioState) {
     item.textContent = `${event.clock_utc.slice(5, 16).replace("T", " ")} UTC – ${eventText(event).title}`;
     log.append(item);
   }
+}
+
+// The map or a satellite image for every screen: the list grows with the scenario clock
+// (landsat.js imageOptions), and the choice is the scenario status's image.
+function showImages(clockUtc) {
+  clockShown = clockUtc;
+  if (!config || !status) return;
+  const info = config.layers.landsat;
+  const select = $("image-pick");
+  if (!info) {
+    select.disabled = true;
+    for (const button of document.querySelectorAll("[data-image]")) button.disabled = true;
+    $("image-shown").textContent = "Satellitbilderna är inte hämtade.";
+    return;
+  }
+  const clockMs = Date.parse(clockUtc);
+  const options = imageOptions(info.scenes, info.names, clockMs, (isoUtc) => shortTime.format(new Date(isoUtc)));
+  const values = options.map((item) => item.value).join(",");
+  if (values !== imageList) {
+    imageList = values;
+    select.innerHTML = "";
+    select.append(new Option("Karta (ingen satellitbild)", "off"), new Option("Senaste satellitbild fram till scenariotiden", "auto"));
+    const taken = document.createElement("optgroup");
+    taken.label = "Tagna fram till scenariotiden";
+    const later = document.createElement("optgroup");
+    later.label = "Jämförelse";
+    for (const item of options) (item.text.endsWith("(jämförelse – tagen senare)") ? later : taken).append(new Option(item.text, item.value));
+    for (const group of [taken, later]) if (group.children.length) select.append(group);
+  }
+  const pick = status.image || "auto";
+  const selection = landsatSelection(info.scenes, clockMs, pick, latestImage);
+  // A chosen image not taken yet gives way to the latest, as on the main screen.
+  select.value = selection.key === pick || pick === "off" ? pick : "auto";
+  for (const button of document.querySelectorAll("[data-image]")) {
+    const on = button.dataset.image === select.value;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", String(on));
+  }
+  const [name, image] = (selection.key || "").split("|");
+  const scene = info.scenes.find((item) => item.scene === name) || null;
+  $("image-shown").textContent = viewCaption({
+    scene, image, reason: selection.reason, choice: latestImage, mapData: config.layers.map_data,
+    offlineTiles: config.layers.offline_tiles, formatTime: (isoUtc) => `${localTime.format(new Date(isoUtc))} svensk tid`,
+    formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
+  });
+}
+
+function chooseImage(value) {
+  send("image", value).then((state) => {
+    showState(state);
+    $("command-status").textContent = "";
+  }).catch((error) => {
+    $("command-status").textContent = `Bildvalet misslyckades: ${error.message}`;
+  });
 }
 
 function showIot() {
@@ -128,10 +189,16 @@ for (const button of document.querySelectorAll("[data-command]")) {
     });
   });
 }
+for (const button of document.querySelectorAll("[data-image]")) button.addEventListener("click", () => chooseImage(button.dataset.image));
+$("image-pick").addEventListener("change", (event) => chooseImage(event.target.value));
 // The scenario's name in the header.
-fetch("/api/config").then((response) => response.json()).then((config) => {
+fetch("/api/config").then((response) => response.json()).then((loaded) => {
+  config = loaded;
+  const names = config.layers.landsat?.names || {};
+  latestImage = config.incident !== "wildfire" ? (names.radar ? "radar" : Object.keys(names)[0]) : names.swir ? "swir" : "natural";
   $("control-label").textContent = config.control_label;
   place = config.incident_place;
+  if (clockShown) showImages(clockShown);
   // Only the buttons of the scenario's kind of incident (styles.css).
   document.body.dataset.incident = config.incident;
 }).catch(() => {});

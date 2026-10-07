@@ -91,6 +91,15 @@ def layer() -> dict[str, Any] | None:
     }
 
 
+def choice_exists(choice: str) -> bool:
+    """Whether mission control's image choice names the map, the latest image or a scene's image ("scene|image")."""
+    if choice in ("auto", "off"):
+        return True
+    scene_name, _, image_name = choice.partition("|")
+    info = layer()
+    return bool(info) and any(scene["scene"] == scene_name and image_name in scene["images"] for scene in info["scenes"])
+
+
 def image(name: str, directory: Any = None) -> bytes | None:
     """A PNG from the scenario's Landsat (or the given) directory by its file name; None for anything else."""
     directory = directory or LANDSAT_DIR

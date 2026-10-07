@@ -14,8 +14,11 @@ down, `satcom_down_since` gives the scenario time it went down; after a restore,
 `filter` with a category in FILTERS hides or shows that category on the maps
 (GOD VIEW's filter); `hidden_layers` lists the hidden ones. `place_sensor` with a
 latitude and longitude inside the map area places a synthetic IoT sensor there
-(the main screen's right-click menu); `placed_sensors` lists them. `reset` clears
-the events together with the clock.
+(the main screen's right-click menu); `placed_sensors` lists them. `image` chooses
+what the maps show under their overlays for every screen - `auto` the latest image
+taken up to the clock, `off` the map, or a scene's image as "scene|image" - and is
+in the status as `image`; it is a setting, not an event. `reset` clears the events
+and the image choice together with the clock.
 
 So that visitors can follow the satellite passes, the clock goes no faster than
 SLOW_SPEED inside the slow windows (set_slow_windows), whatever the chosen speed;
@@ -54,6 +57,7 @@ MAX_PLACED_SENSORS = 10
 FILTERS = ("space", "iot", "infrastructure", "weather")
 TOGGLES = ("plus60", "god_view", "space_view")
 TARGET_PATTERN = re.compile(r"[a-z0-9_-]{1,64}")
+IMAGE_PATTERN = re.compile(r"auto|off|[A-Za-z0-9_]{1,80}\|[a-z]{1,20}")
 MAX_EVENTS = 100
 
 
@@ -87,6 +91,7 @@ class ScenarioEngine:
     event_seq: int = field(default=0, init=False)
     _slow: list[tuple[datetime, datetime]] = field(default_factory=list, init=False)
     _detection: dict[str, Any] | None = field(default=None, init=False)
+    _image: str = field(default="auto", init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
 
     def __post_init__(self) -> None:
@@ -156,7 +161,7 @@ class ScenarioEngine:
                 "revision": self.revision,
                 "jump": self.jump,
                 "events": list(self.events),
-                "status": {**self._status(), "detection": self._detection_status()},
+                "status": {**self._status(), "detection": self._detection_status(), "image": self._image},
             }
 
     def _status(self) -> dict[str, Any]:
@@ -268,6 +273,7 @@ class ScenarioEngine:
                 self._clock = self.start
                 self.events.clear()
                 self._detection = None
+                self._image = "auto"
                 self.jump += 1
             elif name == "seek":
                 if not at:
@@ -289,6 +295,10 @@ class ScenarioEngine:
                 self._next_detection_step()
             elif name == "place_sensor":
                 self._place_sensor(latitude, longitude)
+            elif name == "image":
+                if target is None or not IMAGE_PATTERN.fullmatch(target):
+                    raise CommandError('image needs "auto", "off" or "scene|image"')
+                self._image = target
             elif name in EVENT_KINDS:
                 self._record_event(name, target)
             else:

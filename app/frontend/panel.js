@@ -52,8 +52,8 @@ const state = {
   flashedPasses: new Set(),
   // The Landsat 8 scene (config.layers.landsat): shown from its acquisition time.
   landsat: null,
-  landsatChoice: "swir",
-  landsatDate: "auto",
+  landsatLatest: "swir",  // the image of the latest scene that "auto" shows
+  landsatPick: "auto",  // mission control's choice (the scenario status's image)
   landsatShown: undefined,
   pendingEvents: [],
   horizonBeforePlus60: null,
@@ -363,25 +363,15 @@ function setClock(clock) {
 async function setupLandsat(config) {
   const section = document.createElement("section");
   section.innerHTML = '<h2>Satellitbild</h2>'
-    + '<div class="view-choice" role="group" aria-label="Underlag"><button type="button" id="show-map">Karta</button>'
-    + '<button type="button" id="show-latest">Senaste satellitbild</button></div>'
-    + '<label>Datum <select id="landsat-date"><option value="auto" selected>senaste fram till scenariotiden</option></select></label> '
-    + '<label>Bild <select id="landsat-choice"></select></label>'
-    + '<div id="landsat-legend" class="ndmi-legend" hidden></div><div id="landsat-note" class="status"></div>';
+    + '<div id="landsat-legend" class="ndmi-legend" hidden></div><div id="landsat-note" class="status"></div>'
+    + '<div class="status">Välj karta eller bild i mission control.</div>';
   $("satellite-section").after(section);
   const info = config.layers.landsat;
-  // One date per scene and the images the scenes have; the fire starts with SWIR, the flood with the
-  // latest radar image, which sees through the clouds of its August days.
-  for (const scene of info?.scenes || []) $("landsat-date").append(new Option(scene.label, scene.scene));
-  for (const [name, text] of Object.entries(info?.names || {})) $("landsat-choice").append(new Option(text, name));
-  $("landsat-choice").append(new Option("av", "off"));
-  state.landsatChoice = config.incident !== "wildfire" ? (info?.names?.radar ? "radar" : "off") : info?.names?.swir ? "swir" : "natural";
-  $("landsat-choice").value = state.landsatChoice;
-  // The image "Senaste satellitbild" shows: the scenario's first choice.
-  state.landsatLatest = state.landsatChoice === "off" ? Object.keys(info?.names || {})[0] || "off" : state.landsatChoice;
+  // The latest image: SWIR in the fire, radar in the flood, which sees through the clouds of its August days.
+  state.landsatLatest = config.incident !== "wildfire" ? (info?.names?.radar ? "radar" : Object.keys(info?.names || {})[0])
+    : info?.names?.swir ? "swir" : "natural";
   if (!info) {
     $("landsat-note").textContent = "Satellitbilden är inte hämtad (tools/fetch_landsat_scene.py).";
-    for (const id of ["landsat-choice", "landsat-date", "show-map", "show-latest"]) $(id).disabled = true;
     showViewCaption(null, null, "missing");
     return;
   }
@@ -397,36 +387,15 @@ async function setupLandsat(config) {
   state.landsat = info;
   await state.map.setupLandsat(info);
   state.map.addAttribution(info.attribution);
-  $("landsat-choice").addEventListener("change", (event) => {
-    state.landsatChoice = event.target.value;
-    showLandsatAt(state.clock);
-  });
-  $("landsat-date").addEventListener("change", (event) => {
-    state.landsatDate = event.target.value;
-    showLandsatAt(state.clock);
-  });
-  // The map, or the latest image taken up to the scenario clock.
-  $("show-map").addEventListener("click", () => chooseView("off", state.landsatDate));
-  $("show-latest").addEventListener("click", () => chooseView(state.landsatLatest, "auto"));
-  showLandsatAt(state.clock);
-}
-
-function chooseView(choice, date) {
-  state.landsatChoice = choice;
-  state.landsatDate = date;
-  $("landsat-choice").value = choice;
-  $("landsat-date").value = date;
   showLandsatAt(state.clock);
 }
 
 // The main screen's caption: what is shown under the overlays, dated (landsat.js viewCaption).
 function showViewCaption(scene, image, reason) {
   $("view-caption").textContent = viewCaption({
-    scene, image, reason, choice: state.landsatChoice, mapData: state.config.layers.map_data, offlineTiles: state.config.layers.offline_tiles,
+    scene, image, reason, choice: state.landsatLatest, mapData: state.config.layers.map_data, offlineTiles: state.config.layers.offline_tiles,
     formatTime: formatLocal, formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
   });
-  $("show-map").setAttribute("aria-pressed", String(state.landsatChoice === "off"));
-  $("show-latest").setAttribute("aria-pressed", String(state.landsatChoice !== "off" && state.landsatDate === "auto"));
 }
 
 // The scene and image of a key "scene|image" (landsat.js).
@@ -447,8 +416,8 @@ function sceneConditions(scene) {
   return "radar genom molnen";
 }
 
-// The latest image taken up to the scenario clock, or the chosen date once the clock has
-// reached it; the image after the fire is a comparison (landsat.js).
+// The image mission control chose, or the latest taken up to the scenario clock; an image
+// taken after the scenario is a comparison (landsat.js).
 function showLandsatAt(clock) {
   if (!state.landsat || !clock) return;
   // The flood's detection sequence shows its own radar image while it runs.
@@ -458,19 +427,18 @@ function showLandsatAt(clock) {
     showViewCaption(...sceneOfKey(state.detectionImage), "shown");
     return;
   }
-  const selection = landsatSelection(state.landsat.scenes, clock.getTime(), state.landsatDate, state.landsatChoice);
+  const selection = landsatSelection(state.landsat.scenes, clock.getTime(), state.landsatPick, state.landsatLatest);
   const key = state.hiddenLayers.includes("space") ? null : selection.key;
   const scene = selection.scene;
+  const image = selection.key?.split("|")[1];
   const notes = {
-    off: "Satellitbilden är avslagen.",
+    off: "Kartan visas, ingen satellitbild.",
     "none-yet": "Ingen bild är tagen ännu vid scenariotiden.",
-    missing: "Bilden finns inte (tools/fetch_landsat_scene.py).",
-    "not-yet": scene ? `Bilden togs ${formatLocal(scene.acquired_utc)} och visas när scenariot når dit.` : "",
   };
   $("landsat-note").textContent = notes[selection.reason]
-    || `${scene.label}, ${sceneConditions(scene)}. ${state.landsat.names[state.landsatChoice]}.`
+    || `${scene.label}, ${sceneConditions(scene)}. ${state.landsat.names[image]}.`
       + (selection.reason === "comparison" ? " Tagen senare – inte läget vid scenariotiden." : "");
-  $("landsat-legend").hidden = !(key && state.landsatChoice === "ndmi");
+  $("landsat-legend").hidden = !(key && image === "ndmi");
   if (key) showViewCaption(...sceneOfKey(key), selection.reason);
   else showViewCaption(null, null, selection.reason);
   if (key === state.landsatShown) return;
@@ -825,6 +793,7 @@ function showFilter(status) {
     if (hidden !== state.hiddenLayers.includes(category.id)) state.map.setCategoryVisible(category.id, !hidden);
   }
   state.hiddenLayers = [...status.hidden_layers];
+  state.landsatPick = status.image || "auto";  // mission control's choice of map or image
   showLandsatAt(state.clock);
   let panel = $("god-filter");
   if (!panel) {
