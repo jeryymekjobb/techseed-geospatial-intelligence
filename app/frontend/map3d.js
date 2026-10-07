@@ -87,6 +87,7 @@ async function createCesiumMap(config) {
   const terrainProvider = config.layers.terrain3d
     ? await Cesium.CesiumTerrainProvider.fromUrl("/terrain/", { requestVertexNormals: true })
     : null;
+  let clickedAt = null;  // where the latest click on the globe was, in canvas pixels
   const viewer = new Cesium.Viewer("map", {
     ...(terrainProvider ? { terrainProvider } : {}),
     baseLayer: Cesium.ImageryLayer.fromProviderAsync(
@@ -640,6 +641,7 @@ async function createCesiumMap(config) {
 
   // Show the FIRMS details when a hotspot is clicked.
   new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas).setInputAction((movement) => {
+    clickedAt = Cesium.Cartesian2.clone(movement.position);
     const picked = viewer.scene.pick(movement.position);
     if (picked?.id?.kind === "hotspot") {
       viewer.selectedEntity = new Cesium.Entity({ name: "FIRMS-detektion", description: hotspotPopup(picked.id.properties) });
@@ -651,5 +653,51 @@ async function createCesiumMap(config) {
       });
     }
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+  viewer.scene.postRender.addEventListener(placeInfoBox);
   return adapter;
+
+  // The info box beside what was clicked, following it as the camera moves, and clear of the
+  // layer panel; at the click for what has no position of its own (FIRMS hotspots, terrain).
+  function placeInfoBox() {
+    const box = viewer.container.querySelector(".cesium-infoBox");
+    if (!box) return;
+    const entity = viewer.selectedEntity;
+    box.classList.toggle("anchored", Boolean(entity));
+    if (!entity) return;
+    const at = infoBoxAnchor(entity);
+    box.style.visibility = at ? "" : "hidden";  // behind the globe or out of view
+    if (!at) return;
+    const gap = 16;
+    const margin = 8;
+    const width = viewer.container.clientWidth;
+    const height = viewer.container.clientHeight;
+    const boxWidth = box.offsetWidth;
+    const boxHeight = box.offsetHeight;
+    const top = Math.min(Math.max(at.y - boxHeight / 2, margin), Math.max(margin, height - boxHeight - margin));
+    const panel = viewer.container.querySelector(".layer-panel");
+    const overlapsPanel = (left) => panel && panel.offsetParent !== null
+      && left < panel.offsetLeft + panel.offsetWidth && left + boxWidth > panel.offsetLeft
+      && top < panel.offsetTop + panel.offsetHeight && top + boxHeight > panel.offsetTop;
+    const right = at.x + gap;
+    const leftSide = at.x - gap - boxWidth;
+    const onLeft = (right + boxWidth > width - margin || overlapsPanel(right)) && leftSide >= margin;
+    box.style.left = `${onLeft ? leftSide : right}px`;
+    box.style.top = `${top}px`;
+    box.dataset.side = onLeft ? "left" : "right";
+    box.style.setProperty("--pointer-y", `${Math.min(Math.max(at.y - top, 14), boxHeight - 14)}px`);
+  }
+
+  function infoBoxAnchor(entity) {
+    const scene = viewer.scene;
+    let world = entity.position?.getValue(viewer.clock.currentTime);
+    if (!world) return clickedAt;
+    const place = Cesium.Cartographic.fromCartesian(world);
+    const ground = place && place.height < 1 ? scene.globe.getHeight(place) : undefined;  // clamped to the terrain
+    if (ground !== undefined) world = Cesium.Cartesian3.fromRadians(place.longitude, place.latitude, ground);
+    const occluder = new Cesium.EllipsoidalOccluder(Cesium.Ellipsoid.WGS84, scene.camera.positionWC);
+    if (!occluder.isPointVisible(world)) return null;
+    const screen = Cesium.SceneTransforms.worldToWindowCoordinates(scene, world);
+    if (!screen || screen.x < 0 || screen.y < 0 || screen.x > scene.canvas.clientWidth || screen.y > scene.canvas.clientHeight) return null;
+    return screen;
+  }
 }

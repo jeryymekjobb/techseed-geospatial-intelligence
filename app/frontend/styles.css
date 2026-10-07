@@ -31,6 +31,11 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .map-label-village { font-size: 14px; font-weight: 600; }
 .map-label-lake { font-style: italic; color: #1f5fa8; }
 .barb-icon { pointer-events: none; }
+/* Cesium's info box beside what was clicked (map3d.js placeInfoBox), with a pointer towards it. */
+.cesium-infoBox.anchored { top: 0; right: auto; width: 380px; max-width: calc(100% - 32px); transform: none; border: 1px solid #444; border-radius: 7px; z-index: 950; }
+.cesium-infoBox.anchored::before { content: ""; position: absolute; top: calc(var(--pointer-y, 20px) - 8px); border: 8px solid transparent; }
+.cesium-infoBox.anchored[data-side="right"]::before { left: -16px; border-right-color: rgba(38, 38, 38, 0.95); }
+.cesium-infoBox.anchored[data-side="left"]::before { right: -16px; border-left-color: rgba(38, 38, 38, 0.95); }
 .layer-panel { position: absolute; top: 10px; right: 10px; display: grid; gap: 3px; padding: 8px 10px; background: #fff; border-radius: 5px; box-shadow: 0 1px 5px #0006; font-size: 0.85rem; }
 .barb-icon svg { width: 100px; height: 100px; overflow: visible; pointer-events: auto; }
 .barb path, .barb circle { fill: none; stroke: #0b3d91; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
