@@ -70,3 +70,12 @@ def test_the_profile_does_not_offer_to_translate(tmp_path) -> None:
     assert settings == {"translate": {"enabled": False}, "translate_blocked_languages": ["sv"], "kept": 1}
     screens.no_translation(tmp_path / "new")  # a profile Chrome has not made yet
     assert json.loads((tmp_path / "new" / "Default" / "Preferences").read_text(encoding="utf-8"))["translate"] == {"enabled": False}
+
+
+def test_the_menu_opens_only_in_mission_control_s_place_and_the_other_screens_close() -> None:
+    windows = screens.layout(screens.monitors(LISTING), "2026-08-16T05:00:00Z")
+    menu, closed = screens.menu_windows(windows)
+    control = windows[2]
+    assert [(w.screen, w.path, w.x, w.y, w.width, w.height) for w in menu] == [
+        ("control", "/menu.html", control.x, control.y, control.width, control.height)]
+    assert [window.screen for window in closed] == ["monitor", "main"]

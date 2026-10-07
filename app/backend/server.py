@@ -479,11 +479,15 @@ class Handler(BaseHTTPRequestHandler):
             return
 
     def do_POST(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
-        if urlsplit(self.path).path != "/api/scenario/command":
+        path = urlsplit(self.path).path
+        if path not in ("/api/scenario/command", "/api/demo/menu"):
             self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
             return
         if self.control_token and self.headers.get("X-Control-Token") != self.control_token:
             self.send_json({"error": "control_token_required"}, HTTPStatus.FORBIDDEN)
+            return
+        if path == "/api/demo/menu":
+            self.demo_menu()
             return
         length = int(self.headers.get("Content-Length") or 0)
         if not 0 < length <= 4096:
@@ -513,6 +517,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error": "invalid_command", "detail": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
         self.send_json(snapshot)
+
+    def demo_menu(self) -> None:
+        """BYT DEMO in mission control: stop, so that tools/start_demo.py shows its menu again.
+        It sets TECHSEED_DEMO_MENU_EXIT to the exit code it takes for that; without it there is no menu."""
+        code = os.environ.get("TECHSEED_DEMO_MENU_EXIT")
+        if not code:
+            self.send_json({"error": "no_demo_menu", "detail": "backend är inte startad med tools.start_demo"}, HTTPStatus.CONFLICT)
+            return
+        self.send_json({"menu": True}, HTTPStatus.ACCEPTED)
+        self.server.exit_code = int(code)
+        threading.Thread(target=self.server.shutdown, daemon=True).start()
 
     def send_event(self, event: str, data: Any) -> None:
         self.wfile.write(f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n".encode("utf-8"))
@@ -739,7 +754,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
     finally:
         server.server_close()
-    return 0
+    return getattr(server, "exit_code", 0)  # BYT DEMO's code for tools/start_demo.py
 
 
 if __name__ == "__main__":

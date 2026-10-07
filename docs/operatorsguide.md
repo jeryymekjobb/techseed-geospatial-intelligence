@@ -242,11 +242,16 @@ skärmarna på sina platser. Öppna en terminal, gå in i repot (`cd ~/techseed-
 och kör:
 
 ```bash
-.venv/bin/python -m tools.start_demo vastmanland2014
+.venv/bin/python -m tools.start_demo
 ```
 
-Det skriver steg 1/4 till 4/4 och sedan "Demon går". Låt terminalen stå öppen hela dagen: demon
-går tills du trycker Ctrl+C i den, som stoppar backend och sensorerna. Står det att något redan
+Först öppnas bara mission control, med menyn **Techseed Geospatial Intelligence Demos** och en
+knapp per demo. Klicka på **Skogsbranden i Västmanland 2014**. Kommandot skriver steg 1/4 till
+4/4 och sedan "Demon går", och då öppnas alla tre skärmarna i demon. Med demons namn,
+`.venv/bin/python -m tools.start_demo vastmanland2014`, hoppar det över menyn.
+
+Låt terminalen stå öppen hela dagen. **BYT DEMO** överst i mission control avslutar demon,
+stänger satellitmonitorn och huvudskärmen och visar menyn i mission control igen; Ctrl+C i terminalen stoppar backend och sensorerna. Står det att något redan
 svarar på port 8765 går en backend redan; stoppa den först. Sensorernas rader hamnar i
 `data/node-sim.log`. Skärmarna öppnas på 4 augusti 2014 kl. 11:30 svensk tid; avsnitt 8 beskriver
 dem.
@@ -353,7 +358,8 @@ SCENARIO_CONTROL_TOKEN=din-token .venv/bin/python -m app.backend.server --host 0
 ```
 
 Öppna sedan `http://<datorns-ip-adress>:8765/control.html?token=din-token` på
-surfplattan. Datorns IP-adress visas med kommandot `hostname -I`. Även huvudskärmens adress
+surfplattan. **BYT DEMO** fungerar bara när demon är startad med `tools.start_demo`; med
+backend startad så här svarar den att det inte går. Datorns IP-adress visas med kommandot `hostname -I`. Även huvudskärmens adress
 behöver `&token=din-token` i slutet.
 
 ---
@@ -579,13 +585,12 @@ Den kör översvämningens nio steg och ska sluta med `RESULTAT: GODKÄND`.
 
 ## 16. Byta mellan demona
 
-**Enklast:** stoppa den demo som går med Ctrl+C i dess terminal och starta den andra:
+**Enklast:** tryck **BYT DEMO** överst i mission control och bekräfta. Demon avslutas,
+satellitmonitorn och huvudskärmen stängs, och menyn visas i mission control. Klicka på **Översvämning i Sundsvall 2026 – scenario**, eller
+på branden för att byta tillbaka. Är demon startad med ett namn går det likadant; utan
+`tools.start_demo` stoppar du med Ctrl+C och kör `.venv/bin/python -m tools.start_demo`.
 
-```bash
-.venv/bin/python -m tools.start_demo sundsvall2026     # tillbaka: tools.start_demo vastmanland2014
-```
-
-Kommandot byter karta i kartjänsten, startar backend och sensorerna och öppnar skärmarna på
+Valet byter karta i kartjänsten, startar backend och sensorerna och öppnar skärmarna på
 16 augusti kl. 07:00 svensk tid, strax före den första radarbilden och regnets topp.
 
 **Steg för steg:** det finns en kartjänst, och den visar en demos karta i taget. Byt så här.

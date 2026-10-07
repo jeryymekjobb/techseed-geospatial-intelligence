@@ -190,6 +190,15 @@ for (const button of document.querySelectorAll("[data-command]")) {
   });
 }
 for (const button of document.querySelectorAll("[data-image]")) button.addEventListener("click", () => chooseImage(button.dataset.image));
+// BYT DEMO: the backend stops and tools/start_demo.py shows its menu here in mission control.
+$("switch-demo").addEventListener("click", async () => {
+  if (!window.confirm("Avsluta demon och visa menyn med demos här i mission control?")) return;
+  const headers = token ? { "X-Control-Token": token } : {};
+  const response = await fetch("/api/demo/menu", { method: "POST", headers }).catch(() => null);
+  const error = response && !response.ok ? await response.json().catch(() => ({})) : null;
+  $("command-status").textContent = !response ? "BYT DEMO: backend svarar inte."
+    : error ? `BYT DEMO gick inte: ${error.detail || error.error}` : "Demon avslutas – menyn visas strax här.";
+});
 $("image-pick").addEventListener("change", (event) => chooseImage(event.target.value));
 // The scenario's name in the header.
 fetch("/api/config").then((response) => response.json()).then((loaded) => {

@@ -28,7 +28,7 @@ import re
 import shutil
 import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 PROFILES = Path.home() / ".cache" / "techseed-screens"
@@ -102,6 +102,13 @@ def layout(screens: list[Monitor], at: str | None = None) -> list[Window]:
     ]
 
 
+def menu_windows(windows: list[Window]) -> tuple[list[Window], list[Window]]:
+    """tools/start_demo.py's menu of demos in mission control's place, and the screens to close
+    until a demo is chosen (the satellite monitor and the main screen)."""
+    return ([replace(window, path="/menu.html") for window in windows if window.screen == "control"],
+            [window for window in windows if window.screen != "control"])
+
+
 def chrome_command(chrome: str, base_url: str, window: Window) -> list[str]:
     return [chrome, f"--app={base_url}{window.path}", f"--user-data-dir={PROFILES / window.screen}",
             f"--window-position={window.x},{window.y}", f"--window-size={window.width},{window.height}",
@@ -160,6 +167,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("--base-url", default="http://127.0.0.1:8765", help="the backend")
     parser.add_argument("--at", help="start the main screen at this UTC time, for example 2026-08-16T05:00:00Z")
+    parser.add_argument("--menu", action="store_true",
+                        help="only mission control, with the menu of demos (tools/start_demo.py); the other screens close")
     parser.add_argument("--dry-run", action="store_true", help="print the commands without running them")
     args = parser.parse_args(argv)
     chrome = shutil.which("google-chrome") or shutil.which("google-chrome-stable") or shutil.which("chromium")
@@ -173,7 +182,12 @@ def main(argv: list[str] | None = None) -> int:
         parser.exit(1, "open_screens: xrandr found no monitors\n")
     prop = subprocess.run(["xprop", "-root", "_GTK_WORKAREAS_D0"], capture_output=True, text=True, check=False).stdout
     screens = within_work_areas(screens, work_areas(prop))
-    for window in layout(screens, args.at):
+    windows, closed = menu_windows(layout(screens)) if args.menu else (layout(screens, args.at), [])
+    for window in closed:
+        print(f"{window.screen}: stängs tills en demo är vald")
+        if not args.dry_run:
+            subprocess.run(close_command(window), check=False)
+    for window in windows:
         command = chrome_command(chrome, args.base_url.rstrip("/"), window)
         print(f"{window.screen}: {window.width}x{window.height} at {window.x},{window.y} – {args.base_url}{window.path}")
         if args.dry_run:

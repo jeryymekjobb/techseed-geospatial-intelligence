@@ -73,6 +73,18 @@ body.control { background: #141414; color: #f2f2f2; }
 .control-row, .control-grid { display: grid; gap: 10px; margin: 10px 0; }
 .control-row { grid-template-columns: repeat(3, 1fr); }
 .control-row.detection-row, .control-row.image-row { grid-template-columns: repeat(2, 1fr); }
+/* tools/start_demo.py's menu of demos (menu.html) and BYT DEMO in mission control. */
+body.menu-page { background: #141414; color: #f2f2f2; display: grid; place-items: center; min-height: 100%; }
+.demo-menu { display: grid; gap: 24px; width: min(90%, 900px); padding: 24px; text-align: center; }
+.demo-menu h1 { margin: 0; font-size: clamp(1.4rem, 3.5vw, 2.6rem); color: #ffd54a; }
+.demo-list { display: grid; gap: 18px; }
+.demo-choice { display: grid; gap: 8px; padding: 28px 20px; border: 2px solid #5b5b57; border-radius: 10px; background: #2a2a2a; color: #fff; cursor: pointer; }
+.demo-choice:hover:not(:disabled), .demo-choice:focus-visible { border-color: #ffd54a; }
+.demo-choice:disabled { opacity: 0.5; cursor: default; }
+.demo-choice strong { font-size: clamp(1.1rem, 2.6vw, 1.8rem); }
+.demo-choice span { color: #d0d0d0; font-size: 1rem; }
+.menu-page .status { color: #d0d0d0; font-size: 1rem; }
+.topbar .switch-demo { margin-left: auto; min-height: 0; padding: 4px 12px; font-size: 0.9rem; }
 .image-pick { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin: 6px 0; font-size: 0.9rem; }
 .image-pick select { width: 100%; min-width: 0; padding: 8px; font-size: 1rem; }
 .control-row.speed-row { grid-template-columns: repeat(3, 1fr); }

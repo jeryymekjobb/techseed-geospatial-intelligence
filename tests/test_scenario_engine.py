@@ -373,3 +373,12 @@ def test_a_sensor_is_placed_through_the_http_api(base_url: str) -> None:
     status, state = post(f"{base_url}/api/scenario/command", {"command": "place_sensor", "latitude": 59.9, "longitude": 16.2})
     assert status == 200 and state["status"]["placed_sensors"][0]["name"] == "Sensor P1"
     assert post(f"{base_url}/api/scenario/command", {"command": "place_sensor", "latitude": "north", "longitude": 16.2})[0] == 400
+
+
+def test_byt_demo_needs_the_token_and_start_demo(base_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    assert post(f"{base_url}/api/demo/menu", {}, token=None)[0] == 403
+    monkeypatch.delenv("TECHSEED_DEMO_MENU_EXIT", raising=False)
+    status, body = post(f"{base_url}/api/demo/menu", {})
+    assert status == 409 and body["error"] == "no_demo_menu"
+    monkeypatch.setenv("TECHSEED_DEMO_MENU_EXIT", "3")
+    assert post(f"{base_url}/api/demo/menu", {}) == (202, {"menu": True})  # the backend then stops with exit code 3

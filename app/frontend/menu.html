@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Techseed Geospatial Intelligence Demos</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:,">
+</head>
+<body class="menu-page">
+  <!-- tools/start_demo.py's menu, in mission control's window until a demo is chosen. -->
+  <main class="demo-menu">
+    <h1 id="menu-title">Techseed Geospatial Intelligence Demos</h1>
+    <div id="demos" class="demo-list"></div>
+    <p id="menu-status" class="status" aria-live="polite">Välj en demo. Skärmarna öppnas när demon har startat.</p>
+  </main>
+  <script>
+    "use strict";
+    const $ = (id) => document.getElementById(id);
+
+    async function choose(demo, buttons) {
+      for (const button of buttons) button.disabled = true;
+      $("menu-status").textContent = `Startar ${demo.title} … skärmarna öppnas när demon har startat.`;
+      const response = await fetch("/api/demo/start", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario: demo.name }),
+      }).catch(() => null);
+      // Another screen may have chosen first: the menu is closing either way.
+      if (!response || !response.ok) $("menu-status").textContent = "En demo startar redan – skärmarna öppnas när den har startat.";
+    }
+
+    fetch("/api/demos").then((response) => response.json()).then((menu) => {
+      $("menu-title").textContent = menu.title;
+      const buttons = menu.demos.map((demo) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "demo-choice";
+        button.innerHTML = "<strong></strong><span></span>";
+        button.querySelector("strong").textContent = demo.title;
+        button.querySelector("span").textContent = demo.label;
+        button.addEventListener("click", () => choose(demo, buttons));
+        $("demos").append(button);
+        return button;
+      });
+    }).catch(() => { $("menu-status").textContent = "Menyn svarar inte – starta med .venv/bin/python -m tools.start_demo."; });
+  </script>
+</body>
+</html>
