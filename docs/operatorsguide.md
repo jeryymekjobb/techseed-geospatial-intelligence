@@ -417,6 +417,12 @@ brandfront; den går alltid att välja. Välj en bild med **fukt i vegetationen 
 visa hur torrt det var: brunt är torrt, blått är fuktigt. Säg att bilden efter branden är en jämförelse,
 inte läget vid scenariotiden – det står också på skärmen.
 
+**Prognospilarna.** Mitt i branden pekar två pilar. Den **streckade orange** pilen är modellens
+spridningsriktning, med vind och brandväder från SMHI Sala A; den syns så snart det finns en
+prognos. Den **heldragna orange** pilen är den observerade spridningen, riktningen brandfronten
+har flyttat sig mellan de två senaste satellitpassagerna; den syns först när fronten har
+flyttat sig mätbart. Pekar de åt samma håll stämmer modellen med vad satelliterna har sett.
+
 Fler knappar om besökarna frågar:
 
 - **SENSOR FAILURE**: en sensor slutar fungera och räknas inte längre.
