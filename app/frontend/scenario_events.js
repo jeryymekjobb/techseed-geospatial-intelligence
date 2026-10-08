@@ -118,7 +118,7 @@ function decimalText(value) {
 }
 
 // The flood's sequence: a real Sentinel-1 acquisition; the radar image is not analysed in the demo.
-function floodDetectionDetail(info, iotText, place) {
+function floodDetectionDetail(info, iotText, place, sensors) {
   const pass = info.pass;
   const { counts, rules } = info.classification;
   switch (info.name) {
@@ -132,7 +132,7 @@ function floodDetectionDetail(info, iotText, place) {
       return `Kartan zoomar till ${place} och den verkliga radarbilden: släta vattenytor är mörka. Nästa steg visar beräknat vatten utanför sjöar och hav.`;
     case "iot":
       return `Blått på kartan är vatten i radarbilden utanför sjöar och hav – en beräknad mask, inte en kartlagd översvämning. `
-        + `Bräddgivarna på marken kontrollerar larmet: ${iotText || "inga sensorvärden ännu"}.`;
+        + `${sensors[0].toUpperCase()}${sensors.slice(1)} på marken kontrollerar larmet: ${iotText || "inga sensorvärden ännu"}.`;
     case "correlate":
       return `${info.classification.outcome} – ${counts.Översvämning} av ${rules.length} regler för översvämning håller.`;
     default:
@@ -141,9 +141,10 @@ function floodDetectionDetail(info, iotText, place) {
 }
 
 // The detail of the current step; `info` is /api/detection, `iotText` the synthetic sensors' line.
-// `place` is the flood scenario's place (config.incident_place).
-function detectionDetail(info, iotText, place = "Sundsvall") {
-  if (info.pass.kind === "flood") return floodDetectionDetail(info, iotText, place);
+// `place` is the flood scenario's place (config.incident_place), `sensors` its word for its sensors
+// (config.sensor_words.the_sensors).
+function detectionDetail(info, iotText, place = "Sundsvall", sensors = "bräddgivarna") {
+  if (info.pass.kind === "flood") return floodDetectionDetail(info, iotText, place, sensors);
   const pass = info.pass;
   const satellite = FIRMS_SATELLITES[pass.satellite] || pass.satellite;
   const { counts, rules } = info.classification;

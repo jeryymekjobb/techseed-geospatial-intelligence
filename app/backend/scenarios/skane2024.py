@@ -159,6 +159,13 @@ MCF_LAYERS = {
     "bhf": (5, "Beräknat högsta flöde", "MCF"),
 }
 FLOOD_AREA_WORD = "det klimatanpassade 100-årsflödet"
+# Synthetic level sensors where larger roads cross MCF's climate-adapted 100-year flow of a
+# watercourse SMHI measures (tools/derive_level_sensor_points.py): Kävlingeån by Ellinge and
+# Högsmölla, and Rönne å, which drains Ringsjöarna, by the lake's level. Hörbyån and the lakes
+# themselves have no MCF mapping, Höje å no SMHI station in the scenario.
+LEVEL_SENSOR_FILE = DATA / "sensors" / "level-points.geojson"
+LEVEL_SENSOR_RIVERS = {"Kävlingeån": ["2126:2", "2171:2"], "Rönne å": ["2176:3"]}
+SENSOR_WORDS = {"sensors": "nivågivare", "the_sensors": "nivågivarna", "alarming": "larmande"}
 FLOOD_MODELS = "MCF:s modell för slutet av seklet"
 
 FORECAST_WEATHER_FILES: list = []

@@ -1,8 +1,8 @@
 // Texts for the IoT sensors, shared by the main screen (panel.js, the map adapters)
 // and mission control (control.js). Real nodes (app/backend/iot.py) are live
 // readings in the booth; synthetic sensors are computed - from the 2014 fire and the weather
-// (app/backend/sensor_sim.py), or from the 2026 rain (app/backend/flood_sensors.py) - and are
-// always marked synthetic.
+// (app/backend/sensor_sim.py), from the 2026 rain (app/backend/flood_sensors.py) or from SMHI's
+// measured flows and levels (app/backend/level_sensors.py) - and are always marked synthetic.
 "use strict";
 
 const SENSOR_KINDS = { temp: "TEMP", water: "WATER", air: "AIR", ntn: "NTN" };
@@ -44,9 +44,22 @@ function sewerSensorText(sensor, kind) {
   return `${sensor.name}: nivå ${decimal(sensor.level_m)} m, ${sensor.percent} % fyllt, ${overflow}${hours}${model} (${kind})`;
 }
 
+// The river flood's level sensors (level_sensors.py): the alarm and the station's value against its record.
+function levelSensorText(sensor, kind) {
+  if (sensor.status === "failed") return `${sensor.name}: SENSOR FAILURE (${kind})`;
+  const state = sensor.confirms ? "LARMAR" : "inget larm";
+  let value = `inga värden från ${sensor.station} ännu`;
+  if (sensor.value !== null && sensor.station_kind === "flow") value = `${sensor.station} ${sensor.percent} % av tidigare högsta flöde`;
+  if (sensor.value !== null && sensor.station_kind === "level") {
+    value = `${sensor.station} ${Math.abs(sensor.from_record_cm)} cm ${sensor.from_record_cm > 0 ? "över" : "under"} tidigare högsta nivå`;
+  }
+  return `${sensor.name}: ${state}, ${value} (${kind})`;
+}
+
 function syntheticSensorText(sensor) {
   const kind = sensor.placed ? "syntetisk, placerad av operatören" : "syntetisk";
   if (sensor.kind === "sewer") return sewerSensorText(sensor, kind);
+  if (sensor.kind === "level") return levelSensorText(sensor, kind);
   if (sensor.status === "failed") return `${sensor.name}: SENSOR FAILURE (${sensor.placed ? kind : "syntetiskt"})`;
   const temp = sensor.temp_c === null ? "temperatur saknas" : `${decimal(sensor.temp_c)} °C`;
   const smoke = sensor.smoke === "DETECTED" ? "Smoke DETECTED" : "ingen rök";

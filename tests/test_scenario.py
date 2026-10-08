@@ -66,10 +66,13 @@ def test_skane_2024_is_a_flood_with_smhi_s_flows_and_levels_and_mcf_s_maps() -> 
                         "c = server.config(lantmateriet.Settings(None, None, None, None, None)); "
                         "print(json.dumps([c['title'], c['incident_place'], [w['id'] for w in c['layers']['wms']], c['playback']['start_utc']], ensure_ascii=False))", "skane2024")
     assert config.stdout.strip() == '["Översvämningarna i Skåne 2024", "Ringsjöarna", ["mcf"], "2024-01-20T00:00:00Z"]'
-    # Without the municipality's stormwater points the flood has no synthetic overflow sensors, and no error.
-    sensors = run_python("from app.backend import server; from datetime import datetime, timezone; "
-                         "print(len(server.synthetic_sensors().nodes))", "skane2024")
-    assert sensors.returncode == 0 and sensors.stdout.strip() == "0"
+    # Without the municipality's stormwater points the flood has level sensors instead of overflow sensors;
+    # their points are in data/, which is not in the repository (tools/derive_level_sensor_points.py).
+    sensors = run_python("from app.backend import scenario, server; "
+                         "print(type(server.synthetic_sensors()).__name__, len(server.synthetic_sensors().nodes), "
+                         "scenario.LEVEL_SENSOR_FILE.is_file())", "skane2024")
+    kind, count, fetched = sensors.stdout.split()
+    assert sensors.returncode == 0 and kind == "LevelSensors" and count == ("8" if fetched == "True" else "0")
 
 
 def test_the_wms_proxy_forwards_only_get_map_for_the_scenario_s_layers() -> None:

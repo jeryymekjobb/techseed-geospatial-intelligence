@@ -49,6 +49,13 @@ CHECK_OUTCOME = getattr(_module, "CHECK_OUTCOME", "Wildfire probable")
 MCF_LAYERS = getattr(_module, "MCF_LAYERS", None)
 FLOOD_AREA_WORD = getattr(_module, "FLOOD_AREA_WORD", "100-årsflödet")
 FLOOD_MODELS = getattr(_module, "FLOOD_MODELS", "Kommunens och MCF:s modeller")
+# The river flood's synthetic level sensors (level_sensors.py): their points
+# (tools/derive_level_sensor_points.py), MCF's watercourses with SMHI's stations that drive them,
+# and the words the screens use for the flood's sensors.
+LEVEL_SENSOR_FILE = getattr(_module, "LEVEL_SENSOR_FILE", None)
+LEVEL_SENSOR_RIVERS = getattr(_module, "LEVEL_SENSOR_RIVERS", {})
+SENSOR_WORDS = getattr(_module, "SENSOR_WORDS", {"sensors": "bräddgivare", "the_sensors": "bräddgivarna",
+                                                  "alarming": "bräddande"})
 DATABASE = _module.DATABASE
 TILES_FILE = _module.TILES_FILE
 CAMERA_ROUTE = _module.CAMERA_ROUTE

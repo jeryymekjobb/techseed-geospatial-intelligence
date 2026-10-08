@@ -98,7 +98,7 @@ FLOOD_QUESTIONS: dict[str, dict[str, str]] = {
   ORDER BY t.kind, area, t.name LIMIT {MAX_ROWS}"""),
     },
     "near_overflow": {
-        "question": f"Vad finns inom {NEAR_OVERFLOW_M} m från de bräddande punkterna?",
+        "question": f"Vad finns inom {NEAR_OVERFLOW_M} m från de {scenario.SENSOR_WORDS['alarming']} punkterna?",
         # {points}: the overflowing synthetic sensors of the assessment at the clock, as VALUES rows.
         "sql": FLOOD_ROWS.format(query=f"""SELECT t.kind, t.type, t.name,
     round(min(ST_Distance(t.geom::geography, p.geom::geography)))::int AS distance_m, string_agg(DISTINCT p.name, ', ') AS area,
@@ -240,9 +240,9 @@ def flood_summary(question_id: str, rows: list[dict[str, Any]], points: list[tup
     limited = f" (de första {MAX_ROWS} visas)" if total > len(rows) else ""
     if question_id == "near_overflow":
         if not points:
-            return "Inga bräddande punkter vid scenariotiden (syntetiska bräddgivare)."
+            return f"Inga {scenario.SENSOR_WORDS['alarming']} punkter vid scenariotiden (syntetiska {scenario.SENSOR_WORDS['sensors']})."
         counts = ", ".join(f"{sum(1 for row in rows if row['kind'] == kind)} {text}" for kind, text in FLOOD_KINDS.items())
-        return (f"Inom {NEAR_OVERFLOW_M} m från {len(points)} bräddande punkter ({', '.join(name for name, _, _ in points)}; "
+        return (f"Inom {NEAR_OVERFLOW_M} m från {len(points)} {scenario.SENSOR_WORDS['alarming']} punkter ({', '.join(name for name, _, _ in points)}; "
                 f"syntetiskt underlag): {counts}{limited}.")
     areas: dict[str, int] = {}
     for row in rows:

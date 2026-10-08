@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, passes, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, wms
+from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, passes, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, wms
 from app.backend.scenario_engine import DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -155,8 +155,11 @@ def wind_field() -> dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
-def synthetic_sensors() -> sensor_sim.SyntheticSensors | flood_sensors.FloodSensors:
-    """The incident's synthetic sensors: heat and smoke round the fire, overflow at the flood's stormwater points."""
+def synthetic_sensors() -> sensor_sim.SyntheticSensors | flood_sensors.FloodSensors | level_sensors.LevelSensors:
+    """The incident's synthetic sensors: heat and smoke round the fire, overflow at the flood's stormwater points,
+    or levels where roads cross a river flood's mapped area."""
+    if not scenario.WILDFIRE and scenario.LEVEL_SENSOR_FILE:
+        return level_sensors.LevelSensors(scenario.LEVEL_SENSOR_FILE, (hydro.stations() or {}).get("stations", ()))
     if not scenario.WILDFIRE:
         # The municipality's stormwater points, where the scenario has them; none otherwise.
         points = scenario.MUNICIPAL_DIR / "critical-stormwater.geojson" if scenario.MUNICIPAL_DIR else None
@@ -170,7 +173,7 @@ def synthetic_at(state: dict[str, Any]) -> dict[str, Any]:
     """The synthetic sensors at the scenario clock, with mission control's sensor failures;
     none when mission control has switched IoT off."""
     if not state["status"]["iot"]:
-        label = sensor_sim.LABEL if scenario.WILDFIRE else flood_sensors.LABEL
+        label = sensor_sim.LABEL if scenario.WILDFIRE else level_sensors.LABEL if scenario.LEVEL_SENSOR_FILE else flood_sensors.LABEL
         return {"label": label, "sensors": [], "confirms": 0, "operating": 0, "disabled": True}
     status = state["status"]
     return synthetic_sensors().at(parse_utc(state["clock_utc"]), status["failed_sensors"], status["placed_sensors"])
@@ -331,6 +334,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
         # The flood's words: the land the radar's water is counted on and the rain gauges.
         "focus_land": scenario.FOCUS_LAND,
         "rain_gauges": scenario.RAIN_GAUGES,
+        "sensor_words": scenario.SENSOR_WORDS,  # the flood's sensors: overflow or level sensors
         # The fire's forecast weather station.
         "forecast_station": scenario.FORECAST_STATION,
         "title": scenario.TITLE,

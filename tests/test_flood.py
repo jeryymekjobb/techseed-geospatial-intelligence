@@ -266,3 +266,62 @@ if (scenario.MCF_DIR / "mcf-100ar.geojson").is_file():  # data/ is not in the re
     assert lines[2] == "3 ['12']"  # REST layer 3 and WMS layer 12: the climate-adapted 100-year flow
     if len(lines) > 3:
         assert lines[3] == "False True"  # no municipal stormwater points, MCF's areas with their label
+
+
+def level_points(tmp_path: Path) -> Path:
+    path = tmp_path / "level-points.geojson"
+    path.write_text(json.dumps({"features": [
+        {"geometry": {"type": "Point", "coordinates": [13.5, 55.88]}, "properties": {"id": "ng-01", "name": "NG1 Bron", "river": "Ån", "station": "1:2"}},
+        {"geometry": {"type": "Point", "coordinates": [13.45, 55.87]}, "properties": {"id": "ng-02", "name": "NG2 Sjövägen", "river": "Sjön", "station": "2:3"}},
+    ]}), encoding="utf-8")
+    return path
+
+
+def test_level_sensors_alarm_when_their_station_is_above_its_record(tmp_path: Path) -> None:
+    from app.backend import level_sensors as lsen
+    sensors = lsen.LevelSensors(level_points(tmp_path), [FLOW, LEVEL])
+    early = sensors.at(at("2024-01-24T06:00:00Z"))
+    assert [(item["percent"], item["from_record_cm"], item["confirms"]) for item in early["sensors"]] == [(80, None, False), (None, None, False)]
+    late = sensors.at(at("2024-01-26T06:00:00Z"), failed=["ng-02"], placed=[{"id": "placed-1", "name": "Sensor P1", "latitude": 55.87, "longitude": 13.451}])
+    bridge, lake, placed = late["sensors"]
+    assert (bridge["kind"], bridge["percent"], bridge["confirms"], bridge["station"]) == ("level", 120, True, "Ån")
+    assert lake["status"] == "failed" and (placed["placed"], placed["station"], placed["from_record_cm"], placed["confirms"]) == (True, "Sjön", 2, True)
+    assert (late["confirms"], late["operating"]) == (2, 2)
+    keys = {item["key"]: item for item in fa.FloodAssessor([RIVER_RAIN], [], [], (55.88, 13.47), hydro=[FLOW, LEVEL]).at(
+        at("2024-01-26T06:00:00Z"), late)["evidence"]}
+    assert keys["iot:ng-01"]["text"] == "IoT NG1 Bron: larmar, Ån 120 % av tidigare högsta flöde (syntetisk)" and keys["iot:ng-01"]["weight"] == 0.25
+    assert keys["iot:placed-1"]["text"] == "IoT Sensor P1: larmar, Sjön 2 cm över tidigare högsta nivå (syntetisk)"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_screens_name_the_level_sensors_and_the_scenario_s_word_for_them() -> None:
+    sensor = {"kind": "level", "name": "NG3 Södra vägen", "status": "ok", "confirms": True, "station": "Högsmölla", "station_kind": "flow",
+              "value": 88.7, "percent": 107, "from_record_cm": None, "placed": False}
+    assert node("sensors.js", f"syntheticSensorText({json.dumps(sensor)})") == "NG3 Södra vägen: LARMAR, Högsmölla 107 % av tidigare högsta flöde (syntetisk)"
+    lake = {**sensor, "confirms": False, "station": "Sjön", "station_kind": "level", "percent": None, "from_record_cm": -12}
+    assert node("sensors.js", f"syntheticSensorText({json.dumps(lake)})") == "NG3 Södra vägen: inget larm, Sjön 12 cm under tidigare högsta nivå (syntetisk)"
+    info = {"name": "iot", "pass": {"kind": "flood"}, "classification": {"counts": {}, "rules": []}}
+    assert "Nivågivarna på marken kontrollerar larmet: IoT bekräftar 5/8." in node(
+        "scenario_events.js", f"detectionDetail({json.dumps(info)}, 'IoT bekräftar 5/8', 'Ringsjöarna', 'nivågivarna')")
+
+
+def test_the_level_sensor_points_are_spread_over_the_rivers_with_named_larger_roads_first() -> None:
+    from tools import derive_level_sensor_points as derive
+    by_river = {"A": [{"type": "tertiary", "name": "Lillvägen", "latitude": 55.70, "longitude": 13.0},
+                      {"type": "primary", "name": None, "latitude": 55.80, "longitude": 13.0},
+                      {"type": "secondary", "name": "Storvägen", "latitude": 55.701, "longitude": 13.0}],
+                "B": [{"type": "secondary", "name": "Sjövägen", "latitude": 55.90, "longitude": 13.0}]}
+    chosen = derive.choose(by_river, count=3, spacing_km=2.0)
+    # Storvägen first; Lillvägen lies 100 m from it, so the unnamed primary road comes next on A.
+    assert [(item["name"], item["river"]) for item in chosen] == [("Storvägen", "A"), ("Sjövägen", "B"), (None, "A")]
+
+
+def test_skane_s_words_for_its_sensors_reach_the_questions_and_the_config() -> None:
+    code = """
+from app.backend import scenario, spatial
+print(spatial.QUESTIONS["near_overflow"]["question"])
+print(spatial.flood_summary("near_overflow", [], []))
+print(scenario.LEVEL_SENSOR_RIVERS["Rönne å"])
+"""
+    lines = run_scenario("skane2024", code).splitlines()
+    assert lines == ["Vad finns inom 200 m från de larmande punkterna?", "Inga larmande punkter vid scenariotiden (syntetiska nivågivare).", "['2176:3']"]

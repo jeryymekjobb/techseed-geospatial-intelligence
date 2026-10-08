@@ -844,7 +844,8 @@ function showDetection(info) {
     row.append(item.title, " ", tag);
     list.append(row);
   }
-  $("detection-detail").textContent = detectionDetail(info, state.synthetic ? confirmsText(state.synthetic) : null, state.config.incident_place);
+  $("detection-detail").textContent = detectionDetail(info, state.synthetic ? confirmsText(state.synthetic) : null, state.config.incident_place,
+    state.config.sensor_words.the_sensors);
   const rules = $("detection-rules");
   rules.hidden = info.name !== "correlate";
   if (rules.hidden) return;
@@ -978,7 +979,7 @@ function showSynthetic(result) {
   // The IoT step of the detection sequence quotes the sensors at its time.
   if (state.detection && state.scenarioStatus?.detection?.name === "iot") {
     $("detection-detail").textContent = detectionDetail({ ...state.detection, ...state.scenarioStatus.detection }, confirmsText(result),
-      state.config.incident_place);
+      state.config.incident_place, state.config.sensor_words.the_sensors);
   }
 }
 

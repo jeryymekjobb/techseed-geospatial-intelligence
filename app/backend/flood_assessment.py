@@ -54,6 +54,16 @@ def hydro_value(kind: str, value: float) -> str:
     return f"{text.replace('.', ',')} {HYDRO_WORDS[kind][1]}"
 
 
+def level_text(sensor: dict[str, Any]) -> str:
+    """A level sensor's alarm and its station's value against the record (level_sensors.py)."""
+    state = "larmar" if sensor["confirms"] else "inget larm"
+    if sensor["value"] is None:
+        return f"{state}, inga värden från {sensor['station']} ännu"
+    if sensor["station_kind"] == "flow":
+        return f"{state}, {sensor['station']} {sensor['percent']} % av tidigare högsta flöde"
+    return f"{state}, {sensor['station']} {abs(sensor['from_record_cm'])} cm {'över' if sensor['from_record_cm'] > 0 else 'under'} tidigare högsta nivå"
+
+
 def rain_sums(observations: Sequence[dict[str, Any]], clock: datetime) -> tuple[float, float]:
     """Millimetres in the hour and the 24 hours up to the clock (as rain.js); a missing hour is dry."""
     hour = day = 0.0
@@ -196,6 +206,9 @@ class FloodAssessor:
             ref = place(sensor["latitude"], sensor["longitude"])
             if sensor["status"] == "failed":
                 evidence.append(line(f"iot:{sensor['id']}", "warn", f"{sensor['name']}: sensorbortfall (syntetisk)", ref))
+            elif sensor.get("kind") == "level":
+                evidence.append(line(f"iot:{sensor['id']}", "ok" if sensor["confirms"] else "miss",
+                                     f"IoT {sensor['name']}: {level_text(sensor)} (syntetisk)", ref, WEIGHTS["iot"] if sensor["confirms"] else 0.0))
             elif sensor["confirms"]:
                 evidence.append(line(f"iot:{sensor['id']}", "ok", f"IoT {sensor['name']}: bräddning, {sensor['percent']} % fyllt (syntetisk)",
                                      ref, WEIGHTS["iot"]))
