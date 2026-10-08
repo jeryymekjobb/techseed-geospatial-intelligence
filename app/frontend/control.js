@@ -41,6 +41,7 @@ function commandFor(button) {
 
 function showState(scenarioState) {
   status = scenarioState.status;
+  if (!status.question?.id) $("control-answer").textContent = "";  // RENSA SVARET or RESET
   $("sim-time").textContent = `${localTime.format(new Date(scenarioState.clock_utc))} svensk tid`;
   $("playback").textContent = scenarioState.finished ? "Uppspelningen är klar."
     : !scenarioState.playing ? "Pausad."
@@ -145,6 +146,28 @@ function showImages(clockUtc) {
     offlineTiles: config.layers.offline_tiles, formatTime: (isoUtc) => `${localTime.format(new Date(isoUtc))} svensk tid`,
     formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
   }) + (pendingPick === null ? "" : `\nVald i listan: ${select.options[select.selectedIndex].text} – tryck VISA VALD BILD.`);
+}
+
+// The prepared questions (spatial.py): asked on every main screen, which shows the answer on its map;
+// mission control shows the answer's text.
+function setupQuestions(questions) {
+  for (const question of questions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = question.question;
+    button.addEventListener("click", async () => {
+      $("control-answer").textContent = "Frågar PostGIS …";
+      try {
+        showState(await send("ask", question.id));
+        const response = await fetch(`/api/ask?q=${encodeURIComponent(question.id)}`);
+        const body = await response.json();
+        $("control-answer").textContent = response.ok ? body.answer : `Frågan kunde inte besvaras: ${body.detail || body.error}`;
+      } catch (error) {
+        $("control-answer").textContent = `Frågan kunde inte ställas: ${error.message}`;
+      }
+    });
+    $("control-questions").append(button);
+  }
 }
 
 // The main screen's panel: the forecast horizon and the stations it shows (the status's choices;
@@ -372,6 +395,9 @@ fetch("/api/config").then((response) => response.json()).then((loaded) => {
   setupMapLayers(config.layers.map_layers || []);
   showMapLayers();
   setupChoices(config.layers.panel_choices || {});
+  fetch("/api/questions").then((response) => response.json()).then(setupQuestions).catch(() => {
+    $("control-answer").textContent = "Frågorna kunde inte laddas.";
+  });
   showChoices();
   // VISA ALLA: the end of the playback, every detection; FLYG TILL names the incident's place.
   $("show-all").dataset.at = config.playback.end_utc;

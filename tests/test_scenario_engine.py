@@ -75,7 +75,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
         "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
-        "image_types": None, "base_maps": None, "camera": {"target": None, "seq": 0}, "map_layers": {}, "choices": {},
+        "image_types": None, "base_maps": None, "camera": {"target": None, "seq": 0}, "map_layers": {}, "choices": {}, "question": {"id": None, "seq": 0},
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -95,7 +95,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
         "satcom_up": False, "plus60": True, "god_view": True, "space_view": False, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
         "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
-        "image_types": None, "base_maps": None, "camera": {"target": None, "seq": 0}, "map_layers": {}, "choices": {},
+        "image_types": None, "base_maps": None, "camera": {"target": None, "seq": 0}, "map_layers": {}, "choices": {}, "question": {"id": None, "seq": 0},
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
@@ -440,3 +440,16 @@ def test_the_panel_s_choices_are_shared_and_reset() -> None:
             scenario.command("choose", target=target)
     assert scenario.snapshot()["events"] == []
     assert scenario.command("reset")["status"]["choices"] == {}
+
+
+def test_a_question_is_put_to_every_screen_counted_and_cleared() -> None:
+    scenario, _ = engine()
+    assert scenario.snapshot()["status"]["question"] == {"id": None, "seq": 0}
+    assert scenario.command("ask", target="why_fire")["status"]["question"] == {"id": "why_fire", "seq": 1}
+    assert scenario.command("ask", target="why_fire")["status"]["question"] == {"id": "why_fire", "seq": 2}  # asked again: anew
+    assert scenario.command("clear_answer")["status"]["question"] == {"id": None, "seq": 3}
+    scenario.command("ask", target="near_overflow")
+    assert scenario.command("reset")["status"]["question"] == {"id": None, "seq": 5}
+    with pytest.raises(CommandError):
+        scenario.command("ask", target="Why?")
+    assert scenario.snapshot()["events"] == []

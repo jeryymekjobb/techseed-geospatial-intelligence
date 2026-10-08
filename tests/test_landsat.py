@@ -270,3 +270,16 @@ def test_mission_control_may_tick_only_the_base_maps_that_can_be_shown(base_url:
 
     assert [post(target) for target in ["online", ""]] == [200, 200]
     assert [post(target) for target in ["topowebb", "satellite"]] == [400, 400]  # topowebb is not enabled in the test
+
+
+def test_mission_control_may_ask_only_the_prepared_questions(base_url: str) -> None:
+    def post(target: str) -> int:
+        request = Request(f"{base_url}/api/scenario/command", data=json.dumps({"command": "ask", "target": target}).encode(),
+                          headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urlopen(request, timeout=10) as response:
+                return response.status
+        except HTTPError as exc:
+            return exc.code
+
+    assert [post("why_fire"), post("drop_tables"), post("")] == [200, 400, 400]

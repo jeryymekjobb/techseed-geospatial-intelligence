@@ -625,6 +625,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise CommandError("no such image in the scenario")
             if body.get("command") == "image_types" and not landsat.types_exist(str(body.get("target", ""))):
                 raise CommandError("no such image type in the scenario")
+            if body.get("command") == "ask" and str(body.get("target")) not in spatial.QUESTIONS:
+                raise CommandError("no such question")
             if body.get("command") == "choose":
                 key, _, value = str(body.get("target", "")).partition("=")
                 choice = panel_choices().get(key)

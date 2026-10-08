@@ -943,6 +943,18 @@ function applyMapLayers(status) {
   }
 }
 
+// Mission control's questions: a new one is asked and answered here; a screen that connects shows
+// the one standing; RENSA SVARET and RESET take it away.
+function applyQuestion(status, previous) {
+  const question = status.question;
+  if (!question || (previous && previous.question?.seq === question.seq)) return;
+  if (question.id) askQuestion(question.id);
+  else if (previous) {
+    state.map.drawQueryResult(null);
+    $("answer").hidden = true;
+  }
+}
+
 function applyStatus(status) {
   const previous = state.scenarioStatus;
   state.scenarioStatus = status;
@@ -979,6 +991,7 @@ function applyStatus(status) {
   showFilter(status);
   applyMapLayers(status);
   applyChoices(status);
+  applyQuestion(status, previous);
   if (status.iot !== (previous?.iot ?? true)) showRealSensors();
   followDetection(status.detection);
 }

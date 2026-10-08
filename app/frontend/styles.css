@@ -88,6 +88,9 @@ body.menu-page { background: #141414; color: #f2f2f2; display: grid; place-items
 .demo-choice span { color: #d0d0d0; font-size: 1rem; }
 .menu-page .status { color: #d0d0d0; font-size: 1rem; }
 .topbar .switch-demo { margin-left: auto; min-height: 0; padding: 4px 12px; font-size: 0.9rem; }
+/* Mission control's questions, one wide button each. */
+.control-questions { display: grid; gap: 6px; }
+.control-questions button { text-align: left; font-size: 0.95rem; }
 /* Mission control's ticks for the image types "auto" follows, large enough to touch. */
 .image-types { display: grid; gap: 2px; margin: 6px 0; padding: 4px 8px; border: 1px solid #555; border-radius: 4px; font-size: 0.9rem; }
 .image-types legend { padding: 0 4px; color: #d0d0d0; }

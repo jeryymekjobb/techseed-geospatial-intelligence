@@ -22,6 +22,8 @@ types "auto" follows (comma-separated, for example "radar,natural"; empty for no
 in the status as `image_types`, None until ticked, when the screens use their default.
 `camera` sends every main screen's camera to the incident or the overview ("incident" or
 "home"); the status's `camera` counts the requests, so a screen flies only on a new one.
+`ask` puts a prepared question (spatial.py) to every main screen, which shows the answer, and
+`clear_answer` takes it away; the status's `question` counts them, so a screen asks only anew.
 `choose` sets one of the main screen's panel choices for every screen ("key=value", for example
 "horizon=12" or "hydro_station=2176:3"; `choices` in the status, the panel's own defaults until set).
 `map_layer_on` and `map_layer_off` switch a map layer by its name for every screen
@@ -111,6 +113,7 @@ class ScenarioEngine:
     _camera: dict[str, Any] = field(default_factory=lambda: {"target": None, "seq": 0}, init=False)
     _map_layers: dict[str, bool] = field(default_factory=dict, init=False)
     _choices: dict[str, str] = field(default_factory=dict, init=False)
+    _question: dict[str, Any] = field(default_factory=lambda: {"id": None, "seq": 0}, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
 
     def __post_init__(self) -> None:
@@ -190,7 +193,7 @@ class ScenarioEngine:
                            "image_types": None if self._image_types is None else list(self._image_types),
                            "base_maps": None if self._base_maps is None else list(self._base_maps),
                            "camera": dict(self._camera), "map_layers": dict(self._map_layers),
-                           "choices": dict(self._choices)},
+                           "choices": dict(self._choices), "question": dict(self._question)},
             }
 
     def _status(self) -> dict[str, Any]:
@@ -306,6 +309,8 @@ class ScenarioEngine:
                 self._apply_profile()
                 self._map_layers.clear()
                 self._choices.clear()
+                if self._question["id"] is not None:
+                    self._question = {"id": None, "seq": self._question["seq"] + 1}
                 self.jump += 1
             elif name == "seek":
                 if not at:
@@ -335,6 +340,12 @@ class ScenarioEngine:
                 if target is None or not IMAGE_TYPES_PATTERN.fullmatch(target):
                     raise CommandError('image_types needs image types separated by commas, for example "radar,natural"')
                 self._image_types = list(dict.fromkeys(target.split(","))) if target else []
+            elif name == "ask":
+                if not target or not TARGET_PATTERN.fullmatch(target):
+                    raise CommandError("ask needs a question")
+                self._question = {"id": target, "seq": self._question["seq"] + 1}
+            elif name == "clear_answer":
+                self._question = {"id": None, "seq": self._question["seq"] + 1}
             elif name == "choose":
                 if target is None or not CHOICE_PATTERN.fullmatch(target):
                     raise CommandError('choose needs "key=value"')
