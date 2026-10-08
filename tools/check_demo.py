@@ -271,7 +271,8 @@ def detection_sequence(demo: Demo) -> str:
 
 def detections(demo: Demo) -> str:
     demo.command({"command": "speed", "speed": 3600})
-    demo.main.wait_for_function("document.getElementById('landsat-note').textContent.startsWith('Under branden: Landsat 8')", timeout=WAIT_MS, polling=POLL_MS)
+    image = json.dumps(scenario.CHECK_IMAGE)
+    demo.main.wait_for_function(f"document.getElementById('landsat-note').textContent.startsWith({image})", timeout=WAIT_MS, polling=POLL_MS)
     # The playback slows down around the passes, so 14:00 comes within the minute but 15:00 may not.
     demo.main.wait_for_function("document.getElementById('sim-time').textContent.includes(' 14:')", timeout=WAIT_MS, polling=POLL_MS)
     demo.button("PAUSE").click()
@@ -293,10 +294,12 @@ def iot_switch(demo: Demo) -> str:
 def assessment(demo: Demo) -> str:
     outcome = demo.text("assessment-outcome")
     demo.main.get_by_role("button", name="Why do you believe there is a fire?").click()
-    demo.main.wait_for_function("document.getElementById('answer-text').textContent.startsWith('Wildfire')", timeout=WAIT_MS, polling=POLL_MS)
+    # The answer starts with the assessment's outcome.
+    demo.main.wait_for_function(f"document.getElementById('answer-text').textContent.startsWith({json.dumps(outcome)})",
+                                timeout=WAIT_MS, polling=POLL_MS)
     demo.main.get_by_role("button", name="Show infrastructure within 5 km of the incident").click()
     demo.main.wait_for_function("document.getElementById('answer-text').textContent.startsWith('Inom 5 km')", timeout=WAIT_MS, polling=POLL_MS)
-    assert outcome == "Wildfire probable", outcome
+    assert outcome == scenario.CHECK_OUTCOME, outcome
     demo.shot("4-assessment")
     return f"{outcome}; {demo.text('answer-text')[:80]}"
 

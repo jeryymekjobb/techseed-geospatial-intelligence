@@ -40,6 +40,10 @@ PERIOD_END = _module.PERIOD_END
 PLAYBACK_START = _module.PLAYBACK_START
 PLAYBACK_END = _module.PLAYBACK_END
 CHECK_START_UTC = _module.CHECK_START_UTC
+# The satellite image tools/check_demo.py waits for in the fire's playback, by the start of its text.
+CHECK_IMAGE = getattr(_module, "CHECK_IMAGE", "Under branden: Landsat 8")
+# The fire assessment's outcome the check expects after the playback to 14:00 local time.
+CHECK_OUTCOME = getattr(_module, "CHECK_OUTCOME", "Wildfire probable")
 DATABASE = _module.DATABASE
 TILES_FILE = _module.TILES_FILE
 CAMERA_ROUTE = _module.CAMERA_ROUTE
