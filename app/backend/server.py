@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, passes, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, wms
+from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, passes, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, wms
 from app.backend.scenario_engine import DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -358,6 +358,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
             "landsat": landsat.layer(),
             "radar": radar.layer(),
             "hydro": hydro.stations() is not None,  # SMHI's flows and lake levels at /api/hydro
+            "ems": ems.perimeters() is not None,  # Copernicus EMS's perimeters of the fire at /api/ems
             "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "lantmateriet_fastighet": settings.fastighet_enabled,
@@ -428,6 +429,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(wind_field())
         elif path == "/api/weather":
             self.send_json(weather())
+        elif path == "/api/ems":
+            data = ems.perimeters()
+            self.send_json(data if data else {"error": "not_in_scenario"}, HTTPStatus.OK if data else HTTPStatus.NOT_FOUND)
         elif path == "/api/hydro":
             data = hydro.stations()
             self.send_json(data if data else {"error": "not_in_scenario"}, HTTPStatus.OK if data else HTTPStatus.NOT_FOUND)

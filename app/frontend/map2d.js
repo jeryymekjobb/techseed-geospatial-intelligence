@@ -67,6 +67,7 @@ function createLeafletMap(config) {
   // SMHI's radar above the flood maps, below the markers.
   map.createPane("radar").style.zIndex = 370;
   let radarOverlay = null;
+  let emsLayer = null;
   const landsatOverlays = {};
   let windLayer = null;
   const wmsLayers = new Map();  // WMS layer name -> Leaflet layer
@@ -147,6 +148,18 @@ function createLeafletMap(config) {
       for (const [id, rain] of Object.entries(classes)) {
         stationMarkers.get(id)?.setRadius(rain.radius).setStyle({ fillColor: rain.color });
       }
+    },
+
+    // Copernicus EMS's perimeter of the fire: the product shown by the clock, or none.
+    setupEms() {
+      emsLayer = L.layerGroup().addTo(map);
+      overlays["Brandområde (Copernicus EMS)"] = emsLayer;
+    },
+
+    drawEms(product) {
+      emsLayer.clearLayers();
+      if (!product) return;
+      L.geoJSON(product.geometry, { style: { color: "#7b1fa2", weight: 3, dashArray: "8 5", fill: false }, interactive: false }).addTo(emsLayer);
     },
 
     // SMHI's weather radar: one overlay whose image follows the clock (showRadar).

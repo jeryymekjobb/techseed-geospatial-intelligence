@@ -74,6 +74,9 @@ HYDRO_STATIONS = getattr(_module, "HYDRO_STATIONS", {})
 # The flood's words: the land the radar's water is counted on, and who runs the rain gauges.
 FOCUS_LAND = getattr(_module, "FOCUS_LAND", "fokusområdets land")
 RAIN_GAUGES = getattr(_module, "RAIN_GAUGES", "SMHI:s mätare")
+# Copernicus EMS's mapped perimeters of a fire (tools/fetch_ems_perimeters.py).
+EMS_AREA = getattr(_module, "EMS_AREA", None)
+EMS_DIR = getattr(_module, "EMS_DIR", None)
 # The fire's forecast weather station, for the screens' texts.
 FORECAST_STATION = getattr(_module, "FORECAST_STATION", "")
 SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})

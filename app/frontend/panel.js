@@ -251,6 +251,27 @@ function setupRain(config) {
     + "en timme utan värde räknas som torr. Senaste månaderna är inte alltid kvalitetsgranskade.";
 }
 
+// Copernicus EMS's perimeter of the fire (/api/ems, ems.js), with a line in the forecast's legend.
+function setupEms(config) {
+  state.map.setupEms();
+  state.map.addAttribution(state.ems.attribution);
+  const item = document.createElement("li");
+  item.innerHTML = '<svg class="legend-arrow" viewBox="0 0 28 14" aria-hidden="true"><path d="M1,7 L27,7" stroke="#7b1fa2" '
+    + 'stroke-width="3" stroke-dasharray="6 4" fill="none"/></svg><span><strong>lila streckad linje:</strong> brandområdet enligt '
+    + 'Copernicus EMS, kartlagt ur en satellitbild – <span id="ems-note">ingen karta ännu</span>.</span>';
+  $("forecast-label").closest("section").querySelector(".legend").prepend(item);
+  showEms(state.clock);
+}
+
+function showEms(clock) {
+  if (!state.ems || !clock) return;
+  const product = emsAt(state.ems.products, clock.getTime());
+  if (product === state.emsShown) return;
+  state.emsShown = product;
+  state.map.drawEms(product);
+  $("ems-note").textContent = product ? emsText(product, (day) => localDate.format(new Date(`${day}T12:00:00Z`))) : "ingen karta ännu";
+}
+
 // SMHI's measured flows and lake levels (/api/hydro, hydro.js): a section after the rain with a
 // chart of the chosen station, and a label on the map for each station.
 const HYDRO_STYLE = { color: "#0b6e4f", fill: "#d8f3e8" };
@@ -463,6 +484,7 @@ function setClock(clock) {
   }
   showRain(clock);
   showHydro(clock);
+  showEms(clock);
   showRadar(clock);
   showWind(clock);
   drawForecast(clock);
@@ -1197,6 +1219,10 @@ async function startApp(createMap) {
   if (wildfire) state.forecast = await loadOptional("/api/forecast", (error) => { $("forecast-places").textContent = `Prognosen kunde inte laddas: ${error.message}.`; });
   if (state.forecast) {
     $("forecast-label").textContent = state.forecast.label;
+    if (config.layers.ems) {
+      state.ems = await loadOptional("/api/ems", () => {});
+      if (state.ems) setupEms(config);
+    }
     for (const item of document.querySelectorAll(".forecast-station")) item.textContent = config.forecast_station;
     state.map.setupForecast();
     $("forecast-horizon").addEventListener("change", (event) => {

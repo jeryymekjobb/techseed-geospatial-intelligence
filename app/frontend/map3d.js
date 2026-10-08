@@ -149,6 +149,7 @@ async function createCesiumMap(config) {
   const wmsLayers = [];  // the flood maps, kept above the satellite images
   const wmsNames = new Map();  // imagery layer -> WMS layer name
   let wmsListener = () => {};
+  const emsLayer = new Cesium.CustomDataSource("ems");
   let radarRectangle = null;  // SMHI's radar: one imagery layer at a time, replaced as the clock goes
   let radarLayer = null;
   let radarUrl = null;
@@ -586,6 +587,25 @@ async function createCesiumMap(config) {
         wmsNames.set(layer, name);
         layer.show = (source.visible || []).includes(name);
         layers.push([`${title} (modell)`, (visible) => { layer.show = visible; wmsListener(); }, () => layer.show]);
+      }
+    },
+
+    // Copernicus EMS's perimeter of the fire: the product shown by the clock as a dashed outline on the ground.
+    setupEms() {
+      viewer.dataSources.add(emsLayer);
+      layers.push(["Brandområde (Copernicus EMS)", (visible) => { emsLayer.show = visible; }, () => emsLayer.show]);
+    },
+
+    drawEms(product) {
+      emsLayer.entities.removeAll();
+      if (!product) return;
+      for (const polygon of product.geometry.coordinates) {
+        for (const ring of polygon) {
+          emsLayer.entities.add({ polyline: {
+            positions: ring.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat)), width: 3, clampToGround: true,
+            material: new Cesium.PolylineDashMaterialProperty({ color: cesiumColor("#7b1fa2"), dashLength: 14 }),
+          } });
+        }
       }
     },
 
