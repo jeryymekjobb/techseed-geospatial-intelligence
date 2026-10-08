@@ -331,6 +331,32 @@ def base_maps(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
     return items
 
 
+def panel_choices() -> dict[str, dict[str, Any]]:
+    """What mission control chooses for the main screen's panel (panel.js applyChoices): the fire's
+    forecast horizon and weather station, the flood's rain gauge and SMHI hydrological station. Each
+    has its label, its options as [value, text] and the panel's own default."""
+    try:
+        stations = weather()["stations"]
+    except OSError:
+        stations = []
+    gauges = [[station["id"], f"{station['name']} ({station['distance_km']} km)"] for station in stations]
+    choices: dict[str, dict[str, Any]] = {}
+    if scenario.WILDFIRE:
+        choices["horizon"] = {"label": "Prognoshorisont", "options": [[str(hours), f"{hours} timmar"] for hours in forecast.HORIZONS_H],
+                              "default": "6"}
+        if gauges:
+            choices["weather_station"] = {"label": "Väderstation", "options": gauges, "default": gauges[0][0]}
+        return choices
+    if gauges:
+        choices["rain_station"] = {"label": "Regnmätare", "options": gauges, "default": gauges[0][0]}
+    data = hydro.stations()
+    if data:
+        options = [[station["id"], f"{station['name']} ({'vattenstånd' if station['kind'] == 'level' else 'vattenföring'})"]
+                   for station in data["stations"]]
+        choices["hydro_station"] = {"label": "Vattenföring och vattenstånd", "options": options, "default": options[0][0]}
+    return choices
+
+
 def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
     """The maps' layers mission control ticks (panel.js), by the name both maps give them, with whether
     each map starts with it shown: True or False, or None when that map does not have it. The terrain is
@@ -409,6 +435,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "base_maps": base_maps(settings),
             "map_layers": map_layers(settings),
+            "panel_choices": panel_choices(),
             # The saved display profile of the scenario's kind of incident (profiles.py), or None.
             "display_profile": profiles.load(scenario.INCIDENT),
             "lantmateriet_fastighet": settings.fastighet_enabled,
@@ -598,6 +625,11 @@ class Handler(BaseHTTPRequestHandler):
                 raise CommandError("no such image in the scenario")
             if body.get("command") == "image_types" and not landsat.types_exist(str(body.get("target", ""))):
                 raise CommandError("no such image type in the scenario")
+            if body.get("command") == "choose":
+                key, _, value = str(body.get("target", "")).partition("=")
+                choice = panel_choices().get(key)
+                if not choice or value not in [option[0] for option in choice["options"]]:
+                    raise CommandError("no such choice for the panel")
             if body.get("command") in ("map_layer_on", "map_layer_off") and \
                     str(body.get("target")) not in {item["name"] for item in map_layers(self.settings)}:
                 raise CommandError("no such map layer in the scenario")

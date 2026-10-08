@@ -54,7 +54,8 @@ const state = {
   landsat: null,
   imageTypes: ["swir"],  // the image types "auto" follows (landsat.js imageTypesShown)
   baseMap: undefined,
-  layersApplied: {},  // the map layers as mission control's ticks last set them, by name  // the base map shown (basemaps.js baseMapFor), undefined until mission control's status arrives
+  layersApplied: {},
+  choicesApplied: {},  // mission control's panel choices as last applied, by key  // the map layers as mission control's ticks last set them, by name  // the base map shown (basemaps.js baseMapFor), undefined until mission control's status arrives
   landsatPick: "auto",  // mission control's choice (the scenario status's image)
   landsatShown: undefined,
   pendingEvents: [],
@@ -896,6 +897,41 @@ function showControls() {
   return new URLSearchParams(window.location.search).get("controls") === "1";
 }
 
+// Mission control's choices for the panel (the status's choices; server.py panel_choices): the
+// forecast horizon and the stations shown. A choice not set keeps the panel's own.
+const CHOICE_APPLY = {
+  horizon: (value) => {
+    if (state.scenarioStatus?.plus60) state.horizonBeforePlus60 = value;  // +60 MIN keeps its horizon until switched off
+    else setHorizon(value);
+  },
+  weather_station: (value) => {
+    state.weatherStation = value;
+    $("weather-station").value = value;
+    showWeather(state.clock);
+  },
+  rain_station: (value) => {
+    state.rainStation = value;
+    $("rain-station").value = value;
+    state.rainShownAt = null;
+    showRain(state.clock);
+  },
+  hydro_station: (value) => {
+    state.hydroStation = value;
+    $("hydro-station").value = value;
+    state.hydroShownAt = null;
+    showHydro(state.clock);
+  },
+};
+
+function applyChoices(status) {
+  for (const [key, value] of Object.entries(status.choices || {})) {
+    if (state.choicesApplied[key] === value || !CHOICE_APPLY[key]) continue;
+    if (key === "hydro_station" && !state.hydro) continue;  // tried again once the stations are loaded
+    state.choicesApplied[key] = value;
+    CHOICE_APPLY[key](value);
+  }
+}
+
 // Mission control's layer ticks: a switched layer as switched, the others as this map starts them.
 // A layer the map has not made yet is tried again with the next state.
 function applyMapLayers(status) {
@@ -942,6 +978,7 @@ function applyStatus(status) {
   }
   showFilter(status);
   applyMapLayers(status);
+  applyChoices(status);
   if (status.iot !== (previous?.iot ?? true)) showRealSensors();
   followDetection(status.detection);
 }

@@ -66,6 +66,7 @@ function showState(scenarioState) {
   showImages(scenarioState.clock_utc);
   showBaseMaps();
   showMapLayers();
+  showChoices();
   $("detection-step").textContent = detectionStepLine(status.detection, place);
   const list = $("scenario-status");
   list.innerHTML = "";
@@ -144,6 +145,38 @@ function showImages(clockUtc) {
     offlineTiles: config.layers.offline_tiles, formatTime: (isoUtc) => `${localTime.format(new Date(isoUtc))} svensk tid`,
     formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
   }) + (pendingPick === null ? "" : `\nVald i listan: ${select.options[select.selectedIndex].text} – tryck VISA VALD BILD.`);
+}
+
+// The main screen's panel: the forecast horizon and the stations it shows (the status's choices;
+// server.py panel_choices), one list each; a list not chosen in shows the panel's default.
+function setupChoices(choices) {
+  const box = $("panel-choices");
+  for (const [key, choice] of Object.entries(choices)) {
+    const label = document.createElement("label");
+    label.className = "image-pick";
+    label.append(`${choice.label} `);
+    const select = document.createElement("select");
+    select.dataset.choice = key;
+    for (const [value, text] of choice.options) select.append(new Option(text, value));
+    select.addEventListener("change", () => {
+      send("choose", `${key}=${select.value}`).then((state) => {
+        showState(state);
+        $("command-status").textContent = "";
+      }).catch((error) => {
+        $("command-status").textContent = `${choice.label} kunde inte väljas: ${error.message}`;
+      });
+    });
+    label.append(select);
+    box.append(label);
+  }
+}
+
+function showChoices() {
+  if (!config || !status) return;
+  for (const select of document.querySelectorAll("#panel-choices select")) {
+    const key = select.dataset.choice;
+    select.value = status.choices?.[key] ?? config.layers.panel_choices[key].default;
+  }
 }
 
 // The maps' layers, switched for every screen (the status's map_layers; panel.js applyMapLayers).
@@ -338,6 +371,8 @@ fetch("/api/config").then((response) => response.json()).then((loaded) => {
   setupBaseMaps(config.layers.base_maps);
   setupMapLayers(config.layers.map_layers || []);
   showMapLayers();
+  setupChoices(config.layers.panel_choices || {});
+  showChoices();
   // VISA ALLA: the end of the playback, every detection; FLYG TILL names the incident's place.
   $("show-all").dataset.at = config.playback.end_utc;
   $("fly-incident").textContent = `FLYG TILL ${config.incident_place.toUpperCase()}`;

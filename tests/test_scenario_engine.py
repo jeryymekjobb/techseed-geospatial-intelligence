@@ -75,7 +75,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
         "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
-        "image_types": None, "base_maps": None, "camera": {"target": None, "seq": 0}, "map_layers": {},
+        "image_types": None, "base_maps": None, "camera": {"target": None, "seq": 0}, "map_layers": {}, "choices": {},
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -95,7 +95,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
         "satcom_up": False, "plus60": True, "god_view": True, "space_view": False, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
         "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
-        "image_types": None, "base_maps": None, "camera": {"target": None, "seq": 0}, "map_layers": {},
+        "image_types": None, "base_maps": None, "camera": {"target": None, "seq": 0}, "map_layers": {}, "choices": {},
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
@@ -428,3 +428,15 @@ def test_map_layers_are_switched_by_name_for_every_screen_and_reset() -> None:
         scenario.command("map_layer_on", target=None)
     assert scenario.snapshot()["events"] == []
     assert scenario.command("reset")["status"]["map_layers"] == {}
+
+
+def test_the_panel_s_choices_are_shared_and_reset() -> None:
+    scenario, _ = engine()
+    assert scenario.snapshot()["status"]["choices"] == {}
+    scenario.command("choose", target="horizon=12")
+    assert scenario.command("choose", target="hydro_station=2176:3")["status"]["choices"] == {"horizon": "12", "hydro_station": "2176:3"}
+    for target in [None, "horizon", "=12", "horizon=1 2", "Horizon=12"]:
+        with pytest.raises(CommandError):
+            scenario.command("choose", target=target)
+    assert scenario.snapshot()["events"] == []
+    assert scenario.command("reset")["status"]["choices"] == {}
