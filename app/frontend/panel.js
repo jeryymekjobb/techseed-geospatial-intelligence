@@ -914,6 +914,11 @@ function applyStatus(status) {
     }
   }
   if (status.god_view !== Boolean(previous?.god_view)) state.map.showGodView(status.god_view);
+  // FLYG TILL and ÖVERSIKT in mission control: only a new request, not the one a screen finds when it connects.
+  if (previous && status.camera && status.camera.seq !== previous.camera?.seq) {
+    if (status.camera.target === "incident") state.map.flyToIncident();
+    else if (status.camera.target === "home") state.map.flyHome();
+  }
   if (status.space_view !== Boolean(previous?.space_view)) {
     state.map.showSpaceView(status.space_view);
     $("satellite-section")?.classList.toggle("space-view", status.space_view);

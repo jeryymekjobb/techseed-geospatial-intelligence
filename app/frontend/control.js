@@ -18,12 +18,13 @@ let pendingPick = null;  // an image chosen in the list, shown on the screens on
 const realSensors = new Map();
 let iotConnection = null;
 
-async function send(name, target, speed) {
+async function send(name, target, speed, at) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["X-Control-Token"] = token;
   const body = { command: name };
   if (target !== undefined && target !== null) body.target = target;
   if (speed) body.speed = Number(speed);
+  if (at) body.at = at;
   const response = await fetch("/api/scenario/command", { method: "POST", headers, body: JSON.stringify(body) });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -274,7 +275,7 @@ function connect() {
 for (const button of document.querySelectorAll("[data-command]")) {
   button.addEventListener("click", () => {
     const name = commandFor(button);
-    send(name, button.dataset.target, button.dataset.speed).then((state) => {
+    send(name, button.dataset.target, button.dataset.speed, button.dataset.at).then((state) => {
       showState(state);
       $("command-status").textContent = "";
     }).catch((error) => {
@@ -302,6 +303,9 @@ fetch("/api/config").then((response) => response.json()).then((loaded) => {
   config = loaded;
   setupImageTypes(config.layers.landsat);
   setupBaseMaps(config.layers.base_maps);
+  // VISA ALLA: the end of the playback, every detection; FLYG TILL names the incident's place.
+  $("show-all").dataset.at = config.playback.end_utc;
+  $("fly-incident").textContent = `FLYG TILL ${config.incident_place.toUpperCase()}`;
   showProfile(config.layers.display_profile);
   $("control-label").textContent = config.control_label;
   place = config.incident_place;

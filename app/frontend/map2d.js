@@ -365,6 +365,18 @@ function createLeafletMap(config) {
 
     // Mission control's GOD VIEW: out to Europe (OSM online; the offline tiles cover the
     // fire area only), and back to the fire area when it is switched off.
+    // Mission control's FLYG TILL and ÖVERSIKT (the status's camera): to the incident, or the whole view.
+    flyToIncident() {
+      return new Promise((resolve) => {
+        map.once("moveend", resolve);
+        map.flyTo(config.fire_centre, 12, { duration: 2 });
+      });
+    },
+
+    flyHome() {
+      map.flyToBounds(config.view_bounds, { duration: 2 });
+    },
+
     showGodView(on) {
       if (on) {
         map.setMaxBounds(null);
