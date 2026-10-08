@@ -82,7 +82,7 @@ IN_100Y = (f"SELECT string_agg(DISTINCT f.name, '{AREA_SEPARATOR}') FROM flood_a
 FLOOD_QUESTIONS: dict[str, dict[str, str]] = {
     "why_flood": {"question": "Why do you believe there is a flood?"},
     "buildings_100y": {
-        "question": "Vilka byggnader ligger inom 100-årsflödet?",
+        "question": f"Vilka byggnader ligger inom {scenario.FLOOD_AREA_WORD}?",
         "sql": FLOOD_ROWS.format(query=f"""SELECT t.kind, t.type, t.name, 0 AS distance_m, ({IN_100Y}) AS area,
     count(*) OVER () AS total, ST_AsGeoJSON(t.geom, 5)::json AS geometry
   FROM targets t
@@ -90,7 +90,7 @@ FLOOD_QUESTIONS: dict[str, dict[str, str]] = {
   ORDER BY area, t.type, t.name LIMIT {MAX_ROWS}"""),
     },
     "roads_100y": {
-        "question": "Vilka vägar och järnvägar korsar 100-årsflödet?",
+        "question": f"Vilka vägar och järnvägar korsar {scenario.FLOOD_AREA_WORD}?",
         "sql": FLOOD_ROWS.format(query=f"""SELECT t.kind, t.type, t.name, 0 AS distance_m, ({IN_100Y}) AS area,
     count(*) OVER () AS total, ST_AsGeoJSON(t.geom, 5)::json AS geometry
   FROM targets t
@@ -251,8 +251,8 @@ def flood_summary(question_id: str, rows: list[dict[str, Any]], points: list[tup
     by_area = ", ".join(f"{area}: {count}" for area, count in sorted(areas.items()))
     what = "byggnader" if question_id == "buildings_100y" else "väg- och järnvägssträckor"
     if not rows:
-        return f"Inga {what} inom 100-årsflödet i kartdata."
-    return f"{total} {what} inom 100-årsflödet ({by_area}){limited}. Kommunens och MCF:s modeller, inte observationer."
+        return f"Inga {what} inom {scenario.FLOOD_AREA_WORD} i kartdata."
+    return f"{total} {what} inom {scenario.FLOOD_AREA_WORD} ({by_area}){limited}. {scenario.FLOOD_MODELS}, inte observationer."
 
 
 def why_fire(result: dict[str, Any]) -> dict[str, Any]:

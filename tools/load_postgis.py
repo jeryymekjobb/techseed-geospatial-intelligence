@@ -10,9 +10,9 @@ database driver is needed on the host. Tables, all in WGS 84 (EPSG:4326):
 - for the fire: detections (FIRMS), and fronts and forecasts, the estimated front and the
   forecast bands per pass;
 - for the flood: flood_areas, the municipality's 100-year flow of the Selånger river and
-  MCF's 100-year and highest calculated flows clipped to the map area, and
-  stormwater_points, the municipality's critical stormwater points with the depth its
-  cloudburst model gives there.
+  MCF's 100-year and highest calculated flows clipped to the map area (the scenario's
+  MCF_LAYERS), and stormwater_points, the municipality's critical stormwater points with the
+  depth its cloudburst model gives there; empty where the scenario has no municipal data.
 
 A scenario's database is created, with PostGIS, if it does not exist yet. Re-running
 replaces the tables. Only the Python standard library is used.
@@ -137,10 +137,14 @@ def flood_rows() -> list[str]:
     directories = {"municipal": scenario.MUNICIPAL_DIR, "mcf": scenario.MCF_DIR}
     parts: list[str] = []
     for directory, file_name, kind, title in FLOOD_FILES:
+        if directories[directory] is None:
+            continue
         collection = json.loads((directories[directory] / file_name).read_text(encoding="utf-8"))
         source = collection["source"]
+        # MCF's areas by watercourse and the label of their layer (files fetched before labels say MCF).
+        label = collection.get("label", "MCF")
         parts += inserts("flood_areas", ["kind", "name", "source", "geom"], (
-            [literal(kind), literal(title or f"{f['properties'].get('Kartering')} (MCF)"), literal(source),
+            [literal(kind), literal(title or f"{f['properties'].get('Kartering')} ({label})"), literal(source),
              f"ST_Intersection(ST_MakeValid({geometry(f['geometry'])}), {envelope})"]
             for f in collection["features"]
         ), batch=50)
@@ -148,6 +152,8 @@ def flood_rows() -> list[str]:
     parts.append("CREATE TEMP TABLE flood_parts AS SELECT kind, name, source, ST_Subdivide(geom, 256) AS geom "
                  "FROM flood_areas WHERE NOT ST_IsEmpty(geom);")
     parts.append("TRUNCATE flood_areas; INSERT INTO flood_areas (kind, name, source, geom) SELECT * FROM flood_parts; DROP TABLE flood_parts;")
+    if scenario.MUNICIPAL_DIR is None:
+        return parts
     points = json.loads((scenario.MUNICIPAL_DIR / "critical-stormwater.geojson").read_text(encoding="utf-8"))["features"]
     parts += inserts("stormwater_points", ["fid", "area", "location", "object", "problem", "model_depth_m", "geom"], (
         [literal(f["properties"]["fid"]), literal(f["properties"].get("omrade")), literal(f["properties"].get("lokalisering")),

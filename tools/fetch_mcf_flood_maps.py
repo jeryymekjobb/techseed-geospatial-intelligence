@@ -7,7 +7,8 @@ are read with the ArcGIS REST query of the same map service, page by page, in WG
 written to the scenario's MCF_DIR with the source and the time of fetching. Each mapped
 watercourse is one multipolygon along its whole length, too large for the service
 unsimplified: it is simplified to SIMPLIFY_DEG (about 5-10 m) and clipped to the map area
-when it is loaded into PostGIS. The INSPIRE record gives no limitations on public access
+when it is loaded into PostGIS. A scenario's MCF_LAYERS choose other layers, where its
+watercourses lack these (Skåne's are mapped only with the climate-adapted flows). The INSPIRE record gives no limitations on public access
 and no conditions; name MCF as the source. Only the Python standard library is used.
 """
 
@@ -25,8 +26,9 @@ from app.backend import scenario
 
 USER_AGENT = "techseed-geospatial-intelligence/0.1 (exhibition demonstrator)"
 REST = "https://gis-tjanster.mcf.se/arcgis/rest/services/Oversvamningskarteringar/karteringar/MapServer"
-# The REST interface's layer ids (the WMS numbers them otherwise: 13 and 9).
-LAYERS = {"100ar": (2, "100-årsflöde"), "bhf": (5, "Beräknat högsta flöde")}
+# The REST interface's layer ids (the WMS numbers them otherwise: 13 and 9), titles and the
+# label of their areas in PostGIS.
+LAYERS = scenario.MCF_LAYERS or {"100ar": (2, "100-årsflöde", "MCF"), "bhf": (5, "Beräknat högsta flöde", "MCF")}
 PAGE = 1000
 SIMPLIFY_DEG = 0.0001
 
@@ -62,10 +64,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.exit(1, f"fetch_mcf_flood_maps: the scenario {scenario.NAME} has no MCF flood maps\n")
     args.out.mkdir(parents=True, exist_ok=True)
     fetched = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    for name, (layer, title) in LAYERS.items():
+    for name, (layer, title, label) in LAYERS.items():
         features = fetch(layer, scenario.MAP_BBOX)
         (args.out / f"mcf-{name}.geojson").write_text(json.dumps({
-            "type": "FeatureCollection", "title": title,
+            "type": "FeatureCollection", "title": title, "label": label,
             "source": f"{scenario.FLOOD_HAZARD_WMS['attribution']}, {REST}/{layer}, förenklad {SIMPLIFY_DEG}°",
             "fetched_utc": fetched, "features": features,
         }, ensure_ascii=False) + "\n", encoding="utf-8")

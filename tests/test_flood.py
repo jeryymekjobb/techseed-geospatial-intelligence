@@ -239,3 +239,30 @@ def test_a_river_flood_s_detection_counts_the_rain_of_days_the_flows_the_level_a
     assert result["rules"][0]["text"].startswith("35,0 mm regn de 5 dygnen före bilden vid Regnmätaren")
     assert result["outcome"] == "Översvämning trolig" and result["counts"] == {"Översvämning": 3}
     assert "SMHI:s uppmätta flöden och nivåer" in result["label"]
+
+
+def run_scenario(name: str, code: str) -> str:
+    import os
+    import sys
+    env = {**os.environ, "TECHSEED_SCENARIO": name}
+    return subprocess.run([sys.executable, "-c", code], cwd=FRONTEND.parents[1], env=env, capture_output=True, text=True, check=True).stdout
+
+
+def test_skane_s_questions_name_mcf_s_climate_adapted_flow_and_load_without_municipal_data() -> None:
+    code = """
+from app.backend import scenario, spatial
+print(spatial.QUESTIONS["buildings_100y"]["question"])
+print(spatial.flood_summary("buildings_100y", [{"kind": "building", "area": "Kävlingeån (MCF, klimatanpassat)", "total": 1}], None))
+print(scenario.MCF_LAYERS["100ar"][0], scenario.FLOOD_HAZARD_WMS["visible"])
+if (scenario.MCF_DIR / "mcf-100ar.geojson").is_file():  # data/ is not in the repository
+    from tools import load_postgis
+    sql = "\\n".join(load_postgis.flood_rows())
+    print("stormwater_points" in sql, "(MCF, klimatanpassat)" in sql)
+"""
+    lines = run_scenario("skane2024", code).splitlines()
+    assert lines[0] == "Vilka byggnader ligger inom det klimatanpassade 100-årsflödet?"
+    assert lines[1] == ("1 byggnader inom det klimatanpassade 100-årsflödet (Kävlingeån (MCF, klimatanpassat): 1). "
+                        "MCF:s modell för slutet av seklet, inte observationer.")
+    assert lines[2] == "3 ['12']"  # REST layer 3 and WMS layer 12: the climate-adapted 100-year flow
+    if len(lines) > 3:
+        assert lines[3] == "False True"  # no municipal stormwater points, MCF's areas with their label

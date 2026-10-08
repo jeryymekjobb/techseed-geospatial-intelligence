@@ -44,6 +44,11 @@ CHECK_START_UTC = _module.CHECK_START_UTC
 CHECK_IMAGE = getattr(_module, "CHECK_IMAGE", "Under branden: Landsat 8")
 # The fire assessment's outcome the check expects after the playback to 14:00 local time.
 CHECK_OUTCOME = getattr(_module, "CHECK_OUTCOME", "Wildfire probable")
+# MCF's layers for the flood's PostGIS questions (tools/fetch_mcf_flood_maps.py), its words for
+# the area the questions ask about and for the models behind it.
+MCF_LAYERS = getattr(_module, "MCF_LAYERS", None)
+FLOOD_AREA_WORD = getattr(_module, "FLOOD_AREA_WORD", "100-årsflödet")
+FLOOD_MODELS = getattr(_module, "FLOOD_MODELS", "Kommunens och MCF:s modeller")
 DATABASE = _module.DATABASE
 TILES_FILE = _module.TILES_FILE
 CAMERA_ROUTE = _module.CAMERA_ROUTE

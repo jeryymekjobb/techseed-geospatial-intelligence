@@ -143,18 +143,29 @@ SENTINEL2_SCENES = {
 SENTINEL2_SIZE = (2820, 2115)
 
 # MCF's (formerly MSB's) overview flood maps; in the area they map Kävlingeån (2020) and
-# Höje å (2025). Same service and layers as the Sundsvall scenario.
+# Höje å (2025). Same service as the Sundsvall scenario, but these watercourses have no
+# 100-year flow of today's climate, only the climate-adapted one for the end of the century
+# (WMS layer 12, REST layer 3; checked 2026-10-08), and the highest calculated flow only for
+# Kävlingeån.
 FLOOD_HAZARD_WMS = {
     "url": "https://gis-tjanster.mcf.se/arcgis/services/Oversvamningskarteringar/karteringar/MapServer/WMSServer",
-    "layers": {"13": "100-årsflöde", "9": "Beräknat högsta flöde"},
+    "layers": {"12": "100-årsflöde, klimatanpassat (slutet av seklet)", "9": "Beräknat högsta flöde"},
     "attribution": "Översvämningskartering © MCF (tidigare MSB)",
-    "visible": ["13"],
+    "visible": ["12"],
 }
+# The same layers for PostGIS (tools/fetch_mcf_flood_maps.py): REST id, title and label.
+MCF_LAYERS = {
+    "100ar": (3, "100-årsflöde (Klimatanpassat flöde för slutet av seklet)", "MCF, klimatanpassat"),
+    "bhf": (5, "Beräknat högsta flöde", "MCF"),
+}
+FLOOD_AREA_WORD = "det klimatanpassade 100-årsflödet"
+FLOOD_MODELS = "MCF:s modell för slutet av seklet"
 
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""
 FORECAST_REPORT = ""
-SPATIAL_SOURCE = "PostGIS (lokal databas): OSM-mål © OpenStreetMap contributors, 100-årsflöden © MCF (tidigare MSB)"
+SPATIAL_SOURCE = ("PostGIS (lokal databas): OSM-mål © OpenStreetMap contributors, klimatanpassade 100-årsflöden "
+                  "© MCF (tidigare MSB)")
 
 ATTRIBUTION = {
     "osm": "© OpenStreetMap contributors (ODbL)",
