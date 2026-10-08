@@ -12,7 +12,6 @@ const shortTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm
 let status = null;
 let place = "branden";  // the incident's place, from /api/config
 let config = null;
-let latestImage = "swir";  // the image "auto" shows: SWIR in the fire, radar in the flood (as panel.js)
 let imageList = null;  // the values in the image list, to rebuild it only when they change
 let clockShown = null;  // the scenario clock last shown, for when /api/config arrives after it
 let pendingPick = null;  // an image chosen in the list, shown on the screens only with VISA VALD BILD
@@ -23,7 +22,7 @@ async function send(name, target, speed) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["X-Control-Token"] = token;
   const body = { command: name };
-  if (target) body.target = target;
+  if (target !== undefined && target !== null) body.target = target;
   if (speed) body.speed = Number(speed);
   const response = await fetch("/api/scenario/command", { method: "POST", headers, body: JSON.stringify(body) });
   if (!response.ok) {
@@ -99,7 +98,15 @@ function showImages(clockUtc) {
     return;
   }
   const clockMs = Date.parse(clockUtc);
-  const options = imageOptions(info.scenes, info.names, clockMs, (isoUtc) => shortTime.format(new Date(isoUtc)));
+  // The ticked image types: "auto" follows the latest of them, and the list holds only them.
+  const types = imageTypesShown(status.image_types, config.incident, info.names);
+  const counts = imageTypeCounts(info.scenes, info.names, clockMs);
+  for (const box of document.querySelectorAll("#image-types input")) {
+    box.checked = types.includes(box.value);
+    const count = counts[box.value];
+    box.parentElement.querySelector(".count").textContent = `${count.taken} av ${count.total} tagna`;
+  }
+  const options = imageOptions(info.scenes, info.names, clockMs, (isoUtc) => shortTime.format(new Date(isoUtc)), types);
   const values = options.map((item) => item.value).join(",");
   if (values !== imageList) {
     imageList = values;
@@ -113,7 +120,7 @@ function showImages(clockUtc) {
     for (const group of [taken, later]) if (group.children.length) select.append(group);
   }
   const pick = status.image || "auto";
-  const selection = landsatSelection(info.scenes, clockMs, pick, latestImage);
+  const selection = landsatSelection(info.scenes, clockMs, pick, types);
   // A chosen image not taken yet gives way to the latest, as on the main screen.
   const current = selection.key === pick || pick === "off" ? pick : "auto";
   // The list keeps an image chosen in it until VISA VALD BILD, unless it is shown already or has left the list.
@@ -128,10 +135,31 @@ function showImages(clockUtc) {
   const [name, image] = (selection.key || "").split("|");
   const scene = info.scenes.find((item) => item.scene === name) || null;
   $("image-shown").textContent = viewCaption({
-    scene, image, reason: selection.reason, choice: latestImage, mapData: config.layers.map_data,
+    scene, image, reason: selection.reason, choice: types, mapData: config.layers.map_data,
     offlineTiles: config.layers.offline_tiles, formatTime: (isoUtc) => `${localTime.format(new Date(isoUtc))} svensk tid`,
     formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
   }) + (pendingPick === null ? "" : `\nVald i listan: ${select.options[select.selectedIndex].text} – tryck VISA VALD BILD.`);
+}
+
+// The image types ticked in mission control, for every screen (the scenario status's image_types).
+function setupImageTypes(info) {
+  const box = $("image-types");
+  for (const [kind, text] of Object.entries(info?.names || {})) {
+    const label = document.createElement("label");
+    label.innerHTML = `<input type="checkbox" value="${kind}"> <span>${IMAGE_KINDS[kind] || kind}</span> <span class="count"></span>`;
+    label.title = text;
+    box.append(label);
+  }
+  box.hidden = !info;
+  box.addEventListener("change", () => {
+    const ticked = [...box.querySelectorAll("input:checked")].map((input) => input.value);
+    send("image_types", ticked.join(",")).then((state) => {
+      showState(state);
+      $("command-status").textContent = "";
+    }).catch((error) => {
+      $("command-status").textContent = `Valet av bildtyper misslyckades: ${error.message}`;
+    });
+  });
 }
 
 function chooseImage(value) {
@@ -214,8 +242,7 @@ $("show-pick").addEventListener("click", () => { if (pendingPick !== null) choos
 // The scenario's name in the header.
 fetch("/api/config").then((response) => response.json()).then((loaded) => {
   config = loaded;
-  const names = config.layers.landsat?.names || {};
-  latestImage = config.incident !== "wildfire" ? (names.radar ? "radar" : Object.keys(names)[0]) : names.swir ? "swir" : "natural";
+  setupImageTypes(config.layers.landsat);
   $("control-label").textContent = config.control_label;
   place = config.incident_place;
   if (clockShown) showImages(clockShown);

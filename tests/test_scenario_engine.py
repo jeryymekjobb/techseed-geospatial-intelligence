@@ -75,6 +75,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
         "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
+        "image_types": None,
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -94,6 +95,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
         "satcom_up": False, "plus60": True, "god_view": True, "space_view": False, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
         "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
+        "image_types": None,
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
@@ -218,6 +220,18 @@ def test_the_image_choice_is_shared_kept_out_of_the_events_and_reset() -> None:
             scenario.command("image", target=choice)
     assert scenario.snapshot()["events"] == []  # a setting, not an event with a banner
     assert scenario.command("reset")["status"]["image"] == "auto"
+
+
+def test_the_ticked_image_types_are_shared_kept_out_of_the_events_and_reset() -> None:
+    scenario, _ = engine()
+    assert scenario.snapshot()["status"]["image_types"] is None  # the screens' default
+    assert scenario.command("image_types", target="radar,natural,radar")["status"]["image_types"] == ["radar", "natural"]
+    assert scenario.command("image_types", target="")["status"]["image_types"] == []  # none ticked: the map
+    for types in [None, "Radar", "radar,", ",radar", "radar;natural"]:
+        with pytest.raises(CommandError):
+            scenario.command("image_types", target=types)
+    assert scenario.snapshot()["events"] == []
+    assert scenario.command("reset")["status"]["image_types"] is None
 
 
 @pytest.fixture()

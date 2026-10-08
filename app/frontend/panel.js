@@ -52,7 +52,7 @@ const state = {
   flashedPasses: new Set(),
   // The Landsat 8 scene (config.layers.landsat): shown from its acquisition time.
   landsat: null,
-  landsatLatest: "swir",  // the image of the latest scene that "auto" shows
+  imageTypes: ["swir"],  // the image types "auto" follows (landsat.js imageTypesShown)
   landsatPick: "auto",  // mission control's choice (the scenario status's image)
   landsatShown: undefined,
   pendingEvents: [],
@@ -499,9 +499,8 @@ async function setupLandsat(config) {
     + '<div class="status">Välj karta eller bild i mission control.</div>';
   $("satellite-section").after(section);
   const info = config.layers.landsat;
-  // The latest image: SWIR in the fire, radar in the flood, which sees through the clouds of its August days.
-  state.landsatLatest = config.incident !== "wildfire" ? (info?.names?.radar ? "radar" : Object.keys(info?.names || {})[0])
-    : info?.names?.swir ? "swir" : "natural";
+  // The image types "auto" follows until mission control ticks others (landsat.js defaultImageTypes).
+  state.imageTypes = defaultImageTypes(config.incident, info?.names);
   if (!info) {
     $("landsat-note").textContent = "Satellitbilden är inte hämtad (tools/fetch_landsat_scene.py).";
     showViewCaption(null, null, "missing");
@@ -525,7 +524,7 @@ async function setupLandsat(config) {
 // The main screen's caption: what is shown under the overlays, dated (landsat.js viewCaption).
 function showViewCaption(scene, image, reason) {
   $("view-caption").textContent = viewCaption({
-    scene, image, reason, choice: state.landsatLatest, mapData: state.config.layers.map_data, offlineTiles: state.config.layers.offline_tiles,
+    scene, image, reason, choice: state.imageTypes, mapData: state.config.layers.map_data, offlineTiles: state.config.layers.offline_tiles,
     formatTime: formatLocal, formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
     // The fire's detection sequence: its FIRMS pass over the image or map (the flood's image is the detection).
     detection: state.detection && state.detection.pass.kind !== "flood" ? state.detection.pass : null,
@@ -561,13 +560,14 @@ function showLandsatAt(clock) {
     showViewCaption(...sceneOfKey(state.detectionImage), "shown");
     return;
   }
-  const selection = landsatSelection(state.landsat.scenes, clock.getTime(), state.landsatPick, state.landsatLatest);
+  const selection = landsatSelection(state.landsat.scenes, clock.getTime(), state.landsatPick, state.imageTypes);
   const key = state.hiddenLayers.includes("space") ? null : selection.key;
   const scene = selection.scene;
   const image = selection.key?.split("|")[1];
   const notes = {
     off: "Kartan visas, ingen satellitbild.",
     "none-yet": "Ingen bild är tagen ännu vid scenariotiden.",
+    "no-types": "Kartan visas: inga bildtyper är valda i mission control.",
   };
   $("landsat-note").textContent = notes[selection.reason]
     || `${scene.label}, ${sceneConditions(scene)}. ${state.landsat.names[image]}.`
@@ -930,6 +930,7 @@ function showFilter(status) {
   }
   state.hiddenLayers = [...status.hidden_layers];
   state.landsatPick = status.image || "auto";  // mission control's choice of map or image
+  if (state.landsat) state.imageTypes = imageTypesShown(status.image_types, state.config.incident, state.landsat.names);
   showLandsatAt(state.clock);
   let panel = $("god-filter");
   if (!panel) {

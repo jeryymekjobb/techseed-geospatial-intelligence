@@ -100,6 +100,12 @@ def choice_exists(choice: str) -> bool:
     return bool(info) and any(scene["scene"] == scene_name and image_name in scene["images"] for scene in info["scenes"])
 
 
+def types_exist(types: str) -> bool:
+    """Whether mission control's ticked image types ("radar,natural", or "" for none) are all the scenario's."""
+    info = layer()
+    return bool(info) and all(kind in info["names"] for kind in types.split(",") if kind)
+
+
 def image(name: str, directory: Any = None) -> bytes | None:
     """A PNG from the scenario's Landsat (or the given) directory by its file name; None for anything else."""
     directory = directory or LANDSAT_DIR

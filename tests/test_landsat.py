@@ -209,3 +209,50 @@ def test_mission_control_may_choose_only_the_scenario_s_images(base_url: str) ->
 
     assert [post(target) for target in ["LC08_during|ndmi", "off", "auto"]] == [200, 200, 200]
     assert [post(target) for target in ["LC08_during|water", "LC08_other|swir", "../x|swir", ""]] == [400, 400, 400, 400]
+
+
+def test_mission_control_may_tick_only_the_scenario_s_image_types(base_url: str) -> None:
+    def post(target: str) -> int:
+        request = Request(f"{base_url}/api/scenario/command", data=json.dumps({"command": "image_types", "target": target}).encode(),
+                          headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urlopen(request, timeout=10) as response:
+                assert json.loads(response.read())["status"]["image_types"] == [kind for kind in target.split(",") if kind]
+                return response.status
+        except HTTPError as exc:
+            return exc.code
+
+    assert [post(target) for target in ["ndmi,swir", "", "swir"]] == [200, 200, 200]
+    assert [post(target) for target in ["water", "swir,radar"]] == [400, 400]
+
+
+def landsat_js(expression: str) -> object:
+    code = (f"const m = require({json.dumps(str(FRONTEND / 'landsat.js'))}); const scenes = {json.dumps(scenes_js())};"
+            f"console.log(JSON.stringify({expression}));")
+    return json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_auto_follows_the_latest_image_of_the_ticked_types_and_the_list_holds_only_them() -> None:
+    # Radar on 1 August and an optical image on 3 August (SYNTHETIC scenes): the latest ticked one is shown.
+    scenes = [{"role": "radar", "scene": "S1A_1", "satellite": "Sentinel-1A", "acquired_utc": "2024-08-01T05:00:00Z", "images": {"radar": "r"}},
+              {"role": "during", "scene": "S2A_3", "satellite": "Sentinel-2A", "acquired_utc": "2024-08-03T10:00:00Z", "images": {"natural": "n", "water": "w"}}]
+    def pick(clock: str, types: list[str]) -> dict:
+        return landsat_js(f"(() => {{ const r = m.landsatSelection({json.dumps(scenes)}, Date.parse('{clock}'), 'auto', {json.dumps(types)});"
+                          " return {key: r.key, reason: r.reason}; })()")
+    assert pick("2024-08-04T00:00:00Z", ["radar", "natural"]) == {"key": "S2A_3|natural", "reason": "shown"}
+    assert pick("2024-08-02T00:00:00Z", ["radar", "natural"]) == {"key": "S1A_1|radar", "reason": "shown"}  # the optical one not taken yet
+    assert pick("2024-08-04T00:00:00Z", ["radar"]) == {"key": "S1A_1|radar", "reason": "shown"}
+    assert pick("2024-08-04T00:00:00Z", ["water", "natural"]) == {"key": "S2A_3|water", "reason": "shown"}  # in the order given (the screens give the scenario's)
+    assert pick("2024-08-04T00:00:00Z", []) == {"key": None, "reason": "no-types"}
+    names = {"natural": "a", "water": "b", "radar": "c"}
+    assert landsat_js(f"m.imageTypeCounts({json.dumps(scenes)}, {json.dumps(names)}, Date.parse('2024-08-02T00:00:00Z'))") == {
+        "natural": {"taken": 0, "total": 1}, "water": {"taken": 0, "total": 1}, "radar": {"taken": 1, "total": 1}}
+    listed = landsat_js(f"m.imageOptions({json.dumps(scenes)}, {json.dumps(names)}, Date.parse('2024-08-04T00:00:00Z'), (t) => t, ['radar']).map((i) => i.value)")
+    assert listed == ["S1A_1|radar"]
+    assert landsat_js(f"[m.defaultImageTypes('wildfire', {{natural: 1, swir: 1}}), m.defaultImageTypes('flood', {json.dumps(names)}),"
+                      " m.defaultImageTypes('flood', {natural: 1}), m.defaultImageTypes('flood', {})]") == [["swir"], ["radar"], ["natural"], []]
+    # The status's ticks in the scenario's order, or the default when none are set.
+    assert landsat_js(f"[m.imageTypesShown(['radar', 'natural'], 'flood', {json.dumps(names)}), m.imageTypesShown(null, 'flood', {json.dumps(names)})]") == [
+        ["natural", "radar"], ["radar"]]
+    assert landsat_js("m.typeNames(['radar', 'natural'])") == "radar eller naturliga färger"

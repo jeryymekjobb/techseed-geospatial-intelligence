@@ -539,6 +539,8 @@ class Handler(BaseHTTPRequestHandler):
                 at = upcoming["pass_utc"]
             if body.get("command") == "image" and not landsat.choice_exists(str(body.get("target"))):
                 raise CommandError("no such image in the scenario")
+            if body.get("command") == "image_types" and not landsat.types_exist(str(body.get("target", ""))):
+                raise CommandError("no such image type in the scenario")
             snapshot = self.engine.command(
                 str(body.get("command")),
                 at=at,
