@@ -1241,6 +1241,9 @@ function setupMapMenu() {
 }
 
 async function startApp(createMap) {
+  // The main screen only shows: mission control has every button, list and tick (styles.css).
+  // ?controls=1 keeps them here for troubleshooting.
+  document.body.classList.toggle("display-only", !showControls());
   const config = await getJson("/api/config");
   state.config = config;
   $("title").textContent = config.title;

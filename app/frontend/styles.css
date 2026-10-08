@@ -88,6 +88,15 @@ body.menu-page { background: #141414; color: #f2f2f2; display: grid; place-items
 .demo-choice span { color: #d0d0d0; font-size: 1rem; }
 .menu-page .status { color: #d0d0d0; font-size: 1rem; }
 .topbar .switch-demo { margin-left: auto; min-height: 0; padding: 4px 12px; font-size: 0.9rem; }
+/* The main screen only shows (panel.js startApp): its buttons and the 2D/3D link are hidden and its
+   lists read as text, since mission control sets them all; ?controls=1 brings them back. The map's
+   own zoom and right click stay. */
+.display-only .panel button, .display-only .view-switch, .display-only #questions { display: none; }
+.display-only .panel select {
+  appearance: none; -webkit-appearance: none; pointer-events: none;
+  border: none; background: transparent; padding: 0; color: inherit; font: inherit; font-weight: 600;
+}
+
 /* Mission control's questions, one wide button each. */
 .control-questions { display: grid; gap: 6px; }
 .control-questions button { text-align: left; font-size: 0.95rem; }

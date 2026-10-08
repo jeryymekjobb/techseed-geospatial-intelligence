@@ -295,11 +295,11 @@ def iot_switch(demo: Demo) -> str:
 
 def assessment(demo: Demo) -> str:
     outcome = demo.text("assessment-outcome")
-    demo.main.get_by_role("button", name="Why do you believe there is a fire?").click()
+    demo.control.get_by_role("button", name="Why do you believe there is a fire?").click()
     # The answer starts with the assessment's outcome.
     demo.main.wait_for_function(f"document.getElementById('answer-text').textContent.startsWith({json.dumps(outcome)})",
                                 timeout=WAIT_MS, polling=POLL_MS)
-    demo.main.get_by_role("button", name="Show infrastructure within 5 km of the incident").click()
+    demo.control.get_by_role("button", name="Show infrastructure within 5 km of the incident").click()
     demo.main.wait_for_function("document.getElementById('answer-text').textContent.startsWith('Inom 5 km')", timeout=WAIT_MS, polling=POLL_MS)
     assert outcome == scenario.CHECK_OUTCOME, outcome
     demo.shot("4-assessment")
@@ -410,9 +410,9 @@ def flood_assessment(demo: Demo) -> str:
 
     outcome = json.dumps(scenario.CHECK_OUTCOME)
     demo.main.wait_for_function(f"document.getElementById('assessment-outcome').textContent === {outcome}", timeout=WAIT_MS, polling=POLL_MS)
-    demo.main.get_by_role("button", name="Why do you believe there is a flood?").click()
+    demo.control.get_by_role("button", name="Why do you believe there is a flood?").click()
     demo.main.wait_for_function(f"document.getElementById('answer-text').textContent.startsWith({outcome})", timeout=WAIT_MS, polling=POLL_MS)
-    demo.main.get_by_role("button", name=spatial.QUESTIONS["buildings_100y"]["question"]).click()
+    demo.control.get_by_role("button", name=spatial.QUESTIONS["buildings_100y"]["question"]).click()
     within = json.dumps(f"byggnader inom {scenario.FLOOD_AREA_WORD}")
     demo.main.wait_for_function(f"document.getElementById('answer-text').textContent.includes({within})", timeout=WAIT_MS, polling=POLL_MS)
     demo.shot("5-assessment")

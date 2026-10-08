@@ -348,6 +348,14 @@ nämner raden först passagens detektioner och sedan underlaget, till exempel
 "Visas: VIIRS-detektioner 5 aug. 2014 03:17 svensk tid · underlag: Satellitbild – Landsat 8, …,
 tagen 4 aug. 2014 12:06 svensk tid".
 
+**Huvudskärmen visar bara.** Alla knappar, listor och kryssrutor finns i mission control och
+gäller alla skärmar: uppspelningen, **VISA ALLA**, **FLYG TILL …** och **ÖVERSIKT**,
+prognoshorisonten och vilken station panelen visar, kartans lager, frågorna och **RENSA
+SVARET**. Huvudskärmens listor står kvar som text, så att besökarna ser vad som visas. På
+kartan kan du fortfarande zooma, dra och högerklicka. Lägg till `?controls=1` i adressen för
+att få tillbaka huvudskärmens egna knappar och lagerlistor vid felsökning. Uppspelningsknapparna
+där styr alla skärmar, medan lagerlistan och stationslistorna bara gäller den skärmen.
+
 **Bildtyper och baskartor.** Under knapparna listar mission control demons bildtyper och
 baskartor med kryssrutor. Vilka typer som är mest användbara beror på händelsen och på vilka
 satelliter som tog bilder.
@@ -398,7 +406,7 @@ Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 
 | Tid | Gör | Säg |
 |---|---|---|
-| 0:00 | Klicka "Flyg till branden" på huvudskärmen. Kameran åker ut till jorden och flyger in till branden. | "Det här är skogsbranden i Västmanland sommaren 2014, återuppspelad med riktiga satellitdata." |
+| 0:00 | Tryck **FLYG TILL BRANDEN** i mission control. Kameran åker ut till jorden och flyger in till branden. | "Det här är skogsbranden i Västmanland sommaren 2014, återuppspelad med riktiga satellitdata." |
 | 0:10 | Tryck **SPACE VIEW**, **1 MIN/S** och **PLAY**. Peka på satellitbevakningen. | "Det här är satelliterna som såg branden, Aqua, Terra och Suomi NPP, där de var den dagen. Tidslinjen visar när de passerar över branden." |
 | 0:25 | Tryck **SPACE VIEW** igen. Kameran flyger tillbaka. | |
 | 0:30 | Tryck **SATELLITE DETECTION**. Uppspelningen stannar, och ett kort med sex steg visas nere till höger på huvudskärmen. Steg 1, **Bild tagen**: kameran går ut så att satelliten syns, med en lila linje ner till branden. | "Här passerar Suomi NPP över branden. Det är den verkliga passagen från 2014." |
@@ -409,8 +417,8 @@ Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 | 1:15 | Tryck **NÄSTA ▸**. Steg 6, **Korrelering**: kortet visar utfallet och fem regler med ✓ eller ✗. | "Reglerna jämför med kartan: brinner det i skog eller vid en industri? Det är regler som håller eller inte, ingen sannolikhet." |
 | 1:30 | Tryck **NÄSTA ▸** en sista gång. Kortet försvinner. Tryck **PLAY**. Kl. 12:06 svensk tid kommer Landsat-bilden. | "Landsat 8 fotograferade branden tjugo minuter senare. Det mörka är bränd skog, det orange är brandfronten." |
 | 1:45 | Tryck **1 TIMME/S**. | "Nu går tiden fortare, och branden växer." |
-| 1:55 | Peka på AI ASSESSMENT till höger. Klicka "Why do you believe there is a fire?". | "Bedömningen visar varför den tror att det brinner. Varje rad pekar på sitt objekt på kartan." |
-| 2:10 | Klicka "Show infrastructure within 5 km of the incident". Klicka på "SQL som kördes". | "Det här är en riktig fråga mot en kartdatabas. Frågan syns här." |
+| 1:55 | Peka på AI ASSESSMENT på huvudskärmen. Tryck "Why do you believe there is a fire?" under **Frågor** i mission control. | "Bedömningen visar varför den tror att det brinner. Varje rad pekar på sitt objekt på kartan." |
+| 2:10 | Tryck "Show infrastructure within 5 km of the incident". Klicka på "SQL som kördes" på huvudskärmen. | "Det här är en riktig fråga mot en kartdatabas. Frågan syns här." |
 | 2:20 | Tryck **+60 MIN**, och tryck igen för att stänga. | "Prognosen är en enkel modell med stor osäkerhet." |
 | 2:30 | Tryck **SATCOM FAILURE**. Vänta några sekunder. | "Satellitlänken bryts. Sensorerna fortsätter, och satellitdatan köas." |
 | 2:45 | Tryck **SATCOM FAILURE** igen. | "Länken är tillbaka, och här är det som hände under avbrottet." |
@@ -676,7 +684,7 @@ så att besökarna hinner se vad som händer.
 
 | Tid | Gör | Säg |
 |---|---|---|
-| 0:00 | Klicka "Flyg till Sundsvall" på huvudskärmen. | "Det här är Sundsvall i augusti 2026. Det är ett scenario byggt på det verkliga regnet, inte en återgiven händelse." |
+| 0:00 | Tryck **FLYG TILL SUNDSVALL** i mission control. | "Det här är Sundsvall i augusti 2026. Det är ett scenario byggt på det verkliga regnet, inte en återgiven händelse." |
 | 0:15 | Peka på "Regn (SMHI)" i panelen och på mätarna på kartan. | "Kommunen har egna regnmätare. Staplarna visar regnet timme för timme, och den röda linjen är tiden i scenariot." |
 | 0:30 | Peka på de färgade fälten på kartan. | "Det här är kommunens skyfallsmodell: hur djupt vattnet kan bli vid ett 100-årsregn. Det är en modell, inte en observation." |
 | 0:45 | Tryck **SPACE VIEW**, **1 MIN/S** och **PLAY**. Peka på satellitbevakningen. Tryck **SPACE VIEW** igen efter en stund. | "Sentinel-1 har radar som ser genom moln. Sentinel-2 och Landsat ser som en kamera, och de bilderna var molniga." |
@@ -686,9 +694,9 @@ så att besökarna hinner se vad som händer.
 | 1:35 | Tryck **NÄSTA ▸**. Steg 5, **IoT på marken**, SYNTETISKT. Blått på kartan är vatten i radarbilden utanför sjöar och hav. | "Det blå är en enkel beräkning, inte en kartlagd översvämning. Bräddgivarna i dagvattnet är simulerade, men har samma format som kommunens sensorplattform." |
 | 1:45 | Tryck **NÄSTA ▸**. Steg 6, **Korrelering**: fyra regler med ✓ eller ✗. | "Reglerna väger regn, bräddning, modellen och radarbilden. Just den här morgonen skiljer radarn dåligt mellan vatten och land, och det säger regeln." |
 | 2:00 | Tryck **NÄSTA ▸**, **10 MIN/S** och **PLAY**. Runt kl. 10 svensk tid kommer regnets topp, och bräddgivarna blir röda. | "Nu kommer det kraftigaste regnet. Fyra av åtta bräddgivare bräddar." |
-| 2:15 | Tryck **PAUSE**. Peka på AI ASSESSMENT och klicka "Why do you believe there is a flood?". | "Bedömningen visar varför: regnet och bräddningen. Varje rad pekar på sitt ställe på kartan." |
-| 2:30 | Klicka "Vilka byggnader ligger inom 100-årsflödet?" och sedan "SQL som kördes". | "Det här är en riktig fråga mot en kartdatabas, med kommunens och MCF:s flödeskartor." |
-| 2:45 | Klicka "Vad finns inom 200 m från de bräddande punkterna?". | "Här är det som ligger nära de bräddande punkterna. Underlaget är syntetiskt." |
+| 2:15 | Tryck **PAUSE**. Peka på AI ASSESSMENT och tryck "Why do you believe there is a flood?" under **Frågor** i mission control. | "Bedömningen visar varför: regnet och bräddningen. Varje rad pekar på sitt ställe på kartan." |
+| 2:30 | Tryck "Vilka byggnader ligger inom 100-årsflödet?" och klicka sedan på "SQL som kördes" på huvudskärmen. | "Det här är en riktig fråga mot en kartdatabas, med kommunens och MCF:s flödeskartor." |
+| 2:45 | Tryck "Vad finns inom 200 m från de bräddande punkterna?". | "Här är det som ligger nära de bräddande punkterna. Underlaget är syntetiskt." |
 | 2:55 | Tryck **GOD VIEW**. | "From Orbit to Decision." |
 | Efteråt | Tryck **RESET** och ladda om huvudskärmen med adressen i avsnitt 16. | Demon är klar för nästa besökare. |
 
