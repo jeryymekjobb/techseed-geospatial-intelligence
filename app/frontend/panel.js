@@ -53,6 +53,7 @@ const state = {
   // The Landsat 8 scene (config.layers.landsat): shown from its acquisition time.
   landsat: null,
   imageTypes: ["swir"],  // the image types "auto" follows (landsat.js imageTypesShown)
+  baseMap: undefined,  // the base map shown (basemaps.js baseMapFor), undefined until mission control's status arrives
   landsatPick: "auto",  // mission control's choice (the scenario status's image)
   landsatShown: undefined,
   pendingEvents: [],
@@ -524,7 +525,7 @@ async function setupLandsat(config) {
 // The main screen's caption: what is shown under the overlays, dated (landsat.js viewCaption).
 function showViewCaption(scene, image, reason) {
   $("view-caption").textContent = viewCaption({
-    scene, image, reason, choice: state.imageTypes, mapData: state.config.layers.map_data, offlineTiles: state.config.layers.offline_tiles,
+    scene, image, reason, choice: state.imageTypes, baseMap: state.baseMap, mapData: state.config.layers.map_data, offlineTiles: state.config.layers.offline_tiles,
     formatTime: formatLocal, formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
     // The fire's detection sequence: its FIRMS pass over the image or map (the flood's image is the detection).
     detection: state.detection && state.detection.pass.kind !== "flood" ? state.detection.pass : null,
@@ -931,6 +932,13 @@ function showFilter(status) {
   state.hiddenLayers = [...status.hidden_layers];
   state.landsatPick = status.image || "auto";  // mission control's choice of map or image
   if (state.landsat) state.imageTypes = imageTypesShown(status.image_types, state.config.incident, state.landsat.names);
+  // Mission control's base maps: the first this map has of the ticked ones.
+  const baseMaps = state.config.layers.base_maps;
+  const baseMap = baseMapFor(baseMapsShown(status.base_maps, baseMaps), baseMaps, state.map.dimension);
+  if (baseMap !== state.baseMap) {
+    state.baseMap = baseMap;
+    state.map.setBaseMap(baseMap);
+  }
   showLandsatAt(state.clock);
   let panel = $("god-filter");
   if (!panel) {

@@ -78,14 +78,25 @@ const IMAGE_KINDS = {
 // (none for the map), `reason` why no image is (landsatSelection), `choice` the image types asked for,
 // `mapData` config.layers.map_data. During the fire's detection sequence `detection` is its
 // FIRMS pass (instrument, pass_utc): the caption names the detections, then what lies under them.
-function viewCaption({ scene, image, reason, choice, mapData, offlineTiles, formatTime, formatDate, detection }) {
+// `baseMap`, when given, is the base map shown (basemaps.js baseMapFor; null for none).
+const BASE_MAP_TEXTS = {
+  online: "Karta – OpenStreetMap online", topowebb: "Karta – Lantmäteriet topowebb",
+};
+
+function mapText(baseMap, mapData, offlineTiles, formatDate) {
+  if (baseMap === null) return "Karta – ingen baskarta vald i mission control (i 3D Natural Earth II)";
+  if (baseMap && BASE_MAP_TEXTS[baseMap]) return BASE_MAP_TEXTS[baseMap];
+  return offlineTiles && mapData
+    ? `Karta – ${mapData.source}, data från ${formatDate(mapData.date_utc)}`
+    : "Karta – Natural Earth II (offline-kartan är inte igång)";
+}
+
+function viewCaption({ scene, image, reason, choice, mapData, offlineTiles, formatTime, formatDate, detection, baseMap }) {
   let shown;
   if (scene && image) {
     shown = `Satellitbild – ${scene.satellite}, ${IMAGE_KINDS[image] || image}, tagen ${formatTime(scene.acquired_utc)}`;
   } else {
-    shown = (offlineTiles && mapData
-      ? `Karta – ${mapData.source}, data från ${formatDate(mapData.date_utc)}`
-      : "Karta – Natural Earth II (offline-kartan är inte igång)")
+    shown = mapText(baseMap, mapData, offlineTiles, formatDate)
       + (reason === "none-yet" ? `; ingen bild (${typeNames(choice)}) tagen ännu vid scenariotiden` : "")
       + (reason === "no-types" ? "; inga bildtyper valda i mission control" : "");
   }

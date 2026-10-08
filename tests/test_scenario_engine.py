@@ -75,7 +75,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
         "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
-        "image_types": None,
+        "image_types": None, "base_maps": None,
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -95,7 +95,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
         "satcom_up": False, "plus60": True, "god_view": True, "space_view": False, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
         "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
-        "image_types": None,
+        "image_types": None, "base_maps": None,
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
@@ -396,3 +396,13 @@ def test_byt_demo_needs_the_token_and_start_demo(base_url: str, monkeypatch: pyt
     assert status == 409 and body["error"] == "no_demo_menu"
     monkeypatch.setenv("TECHSEED_DEMO_MENU_EXIT", "3")
     assert post(f"{base_url}/api/demo/menu", {}) == (202, {"menu": True})  # the backend then stops with exit code 3
+
+
+def test_the_ticked_base_maps_are_shared_and_reset() -> None:
+    scenario, _ = engine()
+    assert scenario.snapshot()["status"]["base_maps"] is None  # the screens' default
+    assert scenario.command("base_maps", target="online,offline")["status"]["base_maps"] == ["online", "offline"]
+    assert scenario.command("base_maps", target="")["status"]["base_maps"] == []
+    with pytest.raises(CommandError):
+        scenario.command("base_maps", target="Offline")
+    assert scenario.command("reset")["status"]["base_maps"] is None

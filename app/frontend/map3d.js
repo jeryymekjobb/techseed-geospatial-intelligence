@@ -105,9 +105,12 @@ async function createCesiumMap(config) {
   addCredit(config.attribution.firms);
   const [south, west] = config.view_bounds[0];
   const [north, east] = config.view_bounds[1];
+  // Mission control's base maps over Natural Earth II (basemaps.js): the offline map over the
+  // map area and, made when first ticked, OSM online.
+  const baseById = {};
   if (config.layers.offline_tiles) {
     const [[mapSouth, mapWest], [mapNorth, mapEast]] = config.map_bounds;
-    viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+    baseById.offline = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
       url: "/tiles/{z}/{x}/{y}.png", maximumLevel: 18,
       rectangle: Cesium.Rectangle.fromDegrees(mapWest, mapSouth, mapEast, mapNorth),
       credit: new Cesium.Credit("© OpenStreetMap contributors", true),
@@ -185,7 +188,21 @@ async function createCesiumMap(config) {
   const adapter = {
     viewer,
     // Neither Natural Earth II nor the offline tiles carry names, so they are always drawn.
+    dimension: "3d",
     wantsLabels: () => true,
+
+    // Mission control's base map (basemaps.js baseMapFor): its id, or null for Natural Earth II only.
+    // OSM online has its own names, so the drawn place names are hidden over it.
+    setBaseMap(id) {
+      labelLayer.show = id !== "online";
+      if (id === "online" && !baseById.online) {
+        baseById.online = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+          url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", maximumLevel: 19,
+          credit: new Cesium.Credit("© OpenStreetMap contributors", true),
+        }), 1);
+      }
+      for (const [key, layer] of Object.entries(baseById)) layer.show = key === id;
+    },
     addAttribution: addCredit,
 
     // OSM land cover as one ground primitive with a colour per instance.

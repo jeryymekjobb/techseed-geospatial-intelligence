@@ -256,3 +256,17 @@ def test_auto_follows_the_latest_image_of_the_ticked_types_and_the_list_holds_on
     assert landsat_js(f"[m.imageTypesShown(['radar', 'natural'], 'flood', {json.dumps(names)}), m.imageTypesShown(null, 'flood', {json.dumps(names)})]") == [
         ["natural", "radar"], ["radar"]]
     assert landsat_js("m.typeNames(['radar', 'natural'])") == "radar eller naturliga färger"
+
+
+def test_mission_control_may_tick_only_the_base_maps_that_can_be_shown(base_url: str) -> None:
+    def post(target: str) -> int:
+        request = Request(f"{base_url}/api/scenario/command", data=json.dumps({"command": "base_maps", "target": target}).encode(),
+                          headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urlopen(request, timeout=10) as response:
+                return response.status
+        except HTTPError as exc:
+            return exc.code
+
+    assert [post(target) for target in ["online", ""]] == [200, 200]
+    assert [post(target) for target in ["topowebb", "satellite"]] == [400, 400]  # topowebb is not enabled in the test

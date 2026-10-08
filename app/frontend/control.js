@@ -63,6 +63,7 @@ function showState(scenarioState) {
   }
   $("next").disabled = !status.detection;
   showImages(scenarioState.clock_utc);
+  showBaseMaps();
   $("detection-step").textContent = detectionStepLine(status.detection, place);
   const list = $("scenario-status");
   list.innerHTML = "";
@@ -136,9 +137,40 @@ function showImages(clockUtc) {
   const scene = info.scenes.find((item) => item.scene === name) || null;
   $("image-shown").textContent = viewCaption({
     scene, image, reason: selection.reason, choice: types, mapData: config.layers.map_data,
+    // As on the 3D main screen in the booth.
+    baseMap: baseMapFor(baseMapsShown(status.base_maps, config.layers.base_maps), config.layers.base_maps, "3d"),
     offlineTiles: config.layers.offline_tiles, formatTime: (isoUtc) => `${localTime.format(new Date(isoUtc))} svensk tid`,
     formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
   }) + (pendingPick === null ? "" : `\nVald i listan: ${select.options[select.selectedIndex].text} – tryck VISA VALD BILD.`);
+}
+
+// The base maps ticked in mission control, for every screen (the scenario status's base_maps;
+// basemaps.js). The note says which map each screen shows of them.
+function setupBaseMaps(baseMaps) {
+  const box = $("base-maps");
+  for (const item of baseMaps) {
+    const label = document.createElement("label");
+    label.innerHTML = `<input type="checkbox" value="${item.id}"> <span></span> <span class="count"></span>`;
+    label.querySelector("span").textContent = item.label;
+    label.querySelector(".count").textContent = item.only_2d ? "bara 2D" : "";
+    box.append(label);
+  }
+  box.addEventListener("change", () => {
+    const ticked = [...box.querySelectorAll("input:checked")].map((input) => input.value);
+    send("base_maps", ticked.join(",")).then((state) => {
+      showState(state);
+      $("command-status").textContent = "";
+    }).catch((error) => {
+      $("command-status").textContent = `Valet av baskartor misslyckades: ${error.message}`;
+    });
+  });
+}
+
+function showBaseMaps() {
+  if (!config || !status) return;
+  const baseMaps = config.layers.base_maps;
+  const ticked = baseMapsShown(status.base_maps, baseMaps);
+  for (const box of document.querySelectorAll("#base-maps input")) box.checked = ticked.includes(box.value);
 }
 
 // The image types ticked in mission control, for every screen (the scenario status's image_types).
@@ -243,9 +275,11 @@ $("show-pick").addEventListener("click", () => { if (pendingPick !== null) choos
 fetch("/api/config").then((response) => response.json()).then((loaded) => {
   config = loaded;
   setupImageTypes(config.layers.landsat);
+  setupBaseMaps(config.layers.base_maps);
   $("control-label").textContent = config.control_label;
   place = config.incident_place;
   if (clockShown) showImages(clockShown);
+  showBaseMaps();
   // Only the buttons of the scenario's kind of incident (styles.css).
   document.body.dataset.incident = config.incident;
 }).catch(() => {});

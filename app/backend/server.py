@@ -321,6 +321,16 @@ def map_data() -> dict[str, str] | None:
     return {"source": "OpenStreetMap", "date_utc": source.get("source_downloaded_utc", "")}
 
 
+def base_maps(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
+    """The base maps mission control can tick (basemaps.js), in the order a map prefers them:
+    Lantmäteriet's topowebb when enabled (2D only), the offline OSM map when it runs, OSM online."""
+    items = [{"id": "topowebb", "label": "Lantmäteriet topowebb", "only_2d": True}] if settings.topowebb_enabled else []
+    if offline_tiles.available():
+        items.append({"id": "offline", "label": "Offline-karta (OSM, lokal)", "only_2d": False})
+    items.append({"id": "online", "label": "OpenStreetMap online (kräver internet)", "only_2d": False})
+    return items
+
+
 def config(settings: lantmateriet.Settings) -> dict[str, Any]:
     min_lat, max_lat, min_lon, max_lon = scenario.VIEW_BBOX
     fire = scenario.FIRE_BBOX
@@ -365,6 +375,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
             "ems": ems.perimeters() is not None,  # Copernicus EMS's perimeters of the fire at /api/ems
             "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
+            "base_maps": base_maps(settings),
             "lantmateriet_fastighet": settings.fastighet_enabled,
             "lantmateriet_fastighet_layers": settings.fastighet_layers if settings.fastighet_enabled else "",
         },
@@ -541,6 +552,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise CommandError("no such image in the scenario")
             if body.get("command") == "image_types" and not landsat.types_exist(str(body.get("target", ""))):
                 raise CommandError("no such image type in the scenario")
+            if body.get("command") == "base_maps":
+                known = {item["id"] for item in base_maps(self.settings)}
+                if not all(item in known for item in str(body.get("target", "")).split(",") if item):
+                    raise CommandError("no such base map in the scenario")
             snapshot = self.engine.command(
                 str(body.get("command")),
                 at=at,

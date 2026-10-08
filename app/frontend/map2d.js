@@ -21,11 +21,14 @@ function createLeafletMap(config) {
   const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
   const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: osmAttribution });
   const baseLayers = {};
+  const baseById = { online: osm };  // mission control's base maps (basemaps.js) by id
+  let labelLayer = null;  // the place names, drawn only over a base map without text
   let offline = null;
   if (config.layers.offline_tiles) {
     // Local tiles (tools/build_offline_tiles.py, docker compose service "tiles"): no internet needed.
     offline = L.tileLayer("/tiles/{z}/{x}/{y}.png", { maxZoom: 18, attribution: osmAttribution }).addTo(map);
     baseLayers["Offline-karta (OSM, lokal)"] = offline;
+    baseById.offline = offline;
     baseLayers["OpenStreetMap (online)"] = osm;
   } else {
     baseLayers["OpenStreetMap (online)"] = osm.addTo(map);
@@ -35,6 +38,7 @@ function createLeafletMap(config) {
     baseLayers["Lantmäteriet topowebb"] = L.tileLayer("/lm/topowebb/{z}/{x}/{y}.png", {
       maxZoom: 17, attribution: config.attribution.lantmateriet,
     });
+    baseById.topowebb = baseLayers["Lantmäteriet topowebb"];
   } else {
     addNote("Lantmäteriets topowebb är inte aktiverad (inloggning via Geotorget saknas).");
   }
@@ -78,6 +82,7 @@ function createLeafletMap(config) {
   let forecastLayer = null;
 
   return {
+    dimension: "2d",
     wantsLabels: () => Boolean(offline),
     addAttribution: (text) => map.attributionControl.addAttribution(text),
 
@@ -126,7 +131,19 @@ function createLeafletMap(config) {
         if (event.layer === offline) layer.addTo(map); else layer.remove();
       });
       update();
-      layer.addTo(map);
+      labelLayer = layer;
+      if (!offline || map.hasLayer(offline)) layer.addTo(map);
+    },
+
+    // Mission control's base map (basemaps.js baseMapFor): its id, or null for none. The place
+    // names show over the offline map and no map, which carry no text of their own.
+    setBaseMap(id) {
+      for (const [key, layer] of Object.entries(baseById)) {
+        if (key === id) { if (!map.hasLayer(layer)) layer.addTo(map); layer.bringToBack(); } else layer.remove();
+      }
+      if (labelLayer) {
+        if (id === "offline" || id === null) labelLayer.addTo(map); else labelLayer.remove();
+      }
     },
 
     // style: { color, fill } for another kind of station (the flood's flows and lake levels).
