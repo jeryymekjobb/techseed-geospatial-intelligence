@@ -44,6 +44,11 @@ CHECK_START_UTC = _module.CHECK_START_UTC
 CHECK_IMAGE = getattr(_module, "CHECK_IMAGE", "Under branden: Landsat 8")
 # The fire assessment's outcome the check expects after the playback to 14:00 local time.
 CHECK_OUTCOME = getattr(_module, "CHECK_OUTCOME", "Wildfire probable")
+# The flood's demo check (tools/check_demo.py): the moment of its rain and sensor step and the
+# sensors it expects to confirm then, and where its SATCOM outage starts.
+CHECK_PEAK_UTC = getattr(_module, "CHECK_PEAK_UTC", None)
+CHECK_SENSORS = getattr(_module, "CHECK_SENSORS", None)
+CHECK_SATCOM_UTC = getattr(_module, "CHECK_SATCOM_UTC", None)
 # MCF's layers for the flood's PostGIS questions (tools/fetch_mcf_flood_maps.py), its words for
 # the area the questions ask about and for the models behind it.
 MCF_LAYERS = getattr(_module, "MCF_LAYERS", None)

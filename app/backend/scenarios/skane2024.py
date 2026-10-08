@@ -9,8 +9,10 @@ and Eggelstad in Tolångaån had their highest flows since 1973. Unlike the Sund
 scenario this is a replayed event with real data, not a scenario.
 
 Its data live in the unversioned data/skane2024/. The screens show SMHI's measured
-flows and lake levels (HYDRO_DIR) and the rain; the satellite images, the sensors, the
-assessment and the questions come in later steps.
+flows and lake levels (HYDRO_DIR), the rain and the satellite images; the assessment
+weighs the rain of five days and the flows and levels above their records, synthetic
+level sensors (LEVEL_SENSOR_FILE) follow SMHI's stations, and the PostGIS questions ask
+about MCF's climate-adapted 100-year flow.
 """
 
 from __future__ import annotations
@@ -60,6 +62,13 @@ PLAYBACK_START = datetime(2024, 1, 20, 0, 0, tzinfo=timezone.utc)
 PLAYBACK_END = datetime(2024, 2, 26, 0, 0, tzinfo=timezone.utc)
 # Sentinel-1A passes over Ringsjöarna at 16:45 UTC on 27 January, as the flows set their records.
 CHECK_START_UTC = "2024-01-27T16:30:00Z"
+# The demo check: just after that pass 5 of the 8 level sensors alarm (Högsmölla and
+# Ringsjöarna above their records); its SATCOM outage starts the next evening, before the
+# radar acquisition at 05:16 UTC on 29 January.
+CHECK_PEAK_UTC = "2024-01-27T16:50:00Z"
+CHECK_SENSORS = "5/8"
+CHECK_OUTCOME = "Flood probable"
+CHECK_SATCOM_UTC = "2024-01-28T21:00:00Z"
 
 DATABASE = "skane2024"
 TILES_FILE = "skane.mbtiles"

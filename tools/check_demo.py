@@ -7,10 +7,12 @@ VIEW, the detection sequence with NEXT, detections with Landsat and IoT, the IoT
 switch, the assessment and questions, +60 MIN, a SATCOM outage with SYNC, GOD
 VIEW with its filter - and checks that RESET brings the screens back within
 5 seconds. It also measures the frame rate of the 3D view during playback.
-With TECHSEED_SCENARIO=sundsvall2026 it runs the flood's manuscript instead: the rain,
-the synthetic overflow sensors, the detection sequence from a Sentinel-1 acquisition,
-the flood assessment and questions, and a SATCOM outage that holds satellite images back
-(with the tiles service serving sundsvall.mbtiles and the database loaded).
+With TECHSEED_SCENARIO=sundsvall2026 or skane2024 it runs the flood's manuscript instead:
+the rain, the synthetic overflow or level sensors, the detection sequence from a Sentinel-1
+acquisition, the flood assessment and questions, and a SATCOM outage that holds satellite
+images back (with the tiles service serving the scenario's map and its database loaded).
+What it expects - the place, the satellites, the sensors and the outcome - comes from the
+scenario (its CHECK_ values).
 
 Without --base-url it starts the backend and the simulated booth nodes itself
 (with the local services of docker-compose.yml running); with --base-url it
@@ -354,15 +356,15 @@ def reset(demo: Demo) -> str:
     return f"huvudskärmen {main_ready:.2f} s, båda skärmarna {both_ready:.2f} s"
 
 
-# The flood (scenario sundsvall2026): the same screens with its rain, sensors and questions.
-FLOOD_PEAK_UTC = "2026-08-16T08:30:00Z"
+# The flood (scenarios sundsvall2026 and skane2024): the same screens with its rain, sensors and questions.
 
 
 def flood_space_view(demo: Demo) -> str:
     demo.button("SPACE VIEW").click()
     demo.command({"command": "speed", "speed": 60})
     demo.button("PLAY").click()
-    demo.main.wait_for_function("document.getElementById('satellite-list').children.length >= 8", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.wait_for_function(f"document.getElementById('satellite-list').children.length >= {len(scenario.TLE_SATELLITES)}",
+                                timeout=WAIT_MS, polling=POLL_MS)
     demo.main.wait_for_function("document.getElementById('satellite-section').classList.contains('space-view')", timeout=WAIT_MS, polling=POLL_MS)
     demo.shot("2-space-view")
     demo.button("PAUSE").click()
@@ -394,8 +396,9 @@ def flood_detection_sequence(demo: Demo) -> str:
 
 
 def flood_rain_and_sensors(demo: Demo) -> str:
-    demo.command({"command": "seek", "at": FLOOD_PEAK_UTC})
-    demo.main.wait_for_function("document.getElementById('iot-confirms').textContent.startsWith('IoT bekräftar 4/8')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.command({"command": "seek", "at": scenario.CHECK_PEAK_UTC})
+    demo.main.wait_for_function(f"document.getElementById('iot-confirms').textContent.startsWith('IoT bekräftar {scenario.CHECK_SENSORS}')",
+                                timeout=WAIT_MS, polling=POLL_MS)
     nodes = demo.main.eval_on_selector_all("#real-sensors li", "els => els.map(e => e.textContent)")
     assert len(nodes) == 4 and all("simulerad" in line or "live" in line for line in nodes), nodes
     demo.shot("4-rain")
@@ -403,22 +406,26 @@ def flood_rain_and_sensors(demo: Demo) -> str:
 
 
 def flood_assessment(demo: Demo) -> str:
-    demo.main.wait_for_function("document.getElementById('assessment-outcome').textContent === 'Flood probable'", timeout=WAIT_MS, polling=POLL_MS)
+    from app.backend import spatial
+
+    outcome = json.dumps(scenario.CHECK_OUTCOME)
+    demo.main.wait_for_function(f"document.getElementById('assessment-outcome').textContent === {outcome}", timeout=WAIT_MS, polling=POLL_MS)
     demo.main.get_by_role("button", name="Why do you believe there is a flood?").click()
-    demo.main.wait_for_function("document.getElementById('answer-text').textContent.startsWith('Flood probable')", timeout=WAIT_MS, polling=POLL_MS)
-    demo.main.get_by_role("button", name="Vilka byggnader ligger inom 100-årsflödet?").click()
-    demo.main.wait_for_function("document.getElementById('answer-text').textContent.includes('byggnader inom 100-årsflödet')", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.wait_for_function(f"document.getElementById('answer-text').textContent.startsWith({outcome})", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.get_by_role("button", name=spatial.QUESTIONS["buildings_100y"]["question"]).click()
+    within = json.dumps(f"byggnader inom {scenario.FLOOD_AREA_WORD}")
+    demo.main.wait_for_function(f"document.getElementById('answer-text').textContent.includes({within})", timeout=WAIT_MS, polling=POLL_MS)
     demo.shot("5-assessment")
     return f"{demo.text('assessment-outcome')}; {demo.text('answer-text')[:80]}"
 
 
 def flood_satcom(demo: Demo) -> str:
-    # From the evening, so only the clock's slow-down round the next radar acquisition, 17 August 05:13 UTC, lies before it.
-    demo.command({"command": "seek", "at": "2026-08-16T21:00:00Z"})
+    # From the scenario's evening, so only the clock's slow-down round the next radar acquisition lies before it.
+    demo.command({"command": "seek", "at": scenario.CHECK_SATCOM_UTC})
     demo.command({"command": "speed", "speed": 10800})
     demo.button("SATCOM FAILURE").click()
     demo.button("PLAY").click()
-    demo.main.wait_for_function("/ [1-9][0-9]* satellitbilder köade/.test(document.getElementById('satcom-queue').textContent)", timeout=WAIT_MS, polling=POLL_MS)
+    demo.main.wait_for_function("/ [1-9][0-9]* satellitbild(er)? köade/.test(document.getElementById('satcom-queue').textContent)", timeout=WAIT_MS, polling=POLL_MS)
     demo.button("PAUSE").click()
     queue = demo.text("satcom-queue")
     demo.button("SATCOM FAILURE").click()
@@ -454,10 +461,10 @@ FIRE_STEPS: list[tuple[str, Callable[[Demo], str]]] = [
     ("10 RESET inom 5 s", reset),
 ]
 FLOOD_STEPS: list[tuple[str, Callable[[Demo], str]]] = [
-    ("1 Öppning: jorden till Sundsvall", opening),
+    (f"1 Öppning: jorden till {scenario.INCIDENT_PLACE}", opening),
     ("2 SPACE VIEW och RETURN TO INCIDENT", flood_space_view),
     ("3 SATELLITE DETECTION och NÄSTA", flood_detection_sequence),
-    ("4 Regn och bräddgivare", flood_rain_and_sensors),
+    (f"4 Regn och {scenario.SENSOR_WORDS['sensors']}", flood_rain_and_sensors),
     ("5 IOT PÅ/AV", iot_switch),
     ("6 Bedömning och frågor", flood_assessment),
     ("7 SATCOM FAILURE och SYNC", flood_satcom),

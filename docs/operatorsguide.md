@@ -713,7 +713,7 @@ månaderna inte alltid kvalitetsgranskat, och en timme utan värde räknas som t
 
 ---
 
-# Del 6 – Översvämningarna i Skåne 2024 (under uppbyggnad)
+# Del 6 – Översvämningarna i Skåne 2024
 
 ## 20. Vad demon visar
 
@@ -723,7 +723,7 @@ mätningar satte vattenföringen nya rekord 24–27 januari, till exempel 30,3 m
 Hörbyån mot tidigare högsta 25,8 m³/s (2005), och Ringsjöarna nådde 54,94 m den 10 februari,
 det högsta sedan mätningarna började 1974.
 
-Välj **Översvämningarna i Skåne 2024** i menyn (avsnitt 7). Hittills visar demon:
+Välj **Översvämningarna i Skåne 2024** i menyn (avsnitt 7). Demon visar:
 
 - **Vattenföring och vattenstånd (SMHI)** i panelen: vattenföringen vid Heåkra, Ellinge,
   Högsmölla och Eggelstad och vattenståndet i Ringsjöarna och Vombsjön, med ett diagram över
@@ -739,9 +739,26 @@ Välj **Översvämningarna i Skåne 2024** i menyn (avsnitt 7). Hittills visar d
   marken runt Ringsjöarna. Det är en enkel beräknad mask, inte en kartlagd översvämning.
 - **SATELLITE DETECTION** tar nästa Sentinel-1-bild efter klockan. Kontrollen och skärmarna
   börjar 27 januari kl. 17:30 svensk tid, strax före passagen 17:45 när flödena satte rekord.
+  Korreleringen har fyra regler: regn minst 30 mm de fem dygnen före bilden, vattenföring
+  över tidigare högsta vid någon station, vattenstånd över tidigare högsta och radarbildens
+  vatten. Vid passagen 27 januari håller alla fyra: "Översvämning trolig".
+- **Bedömningen** väger samma regn, flöden och nivåer och de syntetiska nivågivarna. En
+  översvämning från vattendrag och sjöar stiger under dagar, så timregnet räknas inte här.
+  Gränsen 30 mm är en demoregel, inte SMHI:s varningsklasser.
+- **Syntetiska nivågivare (NG1–NG8)** där större vägar korsar MCF:s 100-årsyta vid Kävlingeån
+  och Rönne å, som avvattnar Ringsjöarna. Det fanns inga sensorer där 2024. Varje givare
+  följer en SMHI-station (Ellinge, Högsmölla eller Ringsjödammen övre) och **larmar** när den
+  stationen ligger över sitt tidigare högsta. Den visar stationens flöde i procent av rekordet
+  eller nivån i centimeter från det. Flera givare följer samma station, så samma mätning kan
+  räknas mer än en gång i bedömningen. Allt märks syntetiskt. Hörbyån och själva Ringsjöarna
+  har ingen MCF-kartering och därför inga givare.
+- **Frågorna** gäller **MCF:s klimatanpassade 100-årsflöde för slutet av seklet**: MCF har
+  karterat Kävlingeån (2020) och Höje å (2025) bara med klimatanpassade flöden, så det
+  vanliga 100-årsflödet finns inte här. Kartlagret visar samma yta; beräknat högsta flöde kan
+  väljas till. Svaren är modellens, inte observationer.
 
-Sensorerna, bedömningen och frågorna kommer i nästa steg: tills dess säger korreleringen
-"Okänd" och "IoT bekräftar 0/0". `check_demo` gäller ännu inte den här demon.
+I generalrepetitionen (`check_demo`) bekräftar 5 av 8 givare kl. 17:50 svensk tid 27 januari
+och bedömningen blir "Flood probable".
 
 ## 21. Förbered demon
 
@@ -767,6 +784,22 @@ Radarbilderna tas var 30:e minut, eftersom perioden är fem veckor lång. Satell
 ```bash
 .venv/bin/python -m tools.fetch_sentinel1_scene
 .venv/bin/python -m tools.fetch_sentinel2_scene
+```
+
+MCF:s kartor, databasen för frågorna och nivågivarnas punkter (som väljs ur databasen, så i
+den ordningen):
+
+```bash
+.venv/bin/python -m tools.fetch_mcf_flood_maps
+.venv/bin/python -m tools.load_postgis
+.venv/bin/python -m tools.derive_level_sensor_points
+```
+
+Generalrepetitionen, med kartjänsten på Skånes karta:
+
+```bash
+TILES_FILE=skane.mbtiles docker compose up -d tiles
+.venv/bin/python -m tools.check_demo --headed --out ~/demo-check-skane
 ```
 
 ---

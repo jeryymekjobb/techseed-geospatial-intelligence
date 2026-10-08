@@ -65,6 +65,13 @@ PLAYBACK_START = datetime(2026, 8, 14, 0, 0, tzinfo=timezone.utc)
 PLAYBACK_END = datetime(2026, 8, 23, 0, 0, tzinfo=timezone.utc)
 # Sentinel-1C passes at 05:21 UTC on 16 August, before the heaviest rain at 08 UTC.
 CHECK_START_UTC = "2026-08-16T05:00:00Z"
+# The demo check: at the heaviest rain 4 of the 8 overflow sensors overflow; its SATCOM outage
+# starts in the evening, so only the clock's slow-down round the radar acquisition at 05:13 UTC
+# on 17 August lies before it.
+CHECK_PEAK_UTC = "2026-08-16T08:30:00Z"
+CHECK_SENSORS = "4/8"
+CHECK_OUTCOME = "Flood probable"
+CHECK_SATCOM_UTC = "2026-08-16T21:00:00Z"
 
 DATABASE = "sundsvall2026"
 TILES_FILE = "sundsvall.mbtiles"
