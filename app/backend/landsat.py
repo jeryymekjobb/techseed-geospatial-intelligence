@@ -23,7 +23,7 @@ LANDSAT_DIR = scenario.LANDSAT_DIR
 SENTINEL2_DIR = scenario.SENTINEL2_DIR
 SENTINEL1_DIR = scenario.SENTINEL1_DIR
 NAMES = {
-    "swir": "falska färger, kortvågig IR (band 7-5-4)",
+    "swir": "falska färger, kortvågig IR (Landsat band 7-5-4, Sentinel-2 B12-B8A-B04)",
     "natural": "naturliga färger",
     "ndmi": "fukt i vegetationen, NDMI (band 5 och 6)",
     "water": "vatten, NDWI (Sentinel-2; moln bortmaskade)",

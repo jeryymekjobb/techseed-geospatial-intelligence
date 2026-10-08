@@ -4,9 +4,11 @@
 The scenes are the scenario's SENTINEL2_SCENES (Level-2A surface reflectance), named
 by product up to the relative orbit, for example `S2A_MSIL2A_20260820T101701_R065`:
 every tile of that datatake over the map area is used, so an area across two tiles
-or UTM zones is whole. Per scene it writes two PNGs:
+or UTM zones is whole. Per scene it writes two PNGs, three for a wildfire:
 
 - natural colour (bands B04-B03-B02, reflectance 0-0.25);
+- for a wildfire scenario, false colour with short-wave infrared (B12-B8A-B04, reflectance
+  0-0.4), as Landsat's 7-5-4: burnt forest is dark red-brown, active fire bright;
 - water by the normalised difference water index NDWI (B03 - B08) / (B03 + B08):
   blue where NDWI is above 0, otherwise transparent; clouds, cloud shadows and
   missing data from the scene classification (SCL) are transparent as well.
@@ -40,6 +42,9 @@ SIZE = scenario.SENTINEL2_SIZE
 # The area each scene's coverage, cloud and water are reported for (west, south, east, north).
 FOCUS_AREA = scenario.LANDSAT_FOCUS_AREA
 NATURAL = {"bands": ["B04", "B03", "B02"], "reflectance": (0.0, 0.25)}
+# Short-wave infrared, near infrared and red, for the fires' burnt areas.
+SWIR = {"bands": ["B12", "B8A", "B04"], "reflectance": (0.0, 0.4)}
+COMPOSITES = {"natural": NATURAL, **({"swir": SWIR} if scenario.INCIDENT == "wildfire" else {})}
 RAW_BANDS = ("B03", "B08", "SCL")
 # Scene classification: 0 no data, 1 saturated, 3 cloud shadow, 8-9 cloud, 10 thin cirrus.
 SCL_NO_DATA = (0, 1)
@@ -82,9 +87,10 @@ def warp_script(urls: dict[str, list[str]], scene: str, baseline: str, bbox: tup
                      f"-te {west} {south} {east} {north} -ts {size[0]} {size[1]} -srcnodata 0 -dstnodata 0 -r {method} {sources} {band}.tif")
     for band in RAW_BANDS:
         lines.append(f"gdal_translate -q -of EHdr {band}.tif {scene}-{band}.bil")
-    low, high = (dn_for(value, baseline) for value in NATURAL["reflectance"])
-    lines.append("gdalbuildvrt -q -separate natural.vrt " + " ".join(f"{band}.tif" for band in NATURAL["bands"]))
-    lines.append(f"gdal_translate -q -ot Byte -scale {low} {high} 1 255 -a_nodata 0 -of PNG natural.vrt {scene}-natural.png")
+    for name, composite in COMPOSITES.items():
+        low, high = (dn_for(value, baseline) for value in composite["reflectance"])
+        lines.append(f"gdalbuildvrt -q -separate {name}.vrt " + " ".join(f"{band}.tif" for band in composite["bands"]))
+        lines.append(f"gdal_translate -q -ot Byte -scale {low} {high} 1 255 -a_nodata 0 -of PNG {name}.vrt {scene}-{name}.png")
     lines.append("rm -f " + " ".join(f"{band}.tif" for band in sorted(urls)) + " *.vrt *.aux.xml")
     return "\n".join(lines)
 
@@ -127,7 +133,8 @@ def process(prefix: str, token: str, out: Path) -> dict:
     """Cut one datatake into its PNGs and return its record for SOURCE.json."""
     items = datatake_items(prefix)
     baseline = items[0]["properties"].get("s2:processing_baseline", "05.00")
-    urls = {band: [f"{item['assets'][band]['href']}?{token}" for item in items] for band in {*NATURAL["bands"], *RAW_BANDS}}
+    bands = {band for composite in COMPOSITES.values() for band in composite["bands"]} | set(RAW_BANDS)
+    urls = {band: [f"{item['assets'][band]['href']}?{token}" for item in items] for band in bands}
     run = subprocess.run(docker_command(warp_script(urls, prefix, baseline), out), capture_output=True, text=True)
     if run.returncode != 0:
         raise RuntimeError(f"GDAL failed for {prefix}:\n{without_token(run.stderr, token)[-2000:]}")
@@ -144,7 +151,8 @@ def process(prefix: str, token: str, out: Path) -> dict:
         "focus_area_cloud_pct": cloud,
         "focus_area_water_pct": water,
         "images": {
-            "natural": {"file": f"{prefix}-natural.png", "bands": "B04-B03-B02", "reflectance": list(NATURAL["reflectance"])},
+            **{name: {"file": f"{prefix}-{name}.png", "bands": "-".join(composite["bands"]), "reflectance": list(composite["reflectance"])}
+               for name, composite in COMPOSITES.items()},
             "water": {"file": f"{prefix}-water.png", "bands": "(B03-B08)/(B03+B08) > 0", "masked": "SCL 0, 1, 3, 8, 9, 10"},
         },
     }
