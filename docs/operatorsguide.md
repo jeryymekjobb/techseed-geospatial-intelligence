@@ -399,15 +399,17 @@ behöver `&token=din-token` i slutet.
 
 ## 10. Manuset, cirka tre minuter
 
-Knapparna i **fetstil** finns i mission control, också hastigheten: **1 MIN/S**, **10 MIN/S**
-och **1 TIMME/S** under PLAY, PAUSE och RESET. Den hastighet som gäller lyser.
+Knapparna i **fetstil** finns i mission control. Hastigheten väljer du i listan **Hastighet**
+under PLAY, PAUSE och RESET – 1 minut/s, 10 minuter/s, 30 minuter/s, 1 timme/s eller 3
+timmar/s – och tar i bruk med **ANVÄND** till vänster om listan. Listan visar den hastighet som
+gäller.
 
 Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 
 | Tid | Gör | Säg |
 |---|---|---|
 | 0:00 | Tryck **FLYG TILL BRANDEN** i mission control. Kameran åker ut till jorden och flyger in till branden. | "Det här är skogsbranden i Västmanland sommaren 2014, återuppspelad med riktiga satellitdata." |
-| 0:10 | Tryck **SPACE VIEW**, **1 MIN/S** och **PLAY**. Peka på satellitbevakningen. | "Det här är satelliterna som såg branden, Aqua, Terra och Suomi NPP, där de var den dagen. Tidslinjen visar när de passerar över branden." |
+| 0:10 | Tryck **SPACE VIEW**, välj 1 minut/s och tryck **ANVÄND** och **PLAY**. Peka på satellitbevakningen. | "Det här är satelliterna som såg branden, Aqua, Terra och Suomi NPP, där de var den dagen. Tidslinjen visar när de passerar över branden." |
 | 0:25 | Tryck **SPACE VIEW** igen. Kameran flyger tillbaka. | |
 | 0:30 | Tryck **SATELLITE DETECTION**. Uppspelningen stannar, och ett kort med sex steg visas nere till höger på huvudskärmen. Steg 1, **Bild tagen**: kameran går ut så att satelliten syns, med en lila linje ner till branden. | "Här passerar Suomi NPP över branden. Det är den verkliga passagen från 2014." |
 | 0:40 | Tryck **NÄSTA ▸**. Steg 2, **Anomali upptäckt ombord**, märkt SYNTETISKT. | "I framtiden kan satelliten själv se värmen och slå larm. 2014 gjordes det på marken, därför står det syntetiskt." |
@@ -416,7 +418,7 @@ Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 | 1:05 | Tryck **NÄSTA ▸**. Steg 5, **IoT på marken**, märkt SYNTETISKT. | "Sensorer på marken kontrollerar larmet. I demon är de simulerade." |
 | 1:15 | Tryck **NÄSTA ▸**. Steg 6, **Korrelering**: kortet visar utfallet och fem regler med ✓ eller ✗. | "Reglerna jämför med kartan: brinner det i skog eller vid en industri? Det är regler som håller eller inte, ingen sannolikhet." |
 | 1:30 | Tryck **NÄSTA ▸** en sista gång. Kortet försvinner. Tryck **PLAY**. Kl. 12:06 svensk tid kommer Landsat-bilden. | "Landsat 8 fotograferade branden tjugo minuter senare. Det mörka är bränd skog, det orange är brandfronten." |
-| 1:45 | Tryck **1 TIMME/S**. | "Nu går tiden fortare, och branden växer." |
+| 1:45 | Välj 1 timme/s och tryck **ANVÄND**. | "Nu går tiden fortare, och branden växer." |
 | 1:55 | Peka på AI ASSESSMENT på huvudskärmen. Tryck "Why do you believe there is a fire?" under **Frågor** i mission control. | "Bedömningen visar varför den tror att det brinner. Varje rad pekar på sitt objekt på kartan." |
 | 2:10 | Tryck "Show infrastructure within 5 km of the incident". Klicka på "SQL som kördes" på huvudskärmen. | "Det här är en riktig fråga mot en kartdatabas. Frågan syns här." |
 | 2:20 | Tryck **+60 MIN**, och tryck igen för att stänga. | "Prognosen är en enkel modell med stor osäkerhet." |
@@ -503,7 +505,7 @@ Hitta det du ser i vänstra kolumnen. Åtgärderna A–F står i kodblocket unde
 | Frågorna svarar "PostGIS svarar inte" | Databasen är inte igång. | D, sedan A. |
 | Inga satelliter, eller ingen satellitbild | Steg 5.6 eller 5.7 är inte gjort. | E. Före 12:06 svensk tid den 4 augusti visas bilden från 10 juni; bilden från 4 augusti tar över när scenariot når dit. |
 | Kartan runt brandområdet är tom eller ljus | Kartjänsten är inte igång. | F. |
-| 3D-vyn rör sig ryckigt | För hög hastighet eller för svagt grafikkort. | Tryck **1 MIN/S** i SPACE VIEW. Kör generalrepetitionen i avsnitt 6. |
+| 3D-vyn rör sig ryckigt | För hög hastighet eller för svagt grafikkort. | Välj 1 minut/s och tryck **ANVÄND** i SPACE VIEW. Kör generalrepetitionen i avsnitt 6. |
 | Mission control säger "fel eller saknad token" | Backend kräver token. | Lägg till `?token=din-token` i adressen, se avsnitt 9. |
 | GOD VIEW blir tom på 2D-kartan | Känd begränsning: den sparade kartan täcker bara brandområdet. | Använd 3D-vyn (`3d.html`). |
 | En röd ruta på huvudskärmen: "An error occurred while rendering. Rendering has stopped." | 3D-vyn har slutat rita, oftast på grund av grafikkortet. Panelen till höger fungerar fortfarande. | Ladda om huvudskärmen med adressen i avsnitt 8. Kommer rutan igen, starta om Chrome på vanligt sätt och kör generalrepetitionen i avsnitt 6. |
@@ -679,7 +681,7 @@ Sensorerna i montern, terminal 2, behöver inte startas om. De visas i båda dem
 
 ## 17. Manuset, cirka tre minuter
 
-Börja med huvudskärmen på adressen i avsnitt 16 och hastigheten **10 MIN/S**. Gå lugnt fram,
+Börja med huvudskärmen på adressen i avsnitt 16 och hastigheten 10 minuter/s. Gå lugnt fram,
 så att besökarna hinner se vad som händer.
 
 | Tid | Gör | Säg |
@@ -687,13 +689,13 @@ så att besökarna hinner se vad som händer.
 | 0:00 | Tryck **FLYG TILL SUNDSVALL** i mission control. | "Det här är Sundsvall i augusti 2026. Det är ett scenario byggt på det verkliga regnet, inte en återgiven händelse." |
 | 0:15 | Peka på "Regn (SMHI)" i panelen och på mätarna på kartan. | "Kommunen har egna regnmätare. Staplarna visar regnet timme för timme, och den röda linjen är tiden i scenariot." |
 | 0:30 | Peka på de färgade fälten på kartan. | "Det här är kommunens skyfallsmodell: hur djupt vattnet kan bli vid ett 100-årsregn. Det är en modell, inte en observation." |
-| 0:45 | Tryck **SPACE VIEW**, **1 MIN/S** och **PLAY**. Peka på satellitbevakningen. Tryck **SPACE VIEW** igen efter en stund. | "Sentinel-1 har radar som ser genom moln. Sentinel-2 och Landsat ser som en kamera, och de bilderna var molniga." |
+| 0:45 | Tryck **SPACE VIEW**, välj 1 minut/s och tryck **ANVÄND** och **PLAY**. Peka på satellitbevakningen. Tryck **SPACE VIEW** igen efter en stund. | "Sentinel-1 har radar som ser genom moln. Sentinel-2 och Landsat ser som en kamera, och de bilderna var molniga." |
 | 1:00 | Tryck **SATELLITE DETECTION**. Steg 1, **Bild tagen**: Sentinel-1C kl. 07:21 svensk tid. | "Det här är en verklig radarbild från Sentinel-1, tagen över Sundsvall den morgonen." |
 | 1:10 | Tryck **NÄSTA ▸** två gånger: **Anomali upptäckt ombord** och **Nedlänk**, båda SYNTETISKT. | "I framtiden kan satelliten själv hitta vatten i bilden och slå larm. Här är det illustrerat." |
 | 1:25 | Tryck **NÄSTA ▸**. Steg 4, **Zoom till Sundsvall**: kartan visar radarbilden i grått. | "Radarn ser genom molnen. Släta vattenytor är mörka, och stan är ljus." |
 | 1:35 | Tryck **NÄSTA ▸**. Steg 5, **IoT på marken**, SYNTETISKT. Blått på kartan är vatten i radarbilden utanför sjöar och hav. | "Det blå är en enkel beräkning, inte en kartlagd översvämning. Bräddgivarna i dagvattnet är simulerade, men har samma format som kommunens sensorplattform." |
 | 1:45 | Tryck **NÄSTA ▸**. Steg 6, **Korrelering**: fyra regler med ✓ eller ✗. | "Reglerna väger regn, bräddning, modellen och radarbilden. Just den här morgonen skiljer radarn dåligt mellan vatten och land, och det säger regeln." |
-| 2:00 | Tryck **NÄSTA ▸**, **10 MIN/S** och **PLAY**. Runt kl. 10 svensk tid kommer regnets topp, och bräddgivarna blir röda. | "Nu kommer det kraftigaste regnet. Fyra av åtta bräddgivare bräddar." |
+| 2:00 | Tryck **NÄSTA ▸**, välj 10 minuter/s och tryck **ANVÄND** och **PLAY**. Runt kl. 10 svensk tid kommer regnets topp, och bräddgivarna blir röda. | "Nu kommer det kraftigaste regnet. Fyra av åtta bräddgivare bräddar." |
 | 2:15 | Tryck **PAUSE**. Peka på AI ASSESSMENT och tryck "Why do you believe there is a flood?" under **Frågor** i mission control. | "Bedömningen visar varför: regnet och bräddningen. Varje rad pekar på sitt ställe på kartan." |
 | 2:30 | Tryck "Vilka byggnader ligger inom 100-årsflödet?" och klicka sedan på "SQL som kördes" på huvudskärmen. | "Det här är en riktig fråga mot en kartdatabas, med kommunens och MCF:s flödeskartor." |
 | 2:45 | Tryck "Vad finns inom 200 m från de bräddande punkterna?". | "Här är det som ligger nära de bräddande punkterna. Underlaget är syntetiskt." |
@@ -708,7 +710,7 @@ kartan under sekvensen. Bilden den 16 augusti är tagen mitt i regnet och vinden
 skiljer radarn dåligt mellan vatten och land; bilderna efter den är tydligare.
 
 **SATCOM FAILURE** fungerar som i branddemon, men det som köas är satellitbilder. Med
-**1 TIMME/S** kommer nästa radarbild inom ungefär en halv minut, och efter **SATCOM FAILURE**
+1 timme/s kommer nästa radarbild inom ungefär en halv minut, och efter **SATCOM FAILURE**
 igen listar SYNC den.
 
 **SENSOR FAILURE** slår ut bräddgivaren DV1. **Placera IoT-sensor** med högerklick fungerar

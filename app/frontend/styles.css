@@ -97,6 +97,11 @@ body.menu-page { background: #141414; color: #f2f2f2; display: grid; place-items
   border: none; background: transparent; padding: 0; color: inherit; font: inherit; font-weight: 600;
 }
 
+/* Mission control's speed: ANVÄND to the left of the list. */
+.speed-pick { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: end; margin: 8px 0; }
+.speed-pick label { display: grid; gap: 4px; font-size: 0.9rem; }
+.speed-pick select { width: 100%; min-width: 0; padding: 8px; font-size: 1rem; }
+
 /* Mission control's questions, one wide button each. */
 .control-questions { display: grid; gap: 6px; }
 .control-questions button { text-align: left; font-size: 0.95rem; }

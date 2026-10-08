@@ -22,10 +22,17 @@
         <button type="button" data-command="pause">PAUSE</button>
         <button type="button" data-command="reset" class="danger">RESET</button>
       </div>
-      <div class="control-row speed-row">
-        <button type="button" data-command="speed" data-speed="60">1 MIN/S</button>
-        <button type="button" data-command="speed" data-speed="600">10 MIN/S</button>
-        <button type="button" data-command="speed" data-speed="3600">1 TIMME/S</button>
+      <div class="speed-pick">
+        <button id="apply-speed" type="button">ANVÄND</button>
+        <label>Hastighet
+          <select id="speed-pick">
+            <option value="60">1 minut/s</option>
+            <option value="600">10 minuter/s</option>
+            <option value="1800">30 minuter/s</option>
+            <option value="3600">1 timme/s</option>
+            <option value="10800">3 timmar/s</option>
+          </select>
+        </label>
       </div>
       <div class="control-row speed-row">
         <button id="show-all" type="button" data-command="seek">VISA ALLA</button>

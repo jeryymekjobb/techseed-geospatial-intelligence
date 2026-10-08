@@ -15,6 +15,7 @@ let config = null;
 let imageList = null;  // the values in the image list, to rebuild it only when they change
 let clockShown = null;  // the scenario clock last shown, for when /api/config arrives after it
 let pendingPick = null;  // an image chosen in the list, shown on the screens only with VISA VALD BILD
+let pendingSpeed = null;  // a speed chosen in the list, used only with ANVÄND
 const realSensors = new Map();
 let iotConnection = null;
 
@@ -47,11 +48,14 @@ function showState(scenarioState) {
     : !scenarioState.playing ? "Pausad."
     : scenarioState.slowed ? "Saktar in: satellitpassage (1 minut/s)." : "Spelar upp.";
   $("play").classList.toggle("active", scenarioState.playing);
-  for (const button of document.querySelectorAll("[data-speed]")) {
-    const on = Number(button.dataset.speed) === scenarioState.speed;
-    button.classList.toggle("active", on);
-    button.setAttribute("aria-pressed", String(on));
+  // The speed list shows the speed in use, or the one chosen until ANVÄND.
+  const speeds = $("speed-pick");
+  if (pendingSpeed === String(scenarioState.speed)) pendingSpeed = null;
+  if (![...speeds.options].some((option) => Number(option.value) === scenarioState.speed)) {
+    speeds.append(new Option(`${scenarioState.speed} s/s`, String(scenarioState.speed)));
   }
+  speeds.value = pendingSpeed ?? String(scenarioState.speed);
+  $("apply-speed").disabled = pendingSpeed === null;
   const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view, space_view: status.space_view, iot: status.iot, detection: Boolean(status.detection) };
   for (const button of document.querySelectorAll("[data-filter]")) {
     const shown = !status.hidden_layers.includes(button.dataset.filter);
@@ -387,6 +391,20 @@ $("image-pick").addEventListener("change", (event) => {
   showImages(clockShown);
 });
 $("show-pick").addEventListener("click", () => { if (pendingPick !== null) chooseImage(pendingPick); });
+$("speed-pick").addEventListener("change", (event) => {
+  pendingSpeed = event.target.value;
+  $("apply-speed").disabled = false;
+});
+$("apply-speed").addEventListener("click", () => {
+  if (pendingSpeed === null) return;
+  send("speed", null, pendingSpeed).then((state) => {
+    pendingSpeed = null;
+    showState(state);
+    $("command-status").textContent = "";
+  }).catch((error) => {
+    $("command-status").textContent = `Hastigheten kunde inte ändras: ${error.message}`;
+  });
+});
 // The scenario's name in the header.
 fetch("/api/config").then((response) => response.json()).then((loaded) => {
   config = loaded;

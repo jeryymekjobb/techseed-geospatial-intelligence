@@ -26,13 +26,15 @@ def test_the_buttons_send_only_commands_the_engine_knows() -> None:
     html = (FRONTEND / "control.html").read_text(encoding="utf-8")
     commands = set(re.findall(r'data-command="(\w+)"', html)) | set(re.findall(r'data-toggle-off="(\w+)"', html))
     # place_sensor comes from the main screen's map, not from a button.
-    # seek is VISA ALLA, camera FLYG TILL and ÖVERSIKT, clear_answer RENSA SVARET (the questions are made from /api/questions).
-    assert commands == set(EVENT_KINDS) - {"place_sensor"} | CLOCK_COMMANDS | {"seek", "camera", "clear_answer"}
+    # seek is VISA ALLA, camera FLYG TILL and ÖVERSIKT, clear_answer RENSA SVARET (the questions are made from
+    # /api/questions); speed is sent by ANVÄND with the list's value (control.js).
+    assert commands == set(EVENT_KINDS) - {"place_sensor"} | CLOCK_COMMANDS - {"speed"} | {"seek", "camera", "clear_answer"}
     for target in re.findall(r'data-target="([^"]+)"', html):
         assert re.fullmatch(r"[a-z0-9_-]{1,64}", target)
     assert set(re.findall(r'data-command="filter" data-target="(\w+)"', html)) == set(FILTERS)
-    speeds = [float(value) for value in re.findall(r'data-command="speed" data-speed="([0-9.]+)"', html)]
-    assert speeds == [60.0, 600.0, 3600.0] and all(MIN_SPEED <= value <= MAX_SPEED for value in speeds)
+    # The speeds are a list with ANVÄND (control.js), as on the main screen.
+    speeds = [float(value) for value in re.findall(r'<option value="([0-9.]+)">', html.split('id="speed-pick"', 1)[1].split("</select>", 1)[0])]
+    assert speeds == [60.0, 600.0, 1800.0, 3600.0, 10800.0] and all(MIN_SPEED <= value <= MAX_SPEED for value in speeds)
 
 
 def test_every_event_kind_has_a_text() -> None:
