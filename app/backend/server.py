@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, passes, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, wms
+from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, wms
 from app.backend.scenario_engine import DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -376,6 +376,8 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
             "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "base_maps": base_maps(settings),
+            # The saved display profile of the scenario's kind of incident (profiles.py), or None.
+            "display_profile": profiles.load(scenario.INCIDENT),
             "lantmateriet_fastighet": settings.fastighet_enabled,
             "lantmateriet_fastighet_layers": settings.fastighet_layers if settings.fastighet_enabled else "",
         },
@@ -386,7 +388,8 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "TechseedFireMap/0.1"
     settings = lantmateriet.Settings.from_environment()
     # One shared scenario for every screen; tests give their handler its own engine.
-    engine = ScenarioEngine(scenario.PLAYBACK_START, scenario.PLAYBACK_END, area=scenario.VIEW_BBOX)
+    engine = ScenarioEngine(scenario.PLAYBACK_START, scenario.PLAYBACK_END, area=scenario.VIEW_BBOX,
+                            profile=lambda: profiles.load(scenario.INCIDENT))
     # The prepared spatial questions run through one psql in the postgis service.
     psql = spatial.Psql()
     # Live readings of the real IoT nodes; main() connects it to the MQTT broker.
@@ -540,6 +543,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             body = json.loads(self.rfile.read(length))
+            if body.get("command") == "save_profile":
+                # SPARA PROFIL: the ticks shown now become the profile of the scenario's kind of incident.
+                status = self.engine.snapshot()["status"]
+                try:
+                    saved = profiles.save(scenario.INCIDENT, status["image_types"], status["base_maps"])
+                except OSError as exc:
+                    self.send_json({"error": "profile_not_saved", "detail": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                    return
+                self.send_json({**self.engine.snapshot(), "display_profile": saved})
+                return
             at = body.get("at")
             if body.get("command") == "satellite_detection" and not at:
                 # The sequence is built on the next real pass after the scenario clock.

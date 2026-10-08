@@ -21,7 +21,8 @@ in the status as `image`; it is a setting, not an event. `image_types` ticks the
 types "auto" follows (comma-separated, for example "radar,natural"; empty for none) and is
 in the status as `image_types`, None until ticked, when the screens use their default.
 `base_maps` ticks the base maps the same way (`base_maps` in the status; basemaps.js).
-`reset` clears the events and the image and map choices together with the clock.
+`reset` clears the events and the image and map choices together with the clock; the
+ticks go back to the saved display profile (`profile`, profiles.py), or None without one.
 
 So that visitors can follow the satellite passes, the clock goes no faster than
 SLOW_SPEED inside the slow windows (set_slow_windows), whatever the chosen speed;
@@ -85,6 +86,8 @@ class ScenarioEngine:
     area: tuple[float, float, float, float] | None = None
     monotonic: Callable[[], float] = time.monotonic
     speed: float = DEFAULT_SPEED
+    # The saved display profile's ticks ({"image_types", "base_maps"}), read at the start and at every reset.
+    profile: Callable[[], dict[str, Any] | None] | None = None
     _clock: datetime = field(init=False)
     _playing: bool = field(default=False, init=False)
     _since: float = field(default=0.0, init=False)
@@ -103,6 +106,12 @@ class ScenarioEngine:
     def __post_init__(self) -> None:
         self._clock = self.start
         self._since = self.monotonic()
+        self._apply_profile()
+
+    def _apply_profile(self) -> None:
+        saved = (self.profile() if self.profile else None) or {}
+        self._image_types = saved.get("image_types")
+        self._base_maps = saved.get("base_maps")
 
     def set_slow_windows(self, windows: list[tuple[datetime, datetime]]) -> None:
         """Scenario periods in which the clock goes no faster than SLOW_SPEED; overlaps are merged."""
@@ -282,8 +291,7 @@ class ScenarioEngine:
                 self.events.clear()
                 self._detection = None
                 self._image = "auto"
-                self._image_types = None
-                self._base_maps = None
+                self._apply_profile()
                 self.jump += 1
             elif name == "seek":
                 if not at:

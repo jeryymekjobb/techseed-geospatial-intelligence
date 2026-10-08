@@ -342,11 +342,30 @@ datum: till exempel "Visas: Satellitbild – Landsat 8, falska färger, kortvåg
 OpenStreetMap-data hämtades. Du väljer i gruppen **Satellitbilder** i mission control: knapparna
 **KARTA** och **SENASTE SATELLITBILD**, eller en bild i listan **Bild** som du sedan visar med
 **VISA VALD BILD**. Senaste satellitbild är
-den senaste bilden som är tagen fram till scenariotiden. Valet gäller alla skärmar, och
-**RESET** ställer tillbaka det på senaste satellitbild. Under upptäcktssekvensen i branden
+den senaste bilden av de ikryssade bildtyperna som är tagen fram till scenariotiden (se nedan).
+Valet gäller alla skärmar, och **RESET** ställer tillbaka det på senaste satellitbild. Under upptäcktssekvensen i branden
 nämner raden först passagens detektioner och sedan underlaget, till exempel
 "Visas: VIIRS-detektioner 5 aug. 2014 03:17 svensk tid · underlag: Satellitbild – Landsat 8, …,
 tagen 4 aug. 2014 12:06 svensk tid".
+
+**Bildtyper och baskartor.** Under knapparna listar mission control demons bildtyper och
+baskartor med kryssrutor. Vilka typer som är mest användbara beror på händelsen och på vilka
+satelliter som tog bilder.
+
+- **Bildtyperna** styr vad **SENASTE SATELLITBILD** följer. Exempel på typer är radar, beräknat
+  vatten, naturliga färger, NDWI, kortvågig IR och NDMI. Skärmarna visar den nyaste bilden
+  bland de ikryssade typerna och byter automatiskt när en ny blir tagen vid scenariotiden.
+  Varje rad visar hur många bilder av typen som är tagna, till exempel "radar 5 av 8 tagna".
+  Listan **Bild** visar bara de ikryssade typerna. Utan ikryssad typ visas kartan.
+- **Baskartorna** är offline-kartan (OSM), OpenStreetMap online (kräver internet) och
+  Lantmäteriets topowebb när den är aktiverad (bara 2D). Varje karta visar den första
+  ikryssade som den har; utan ikryssad baskarta visar 3D-globen bara Natural Earth II.
+- **SPARA PROFIL FÖR SKOGSBRAND** eller **… ÖVERSVÄMNING** sparar kryssen för demons typ av
+  händelse. Alla demos av den typen startar med profilen, och **RESET** återgår till den.
+  Utan sparad profil gäller standardvalet: kortvågig IR i bränderna, radar i
+  översvämningarna och offline-kartan. Profilerna sparas i `data/display-profiles.json` på
+  utställningsdatorn och följer inte med repot. Ta bort filen för att gå tillbaka till
+  standardvalet.
 
 ## 9. Mission control på en surfplatta (valfritt)
 

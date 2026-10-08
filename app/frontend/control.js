@@ -173,6 +173,32 @@ function showBaseMaps() {
   for (const box of document.querySelectorAll("#base-maps input")) box.checked = ticked.includes(box.value);
 }
 
+// SPARA PROFIL: the ticked image types and base maps become the profile of the demo's kind of
+// incident (app/backend/profiles.py), which its demos start with and RESET returns to.
+const INCIDENT_WORDS = { wildfire: "skogsbrand", flood: "översvämning" };
+
+function showProfile(profile) {
+  const kind = INCIDENT_WORDS[config.incident] || config.incident;
+  $("save-profile").textContent = `SPARA PROFIL FÖR ${kind.toUpperCase()}`;
+  $("profile-note").textContent = profile
+    ? `Profil för ${kind} sparad ${localTime.format(new Date(profile.saved_utc))} svensk tid; demon startar med den och RESET återgår till den.`
+    : `Ingen sparad profil för ${kind}: standardvalet gäller.`;
+}
+
+$("save-profile").addEventListener("click", async () => {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["X-Control-Token"] = token;
+  const response = await fetch("/api/scenario/command", { method: "POST", headers, body: JSON.stringify({ command: "save_profile" }) })
+    .catch(() => null);
+  const data = response ? await response.json().catch(() => ({})) : {};
+  if (!response || !response.ok) {
+    $("command-status").textContent = `Profilen sparades inte: ${data.detail || data.error || "backend svarar inte"}`;
+    return;
+  }
+  showProfile(data.display_profile);
+  $("command-status").textContent = "";
+});
+
 // The image types ticked in mission control, for every screen (the scenario status's image_types).
 function setupImageTypes(info) {
   const box = $("image-types");
@@ -276,6 +302,7 @@ fetch("/api/config").then((response) => response.json()).then((loaded) => {
   config = loaded;
   setupImageTypes(config.layers.landsat);
   setupBaseMaps(config.layers.base_maps);
+  showProfile(config.layers.display_profile);
   $("control-label").textContent = config.control_label;
   place = config.incident_place;
   if (clockShown) showImages(clockShown);
