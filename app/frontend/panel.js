@@ -315,8 +315,8 @@ function showHydro(clock) {
   const { latest, highest } = hydroAt(station.observations, clock.getTime());
   const earlier = station.earlier_max;
   $("hydro-values").innerHTML = [
-    ["Nu", latest ? `${hydroText(station.kind, latest.value)} (${formatLocal(latest.time_utc)})` : "inga värden ännu"],
-    ["Högst i perioden", highest ? `${hydroText(station.kind, highest.value)} (${formatLocal(highest.time_utc)})` : "–"],
+    ["Nu", latest ? `${hydroText(station.kind, latest.value)} (${hydroWhen(station.kind, latest.time_utc, formatLocal)})` : "inga värden ännu"],
+    ["Högst i perioden", highest ? `${hydroText(station.kind, highest.value)} (${hydroWhen(station.kind, highest.time_utc, formatLocal)})` : "–"],
     ["Tidigare högsta", earlier ? `${hydroText(station.kind, earlier.value)} (${earlier.time_utc.slice(0, 4)}, mätt sedan ${station.measured_since.slice(0, 4)})` : "–"],
   ].map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
   $("hydro-note").textContent = (hydroRecord(station, highest) ? "Högre än allt som mätts här tidigare. " : "")

@@ -77,6 +77,8 @@ def test_the_screens_show_the_value_up_to_the_clock_and_a_record() -> None:
             "const a = m.hydroAt(s.observations, Date.parse('2024-01-24T15:30:00Z'));"
             "const b = m.hydroAt(s.observations, Date.parse('2024-01-24T18:00:00Z'));"
             "console.log(JSON.stringify([a.latest.value, m.hydroRecord(s, a.highest), b.latest.value, b.highest.value, m.hydroRecord(s, b.highest),"
-            " m.hydroText('flow', 30.2), m.hydroText('level', 5494), m.hydroText('level', null)]));")
+            " m.hydroText('flow', 30.2), m.hydroText('level', 5494), m.hydroText('level', null),"
+            " m.hydroWhen('level', '2024-02-10T00:00:00Z', () => 'tid'), m.hydroWhen('flow', '2024-01-24T16:00:00Z', () => 'tid')]));")
     result = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
-    assert result == [24.0, False, 29.0, 30.2, True, "30,2 m³/s", "54,94 m", "–"]
+    # A level is a daily value: its date only, not 01:00 Swedish time.
+    assert result == [24.0, False, 29.0, 30.2, True, "30,2 m³/s", "54,94 m", "–", "10 feb 2024", "tid"]

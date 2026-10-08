@@ -27,4 +27,14 @@ function hydroRecord(station, highest) {
   return Boolean(highest && station.earlier_max && highest.value > station.earlier_max.value);
 }
 
-if (typeof module !== "undefined") module.exports = { hydroAt, hydroText, hydroRecord };
+// When a value was measured: a level is SMHI's value for the day, stamped at 00:00 UTC, so only its
+// date ("10 feb 2024"); a flow is an hourly mean, given with `formatTime` (local time).
+const MONTHS = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+
+function hydroWhen(kind, isoUtc, formatTime) {
+  if (kind !== "level") return formatTime(isoUtc);
+  const [year, month, day] = isoUtc.slice(0, 10).split("-").map(Number);
+  return `${day} ${MONTHS[month - 1]} ${year}`;
+}
+
+if (typeof module !== "undefined") module.exports = { hydroAt, hydroText, hydroRecord, hydroWhen };
