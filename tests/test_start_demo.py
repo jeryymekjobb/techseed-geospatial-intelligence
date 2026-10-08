@@ -17,7 +17,7 @@ def test_each_scenario_starts_with_its_own_map_and_time() -> None:
     assert start_demo.scenario_settings("vastmanland2014") == ("vastmanland.mbtiles", "2014-08-04T09:30:00Z")
     assert start_demo.scenario_settings("sundsvall2026") == ("sundsvall.mbtiles", "2026-08-16T05:00:00Z")
     assert start_demo.scenario_settings("skane2024") == ("skane.mbtiles", "2024-01-27T16:30:00Z")
-    assert start_demo.scenario_settings("ljusdal2018") == ("ljusdal.mbtiles", "2018-07-17T08:30:00Z")
+    assert start_demo.scenario_settings("ljusdal2018") == ("ljusdal.mbtiles", "2018-07-17T09:15:00Z")
     assert start_demo.services_command() == ["docker", "compose", "up", "-d", "tiles", "postgis", "mosquitto"]
 
 

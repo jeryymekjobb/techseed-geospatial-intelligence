@@ -787,11 +787,25 @@ Välj **Skogsbranden vid Kårböle 2018** i menyn (avsnitt 7). Skillnader mot V�
   **NOAA-20** (VIIRS), 2 540 detektioner 14–28 juli.
 - Prognosens brandväder kommer från **SMHI Hamra A**, 39 km från branden; i juli 2018 var
   brandfaran extrem (FWI över 40 den 17 juli).
-- Skärmarna börjar 17 juli kl. 10:30 svensk tid. **SATELLITE DETECTION** tar då NOAA-20 kl.
-  11:34.
+- Skärmarna börjar 17 juli kl. 11:15 svensk tid, strax före NOAA-20 kl. 11:34; **SATELLITE
+  DETECTION** tar nästa verkliga passage efter klockan.
+- **Satellitbilder från Sentinel-2**: före (4 juli), under (27 juli) och efter (2 september, en
+  jämförelse), med falska färger i kortvågig IR där bränd skog är rödbrun och aktiv brand orange.
+  Landsat är för molnig över branden de veckorna och är inte med.
+- **Brandområdet enligt Copernicus EMS** (aktivering EMSR298, området Enskogen) som en lila
+  streckad linje, kartlagt ur SPOT-6/7- och Sentinel-2-bilder: från 2 125 hektar på bilden 17
+  juli till 17 936 hektar 7 augusti. Varje karta visas från slutet av bildens dag, eftersom
+  bilderna saknar klockslag. Förklaringen under "Prognos (modell)" säger vilken bild och yta som
+  visas. Jämför med brandfronten ur FIRMS, som är skalet runt alla detektioner och därför större.
 
-Satellitbilderna (Sentinel-2 och Landsat) och Copernicus EMS:s avgränsningar av branden kommer i
-nästa steg. `check_demo` gäller ännu inte den här demon.
+Generalrepetition:
+
+```bash
+TECHSEED_SCENARIO=ljusdal2018 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-ljusdal-$(hostname)
+```
+
+Bedömningen kl. 14:00 den 17 juli är "Possible fire": ingen av de syntetiska sensorerna
+bekräftar branden då, och kontrollen väntar sig det.
 
 ## 23. Förbered demon
 
@@ -809,4 +823,7 @@ export TECHSEED_SCENARIO=ljusdal2018
   --raw-dir /tmp/era5-ljusdal --out data/ljusdal2018/era5-land/era5-land-ljusdal-2018.csv
 .venv/bin/python -m tools.fetch_osm_terrain --bbox 61.75,14.9,62.2,15.8 --out data/ljusdal2018/osm/terrain-ljusdal.geojson
 .venv/bin/python -m tools.fetch_osm_targets --bbox 61.75,14.9,62.2,15.8 --out data/ljusdal2018/osm/targets-ljusdal.geojson
+.venv/bin/python -m tools.fetch_sentinel2_scene
+.venv/bin/python -m tools.fetch_ems_perimeters
+.venv/bin/python -m tools.load_postgis    # databasen ljusdal2018, för frågorna
 ```

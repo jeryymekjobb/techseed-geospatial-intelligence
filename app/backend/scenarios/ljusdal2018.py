@@ -8,8 +8,8 @@ Copernicus EMS mapped it as area 01 Enskogen of activation EMSR298, from 828 ha 
 to 17,936 ha in 16 areas on 7 August. The FIRMS requests 818930, 818932 and 818934 are in
 satellite_data/firms/.
 
-Its data apart from FIRMS live in the unversioned data/ljusdal2018/. The satellite images
-and the EMS perimeters come in a later step.
+Its data apart from FIRMS live in the unversioned data/ljusdal2018/: among them Sentinel-2
+before, during and after the fire and the EMS perimeters (EMS_AREA).
 """
 
 from __future__ import annotations
@@ -42,6 +42,10 @@ DEM_DIR = DATA / "dem"
 TERRAIN_DIR = DATA / "terrain"
 LANDSAT_DIR = DATA / "landsat"
 SENTINEL2_DIR = DATA / "sentinel2"
+# Copernicus EMS's perimeters of the fire (tools/fetch_ems_perimeters.py): activation EMSR298,
+# area 01 Enskogen, which is Kårböle-Ängra.
+EMS_AREA = {"activation": "EMSR298", "area": "01ENSKOGEN"}
+EMS_DIR = DATA / "ems"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2018.json"
 
@@ -57,8 +61,13 @@ PERIOD_START = date(2018, 7, 12)
 PERIOD_END = date(2018, 8, 8)
 PLAYBACK_START = datetime(2018, 7, 12, 0, 0, tzinfo=timezone.utc)
 PLAYBACK_END = datetime(2018, 8, 9, 0, 0, tzinfo=timezone.utc)
-# The first MODIS detections came on 14 July; the check starts on the 17th, as it grew fast.
-CHECK_START_UTC = "2018-07-17T08:30:00Z"
+# The first MODIS detections came on 14 July; the check starts on the 17th, as it grew fast,
+# 19 minutes before NOAA-20 passes at 09:34 UTC.
+CHECK_START_UTC = "2018-07-17T09:15:00Z"
+# The image the demo check waits for: Sentinel-2 before the fire, shown from the start.
+CHECK_IMAGE = "Före branden: Sentinel-2A"
+# At 14:00 on 17 July no synthetic sensor confirms the fire, so the assessment says possible, not probable.
+CHECK_OUTCOME = "Possible fire"
 
 DATABASE = "ljusdal2018"
 TILES_FILE = "ljusdal.mbtiles"
@@ -91,13 +100,23 @@ SATELLITE_ROLES = {
 }
 SATELLITE_LABEL = "Position 2018, beräknad ur banelement (SGP4) – inte en observation"
 
-# The satellite images come in a later step.
+# No Landsat: over the fire (LANDSAT_FOCUS_AREA) the clearest Landsat 8 scenes have 24 % cloud
+# before (26 June, rows 016 and 017) and 40 % after (14 September), and 15 August covers only
+# 62 % of it (checked 2026-10-07). Sentinel-2 has nearly clear images the same weeks.
 LANDSAT_SCENES: dict = {}
 LANDSAT_ROLES = {"before": "Före branden", "during": "Under branden", "after": "Efter branden – jämförelse"}
 LANDSAT_FOCUS_AREA = (15.20, 61.89, 15.51, 62.04)  # Copernicus EMS's area Enskogen
 # About 30 m over MAP_BBOX: 0.9 degrees of longitude and 0.45 of latitude at 62 N.
 LANDSAT_SIZE = (1570, 1670)
-SENTINEL2_SCENES: dict = {}
+# Sentinel-2 (tools/fetch_sentinel2_scene.py) before, during and after, by datatake (catalogue
+# tile cloud 0, 1 and 20 %); 2 September is after the playback, a comparison.
+SENTINEL2_SCENES = {
+    "before": "S2A_MSIL2A_20180704T103021_R108",
+    "during": "S2A_MSIL2A_20180727T104021_R008",
+    "after": "S2A_MSIL2A_20180902T103021_R108",
+}
+# About 20 m over MAP_BBOX: 0.9 degrees of longitude and 0.45 of latitude at 62 N.
+SENTINEL2_SIZE = (2350, 2500)
 
 # The fire's own modules: the forecast from SMHI Hamra A, the nearest station with complete
 # hourly weather (temperature, humidity, wind, rain) from 1 May 2018.
