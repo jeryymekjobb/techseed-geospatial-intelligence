@@ -20,6 +20,13 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 - Decided 2026-10-06: the user confirmed that the municipality's layers in its geoserver (bxkarta), among them the cloudburst models, may be used in the Sundsvall demo, although the service's terms limit use to five municipalities unless agreed. Only Sundsvall municipality's own layers are used; those of MSVAB, the county board and Lantmäteriet in the same service have other owners.
 - A working Sundsvall flood scenario exists in `app/` (`--scenario sundsvall2026`): the municipality's rain gauges, its cloudburst models and MCF's flood maps, synthetic overflow sensors, a flood assessment, a detection sequence from real Sentinel-1 acquisitions and PostGIS questions; see Del 5 of the operator guide.
 
+## Current Work Handoff (2026-10-08)
+
+- Local `main` is at `3278075` (`Unify map layers and filters in mission control`), two commits ahead of `origin/main`; neither commit has been pushed.
+- The mission-control layer/filter update is committed: **Kartans lager** combines GOD VIEW categories and their indented layers; Weather controls wind, weather stations and the precipitation radar in both map adapters while preserving each individual layer selection.
+- Verification for the update: all 322 tests passed; `check_demo` passed for Västmanland (10/10), Sundsvall (9/9), Skåne (9/9) and Kårböle/Ljusdal (10/10); a 2D browser smoke check confirmed Weather hides wind and radar and restores their individual selections; `git diff --check` passed.
+- The demo checks used headless software rendering; their frame-rate measurements do not represent the exhibition PC.
+
 ## Backlog
 
 - Firmware for the booth nodes: nRF91 board, nRF Connect SDK version, Wi-Fi fallback.
