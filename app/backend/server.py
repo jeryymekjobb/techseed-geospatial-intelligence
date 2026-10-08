@@ -187,7 +187,7 @@ def _assessor() -> assessment.Assessor | flood_assessment.FloodAssessor:
         return flood_assessment.FloodAssessor(weather()["stations"], scenario.SENTINEL1_ACQUISITIONS,
                                               images["scenes"] if images else [], scenario.FIRE_CENTRE,
                                               place_name=scenario.INCIDENT_PLACE, focus_land=scenario.FOCUS_LAND,
-                                              gauges=scenario.RAIN_GAUGES)
+                                              gauges=scenario.RAIN_GAUGES, hydro=(hydro.stations() or {}).get("stations", ()))
     return assessment.Assessor(detections(), wind_field(), forecast.forecasts()["states"], scenario.FIRE_CENTRE)
 
 

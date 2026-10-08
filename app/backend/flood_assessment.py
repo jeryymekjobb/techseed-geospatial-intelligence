@@ -7,6 +7,10 @@ detection sequence (as detection.py) is anchored in a real Sentinel-1 radar acqu
 over the scenario's place from the Copernicus catalogue; its image's water is a simple computed
 mask (tools/fetch_sentinel1_scene.py), which the rules call so and leave out where the
 image cannot tell water from land.
+
+A river and lake flood (a scenario with SMHI's flows and levels, hydro.py) rises over days, not
+in an hour: there the rain counts over five days, and SMHI's measured flows and lake levels
+above the highest measured before take the place of the hour's rain and the municipality's model.
 """
 
 from __future__ import annotations
@@ -17,12 +21,15 @@ from typing import Any, Sequence
 
 from app.backend.assessment import SCORE_LABEL, line, place, sv
 
-WEIGHTS = {"rain_hour": 0.30, "rain_day": 0.25, "iot": 0.25}
+WEIGHTS = {"rain_hour": 0.30, "rain_day": 0.25, "iot": 0.25, "rain_days": 0.25, "flow": 0.30, "level": 0.30}
 OUTCOMES = ((0.75, "Flood probable"), (0.40, "Possible flood"), (0.0, "No flood indicated"))
 RAIN_HOUR_MM = 7.0     # demo rules, not SMHI's warning classes
 RADAR_WATER_PCT = 1.0  # the radar's computed water outside lakes and sea, of the town's land
 RAIN_DAY_MM = 20.0
 DEEP_MODEL_M = 0.3
+RAIN_DAYS = 5          # the river flood's rain: the sum over these days (demo rule)
+RAIN_DAYS_MM = 30.0
+HYDRO_WORDS = {"flow": ("Vattenföring", "m³/s"), "level": ("Vattenstånd", "m")}
 CATEGORY = "Översvämning"
 HOUR = timedelta(hours=1)
 
@@ -33,6 +40,18 @@ def parse_utc(text: str) -> datetime:
 
 def format_utc(moment: datetime) -> str:
     return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def rain_since(observations: Sequence[dict[str, Any]], clock: datetime, span: timedelta) -> float:
+    """Millimetres in the span up to the clock; a missing hour is dry."""
+    return round(sum(item.get("precip_mm") or 0.0 for item in observations
+                     if clock - span < parse_utc(item["time_utc"]) <= clock), 1)
+
+
+def hydro_value(kind: str, value: float) -> str:
+    """As hydro.js: a flow in m³/s with one decimal, a level in cm shown in metres."""
+    text = f"{value / 100:.2f}" if kind == "level" else f"{value:.1f}"
+    return f"{text.replace('.', ',')} {HYDRO_WORDS[kind][1]}"
 
 
 def rain_sums(observations: Sequence[dict[str, Any]], clock: datetime) -> tuple[float, float]:
@@ -53,7 +72,8 @@ def rain_sums(observations: Sequence[dict[str, Any]], clock: datetime) -> tuple[
 class FloodAssessor:
     def __init__(self, stations: Sequence[dict[str, Any]], acquisitions: Sequence[dict[str, str]],
                  scenes: Sequence[dict[str, Any]], centre: tuple[float, float], *, place_name: str = "Sundsvall",
-                 focus_land: str = "stans land", gauges: str = "kommunens mätare") -> None:
+                 focus_land: str = "stans land", gauges: str = "kommunens mätare",
+                 hydro: Sequence[dict[str, Any]] = ()) -> None:
         # The scenario's words: its place, the land the radar's water is counted on and its rain gauges.
         self.place_name, self.focus_land, self.gauges = place_name, focus_land, gauges
         self.stations = list(stations)
@@ -61,6 +81,8 @@ class FloodAssessor:
         self.scenes = [scene for scene in scenes if "water" in scene["images"]]
         self.radar = [scene for scene in scenes if "radarwater" in scene["images"]]
         self.centre = centre
+        # SMHI's flows and levels (hydro.py): with them the rules are the river flood's.
+        self.hydro = [station for station in hydro if station.get("earlier_max")]
 
     def _wettest(self, clock: datetime, day: bool) -> tuple[float, dict[str, Any] | None]:
         best = (0.0, None)
@@ -70,7 +92,62 @@ class FloodAssessor:
                 best = (value, station)
         return best
 
+    def _wettest_since(self, clock: datetime) -> tuple[float, dict[str, Any] | None]:
+        best = (0.0, None)
+        for station in self.stations:
+            value = rain_since(station["observations"], clock, RAIN_DAYS * 24 * HOUR)
+            if value > best[0]:
+                best = (value, station)
+        return best
+
+    def _rain_days_text(self, value: float, station: dict[str, Any] | None, span: str = f"de senaste {RAIN_DAYS} dygnen") -> str:
+        return (f"{sv(value)} mm regn {span}" + (f" vid {station['name']}" if station else "")
+                + f" (SMHI, {self.gauges}; regel ≥ {sv(RAIN_DAYS_MM)} mm)")
+
+    def _above(self, kind: str, clock: datetime) -> tuple[list[tuple[dict[str, Any], float]], dict[str, Any] | None]:
+        """The stations of the kind whose latest value is above their highest measured before, with it,
+        and the station nearest its record (the highest share of it) for a line when none is."""
+        above, nearest, share = [], None, -math.inf
+        for station in self.hydro:
+            if station["kind"] != kind:
+                continue
+            latest = next((item for item in reversed(station["observations"]) if parse_utc(item["time_utc"]) <= clock), None)
+            if latest is None:
+                continue
+            if latest["value"] > station["earlier_max"]["value"]:
+                above.append((station, latest["value"]))
+            if latest["value"] / station["earlier_max"]["value"] > share:
+                nearest, share = {**station, "latest": latest["value"]}, latest["value"] / station["earlier_max"]["value"]
+        return above, nearest
+
+    def _hydro_line(self, kind: str, clock: datetime) -> tuple[bool, str, dict[str, Any] | None]:
+        """Whether a station of the kind is above its highest measured before, the text and its place."""
+        above, nearest = self._above(kind, clock)
+        word = HYDRO_WORDS[kind][0]
+        if above:
+            stations = ", ".join(f"{station['name']} {hydro_value(kind, value)} (tidigare högsta {hydro_value(kind, station['earlier_max']['value'])}, "
+                                 f"{station['earlier_max']['time_utc'][:4]})" for station, value in above)
+            first = above[0][0]
+            return True, f"{word} över tidigare högsta: {stations} (SMHI)", place(first["latitude"], first["longitude"])
+        if nearest:
+            return False, (f"{word} under tidigare högsta: närmast {nearest['name']} {hydro_value(kind, nearest['latest'])} av "
+                           f"{hydro_value(kind, nearest['earlier_max']['value'])} (SMHI)"), place(nearest["latitude"], nearest["longitude"])
+        return False, f"{word}: inga värden ännu (SMHI)", None
+
+    def _river(self, clock: datetime) -> list[dict[str, Any]]:
+        value, station = self._wettest_since(clock)
+        ref = place(station["latitude"], station["longitude"]) if station else None
+        evidence = [line("rain_days", "ok" if value >= RAIN_DAYS_MM else "miss", self._rain_days_text(value, station),
+                         ref, WEIGHTS["rain_days"])]
+        for kind in ("flow", "level"):
+            if any(item["kind"] == kind for item in self.hydro):
+                holds, text, where = self._hydro_line(kind, clock)
+                evidence.append(line(kind, "ok" if holds else "miss", text, where, WEIGHTS[kind]))
+        return evidence
+
     def _rain(self, clock: datetime) -> list[dict[str, Any]]:
+        if self.hydro:
+            return self._river(clock)
         evidence = []
         for key, day, limit, span in (("rain_hour", False, RAIN_HOUR_MM, "senaste timmen"), ("rain_day", True, RAIN_DAY_MM, "senaste dygnet")):
             value, station = self._wettest(clock, day)
@@ -162,8 +239,25 @@ class FloodAssessor:
         return {"category": CATEGORY, "holds": holds, "ref": summary["centre"],
                 "text": f"Radarbilden: {self.radar_text(scene)}; regeln kräver minst {sv(RADAR_WATER_PCT)} %"}
 
+    def _river_rules(self, summary: dict[str, Any]) -> list[dict[str, Any]]:
+        """The river flood's rules at the acquisition: the rain of the days before it and SMHI's flows and levels."""
+        moment = parse_utc(summary["pass_utc"])
+        value, station = self._wettest_since(moment)
+        rules = [{"category": CATEGORY, "holds": value >= RAIN_DAYS_MM, "ref": place(station["latitude"], station["longitude"]) if station else None,
+                  "text": self._rain_days_text(value, station, f"de {RAIN_DAYS} dygnen före bilden")}]
+        for kind in ("flow", "level"):
+            holds, text, where = self._hydro_line(kind, moment)
+            rules.append({"category": CATEGORY, "holds": holds, "ref": where, "text": text})
+        return rules
+
     def classify(self, summary: dict[str, Any], synthetic: dict[str, Any]) -> dict[str, Any]:
-        """Rules for a flood at the acquisition: the rain before it, the synthetic sensors and the model."""
+        """Rules for a flood at the acquisition: the rain before it, the synthetic sensors and the model;
+        for a river flood the rain of the days before, SMHI's flows and levels and the radar image."""
+        if self.hydro:
+            rules = [*self._river_rules(summary), self._radar_rule(summary)]
+            count = sum(rule["holds"] for rule in rules)
+            return {"outcome": "Översvämning trolig" if count >= 2 else "Okänd", "rules": rules, "counts": {CATEGORY: count},
+                    "label": "Regelbaserad klassificering ur regn, SMHI:s uppmätta flöden och nivåer och radarbilden – ingen sannolikhet"}
         moment = parse_utc(summary["pass_utc"])
         rain, station = self._wettest(moment, day=True)
         overflowing = [sensor for sensor in synthetic["sensors"] if sensor["status"] == "ok" and sensor["confirms"]]

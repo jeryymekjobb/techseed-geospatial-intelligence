@@ -201,3 +201,41 @@ def test_the_flood_s_words_come_from_the_scenario() -> None:
                              gauges="VA-huvudmännens mätare")
     assert words.radar_text(scene) == "vatten utanför sjöar och hav på 2,13 % av marken runt Ringsjöarna (beräknat, enkel tröskel)"
     assert fa.FloodAssessor([], [], [], (62.4, 17.3)).radar_text(scene).endswith("av stans land (beräknat, enkel tröskel)")
+
+
+# A river flood's SYNTHETIC rain, flows and level, shaped like /api/hydro (hydro.py).
+RIVER_RAIN = {"name": "Regnmätaren", "latitude": 55.9, "longitude": 13.4, "observations": [
+    {"time_utc": "2024-01-22T12:00:00Z", "precip_mm": 20.0},
+    {"time_utc": "2024-01-24T12:00:00Z", "precip_mm": 15.0},
+]}
+FLOW = {"id": "1:2", "name": "Ån", "kind": "flow", "latitude": 55.88, "longitude": 13.5,
+        "earlier_max": {"value": 25.0, "time_utc": "2005-03-18T10:30:00Z"},
+        "observations": [{"time_utc": "2024-01-24T00:00:00Z", "value": 20.0}, {"time_utc": "2024-01-25T00:00:00Z", "value": 30.0}]}
+LEVEL = {"id": "2:3", "name": "Sjön", "kind": "level", "latitude": 55.87, "longitude": 13.45,
+         "earlier_max": {"value": 5478.0, "time_utc": "2002-03-09T00:00:00Z"},
+         "observations": [{"time_utc": "2024-01-25T00:00:00Z", "value": 5470.0}, {"time_utc": "2024-01-26T00:00:00Z", "value": 5480.0}]}
+NO_SENSORS = {"sensors": []}
+
+
+def test_a_river_flood_weighs_the_rain_of_days_and_smhi_s_flows_and_levels_above_their_records() -> None:
+    assessor = fa.FloodAssessor([RIVER_RAIN], [], [], (55.88, 13.47), gauges="mätarna", hydro=[FLOW, LEVEL])
+    early = {item["key"]: item for item in assessor.at(at("2024-01-24T18:00:00Z"), NO_SENSORS)["evidence"]}
+    assert "rain_hour" not in early and early["rain_days"]["status"] == "ok"  # 35 mm in five days
+    assert early["rain_days"]["text"] == "35,0 mm regn de senaste 5 dygnen vid Regnmätaren (SMHI, mätarna; regel ≥ 30,0 mm)"
+    assert early["flow"]["status"] == "miss" and early["flow"]["text"] == "Vattenföring under tidigare högsta: närmast Ån 20,0 m³/s av 25,0 m³/s (SMHI)"
+    late = assessor.at(at("2024-01-26T06:00:00Z"), NO_SENSORS)
+    keys = {item["key"]: item for item in late["evidence"]}
+    assert keys["flow"]["text"] == "Vattenföring över tidigare högsta: Ån 30,0 m³/s (tidigare högsta 25,0 m³/s, 2005) (SMHI)"
+    assert keys["level"]["status"] == "ok" and "Sjön 54,80 m (tidigare högsta 54,78 m, 2002)" in keys["level"]["text"]
+    assert (late["outcome"], late["score_pct"]) == ("Possible flood", 63)  # 1 - 0.75 x 0.70 x 0.70
+
+
+def test_a_river_flood_s_detection_counts_the_rain_of_days_the_flows_the_level_and_the_radar() -> None:
+    acquisitions = [{"time_utc": "2024-01-25T16:45:00Z", "satellite": "Sentinel-1A", "norad": "39634"}]
+    scenes = [radar_scene("2024-01-25T16:45:00Z", True, 2.0)]
+    assessor = fa.FloodAssessor([RIVER_RAIN], acquisitions, scenes, (55.88, 13.47), hydro=[FLOW, LEVEL])
+    result = assessor.classify(assessor.pass_at("2024-01-25T16:45:00Z"), NO_SENSORS)
+    assert [rule["holds"] for rule in result["rules"]] == [True, True, False, True]  # the level rises over it the next day
+    assert result["rules"][0]["text"].startswith("35,0 mm regn de 5 dygnen före bilden vid Regnmätaren")
+    assert result["outcome"] == "Översvämning trolig" and result["counts"] == {"Översvämning": 3}
+    assert "SMHI:s uppmätta flöden och nivåer" in result["label"]
