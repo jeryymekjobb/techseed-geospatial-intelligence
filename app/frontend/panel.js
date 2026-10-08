@@ -53,7 +53,8 @@ const state = {
   // The Landsat 8 scene (config.layers.landsat): shown from its acquisition time.
   landsat: null,
   imageTypes: ["swir"],  // the image types "auto" follows (landsat.js imageTypesShown)
-  baseMap: undefined,  // the base map shown (basemaps.js baseMapFor), undefined until mission control's status arrives
+  baseMap: undefined,
+  layersApplied: {},  // the map layers as mission control's ticks last set them, by name  // the base map shown (basemaps.js baseMapFor), undefined until mission control's status arrives
   landsatPick: "auto",  // mission control's choice (the scenario status's image)
   landsatShown: undefined,
   pendingEvents: [],
@@ -890,6 +891,22 @@ function setHorizon(horizon) {
   drawForecast(state.clock);
 }
 
+// The main screen's own controls (the map's layer list) only for troubleshooting: ?controls=1.
+function showControls() {
+  return new URLSearchParams(window.location.search).get("controls") === "1";
+}
+
+// Mission control's layer ticks: a switched layer as switched, the others as this map starts them.
+// A layer the map has not made yet is tried again with the next state.
+function applyMapLayers(status) {
+  const key = state.map.dimension === "2d" ? "default_2d" : "default_3d";
+  for (const item of state.config.layers.map_layers || []) {
+    const wanted = status.map_layers?.[item.name] ?? item[key];
+    if (wanted === null || wanted === undefined || state.layersApplied[item.name] === wanted) continue;
+    if (state.map.setLayerVisible(item.name, wanted)) state.layersApplied[item.name] = wanted;
+  }
+}
+
 function applyStatus(status) {
   const previous = state.scenarioStatus;
   state.scenarioStatus = status;
@@ -924,6 +941,7 @@ function applyStatus(status) {
     $("satellite-section")?.classList.toggle("space-view", status.space_view);
   }
   showFilter(status);
+  applyMapLayers(status);
   if (status.iot !== (previous?.iot ?? true)) showRealSensors();
   followDetection(status.detection);
 }

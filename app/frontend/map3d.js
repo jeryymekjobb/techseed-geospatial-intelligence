@@ -414,7 +414,17 @@ async function createCesiumMap(config) {
         label.append(box, ` ${name}`);
         panel.append(label);
       }
-      viewer.container.append(panel);
+      // Only for troubleshooting (?controls=1): mission control switches the layers.
+      if (showControls()) viewer.container.append(panel);
+    },
+
+    // Mission control's layer ticks (the status's map_layers): false when the globe has no such layer yet.
+    setLayerVisible(name, visible) {
+      const entry = layers.find(([layerName]) => layerName === name);
+      if (!entry) return false;
+      entry[1](visible);
+      for (const [box, shown] of layerBoxes) box.checked = shown();
+      return true;
     },
 
     // Fly from space to the fire; resolves when the camera has arrived.

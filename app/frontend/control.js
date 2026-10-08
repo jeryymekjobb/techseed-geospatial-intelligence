@@ -65,6 +65,7 @@ function showState(scenarioState) {
   $("next").disabled = !status.detection;
   showImages(scenarioState.clock_utc);
   showBaseMaps();
+  showMapLayers();
   $("detection-step").textContent = detectionStepLine(status.detection, place);
   const list = $("scenario-status");
   list.innerHTML = "";
@@ -143,6 +144,38 @@ function showImages(clockUtc) {
     offlineTiles: config.layers.offline_tiles, formatTime: (isoUtc) => `${localTime.format(new Date(isoUtc))} svensk tid`,
     formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
   }) + (pendingPick === null ? "" : `\nVald i listan: ${select.options[select.selectedIndex].text} – tryck VISA VALD BILD.`);
+}
+
+// The maps' layers, switched for every screen (the status's map_layers; panel.js applyMapLayers).
+// A layer not switched yet is as the 3D globe in the booth starts it, or the 2D map for a 2D-only layer.
+function setupMapLayers(items) {
+  const box = $("map-layers");
+  for (const item of items) {
+    const label = document.createElement("label");
+    label.innerHTML = '<input type="checkbox"> <span></span> <span class="count"></span>';
+    label.querySelector("input").value = item.name;
+    label.querySelector("span").textContent = item.name;
+    label.querySelector(".count").textContent = item.default_2d === null ? "bara 3D" : item.default_3d === null ? "bara 2D" : "";
+    box.append(label);
+  }
+  box.hidden = !items.length;
+  box.addEventListener("change", (event) => {
+    const input = event.target;
+    send(input.checked ? "map_layer_on" : "map_layer_off", input.value).then((state) => {
+      showState(state);
+      $("command-status").textContent = "";
+    }).catch((error) => {
+      $("command-status").textContent = `Lagret ${input.value} kunde inte ändras: ${error.message}`;
+    });
+  });
+}
+
+function showMapLayers() {
+  if (!config || !status) return;
+  for (const input of document.querySelectorAll("#map-layers input")) {
+    const item = config.layers.map_layers.find((entry) => entry.name === input.value);
+    input.checked = Boolean(status.map_layers?.[input.value] ?? item.default_3d ?? item.default_2d);
+  }
 }
 
 // The base maps ticked in mission control, for every screen (the scenario status's base_maps;
@@ -303,6 +336,8 @@ fetch("/api/config").then((response) => response.json()).then((loaded) => {
   config = loaded;
   setupImageTypes(config.layers.landsat);
   setupBaseMaps(config.layers.base_maps);
+  setupMapLayers(config.layers.map_layers || []);
+  showMapLayers();
   // VISA ALLA: the end of the playback, every detection; FLYG TILL names the incident's place.
   $("show-all").dataset.at = config.playback.end_utc;
   $("fly-incident").textContent = `FLYG TILL ${config.incident_place.toUpperCase()}`;

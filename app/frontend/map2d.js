@@ -290,8 +290,20 @@ function createLeafletMap(config) {
       }
     },
 
+    // The layer control only for troubleshooting (?controls=1): mission control switches the layers.
     finish() {
-      L.control.layers(baseLayers, overlays, { collapsed: false }).addTo(map);
+      if (showControls()) L.control.layers(baseLayers, overlays, { collapsed: false }).addTo(map);
+    },
+
+    // Mission control's layer ticks (the status's map_layers): false when the map has no such layer yet.
+    setLayerVisible(name, visible) {
+      const layer = overlays[name];
+      if (!layer) return false;
+      if (visible === map.hasLayer(layer)) return true;
+      if (visible) layer.addTo(map); else layer.remove();
+      // As the layer control does, so the WMS listeners (the flood's legend) follow.
+      map.fire(visible ? "overlayadd" : "overlayremove", { layer, name });
+      return true;
     },
 
     // The synthetic sensors at the clock (sensor_sim.py): red confirms the fire, grey failed.

@@ -54,3 +54,14 @@ def test_the_config_lists_the_base_maps_that_can_be_shown(monkeypatch: pytest.Mo
     assert [item["id"] for item in server.base_maps(with_topowebb)] == ["topowebb", "offline", "online"]
     monkeypatch.setattr(offline_tiles, "available", lambda: False)
     assert [item["id"] for item in server.base_maps(lantmateriet.Settings(None, None, None, None))] == ["online"]
+
+
+def test_the_map_layers_mission_control_lists_are_the_names_both_maps_give_them(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Every fixed name in the catalogue is a layer name in the map that has it (map2d.js, map3d.js).
+    sources = {dimension: (FRONTEND / f"map{dimension}.js").read_text(encoding="utf-8") for dimension in ("2d", "3d")}
+    for item in server.map_layers(lantmateriet.Settings(None, None, None, None)):
+        if "(modell)" in item["name"] and item["name"] not in ("Prognos (modell)",) or item["name"].startswith("Satelliter ("):
+            continue  # WMS titles and the year are filled in at run time
+        for dimension in ("2d", "3d"):
+            if item[f"default_{dimension}"] is not None:
+                assert f'"{item["name"]}"' in sources[dimension], (item["name"], dimension)

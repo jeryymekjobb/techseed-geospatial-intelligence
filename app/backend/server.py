@@ -331,6 +331,38 @@ def base_maps(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
     return items
 
 
+def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
+    """The maps' layers mission control ticks (panel.js), by the name both maps give them, with whether
+    each map starts with it shown: True or False, or None when that map does not have it. The terrain is
+    off at the start in 3D, where it halves the frame rate (map3d.js)."""
+    def item(name: str, on_2d: bool | None, on_3d: bool | None) -> dict[str, Any]:
+        return {"name": name, "default_2d": on_2d, "default_3d": on_3d}
+
+    items = []
+    if scenario.TERRAIN_FILE.is_file():
+        items.append(item("Terräng (OSM)", True, False))
+    items.append(item("Ortnamn", None, True))  # in 2D the place names follow the base map
+    if scenario.WILDFIRE:
+        items += [item("Hotspots", True, True), item("FIRMS-urval", False, None), item("Prognos (modell)", True, True),
+                  item("Syntetiska sensorer", True, True)]
+    if scenario.WIND_FILE.exists():
+        items.append(item("Vind (ERA5-Land)", True, True))
+    if radar.layer() is not None:
+        items.append(item("Nederbörd (SMHI radar)", True, True))
+    if ems.perimeters() is not None:
+        items.append(item("Brandområde (Copernicus EMS)", True, True))
+    for source in wms.sources() or []:
+        for name, title in source["layers"].items():
+            shown = name in (source.get("visible") or [])
+            items.append(item(f"{title} (modell)", shown, shown))
+    items.append(item("Svar på fråga", True, True))
+    if satellites.satellites()["available"]:
+        items.append(item(f"Satelliter ({scenario.PLAYBACK_START.year})", None, True))
+    if settings.fastighet_enabled:
+        items.append(item("Fastigheter (Lantmäteriet)", False, None))
+    return items
+
+
 def config(settings: lantmateriet.Settings) -> dict[str, Any]:
     min_lat, max_lat, min_lon, max_lon = scenario.VIEW_BBOX
     fire = scenario.FIRE_BBOX
@@ -376,6 +408,7 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
             "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "base_maps": base_maps(settings),
+            "map_layers": map_layers(settings),
             # The saved display profile of the scenario's kind of incident (profiles.py), or None.
             "display_profile": profiles.load(scenario.INCIDENT),
             "lantmateriet_fastighet": settings.fastighet_enabled,
@@ -565,6 +598,9 @@ class Handler(BaseHTTPRequestHandler):
                 raise CommandError("no such image in the scenario")
             if body.get("command") == "image_types" and not landsat.types_exist(str(body.get("target", ""))):
                 raise CommandError("no such image type in the scenario")
+            if body.get("command") in ("map_layer_on", "map_layer_off") and \
+                    str(body.get("target")) not in {item["name"] for item in map_layers(self.settings)}:
+                raise CommandError("no such map layer in the scenario")
             if body.get("command") == "base_maps":
                 known = {item["id"] for item in base_maps(self.settings)}
                 if not all(item in known for item in str(body.get("target", "")).split(",") if item):
