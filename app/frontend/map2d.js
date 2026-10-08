@@ -80,6 +80,15 @@ function createLeafletMap(config) {
   let markers = [];
   let windMarkers = [];
   let forecastLayer = null;
+  let weatherCategoryVisible = true;
+  let windVisible = true;
+  let radarVisible = true;
+
+  function setMapLayerVisible(layer, visible) {
+    if (!layer) return;
+    if (visible && !map.hasLayer(layer)) layer.addTo(map);
+    else if (!visible && map.hasLayer(layer)) layer.remove();
+  }
 
   return {
     dimension: "2d",
@@ -183,7 +192,7 @@ function createLeafletMap(config) {
     setupRadar(info) {
       radarOverlay = L.imageOverlay(info.frames[0].url, info.bounds, { pane: "radar", opacity: 0, interactive: false });
       overlays["Nederbörd (SMHI radar)"] = radarOverlay;
-      radarOverlay.addTo(map);
+      setMapLayerVisible(radarOverlay, weatherCategoryVisible && radarVisible);
     },
 
     showRadar(url) {
@@ -247,7 +256,7 @@ function createLeafletMap(config) {
         .bindTooltip("", { direction: "top" }).addTo(layer));
       overlays["Vind (ERA5-Land)"] = layer;
       windLayer = layer;
-      layer.addTo(map);
+      setMapLayerVisible(layer, weatherCategoryVisible && windVisible);
       layer.on("add", onShow);
     },
 
@@ -299,8 +308,16 @@ function createLeafletMap(config) {
     setLayerVisible(name, visible) {
       const layer = overlays[name];
       if (!layer) return false;
-      if (visible === map.hasLayer(layer)) return true;
-      if (visible) layer.addTo(map); else layer.remove();
+      let effectiveVisible = visible;
+      if (name === "Vind (ERA5-Land)") {
+        windVisible = visible;
+        effectiveVisible = visible && weatherCategoryVisible;
+      } else if (name === "Nederbörd (SMHI radar)") {
+        radarVisible = visible;
+        effectiveVisible = visible && weatherCategoryVisible;
+      }
+      if (effectiveVisible === map.hasLayer(layer)) return true;
+      setMapLayerVisible(layer, effectiveVisible);
       // As the layer control does, so the WMS listeners (the flood's legend) follow.
       map.fire(visible ? "overlayadd" : "overlayremove", { layer, name });
       return true;
@@ -332,7 +349,14 @@ function createLeafletMap(config) {
 
     // GOD VIEW's filter: hide or show a category of layers.
     setCategoryVisible(category, visible) {
-      const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer], weather: [windLayer, stationLayer] };
+      if (category === "weather") {
+        weatherCategoryVisible = visible;
+        setMapLayerVisible(windLayer, visible && windVisible);
+        setMapLayerVisible(stationLayer, visible);
+        setMapLayerVisible(radarOverlay, visible && radarVisible);
+        return;
+      }
+      const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer] };
       for (const layer of groups[category] || []) {
         if (!layer) continue;
         if (visible) layer.addTo(map);

@@ -357,12 +357,23 @@ def panel_choices() -> dict[str, dict[str, Any]]:
     return choices
 
 
+# The GOD VIEW filter's category (FILTER_CATEGORIES in scenario_events.js) a layer belongs to: the
+# filter hides it with the category (setCategoryVisible in map2d.js and map3d.js).
+LAYER_CATEGORIES = {
+    "Hotspots": "space",
+    "Syntetiska sensorer": "iot",
+    "Svar på fråga": "infrastructure",
+    "Vind (ERA5-Land)": "weather",
+    "Nederbörd (SMHI radar)": "weather",
+}
+
+
 def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
     """The maps' layers mission control ticks (panel.js), by the name both maps give them, with whether
     each map starts with it shown: True or False, or None when that map does not have it. The terrain is
     off at the start in 3D, where it halves the frame rate (map3d.js)."""
     def item(name: str, on_2d: bool | None, on_3d: bool | None) -> dict[str, Any]:
-        return {"name": name, "default_2d": on_2d, "default_3d": on_3d}
+        return {"name": name, "default_2d": on_2d, "default_3d": on_3d, "category": LAYER_CATEGORIES.get(name)}
 
     items = []
     if scenario.TERRAIN_FILE.is_file():
@@ -383,7 +394,7 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
             items.append(item(f"{title} (modell)", shown, shown))
     items.append(item("Svar på fråga", True, True))
     if satellites.satellites()["available"]:
-        items.append(item(f"Satelliter ({scenario.PLAYBACK_START.year})", None, True))
+        items.append({**item(f"Satelliter ({scenario.PLAYBACK_START.year})", None, True), "category": "space"})
     if settings.fastighet_enabled:
         items.append(item("Fastigheter (Lantmäteriet)", False, None))
     return items

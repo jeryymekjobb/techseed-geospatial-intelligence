@@ -356,6 +356,14 @@ kartan kan du fortfarande zooma, dra och högerklicka. Lägg till `?controls=1` 
 att få tillbaka huvudskärmens egna knappar och lagerlistor vid felsökning. Uppspelningsknapparna
 där styr alla skärmar, medan lagerlistan och stationslistorna bara gäller den skärmen.
 
+**Kartans lager.** Rutan **Kartans lager**, under KARTA och SENASTE SATELLITBILD, har en
+kryssruta per lager och de fyra kategorierna för GOD VIEW: **Space** (detektioner och
+satelliter), **IoT** (syntetiska sensorer), **Infrastructure** (svar på fråga) och **Weather**
+(vind, SMHI:s nederbördsradar och väderstationer). En kategori döljer eller visar alla sina
+lager, med en banner och i GOD VIEW:s lista på huvudskärmen; dess lager står indragna under den
+och går inte att ändra medan kategorin är dold. Maritime, Aviation och Emergency är gråa: de
+ingår inte i demon.
+
 **Bildtyper och baskartor.** Under knapparna listar mission control demons bildtyper och
 baskartor med kryssrutor. Vilka typer som är mest användbara beror på händelsen och på vilka
 satelliter som tog bilder.
@@ -424,7 +432,7 @@ Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 | 2:20 | Tryck **+60 MIN**, och tryck igen för att stänga. | "Prognosen är en enkel modell med stor osäkerhet." |
 | 2:30 | Tryck **SATCOM FAILURE**. Vänta några sekunder. | "Satellitlänken bryts. Sensorerna fortsätter, och satellitdatan köas." |
 | 2:45 | Tryck **SATCOM FAILURE** igen. | "Länken är tillbaka, och här är det som hände under avbrottet." |
-| 2:55 | Tryck **GOD VIEW**, och prova filterknapparna om det finns tid. | "From Orbit to Decision." |
+| 2:55 | Tryck **GOD VIEW**, och prova kategorierna Space, IoT, Infrastructure och Weather i rutan **Kartans lager** om det finns tid. | "From Orbit to Decision." |
 | Efteråt | Tryck **RESET**. | Inom ungefär fem sekunder är demon tillbaka i början och klar för nästa besökare. |
 
 **Om upptäcktssekvensen.** SATELLITE DETECTION tar alltid nästa verkliga satellitpassage

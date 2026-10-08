@@ -7,6 +7,7 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -65,6 +66,37 @@ def test_the_map_layers_mission_control_lists_are_the_names_both_maps_give_them(
         for dimension in ("2d", "3d"):
             if item[f"default_{dimension}"] is not None:
                 assert f'"{item["name"]}"' in sources[dimension], (item["name"], dimension)
+
+
+def test_the_map_layer_catalog_assigns_filter_categories_including_radar(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(server.scenario, "WILDFIRE", True)
+    monkeypatch.setattr(server.scenario, "TERRAIN_FILE", SimpleNamespace(is_file=lambda: False))
+    monkeypatch.setattr(server.scenario, "WIND_FILE", SimpleNamespace(exists=lambda: True))
+    monkeypatch.setattr(server, "radar", SimpleNamespace(layer=lambda: object()))
+    monkeypatch.setattr(server, "satellites", SimpleNamespace(satellites=lambda: {"available": True}))
+    monkeypatch.setattr(server, "ems", SimpleNamespace(perimeters=lambda: None))
+    monkeypatch.setattr(server, "wms", SimpleNamespace(sources=lambda: []))
+
+    items = server.map_layers(lantmateriet.Settings(None, None, None, None))
+    categories = {item["name"]: item["category"] for item in items}
+    assert categories["Hotspots"] == "space"
+    assert categories[f"Satelliter ({server.scenario.PLAYBACK_START.year})"] == "space"
+    assert categories["Syntetiska sensorer"] == "iot"
+    assert categories["Svar på fråga"] == "infrastructure"
+    assert categories["Vind (ERA5-Land)"] == "weather"
+    assert categories["Nederbörd (SMHI radar)"] == "weather"
+
+
+def test_the_weather_filter_hides_radar_and_restores_each_layer_choice() -> None:
+    map2d = (FRONTEND / "map2d.js").read_text(encoding="utf-8")
+    map3d = (FRONTEND / "map3d.js").read_text(encoding="utf-8")
+    weather_2d = map2d.split('if (category === "weather") {', 1)[1].split("return;", 1)[0]
+    weather_3d = map3d.split('if (category === "weather") {', 1)[1].split("return;", 1)[0]
+
+    assert "setMapLayerVisible(radarOverlay, visible && radarVisible)" in weather_2d
+    assert "windVisible" in weather_2d
+    assert "radarLayer.show = visible && radarVisible" in weather_3d
+    assert "windVisible" in weather_3d
 
 
 def test_the_panel_s_choices_follow_the_kind_of_incident() -> None:

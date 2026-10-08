@@ -52,6 +52,9 @@
         <button type="button" data-image="off">KARTA</button>
         <button type="button" data-image="auto">SENASTE SATELLITBILD</button>
       </div>
+      <fieldset id="map-layers" class="image-types">
+        <legend>Kartans lager</legend>
+      </fieldset>
       <fieldset id="image-types" class="image-types">
         <legend>Bildtyper som SENASTE SATELLITBILD följer</legend>
       </fieldset>
@@ -68,9 +71,6 @@
       </div>
       <div id="image-shown" class="status" aria-live="polite"></div>
       <div id="panel-choices" class="panel-choices"></div>
-      <fieldset id="map-layers" class="image-types">
-        <legend>Kartans lager</legend>
-      </fieldset>
     </section>
     <section>
       <h2>Frågor</h2>
@@ -92,16 +92,6 @@
         <button type="button" data-command="god_view" data-status="god_view">GOD VIEW</button>
         <button type="button" data-command="space_view" data-status="space_view">SPACE VIEW</button>
         <button type="button" data-command="iot" data-status="iot">IOT PÅ/AV</button>
-      </div>
-      <h3>Filter</h3>
-      <div class="control-grid filter-grid">
-        <button type="button" data-command="filter" data-target="space" data-filter="space">SPACE</button>
-        <button type="button" data-command="filter" data-target="iot" data-filter="iot">IOT</button>
-        <button type="button" data-command="filter" data-target="infrastructure" data-filter="infrastructure">INFRASTRUCTURE</button>
-        <button type="button" data-command="filter" data-target="weather" data-filter="weather">WEATHER</button>
-        <button type="button" disabled>MARITIME – ingår inte i demon</button>
-        <button type="button" disabled>AVIATION – ingår inte i demon</button>
-        <button type="button" disabled>EMERGENCY – ingår inte i demon</button>
       </div>
       <p class="status">Alla händelser är syntetiska och märks så på huvudskärmen.</p>
     </section>

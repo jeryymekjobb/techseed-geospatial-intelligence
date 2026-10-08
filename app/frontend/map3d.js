@@ -157,6 +157,8 @@ async function createCesiumMap(config) {
   let radarLayer = null;
   let radarUrl = null;
   let radarVisible = true;
+  let weatherCategoryVisible = true;
+  let windVisible = true;
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
   let terrainLayer = null;
@@ -329,9 +331,10 @@ async function createCesiumMap(config) {
         billboard: { image: barbImage(0), alignedAxis: Cesium.Cartesian3.UNIT_Z, show: false, ...ON_GROUND },
       }));
       layers.push(["Vind (ERA5-Land)", (visible) => {
-        windLayer.show = visible;
-        if (visible) onShow();
-      }, () => windLayer.show]);
+        windVisible = visible;
+        windLayer.show = visible && weatherCategoryVisible;
+        if (windLayer.show) onShow();
+      }, () => windVisible && weatherCategoryVisible]);
     },
 
     showWind(hour, wind) {
@@ -488,7 +491,15 @@ async function createCesiumMap(config) {
 
     // GOD VIEW's filter: hide or show a category of layers.
     setCategoryVisible(category, visible) {
-      const groups = { space: [points, satelliteLayer], iot: [syntheticLayer], infrastructure: [queryLayer], weather: [windLayer, stationLayer] };
+      if (category === "weather") {
+        weatherCategoryVisible = visible;
+        windLayer.show = visible && windVisible;
+        stationLayer.show = visible;
+        if (radarLayer) radarLayer.show = visible && radarVisible;
+        for (const [box, shown] of layerBoxes) box.checked = shown();
+        return;
+      }
+      const groups = { space: [points, satelliteLayer], iot: [syntheticLayer], infrastructure: [queryLayer] };
       for (const layer of groups[category] || []) layer.show = visible;
       for (const [box, shown] of layerBoxes) box.checked = shown();
     },
@@ -642,8 +653,8 @@ async function createCesiumMap(config) {
       radarRectangle = Cesium.Rectangle.fromDegrees(west, south, east, north);
       layers.push(["Nederbörd (SMHI radar)", (visible) => {
         radarVisible = visible;
-        if (radarLayer) radarLayer.show = visible;
-      }, () => radarVisible]);
+        if (radarLayer) radarLayer.show = visible && weatherCategoryVisible;
+      }, () => radarVisible && weatherCategoryVisible]);
     },
 
     showRadar(url) {
@@ -657,7 +668,7 @@ async function createCesiumMap(config) {
         if (radarUrl !== url) return;  // a newer frame came while this one loaded
         const next = viewer.imageryLayers.addImageryProvider(provider);
         next.alpha = 0.85;
-        next.show = radarVisible;
+        next.show = radarVisible && weatherCategoryVisible;
         if (radarLayer) viewer.imageryLayers.remove(radarLayer, true);
         radarLayer = next;
       }).catch(() => {});

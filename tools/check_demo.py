@@ -331,7 +331,8 @@ def satcom(demo: Demo) -> str:
 
 def god_view(demo: Demo) -> str:
     demo.button("GOD VIEW").click()
-    demo.button("WEATHER").click()
+    # The filter's categories are rows in mission control's box of map layers.
+    demo.control.uncheck("#map-layers input[data-category=weather]")
     demo.main.wait_for_function("!document.getElementById('god-filter').hidden"
                                 " && document.getElementById('god-filter').textContent.includes('☐ Weather')", timeout=WAIT_MS, polling=POLL_MS)
     demo.shot("7-god-view")

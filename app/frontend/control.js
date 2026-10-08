@@ -57,11 +57,6 @@ function showState(scenarioState) {
   speeds.value = pendingSpeed ?? String(scenarioState.speed);
   $("apply-speed").disabled = pendingSpeed === null;
   const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view, space_view: status.space_view, iot: status.iot, detection: Boolean(status.detection) };
-  for (const button of document.querySelectorAll("[data-filter]")) {
-    const shown = !status.hidden_layers.includes(button.dataset.filter);
-    button.classList.toggle("active", shown);
-    button.setAttribute("aria-pressed", String(shown));
-  }
   for (const button of document.querySelectorAll("[data-status]")) {
     const on = Boolean(active[button.dataset.status]);
     button.classList.toggle("active", on);
@@ -206,21 +201,47 @@ function showChoices() {
   }
 }
 
-// The maps' layers, switched for every screen (the status's map_layers; panel.js applyMapLayers).
-// A layer not switched yet is as the 3D globe in the booth starts it, or the 2D map for a 2D-only layer.
+// The maps' layers and GOD VIEW's filter in one box. A category (FILTER_CATEGORIES) is a row of
+// its own that sends the filter event as its button did, with its layers under it; the other
+// layers follow. A layer is switched for every screen (the status's map_layers; panel.js
+// applyMapLayers); one not switched yet is as the 3D globe in the booth starts it, or the 2D map
+// for a 2D-only layer. The categories the demo lacks are greyed out.
+function layerRow(item, className) {
+  const label = document.createElement("label");
+  label.className = className;
+  label.innerHTML = '<input type="checkbox"> <span></span> <span class="count"></span>';
+  label.querySelector("input").value = item.name;
+  label.querySelector("span").textContent = item.name;
+  label.querySelector(".count").textContent = item.default_2d === null ? "bara 3D" : item.default_3d === null ? "bara 2D" : "";
+  return label;
+}
+
 function setupMapLayers(items) {
   const box = $("map-layers");
-  for (const item of items) {
-    const label = document.createElement("label");
-    label.innerHTML = '<input type="checkbox"> <span></span> <span class="count"></span>';
-    label.querySelector("input").value = item.name;
-    label.querySelector("span").textContent = item.name;
-    label.querySelector(".count").textContent = item.default_2d === null ? "bara 3D" : item.default_3d === null ? "bara 2D" : "";
-    box.append(label);
+  for (const category of FILTER_CATEGORIES) {
+    const row = document.createElement("label");
+    row.className = "layer-category";
+    row.innerHTML = '<input type="checkbox"> <span></span> <span class="count"></span>';
+    const input = row.querySelector("input");
+    input.dataset.category = category.id;
+    input.disabled = Boolean(category.missing);
+    row.querySelector("span").textContent = category.label;
+    row.querySelector(".count").textContent = category.missing ? MISSING_NOTE : "";
+    box.append(row);
+    for (const item of items.filter((entry) => entry.category === category.id)) box.append(layerRow(item, "layer-child"));
   }
-  box.hidden = !items.length;
+  for (const item of items.filter((entry) => !entry.category)) box.append(layerRow(item, ""));
   box.addEventListener("change", (event) => {
     const input = event.target;
+    if (input.dataset.category) {
+      send("filter", input.dataset.category).then((state) => {
+        showState(state);
+        $("command-status").textContent = "";
+      }).catch((error) => {
+        $("command-status").textContent = `Filtret kunde inte ändras: ${error.message}`;
+      });
+      return;
+    }
     send(input.checked ? "map_layer_on" : "map_layer_off", input.value).then((state) => {
       showState(state);
       $("command-status").textContent = "";
@@ -232,9 +253,15 @@ function setupMapLayers(items) {
 
 function showMapLayers() {
   if (!config || !status) return;
-  for (const input of document.querySelectorAll("#map-layers input")) {
+  for (const input of document.querySelectorAll("#map-layers input[data-category]")) {
+    const category = FILTER_CATEGORIES.find((entry) => entry.id === input.dataset.category);
+    input.checked = !category.missing && !status.hidden_layers.includes(category.id);
+  }
+  for (const input of document.querySelectorAll("#map-layers input:not([data-category])")) {
     const item = config.layers.map_layers.find((entry) => entry.name === input.value);
     input.checked = Boolean(status.map_layers?.[input.value] ?? item.default_3d ?? item.default_2d);
+    // A layer under a category the filter hides is hidden with it.
+    input.disabled = Boolean(item.category && status.hidden_layers.includes(item.category));
   }
 }
 
