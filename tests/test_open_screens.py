@@ -19,6 +19,7 @@ def test_two_monitors_the_satellite_monitor_and_main_screen_share_the_widest_and
     assert [(item.screen, item.x, item.y, item.width, item.height) for item in windows] == [
         ("monitor", 0, 160, 1146, 1440), ("main", 1146, 160, 2294, 1440), ("control", 3440, 0, 2560, 1600)]
     assert windows[1].path == "/3d.html?at=2026-08-16T05:00:00Z"
+    assert windows[2].path == "/control.html?at=2026-08-16T05%3A00%3A00Z"
 
 
 def test_one_monitor_the_three_screens_side_by_side() -> None:

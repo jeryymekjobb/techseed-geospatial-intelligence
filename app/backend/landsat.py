@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from urllib.parse import quote
 
 from app.backend import scenario
 
@@ -28,7 +29,7 @@ NAMES = {
     "ndmi": "fukt i vegetationen, NDMI (band 5 och 6)",
     "water": "vatten, NDWI (Sentinel-2; moln bortmaskade)",
     "radar": "radar (Sentinel-1, VV; ser genom moln, ej terrängkorrigerad)",
-    "radarwater": "vatten i radarbilden utanför sjöar och hav (beräknat, enkel tröskel)",
+    "radarwater": "beräknat vatten i radarbilden utanför sjöar och hav (röd mask, enkel tröskel)",
 }
 ROLES = scenario.LANDSAT_ROLES
 SATELLITES = {"LC08": "Landsat 8", "LC09": "Landsat 9", "S2A": "Sentinel-2A", "S2B": "Sentinel-2B", "S2C": "Sentinel-2C",
@@ -42,9 +43,10 @@ def _scenes(directory: Any, prefix: str) -> tuple[list[dict[str, Any]], dict[str
     if source_file is None or not source_file.is_file():
         return [], None
     source = json.loads(source_file.read_text(encoding="utf-8"))
+    version = quote(str(source.get("processed_utc") or source_file.stat().st_mtime_ns), safe="")
     scenes = []
     for record in source.get("scenes", []):
-        images = {name: f"/{prefix}/{image['file']}" for name, image in record["images"].items()
+        images = {name: f"/{prefix}/{image['file']}?v={version}" for name, image in record["images"].items()
                   if (directory / image["file"]).is_file()}
         if not images:
             continue

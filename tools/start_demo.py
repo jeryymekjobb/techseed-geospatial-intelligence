@@ -48,9 +48,9 @@ MENU_TITLE = "Techseed Geospatial Intelligence Demos"
 
 
 def scenario_settings(name: str) -> tuple[str, str]:
-    """The scenario's map tiles file and starting time (its CHECK_START_UTC), without choosing it here."""
+    """The scenario's map tiles file and playback start, without choosing it here."""
     module = importlib.import_module(f"app.backend.scenarios.{name}")
-    return module.TILES_FILE, module.CHECK_START_UTC
+    return module.TILES_FILE, module.PLAYBACK_START.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def demos() -> list[dict[str, str]]:

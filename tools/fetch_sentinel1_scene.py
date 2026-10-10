@@ -15,7 +15,7 @@ acquisition it writes two PNGs:
   Copernicus DEM is at sea level. The threshold is the scene's own: the median amplitude
   over the known water, so a pixel counts only if it is as dark as typical open water.
   Pixels darker than it, on at least five of the nine pixels round them and outside the
-  known water, are shown blue. This is a simple computed mask, not a mapped flood:
+  known water, are shown red. This is a simple computed mask, not a mapped flood:
   smooth surfaces such as tarmac and radar shadows behind hills are dark as well.
   Where the darkest land (its 5th percentile) is darker than the threshold - wind on the
   water or rain on the ground - the scene is marked not separable and its mask uncertain.
@@ -50,7 +50,7 @@ FOCUS_AREA = scenario.LANDSAT_FOCUS_AREA
 SEA_LEVEL_M = 0.5  # the DEM's sea, as known water
 LAND_PERCENTILE = 5.0
 NEIGHBOURS = 5  # of the 3 x 3 pixels round a pixel, at least this many dark
-WATER_RGBA = (0, 190, 255, 220)
+WATER_RGBA = (255, 0, 0, 220)
 NOTICE = (f"Contains modified Copernicus Sentinel data {scenario.PERIOD_START.year}, processed by Techseed "
           "(Planetary Computer, sentinel-1-grd)")
 LICENCE = "https://sentinels.copernicus.eu/documents/247904/690755/Sentinel_Data_Legal_Notice (free and open)"
@@ -235,9 +235,11 @@ def main(argv: list[str] | None = None) -> int:
         "bounds_west_south_east_north": [west, south, east, north],
         "size_px": list(SIZE),
         "processed_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "processing": ("gdalwarp with the products' GCPs (thin plate spline) to EPSG:4326, averaged; not terrain-corrected; "
-                       f"water: darker than the median over OSM lakes and the DEM's sea, {NEIGHBOURS} of 9 neighbours; "
-                       f"not separable where the {LAND_PERCENTILE:.0f}th percentile of land is darker"),
+        "processing": (
+            "gdalwarp with the products' GCPs (thin plate spline) to EPSG:4326, averaged; not terrain-corrected; "
+            f"water: darker than the median over OSM lakes and the DEM's sea, {NEIGHBOURS} of 9 neighbours, shown red; "
+            f"not separable where the {LAND_PERCENTILE:.0f}th percentile of land is darker"
+        ),
         "notice": NOTICE,
         "licence": LICENCE,
     }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

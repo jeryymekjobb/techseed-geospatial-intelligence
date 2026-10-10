@@ -290,13 +290,14 @@ fungera.
 Enklast är att låta ett kommando öppna de tre skärmarna, var och en på sin plats:
 
 ```bash
-.venv/bin/python -m tools.open_screens --at 2014-08-04T09:30:00Z
+.venv/bin/python -m tools.open_screens
 ```
 
 Med två skärmar hamnar satellitbevakningen på vänstra tredjedelen av den största skärmen,
 huvudskärmen på resten av den och mission control på den andra skärmen. Med en skärm hamnar de
 sida vid sida. Varje skärm är ett eget Chrome-fönster utan adressfält. Din vanliga Chrome
-påverkas inte. Kör kommandot igen om ett fönster har hamnat fel eller stängts: det öppnar
+påverkas inte. När Mission Control har laddat återställs scenariot till den sparade profilen och
+dess starttid. Kör kommandot igen om ett fönster har hamnat fel eller stängts: det öppnar
 skärmarna på nytt på sina platser.
 
 Vill du hellre öppna fönstren själv, öppna tre fönster i Chrome:
@@ -650,8 +651,9 @@ satellitmonitorn och huvudskärmen stängs, och menyn visas i mission control. K
 på branden för att byta tillbaka. Är demon startad med ett namn går det likadant; utan
 `tools.start_demo` stoppar du med Ctrl+C och kör `.venv/bin/python -m tools.start_demo`.
 
-Valet byter karta i kartjänsten, startar backend och sensorerna och öppnar skärmarna på
-16 augusti kl. 07:00 svensk tid, strax före den första radarbilden och regnets topp.
+Valet byter karta i kartjänsten, startar backend och sensorerna och återställer scenariot till
+dess start den 14 augusti kl. 02:00 svensk tid. Spela upp scenariot för att komma fram till
+radarbilden den 16 augusti och regnets topp.
 
 **Steg för steg:** det finns en kartjänst, och den visar en demos karta i taget. Byt så här.
 
@@ -668,12 +670,12 @@ TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
 3. Öppna skärmarna på nytt, i terminal 2 eller en ny terminal:
 
 ```bash
-.venv/bin/python -m tools.open_screens --at 2026-08-16T05:00:00Z
+.venv/bin/python -m tools.open_screens
 ```
 
-   Klockan blir då 16 augusti kl. 07:00 svensk tid, strax före den första radarbilden och
-   regnets topp. Öppnar du fönstren själv är adresserna desamma som i avsnitt 8, med
-   <http://127.0.0.1:8765/3d.html?at=2026-08-16T05:00:00Z> för huvudskärmen.
+   När Mission Control har laddat är klockan 14 augusti kl. 02:00 svensk tid. Öppnar du
+   fönstren själv är adresserna desamma som i avsnitt 8, med <http://127.0.0.1:8765/3d.html>
+   för huvudskärmen.
 
 Huvudskärmen ska ha rubriken "Översvämning i Sundsvall 2026 – scenario", och mission control
 "Scenario: FLOOD – Sundsvall 2026".
@@ -701,7 +703,7 @@ så att besökarna hinner se vad som händer.
 | 1:00 | Tryck **SATELLITE DETECTION**. Steg 1, **Bild tagen**: Sentinel-1C kl. 07:21 svensk tid. | "Det här är en verklig radarbild från Sentinel-1, tagen över Sundsvall den morgonen." |
 | 1:10 | Tryck **NÄSTA ▸** två gånger: **Anomali upptäckt ombord** och **Nedlänk**, båda SYNTETISKT. | "I framtiden kan satelliten själv hitta vatten i bilden och slå larm. Här är det illustrerat." |
 | 1:25 | Tryck **NÄSTA ▸**. Steg 4, **Zoom till Sundsvall**: kartan visar radarbilden i grått. | "Radarn ser genom molnen. Släta vattenytor är mörka, och stan är ljus." |
-| 1:35 | Tryck **NÄSTA ▸**. Steg 5, **IoT på marken**, SYNTETISKT. Blått på kartan är vatten i radarbilden utanför sjöar och hav. | "Det blå är en enkel beräkning, inte en kartlagd översvämning. Bräddgivarna i dagvattnet är simulerade, men har samma format som kommunens sensorplattform." |
+| 1:35 | Tryck **NÄSTA ▸**. Steg 5, **IoT på marken**, SYNTETISKT. Rött på kartan är vatten i radarbilden utanför sjöar och hav. | "Det röda är en enkel beräkning, inte en kartlagd översvämning. Bräddgivarna i dagvattnet är simulerade, men har samma format som kommunens sensorplattform." |
 | 1:45 | Tryck **NÄSTA ▸**. Steg 6, **Korrelering**: fyra regler med ✓ eller ✗. | "Reglerna väger regn, bräddning, modellen och radarbilden. Just den här morgonen skiljer radarn dåligt mellan vatten och land, och det säger regeln." |
 | 2:00 | Tryck **NÄSTA ▸**, välj 10 minuter/s och tryck **ANVÄND** och **PLAY**. Runt kl. 10 svensk tid kommer regnets topp, och bräddgivarna blir röda. | "Nu kommer det kraftigaste regnet. Fyra av åtta bräddgivare bräddar." |
 | 2:15 | Tryck **PAUSE**. Peka på AI ASSESSMENT och tryck "Why do you believe there is a flood?" under **Frågor** i mission control. | "Bedömningen visar varför: regnet och bräddningen. Varje rad pekar på sitt ställe på kartan." |
@@ -733,7 +735,7 @@ också. En placerad sensor räknas ut ur regnet vid närmaste mätare, men har i
 | **Beräknat** | Satelliternas positioner och passager, vattenmasken i Sentinel-2-bilden, vattnet i radarbilden utanför sjöar och hav (en enkel tröskel), bedömningens poäng och reglerna | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
 | **Syntetiskt och simulerat** | Bräddgivarna DV1–DV8 och placerade sensorer, sensorerna i montern, händelserna från mission control och sekvensens steg märkta SYNTETISKT | "Simulerat för demon. Det står på skärmen." |
 
-Säg inte att Sundsvall översvämmades den 16 augusti, att det blå i radarbilden är en kartlagd
+Säg inte att Sundsvall översvämmades den 16 augusti, att det röda i radarbilden är en kartlagd
 översvämning eller att bräddgivarna är MSVA:s eller kommunens mätningar. Regnet från kommunens mätare är de senaste
 månaderna inte alltid kvalitetsgranskat, och en timme utan värde räknas som torr.
 

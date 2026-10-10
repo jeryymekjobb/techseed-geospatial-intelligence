@@ -57,6 +57,22 @@ def test_every_screen_loads_the_shared_texts_before_its_own_script() -> None:
             assert html.index(shared) < html.index(follower)
 
 
+def test_mission_control_resets_once_after_document_config_and_initial_sync_are_ready() -> None:
+    source = (FRONTEND / "control.js").read_text(encoding="utf-8")
+    assert 'let documentLoaded = document.readyState === "complete"' in source
+    assert "let startupConfigReady = false" in source
+    assert "let startupSyncReady = false" in source
+    assert "let startupResetSent = false" in source
+    gate = source.index("if (!documentLoaded || !startupConfigReady || !startupSyncReady || startupResetSent) return")
+    reset = source.index('send("reset")', gate)
+    seek = source.index('send("seek", null, null, startupAt)', reset)
+    assert gate < reset < seek
+    assert 'startupAt && startupAt !== config.playback.start_utc' in source
+    assert 'if (event.type === "sync" && !startupSyncReady)' in source
+    config_complete = source.index("startupConfigReady = true")
+    assert source.index("resetAfterMissionControlLoad();", config_complete) > config_complete
+
+
 def node(expression: str) -> object:
     code = (
         f"const events = require({json.dumps(str(FRONTEND / 'scenario_events.js'))});"

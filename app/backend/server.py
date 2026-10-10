@@ -400,6 +400,30 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
     return items
 
 
+def profile_base_maps(settings: lantmateriet.Settings, status: dict[str, Any]) -> list[str]:
+    """Save the base maps mission control currently shows, including its implicit default."""
+    selected = status.get("base_maps")
+    if selected is not None:
+        return list(selected)
+    available = [item["id"] for item in base_maps(settings)]
+    if "offline" in available:
+        return ["offline"]
+    return ["online"] if "online" in available else []
+
+
+def profile_map_layers(settings: lantmateriet.Settings, status: dict[str, Any]) -> dict[str, bool]:
+    """Save mission control's effective layer ticks, including each layer's startup default."""
+    selected = status.get("map_layers") or {}
+    result = {}
+    for item in map_layers(settings):
+        name = item["name"]
+        default = item["default_3d"] if item["default_3d"] is not None else item["default_2d"]
+        visible = selected[name] if name in selected else default
+        if visible is not None:
+            result[name] = bool(visible)
+    return result
+
+
 def config(settings: lantmateriet.Settings) -> dict[str, Any]:
     min_lat, max_lat, min_lon, max_lon = scenario.VIEW_BBOX
     fire = scenario.FIRE_BBOX
@@ -618,7 +642,12 @@ class Handler(BaseHTTPRequestHandler):
                 # SPARA PROFIL: the ticks shown now become the profile of the scenario's kind of incident.
                 status = self.engine.snapshot()["status"]
                 try:
-                    saved = profiles.save(scenario.INCIDENT, status["image_types"], status["base_maps"])
+                    saved = profiles.save(
+                        scenario.INCIDENT,
+                        status["image_types"],
+                        profile_base_maps(self.settings, status),
+                        map_layers=profile_map_layers(self.settings, status),
+                    )
                 except OSError as exc:
                     self.send_json({"error": "profile_not_saved", "detail": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
                     return
@@ -856,6 +885,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_bytes(target.read_bytes(), content_type)
 
 
+def reset_scenario_for_startup() -> None:
+    """Start every selected scenario from its reset state before screens connect."""
+    Handler.engine.command("reset")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Backend for the demo map")
     parser.add_argument("--scenario", choices=AVAILABLE, help=f"the scenario to run (default: TECHSEED_SCENARIO or {DEFAULT})")
@@ -868,6 +902,7 @@ def main(argv: list[str] | None = None) -> int:
         # The modules read the scenario when they are imported: start again with it chosen.
         os.environ["TECHSEED_SCENARIO"] = args.scenario
         os.execv(sys.executable, [sys.executable, "-m", "app.backend.server", *(argv if argv is not None else sys.argv[1:])])
+    reset_scenario_for_startup()
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.daemon_threads = True
     settings = Handler.settings

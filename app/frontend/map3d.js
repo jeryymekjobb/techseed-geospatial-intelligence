@@ -149,10 +149,11 @@ async function createCesiumMap(config) {
   const stationEntities = new Map();  // SMHI station id -> entity
   let highlighted = null;  // the detection sequence's satellite: { entry, line }
   const landsatLayers = {};  // composite name -> imagery layer
-  const wmsLayers = [];  // the flood maps, kept above the satellite images
+  const wmsLayers = [];  // the flood maps, normally above satellite images; radar-water is raised above them
   const wmsNames = new Map();  // imagery layer -> WMS layer name
   let wmsListener = () => {};
   const emsLayer = new Cesium.CustomDataSource("ems");
+  let shownLandsatKey = null;
   let radarRectangle = null;  // SMHI's radar: one imagery layer at a time, replaced as the clock goes
   let radarLayer = null;
   let radarUrl = null;
@@ -671,6 +672,9 @@ async function createCesiumMap(config) {
         next.show = radarVisible && weatherCategoryVisible;
         if (radarLayer) viewer.imageryLayers.remove(radarLayer, true);
         radarLayer = next;
+        if (shownLandsatKey?.endsWith("|radarwater") && landsatLayers[shownLandsatKey]) {
+          viewer.imageryLayers.raiseToTop(landsatLayers[shownLandsatKey]);
+        }
       }).catch(() => {});
     },
 
@@ -695,7 +699,14 @@ async function createCesiumMap(config) {
     },
 
     showLandsat(name) {
+      shownLandsatKey = name;
       for (const [key, layer] of Object.entries(landsatLayers)) layer.show = key === name;
+      // This image is transparent except for its computed red water mask, which must overlay flood-map fills.
+      if (name && name.endsWith("|radarwater") && landsatLayers[name]) {
+        viewer.imageryLayers.raiseToTop(landsatLayers[name]);
+      } else {
+        for (const layer of wmsLayers) viewer.imageryLayers.raiseToTop(layer);
+      }
     },
 
     // Show an evidence object from the assessment.

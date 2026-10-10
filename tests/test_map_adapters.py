@@ -81,3 +81,14 @@ def test_the_3d_wms_layers_ask_for_maps_only_as_the_backend_forwards() -> None:
     source = (FRONTEND / "map3d.js").read_text(encoding="utf-8")
     provider = source[source.index("new Cesium.WebMapServiceImageryProvider("):]
     assert "enablePickFeatures: false" in provider[:provider.index("}));")]  # a click would send GetFeatureInfo, refused with 400
+
+
+def test_radarwater_appears_above_wms_without_raising_other_satellite_images() -> None:
+    map2d = (FRONTEND / "map2d.js").read_text(encoding="utf-8")
+    assert 'map.createPane("radarwater").style.zIndex = 420' in map2d
+    assert 'name === "radarwater" ? "radarwater" : "landsat"' in map2d
+
+    map3d = (FRONTEND / "map3d.js").read_text(encoding="utf-8")
+    assert 'name.endsWith("|radarwater")' in map3d
+    assert "viewer.imageryLayers.raiseToTop(landsatLayers[name])" in map3d
+    assert 'shownLandsatKey?.endsWith("|radarwater")' in map3d

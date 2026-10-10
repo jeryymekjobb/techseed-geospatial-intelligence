@@ -95,7 +95,7 @@ class ScenarioEngine:
     area: tuple[float, float, float, float] | None = None
     monotonic: Callable[[], float] = time.monotonic
     speed: float = DEFAULT_SPEED
-    # The saved display profile's ticks ({"image_types", "base_maps"}), read at the start and at every reset.
+    # The saved display profile, read at the start and at every reset.
     profile: Callable[[], dict[str, Any] | None] | None = None
     _clock: datetime = field(init=False)
     _playing: bool = field(default=False, init=False)
@@ -125,6 +125,9 @@ class ScenarioEngine:
         saved = (self.profile() if self.profile else None) or {}
         self._image_types = saved.get("image_types")
         self._base_maps = saved.get("base_maps")
+        layers = saved.get("map_layers")
+        self._map_layers = ({name: visible for name, visible in layers.items()
+                             if isinstance(name, str) and isinstance(visible, bool)} if isinstance(layers, dict) else {})
 
     def set_slow_windows(self, windows: list[tuple[datetime, datetime]]) -> None:
         """Scenario periods in which the clock goes no faster than SLOW_SPEED; overlaps are merged."""
@@ -306,9 +309,9 @@ class ScenarioEngine:
                 self.events.clear()
                 self._detection = None
                 self._image = "auto"
-                self._apply_profile()
                 self._map_layers.clear()
                 self._choices.clear()
+                self._apply_profile()
                 if self._question["id"] is not None:
                     self._question = {"id": None, "seq": self._question["seq"] + 1}
                 self.jump += 1

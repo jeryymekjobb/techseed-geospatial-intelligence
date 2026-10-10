@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -12,6 +13,7 @@ from urllib.request import Request, urlopen
 import pytest
 
 from app.backend import lantmateriet, server
+from app.backend.scenarios import AVAILABLE
 from app.backend.scenario_engine import CommandError, ScenarioEngine
 
 START = datetime(2014, 7, 31, tzinfo=timezone.utc)
@@ -59,6 +61,31 @@ def test_seek_reset_speed_and_end() -> None:
     assert scenario.command("play")["clock_utc"] == "2014-07-31T00:00:00Z"
     assert scenario.command("reset")["playing"] is False
     assert scenario.command("seek", at="2010-01-01T00:00:00Z")["clock_utc"] == "2014-07-31T00:00:00Z"
+
+
+@pytest.mark.parametrize("name", AVAILABLE)
+def test_startup_reset_clears_the_selected_scenario(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    selected = importlib.import_module(f"app.backend.scenarios.{name}")
+    profile = {"image_types": ["radar", "natural"], "base_maps": ["online"],
+               "map_layers": {"Nederbörd (SMHI radar)": True}}
+    scenario = ScenarioEngine(selected.PLAYBACK_START, selected.PLAYBACK_END, profile=lambda: profile)
+    scenario.command("seek", at=(selected.PLAYBACK_START + timedelta(minutes=5)).isoformat().replace("+00:00", "Z"))
+    scenario.command("satcom_failure")
+    scenario.command("image", target="off")
+    scenario.command("image_types", target="off")
+    scenario.command("choose", target="horizon=12")
+    monkeypatch.setattr(server.Handler, "engine", scenario)
+
+    server.reset_scenario_for_startup()
+
+    state = scenario.snapshot()
+    assert state["clock_utc"] == selected.PLAYBACK_START.strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert not state["playing"] and state["events"] == []
+    assert state["status"]["satcom_up"] and state["status"]["image"] == "auto"
+    assert state["status"]["image_types"] == profile["image_types"]
+    assert state["status"]["base_maps"] == profile["base_maps"]
+    assert state["status"]["map_layers"] == profile["map_layers"]
+    assert state["status"]["choices"] == {}
 
 
 def test_invalid_commands_are_refused() -> None:

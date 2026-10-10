@@ -63,13 +63,15 @@ function createLeafletMap(config) {
   const queryLayer = L.layerGroup().addTo(map);
   overlays["Svar på fråga"] = queryLayer;
   const stationLayer = L.layerGroup().addTo(map);
-  // The Landsat 8 scene below the hotspots and other overlays. It is in WGS 84 and
-  // stretched to its bounds; over this small area the distortion is about one per cent.
+  // Satellite images are below the flood maps, except the transparent radar-water mask.
+  // Images are in WGS 84 and stretched to their bounds.
   map.createPane("landsat").style.zIndex = 350;
-  // The flood maps above the satellite image, below the markers.
+  // The flood maps above ordinary satellite images, below the radar-water mask and markers.
   map.createPane("wms").style.zIndex = 360;
   // SMHI's radar above the flood maps, below the markers.
   map.createPane("radar").style.zIndex = 370;
+  // The transparent Sentinel-1 water mask must be visible above the flood maps and weather radar.
+  map.createPane("radarwater").style.zIndex = 420;
   let radarOverlay = null;
   let emsLayer = null;
   const landsatOverlays = {};
@@ -382,7 +384,8 @@ function createLeafletMap(config) {
       // One overlay per scene and image, keyed "scene|image" as landsat.js names them.
       for (const scene of info.scenes) {
         for (const [name, url] of Object.entries(scene.images)) {
-          landsatOverlays[`${scene.scene}|${name}`] = L.imageOverlay(url, info.bounds, { pane: "landsat", interactive: false });
+          const pane = name === "radarwater" ? "radarwater" : "landsat";
+          landsatOverlays[`${scene.scene}|${name}`] = L.imageOverlay(url, info.bounds, { pane, interactive: false });
         }
       }
     },

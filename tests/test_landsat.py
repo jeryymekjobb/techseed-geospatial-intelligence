@@ -93,6 +93,7 @@ def write_scenes(directory: Path, roles: dict[str, str], images: list[str]) -> N
     (directory / "SOURCE.json").write_text(json.dumps({
         "scenes": scenes, "bounds_west_south_east_north": [15.85, 59.75, 16.45, 60.08],
         "ndmi_colours": [[-0.2, [140, 81, 10]], [0.6, [1, 102, 94]]], "citation": "courtesy of the U.S. Geological Survey",
+        "processed_utc": "2026-10-09T08:23:24Z",
     }), encoding="utf-8")
 
 
@@ -105,9 +106,27 @@ def test_the_layer_lists_the_scenes_in_time_order_with_their_images(tmp_path: Pa
     write_scenes(tmp_path / "landsat", {"after": ROLES["after"], "before": ROLES["before"]}, ["swir", "ndmi"])
     layer = landsat.layer()
     assert [scene["role"] for scene in layer["scenes"]] == ["before", "after"]
-    assert layer["scenes"][0]["images"] == {"swir": "/landsat/LC08_before-swir.png", "ndmi": "/landsat/LC08_before-ndmi.png"}
+    assert layer["scenes"][0]["images"] == {
+        "swir": "/landsat/LC08_before-swir.png?v=2026-10-09T08%3A23%3A24Z",
+        "ndmi": "/landsat/LC08_before-ndmi.png?v=2026-10-09T08%3A23%3A24Z",
+    }
     assert layer["scenes"][1]["label"] == "Efter branden – jämförelse: Landsat 8, 2014-09-14 10:00 UTC"
     assert layer["bounds"] == [[59.75, 15.85], [60.08, 16.45]] and layer["ndmi_colours"][0][0] == -0.2
+
+
+def test_image_urls_change_when_the_source_is_regenerated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    directory = tmp_path / "landsat"
+    monkeypatch.setattr(landsat, "LANDSAT_DIR", directory)
+    write_scenes(directory, {"during": ROLES["during"]}, ["ndmi"])
+    first = landsat.layer()["scenes"][0]["images"]["ndmi"]
+
+    source_file = directory / "SOURCE.json"
+    source = json.loads(source_file.read_text(encoding="utf-8"))
+    source["processed_utc"] = "2026-10-10T00:00:00Z"
+    source_file.write_text(json.dumps(source), encoding="utf-8")
+
+    second = landsat.layer()["scenes"][0]["images"]["ndmi"]
+    assert first != second and second.endswith("?v=2026-10-10T00%3A00%3A00Z")
 
 
 @pytest.fixture()
@@ -136,6 +155,8 @@ def status(url: str) -> int:
 
 def test_the_images_are_served_and_nothing_else(base_url: str) -> None:
     with urlopen(f"{base_url}/landsat/LC08_during-ndmi.png", timeout=10) as response:
+        assert response.read() == PNG and response.headers["Content-Type"] == "image/png"
+    with urlopen(f"{base_url}/landsat/LC08_during-ndmi.png?v=2026-10-09T08%3A23%3A24Z", timeout=10) as response:
         assert response.read() == PNG and response.headers["Content-Type"] == "image/png"
     with urlopen(f"{base_url}/api/config", timeout=10) as response:
         assert len(json.loads(response.read())["layers"]["landsat"]["scenes"]) == 3

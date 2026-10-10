@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 from urllib.error import URLError
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 from app.backend import offline_tiles, scenario
@@ -115,6 +115,11 @@ def free_port() -> int:
 
 def backend_command(port: int) -> list[str]:
     return [str(PYTHON), "-m", "app.backend.server", "--port", str(port)]
+
+
+def control_url(base_url: str, at: str) -> str:
+    """Mission control resets on load, then restores this explicitly requested start time."""
+    return f"{base_url}/control.html?at={quote(at, safe='')}"
 
 
 def wait_for(url: str, seconds: float = 60.0) -> None:
@@ -219,7 +224,7 @@ def opening(demo: Demo) -> str:
         # The page says why it did not start, for example that WebGL is missing.
         raise RuntimeError(f"sidan startade inte: {demo.text('stream-status') or 'ingen statustext'}") from exc
     demo.main.wait_for_selector("body[data-flight=arrived]", timeout=WAIT_MS)
-    demo.control.goto(f"{demo.base_url}/control.html")
+    demo.control.goto(control_url(demo.base_url, START_UTC))
     demo.monitor.goto(f"{demo.base_url}/monitor.html")
     demo.control.wait_for_function("document.getElementById('scenario-status').children.length > 0", timeout=WAIT_MS, polling=POLL_MS)
     if not scenario.WILDFIRE:

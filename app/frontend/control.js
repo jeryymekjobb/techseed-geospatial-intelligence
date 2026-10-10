@@ -14,6 +14,11 @@ let place = "branden";  // the incident's place, from /api/config
 let config = null;
 let imageList = null;  // the values in the image list, to rebuild it only when they change
 let clockShown = null;  // the scenario clock last shown, for when /api/config arrives after it
+const startupAt = new URLSearchParams(window.location.search).get("at");
+let documentLoaded = document.readyState === "complete";
+let startupConfigReady = false;
+let startupSyncReady = false;
+let startupResetSent = false;
 let pendingPick = null;  // an image chosen in the list, shown on the screens only with VISA VALD BILD
 let pendingSpeed = null;  // a speed chosen in the list, used only with ANVÄND
 const realSensors = new Map();
@@ -32,6 +37,28 @@ async function send(name, target, speed, at) {
     throw new Error(error.error === "control_token_required" ? "fel eller saknad token (?token=)" : error.detail || error.error || `HTTP ${response.status}`);
   }
   return response.json();
+}
+
+function resetAfterMissionControlLoad() {
+  if (!documentLoaded || !startupConfigReady || !startupSyncReady || startupResetSent) return;
+  startupResetSent = true;  // EventSource may send another sync after a reconnect.
+  (async () => {
+    try {
+      showState(await send("reset"));
+      // Only an explicit non-default start point is applied after the reset.
+      if (startupAt && startupAt !== config.playback.start_utc) showState(await send("seek", null, null, startupAt));
+      $("command-status").textContent = "";
+    } catch (error) {
+      $("command-status").textContent = `Reset vid laddning misslyckades: ${error.message}`;
+    }
+  })();
+}
+
+if (!documentLoaded) {
+  window.addEventListener("load", () => {
+    documentLoaded = true;
+    resetAfterMissionControlLoad();
+  }, { once: true });
 }
 
 // SATCOM FAILURE is a toggle on this screen: pressed again it sends satcom_restore.
@@ -294,15 +321,15 @@ function showBaseMaps() {
   for (const box of document.querySelectorAll("#base-maps input")) box.checked = ticked.includes(box.value);
 }
 
-// SPARA PROFIL: the ticked image types and base maps become the profile of the demo's kind of
-// incident (app/backend/profiles.py), which its demos start with and RESET returns to.
+// SPARA PROFIL: the ticked image types, base maps and map layers become the profile of the demo's
+// kind of incident (app/backend/profiles.py), which its demos start with and RESET returns to.
 const INCIDENT_WORDS = { wildfire: "skogsbrand", flood: "översvämning" };
 
 function showProfile(profile) {
   const kind = INCIDENT_WORDS[config.incident] || config.incident;
   $("save-profile").textContent = `SPARA PROFIL FÖR ${kind.toUpperCase()}`;
   $("profile-note").textContent = profile
-    ? `Profil för ${kind} sparad ${localTime.format(new Date(profile.saved_utc))} svensk tid; demon startar med den och RESET återgår till den.`
+    ? `Profil för ${kind} sparad ${localTime.format(new Date(profile.saved_utc))} svensk tid; bildtyper, baskartor och kartlager används vid start och RESET.`
     : `Ingen sparad profil för ${kind}: standardvalet gäller.`;
 }
 
@@ -373,6 +400,10 @@ function connect() {
   const follow = (event) => {
     const data = JSON.parse(event.data);
     showState(data.state || data);
+    if (event.type === "sync" && !startupSyncReady) {
+      startupSyncReady = true;
+      resetAfterMissionControlLoad();
+    }
   };
   source.addEventListener("sync", follow);
   source.addEventListener("state", follow);
@@ -452,6 +483,8 @@ fetch("/api/config").then((response) => response.json()).then((loaded) => {
   place = config.incident_place;
   if (clockShown) showImages(clockShown);
   showBaseMaps();
+  startupConfigReady = true;
+  resetAfterMissionControlLoad();
   // Only the buttons of the scenario's kind of incident (styles.css).
   document.body.dataset.incident = config.incident;
 }).catch(() => {});

@@ -43,6 +43,11 @@ def test_the_backend_is_started_on_a_free_local_port() -> None:
     assert command[0].endswith(".venv/bin/python")
 
 
+def test_mission_control_restores_the_check_start_time_after_its_automatic_reset() -> None:
+    assert check_demo.control_url("http://127.0.0.1:8765", "2026-08-16T05:00:00Z") == (
+        "http://127.0.0.1:8765/control.html?at=2026-08-16T05%3A00%3A00Z")
+
+
 def test_after_a_failure_the_rest_is_not_run() -> None:
     report = check_demo.Report("http://x", False, "2026-10-05T12:00:00Z")
     report.steps.append(check_demo.Step("1 Öppning: jorden till branden", "UNDERKÄND", "RuntimeError: sidan startade inte", 60.0))

@@ -47,6 +47,7 @@ def test_dark_land_as_dark_as_open_water_is_marked_and_a_scene_without_contrast_
     amplitude.tofile(tmp_path / "K-vv.bil")
     stats = s1.radar_images(tmp_path, "K", water, SIZE, BBOX, FOCUS)
     mask = np.asarray(Image.open(tmp_path / "K-radarwater.png"))
+    assert s1.WATER_RGBA == (255, 0, 0, 220)
     assert tuple(mask[21, 31]) == s1.WATER_RGBA and mask[5, 5, 3] == 0 and mask[20, 75, 3] == 0  # not speckle, not the sea
     assert stats["separable"] and stats["focus_area_coverage_pct"] == 100.0
     # The pool's four corners have only four dark neighbours of nine: five pixels remain.

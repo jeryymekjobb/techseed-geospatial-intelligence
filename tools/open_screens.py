@@ -17,7 +17,7 @@ its monitor - so it fits the monitor's work area exactly. The thirds are of the 
 A screen already open with this tool is closed first, so it opens in its place again.
 Chrome's own messages go nowhere. Press F11 in the main screen for full screen.
 
-    .venv/bin/python -m tools.open_screens --at 2026-08-16T05:00:00Z
+    .venv/bin/python -m tools.open_screens
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ import subprocess
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
+from urllib.parse import quote
 
 PROFILES = Path.home() / ".cache" / "techseed-screens"
 MONITOR_LINE = re.compile(r"^\s*\d+:\s+\S+\s+(\d+)/\d+x(\d+)/\d+\+(\d+)\+(\d+)\s+(\S+)")
@@ -85,6 +86,7 @@ def within_work_areas(screens: list[Monitor], areas: list[tuple[int, int, int, i
 def layout(screens: list[Monitor], at: str | None = None) -> list[Window]:
     """Where the satellite monitor, the main screen and mission control go."""
     main_path = "/3d.html" + (f"?at={at}" if at else "")
+    control_path = "/control.html" + (f"?at={quote(at, safe='')}" if at else "")
     ordered = sorted(screens, key=lambda item: item.width * item.height, reverse=True)
     wide = ordered[0]
     third = wide.width // 3
@@ -93,12 +95,12 @@ def layout(screens: list[Monitor], at: str | None = None) -> list[Window]:
         return [
             Window("monitor", "/monitor.html", wide.x, wide.y, third, wide.height),
             Window("main", main_path, wide.x + third, wide.y, wide.width - third, wide.height),
-            Window("control", "/control.html", other.x, other.y, other.width, other.height, fills_monitor=True),
+            Window("control", control_path, other.x, other.y, other.width, other.height, fills_monitor=True),
         ]
     return [
         Window("monitor", "/monitor.html", wide.x, wide.y, third, wide.height),
         Window("main", main_path, wide.x + third, wide.y, third, wide.height),
-        Window("control", "/control.html", wide.x + 2 * third, wide.y, wide.width - 2 * third, wide.height),
+        Window("control", control_path, wide.x + 2 * third, wide.y, wide.width - 2 * third, wide.height),
     ]
 
 
