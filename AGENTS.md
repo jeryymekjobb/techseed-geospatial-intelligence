@@ -21,7 +21,7 @@
 - State the exact plan and scope and obtain GO before repository edits.
 - A GO authorizes only its stated action and scope.
 - Before staging, show the intended staged scope and proposed commit message and obtain separate GO.
-- Inspect staged changes and obtain separate GO before committing.
+- A GO for staging, given after the intended scope and the complete commit message were shown, also authorizes the commit: run `git diff --cached --check` and commit directly. Stop and ask instead if the check fails or the staged scope differs from what was proposed.
 - Push only after explicit user instruction or GO for that push.
 - Run `git diff --check` before staging or committing.
 - Keep each commit to one logical change.
@@ -37,7 +37,7 @@ Before ending a response that waits for user input, state the exact proposed act
 
 - Every commit message has a subject line and a body, separated by a blank line. The
   body briefly describes, in English, what was done and why, and nothing else.
-- Show the complete proposed message, subject and body, before staging and again
-  before committing.
+- Show the complete proposed message, subject and body, before staging. A GO for
+  staging also covers the commit with that message.
 - Do not add `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`, or any other
   `Co-Authored-By` line naming Claude, to commit messages.
