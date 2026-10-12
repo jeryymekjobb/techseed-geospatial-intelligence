@@ -42,6 +42,8 @@ async function start() {
   // once (each line shows when the clock reaches it), the computed passes per day from passCache.
   const firms = firmsPasses((await getJson("/api/hotspots").catch(() => ({ features: [] }))).features);
   const sensorEvents = (await getJson("/api/sensors/synthetic/events").catch(() => ({ events: [] }))).events;
+  // Threatened buildings: asked again on the next load if PostGIS could not answer.
+  const threats = await getJson("/api/threats").catch(() => ({}));
   const scenes = config.layers.landsat?.scenes || [];
   let logShown = null;
   let logKey = null;  // the lines last drawn, so the list is only rebuilt when they change
@@ -72,7 +74,7 @@ async function start() {
       name: satellite.name, instrument: satellite.instrument,
       passes: Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat(),
     }));
-    const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [], sensorEvents }, clock.getTime(),
+    const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [], sensorEvents, threats }, clock.getTime(),
       clock.getTime() - startMs + 1, Infinity, place);
     const key = lines.map((line) => `${line.atMs}|${line.text}`).join("\n");
     if (key === logKey) return;

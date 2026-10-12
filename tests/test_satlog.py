@@ -115,3 +115,26 @@ def test_the_monitor_lists_everything_since_the_demo_s_start_in_a_scrolling_list
     assert "clock.getTime() - startMs + 1, Infinity, place" in monitor and "row.remove()" not in monitor
     assert ".monitor-log ol { flex: 1; min-height: 0; overflow-y: auto;" in (frontend / "styles.css").read_text(encoding="utf-8")
     assert "från demons start, senaste överst" in (frontend / "monitor.html").read_text(encoding="utf-8")
+
+
+def test_threatened_buildings_are_in_the_log() -> None:
+    sensor_events = (
+        f"[{{clock_utc: new Date({CLOCK} - 120 * {MINUTE}).toISOString(), sensor: 'dv-03', name: 'DV3 Skönsmon', kind: 'sewer', confirms: true}},"
+        f" {{clock_utc: new Date({CLOCK} - 60 * {MINUTE}).toISOString(), sensor: 'dv-01', name: 'DV1 Bergsåker', kind: 'sewer', confirms: true}},"
+        f" {{clock_utc: new Date({CLOCK} - 30 * {MINUTE}).toISOString(), sensor: 'dv-03', name: 'DV3 Skönsmon', kind: 'sewer', confirms: false}}]"
+    )
+    places = [{"clock_utc": "2014-08-04T08:00:00Z", "places": [{"name": name, "span": f"{index + 2}–10 h"} for index, name in
+                                                              enumerate(["Axholm", "Lågbo", "Ormdalen", "Skillberg", "Hönäs", "Näs"])]},
+              {"clock_utc": "2014-08-04T09:30:00Z", "places": [{"name": "Fläckebo", "span": "7–>24 h"}]}]
+    threats = {"places": places, "buildings_near": {"dv-03": 78, "dv-01": 1}, "distance_m": 200}
+    lines = node(f"satelliteLog({{ sensorEvents: {sensor_events}, threats: {json.dumps(threats)} }}, {CLOCK})")
+    assert [(line["text"], line["source"]) for line in lines] == [
+        ("Bräddgivare DV3 Skönsmon slutar brädda", "synthetic"),
+        ("1 byggnad inom 200 m från Bräddgivare DV1 Bergsåker", "postgis"),
+        ("Bräddgivare DV1 Bergsåker bräddar", "synthetic"),
+        ("1 ort hotas inom 24 h: Fläckebo 7–>24 h", "model"),
+        ("78 byggnader inom 200 m från Bräddgivare DV3 Skönsmon", "postgis"),
+        ("Bräddgivare DV3 Skönsmon bräddar", "synthetic"),
+        ("6 orter hotas inom 24 h: Axholm 2–10 h, Lågbo 3–10 h, Ormdalen 4–10 h, Skillberg 5–10 h och 2 till", "model"),
+    ]
+    assert node("[SATLOG_SOURCES.model, SATLOG_SOURCES.postgis]") == ["modell", "PostGIS"]

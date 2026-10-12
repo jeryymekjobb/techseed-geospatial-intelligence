@@ -194,6 +194,42 @@ def synthetic_sensor_events() -> dict[str, Any]:
     return {"step_minutes": SENSOR_EVENT_STEP.total_seconds() / 60, "events": events}
 
 
+@lru_cache(maxsize=1)
+def threatened_places() -> tuple[dict[str, Any], ...]:
+    """The fire's forecast: at each satellite pass, the places that first come within reach in 24 h at
+    the high rate (forecast.py's places_within_24h), with the span from high to low rate. A model."""
+    if not scenario.WILDFIRE:
+        return ()
+    seen: set[str] = set()
+    found = []
+    for state in forecast.forecasts()["states"]:
+        new = [{"name": place["names"][0], "span": place["span"]} for place in state["places_within_24h"] if place["names"][0] not in seen]
+        seen.update(item["name"] for item in new)
+        if new:
+            found.append({"clock_utc": state["pass_utc"], "places": new})
+    return tuple(found)
+
+
+_buildings_near: dict[str, int] | None = None
+
+
+def threats(psql: spatial.Psql) -> dict[str, Any]:
+    """Threatened buildings for the satellite monitor's log: the fire's newly threatened places per pass, and
+    the buildings within spatial.NEAR_OVERFLOW_M of each synthetic flood sensor from PostGIS (asked once;
+    `unavailable` says why when PostGIS cannot answer, and it is asked again next time)."""
+    global _buildings_near
+    result: dict[str, Any] = {"places": list(threatened_places()), "buildings_near": {}, "distance_m": spatial.NEAR_OVERFLOW_M}
+    if scenario.WILDFIRE:
+        return result
+    if _buildings_near is None:
+        sensors = [item for item in synthetic_sensors().at(scenario.PLAYBACK_START)["sensors"] if not item.get("placed")]
+        try:
+            _buildings_near = spatial.buildings_near([(item["id"], item["latitude"], item["longitude"]) for item in sensors], psql)
+        except spatial.Unavailable as exc:
+            return {**result, "unavailable": str(exc)}
+    return {**result, "buildings_near": _buildings_near}
+
+
 def synthetic_at(state: dict[str, Any]) -> dict[str, Any]:
     """The synthetic sensors at the scenario clock, with mission control's sensor failures;
     none when mission control has switched IoT off."""
@@ -599,6 +635,8 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/assessment":
             state = self.engine.snapshot()
             self.send_json({**assessment_at(state), "clock_utc": state["clock_utc"]})
+        elif path == "/api/threats":
+            self.send_json(threats(self.psql))
         elif path == "/api/sensors/synthetic/events":
             self.send_json(synthetic_sensor_events())
         elif path == "/api/sensors/synthetic":

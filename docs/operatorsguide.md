@@ -325,12 +325,15 @@ kommer från:
 | *FIRMS 2014* | Detektionerna från en passage: hur många och den starkaste |
 | *Landsat 2014* | Landsat 8 tar en bild över branden |
 | *syntetiskt* | En syntetisk IoT-sensor börjar eller slutar bekräfta händelsen: känner rök eller värme vid branden, en bräddgivare bräddar, eller en nivåsensor går över tidigare högsta nivå |
+| *modell* | Hotad bebyggelse vid branden: orter som prognosen vid en satellitpassage för första gången når inom 24 h, med tidsspannet från hög till låg spridningshastighet |
+| *PostGIS* | Hotad bebyggelse vid översvämningen: hur många byggnader som ligger inom 200 m från en sensor när den börjar larma, ur kartdata i PostGIS |
 | *simulerat* | Från mission control: upptäcktssekvensen startar, SATCOM nere och SATCOM åter, SENSOR FAILURE, IoT av och på, och en sensor som placeras på kartan |
 
 Loggen räknas fram ur scenarioklockan och stämmer därför också efter **RESET** eller ett hopp
 i tiden. En sensorrad visas så fort scenarioklockan når ändringen; sensorernas ändringar är
 beräknade ur deras modeller i steg om 10 minuter. Efter **SENSOR FAILURE** visas inga fler rader
-för den sensorn, och medan IoT är avstängt visas inga sensorrader.
+för den sensorn, och medan IoT är avstängt visas inga sensorrader eller byggnadsrader. Är PostGIS
+inte igång blir det inga byggnadsrader; ladda om satellitbevakningen när PostGIS är igång.
 
 Har du bara en stor skärm, lägg fönstren sida vid sida: satellitbevakningen till vänster,
 huvudskärmen i mitten och mission control till höger. Öppna huvudskärmen först.

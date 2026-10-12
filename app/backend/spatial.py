@@ -136,6 +136,25 @@ def points_sql(points: list[tuple[str, float, float]]) -> str:
     return ", ".join(f"('{name.replace(chr(39), chr(39) * 2)}', ST_SetSRID(ST_MakePoint({lon}, {lat}), 4326))" for name, lat, lon in points)
 
 
+def buildings_near_sql(points: list[tuple[str, float, float]]) -> str:
+    """How many buildings lie within NEAR_OVERFLOW_M of each point, as one JSON object by the points' names."""
+    return (f"SELECT json_object_agg(p.name, (SELECT count(*) FROM targets t WHERE t.kind = 'building' "
+            f"AND ST_DWithin(t.geom::geography, p.geom::geography, {NEAR_OVERFLOW_M}))) "
+            f"FROM (VALUES {points_sql(points)}) AS p(name, geom);")
+
+
+def buildings_near(points: list[tuple[str, float, float]], psql: "Psql") -> dict[str, int]:
+    """The buildings within NEAR_OVERFLOW_M of each point (name, latitude, longitude), by name; raises Unavailable."""
+    if not points:
+        return {}
+    output = psql.query(buildings_near_sql(points)).strip()
+    try:
+        counts = json.loads(output)
+    except json.JSONDecodeError as exc:
+        raise Unavailable(f"oväntat svar från PostGIS: {output[:200]}") from exc
+    return {str(name): int(count) for name, count in (counts or {}).items()}
+
+
 def sql_for(question_id: str, clock: datetime, points: list[tuple[str, float, float]] | None = None) -> str:
     if question_id not in QUESTIONS or "sql" not in QUESTIONS[question_id]:
         raise UnknownQuestion(question_id)

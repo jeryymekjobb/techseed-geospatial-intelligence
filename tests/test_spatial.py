@@ -155,3 +155,25 @@ def test_the_real_queries_answer_within_a_second() -> None:
         assert all(item["properties"]["distance_m"] >= 0 for item in answer["features"]["features"])
     infrastructure = spatial.ask("infrastructure_5km", CLOCK, psql, dict)["features"]["features"]
     assert infrastructure and max(item["properties"]["distance_m"] for item in infrastructure) <= spatial.DISTANCE_M
+
+
+def test_the_buildings_near_each_point_are_counted_in_one_query() -> None:
+    sql = spatial.buildings_near_sql([("dv-01", 62.39, 17.3), ("o'brien", 62.4, 17.31)])
+    assert "json_object_agg(p.name" in sql and f"ST_DWithin(t.geom::geography, p.geom::geography, {spatial.NEAR_OVERFLOW_M})" in sql
+    assert "t.kind = 'building'" in sql and "('o''brien', ST_SetSRID(ST_MakePoint(17.31, 62.4), 4326))" in sql
+    assert spatial.buildings_near([("dv-01", 62.39, 17.3)], fake_psql('{"dv-01" : 33}')) == {"dv-01": 33}
+    assert spatial.buildings_near([], fake_psql("never asked")) == {}
+    with pytest.raises(spatial.Unavailable):
+        spatial.buildings_near([("dv-01", 62.39, 17.3)], fake_psql("ERROR:  relation \"targets\" does not exist"))
+
+
+def test_the_fire_s_threatened_places_are_listed_per_pass_once_each() -> None:
+    result = server.threats(fake_psql("never asked"))
+    assert result["buildings_near"] == {} and result["distance_m"] == spatial.NEAR_OVERFLOW_M
+    passes = result["places"]
+    assert passes and [item["clock_utc"] for item in passes] == sorted(item["clock_utc"] for item in passes)
+    names = [place["name"] for item in passes for place in item["places"]]
+    assert len(names) == len(set(names))  # a place is listed when it is first threatened
+    first = passes[0]
+    state = next(item for item in server.forecast.forecasts()["states"] if item["pass_utc"] == first["clock_utc"])
+    assert first["places"] == [{"name": place["names"][0], "span": place["span"]} for place in state["places_within_24h"]]

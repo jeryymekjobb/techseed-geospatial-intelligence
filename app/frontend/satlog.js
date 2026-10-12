@@ -2,15 +2,20 @@
 // happened with the satellites and the synthetic IoT sensors up to the scenario clock, newest
 // first. Built from the clock every time, so it is the same after a RESET, a jump or a reload.
 // Each line says where it comes from: passes computed from the element sets, FIRMS detections
-// and satellite images of its year, the synthetic sensors' changes (/api/sensors/synthetic/events)
-// and mission control's simulated events. Pure, so it can be tested in Node.
+// and satellite images of its year, the synthetic sensors' changes (/api/sensors/synthetic/events),
+// threatened buildings (/api/threats: the fire forecast's places, the buildings near an alarming
+// flood sensor from PostGIS) and mission control's simulated events. Pure, so it can be tested in Node.
 "use strict";
 
 // The defaults of satelliteLog's window and limit; the satellite monitor passes the time since the
 // demo's start and no limit, so its list scrolls back to the first line.
 const SATLOG_WINDOW_MS = 24 * 3600000;
 const SATLOG_LIMIT = 50;
-const SATLOG_SOURCES = { computed: "beräknat", firms: "FIRMS", landsat: "satellitbild", synthetic: "syntetiskt", simulated: "simulerat" };
+const SATLOG_SOURCES = {
+  computed: "beräknat", firms: "FIRMS", landsat: "satellitbild", synthetic: "syntetiskt", model: "modell", postgis: "PostGIS", simulated: "simulerat",
+};
+// How many of a pass's newly threatened places the line names; the rest are counted.
+const SATLOG_PLACES_NAMED = 4;
 // What a synthetic sensor's change says, by its kind: [starts confirming, stops confirming].
 const SATLOG_SENSOR_TEXTS = {
   fire: ["känner rök eller värme", "slutar känna rök eller värme"],
@@ -51,12 +56,14 @@ function satlogDecimal(value) {
 // The log lines, newest first: { atMs, text, source, kind }.
 // `satellites`: [{ name, instrument, passes: [{ start, end }] }] over the fire (orbits.js);
 // `firms`: firmsPasses(); `scenes`: config.layers.landsat.scenes; `events`: the scenario's events;
-// `sensorEvents`: the synthetic sensors' changes, { clock_utc, sensor, name, kind, confirms }.
+// `sensorEvents`: the synthetic sensors' changes, { clock_utc, sensor, name, kind, confirms };
+// `threats`: /api/threats, { places: [{ clock_utc, places: [{ name, span }] }], buildings_near: { sensor: count }, distance_m }.
+// A sensor that starts confirming adds the buildings near it, under the same conditions as its own line.
 // A sensor's changes are left out after mission control's SENSOR FAILURE for it, and every
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {} }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -115,6 +122,22 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     if (iotOff.some(([from, to]) => atMs >= from && atMs < to)) continue;
     const texts = SATLOG_SENSOR_TEXTS[item.kind] || ["bekräftar händelsen", "slutar bekräfta händelsen"];
     lines.push({ atMs, text: `${names.get(item.sensor)} ${item.confirms ? texts[0] : texts[1]}`, source: "synthetic", kind: "sensor" });
+    const near = threats.buildings_near?.[item.sensor];
+    if (item.confirms && near) {
+      lines.push({
+        atMs, text: `${near} ${near === 1 ? "byggnad" : "byggnader"} inom ${threats.distance_m} m från ${names.get(item.sensor)}`,
+        source: "postgis", kind: "threat",
+      });
+    }
+  }
+  for (const pass of threats.places || []) {
+    const named = pass.places.slice(0, SATLOG_PLACES_NAMED).map((place) => `${place.name} ${place.span}`).join(", ");
+    const more = pass.places.length - SATLOG_PLACES_NAMED;
+    const count = pass.places.length === 1 ? "1 ort hotas" : `${pass.places.length} orter hotas`;
+    lines.push({
+      atMs: Date.parse(pass.clock_utc), text: `${count} inom 24 h: ${named}${more > 0 ? ` och ${more} till` : ""}`,
+      source: "model", kind: "threat",
+    });
   }
   // An event recorded at a moment shows at that moment; among equal moments the later source first.
   return lines
