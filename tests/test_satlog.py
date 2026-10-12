@@ -142,11 +142,25 @@ def test_threatened_buildings_are_in_the_log() -> None:
 
 def test_only_new_lines_are_read_aloud_and_many_are_cut_short() -> None:
     def lines(*minutes: int) -> str:
-        return json.dumps([{"atMs": CLOCK - m * MINUTE, "text": f"rad {m}"} for m in sorted(minutes)])
+        return json.dumps([{"atMs": CLOCK - m * MINUTE, "text": f"rad {m}", "source": "synthetic"} for m in sorted(minutes)])
     spoken = node(f"(() => {{ const heard = new Set({lines(50, 40)}.map(satlogKey)); "
                   f"return [spokenLines({lines(30, 40, 50)}, heard), spokenLines({lines(30, 40, 50)}, heard), "
                   f"spokenLines({lines(1, 2, 3, 4, 5, 30, 40, 50)}, heard)]; }})()")
-    assert spoken == [["rad 30"], [], ["rad 3", "rad 2", "rad 1", "och 2 händelser till"]]
+    assert spoken == [[{"text": "rad 30", "voice": "alma"}], [],
+                      [{"text": f"rad {m}", "voice": "alma"} for m in (3, 2, 1)] + [{"text": "och 2 händelser till", "voice": "alma"}]]
+    # Satellite events take nst, the others alma; a satellite leaving the area is not read.
+    mixed = [
+        {"atMs": CLOCK - 1, "text": "Aqua (MODIS) lämnar Sundsvall", "source": "computed", "kind": "leave"},
+        {"atMs": CLOCK - 2, "text": "Sentinel-1C tar bild över Sundsvall", "source": "landsat", "kind": "landsat"},
+        {"atMs": CLOCK - 3, "text": "SATCOM nere – satellitdata köas", "source": "simulated", "kind": "satcom_failure"},
+        {"atMs": CLOCK - 4, "text": "Aqua (MODIS) över Sundsvall", "source": "computed", "kind": "enter"},
+    ]
+    assert node(f"spokenLines({json.dumps(mixed)}, new Set())") == [
+        {"text": "Aqua (MODIS) över Sundsvall", "voice": "nst"},
+        {"text": "SATCOM nere – satellitdata köas", "voice": "alma"},
+        {"text": "Sentinel-1C tar bild över Sundsvall", "voice": "nst"},
+    ]
     monitor = (SCRIPT.parent / "monitor.js").read_text(encoding="utf-8")
-    assert "if (scenarioState.jump !== heardJump) {" in monitor and 'utterance.lang = "sv-SE";' in monitor
-    assert "if (scenarioState.status?.speech) speak(texts);" in monitor
+    assert "if (scenarioState.jump !== heardJump) {" in monitor and 'post("/api/speak", { lines });' in monitor
+    assert "speechSynthesis" not in monitor  # the backend speaks Swedish; Chrome had no Swedish voice
+    assert "if (scenarioState.status?.speech) speak(spoken);" in monitor

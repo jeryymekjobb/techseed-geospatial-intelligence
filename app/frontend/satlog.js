@@ -149,9 +149,12 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
 }
 
 // What the satellite monitor reads aloud of the log: the lines (newest first, as satelliteLog gives
-// them) not yet in `heard` (a Set of satlogKey), oldest first; with more than `max` new lines, the
-// `max` newest and how many more there were. `heard` gets every line.
+// them) not yet in `heard` (a Set of satlogKey), oldest first, each with its voice; with more than
+// `max` new lines, the `max` newest and how many more there were. A satellite leaving the area is
+// not read. Satellite events (passes, FIRMS detections, satellite images) take the voice "nst", all
+// others "alma" (speech.py). `heard` gets every line.
 const SATLOG_SPOKEN_MAX = 3;
+const SATLOG_SATELLITE_SOURCES = ["computed", "firms", "landsat"];
 
 function satlogKey(line) {
   return `${line.atMs}|${line.text}`;
@@ -160,9 +163,12 @@ function satlogKey(line) {
 function spokenLines(lines, heard, max = SATLOG_SPOKEN_MAX) {
   const fresh = lines.filter((line) => !heard.has(satlogKey(line)));
   for (const line of fresh) heard.add(satlogKey(line));
-  const texts = fresh.slice(0, max).reverse().map((line) => line.text);
-  if (fresh.length > max) texts.push(`och ${fresh.length - max} ${fresh.length - max === 1 ? "händelse" : "händelser"} till`);
-  return texts;
+  const said = fresh.filter((line) => line.kind !== "leave");
+  const spoken = said.slice(0, max).reverse()
+    .map((line) => ({ text: line.text, voice: SATLOG_SATELLITE_SOURCES.includes(line.source) ? "nst" : "alma" }));
+  const more = said.length - max;
+  if (more > 0) spoken.push({ text: `och ${more} ${more === 1 ? "händelse" : "händelser"} till`, voice: "alma" });
+  return spoken;
 }
 
 if (typeof module !== "undefined") module.exports = { firmsPasses, satelliteLog, spokenLines, satlogKey, SATLOG_SOURCES };

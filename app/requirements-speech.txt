@@ -1,0 +1,4 @@
+# For reading the satellite monitor's log aloud (app/backend/speech.py); the voices themselves are
+# fetched by tools/fetch_piper_voices.py. Piper (piper1-gpl) is GPL-3.0-or-later.
+# python3 -m venv .venv && .venv/bin/pip install -r app/requirements-speech.txt
+piper-tts==1.8.0

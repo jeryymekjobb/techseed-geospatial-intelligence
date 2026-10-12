@@ -35,7 +35,8 @@ async function start() {
     return;
   }
   const lib = await import("/vendor/satellite.js-7.1.0/index.js");
-  note.textContent = `${data.label}. Källa: ${data.source}.`;
+  // The read-aloud voices' credit (speech.py; alma is CC BY 4.0) after the satellites' source.
+  note.textContent = `${data.label}. Källa: ${data.source}.${config.speech_credit ? ` ${config.speech_credit}.` : ""}`;
   const centre = config.fire_centre;
   const place = config.incident_place;
   // The log of satellite and IoT events: FIRMS passes, Landsat scenes and the synthetic sensors' changes
@@ -49,25 +50,16 @@ async function start() {
   let logKey = null;  // the lines last drawn, so the list is only rebuilt when they change
   // Reading aloud (mission control's UPPLÄSNING, the status's `speech`): only lines that come in while
   // the clock runs; a load, a RESET or a jump in time (the state's `jump`) only marks the lines as heard.
+  // The backend speaks them in Swedish through this computer's speakers (POST /api/speak, speech.py).
   const heard = new Set();
   let heardJump = null;
-  let queued = 0;
-  const speak = (texts) => {
-    if (!window.speechSynthesis || !texts.length) return;
-    if (queued > SATLOG_SPOKEN_MAX) {
-      window.speechSynthesis.cancel();
-      queued = 0;
-    }
-    const voice = window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith("sv"));
-    for (const text of texts) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "sv-SE";
-      if (voice) utterance.voice = voice;
-      utterance.onend = utterance.onerror = () => { queued = Math.max(0, queued - 1); };
-      queued += 1;
-      window.speechSynthesis.speak(utterance);
-    }
-    document.body.dataset.spoken = texts.join(" | ");  // read by the tests
+  let speaking = false;
+  const post = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    .catch(() => null);
+  const speak = (lines) => {
+    if (!lines.length) return;
+    post("/api/speak", { lines });
+    document.body.dataset.spoken = lines.map((line) => `${line.voice}: ${line.text}`).join(" | ");  // read by the tests
   };
   // Scrolled down to older lines, how far the view is from the list's end; null at the top. The
   // view keeps that distance while new lines come in at the top and while the list changes size.
@@ -103,12 +95,10 @@ async function start() {
       heard.clear();
       for (const line of lines) heard.add(satlogKey(line));
     }
-    const texts = spokenLines(lines, heard);
-    if (scenarioState.status?.speech) speak(texts);
-    else if (queued && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      queued = 0;
-    }
+    const spoken = spokenLines(lines, heard);
+    if (scenarioState.status?.speech) speak(spoken);
+    else if (speaking) post("/api/speak/stop", {});  // switched off: silence at once
+    speaking = Boolean(scenarioState.status?.speech);
     const key = lines.map(satlogKey).join("\n");
     if (key === logKey) return;
     logKey = key;

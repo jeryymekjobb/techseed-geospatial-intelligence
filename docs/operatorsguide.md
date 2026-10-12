@@ -337,11 +337,16 @@ inte igång blir det inga byggnadsrader; ladda om satellitbevakningen när PostG
 
 **Uppläsning.** Med **UPPLÄSNING** i mission control (under FLYG TILL och ÖVERSIKT) läser
 satellitbevakningen upp nya rader i loggen på svenska genom datorns högtalare, så fort
-scenarioklockan når dem. Inget läses upp när sidan laddas, vid **RESET** eller vid ett hopp i
-tiden. Kommer fler än tre rader på en gång läses de tre senaste upp och sedan hur många fler det
+scenarioklockan når dem. Satellithändelser (passager, detektioner och satellitbilder) läses
+med en röst och övriga händelser med en annan; att en satellit lämnar området läses inte upp.
+Inget läses upp när sidan laddas, vid **RESET** eller vid ett hopp i tiden. Kommer fler än tre rader på en gång läses de tre senaste upp och sedan hur många fler det
 var. Uppläsningen är av tills du slår på den; spara den med **SPARA PROFIL FÖR SCENARIOT** så
-startar demon med den. Rösten är datorns inbyggda svenska talsyntes (espeak-ng via
-speech-dispatcher). Prova ljudet innan besökarna kommer: slå på uppläsningen och tryck **PLAY**.
+startar demon med den. Backend läser upp med Piper, en svensk talsyntes som fungerar utan
+nät, med rösterna nst (satelliter) och alma (övrigt), så ljudet kommer ur den dator som kör
+backend. Rösterna installeras en gång med `.venv/bin/pip install -r app/requirements-speech.txt`
+och `.venv/bin/python -m tools.fetch_piper_voices`; saknas de läser datorns enklare röst
+(espeak-ng) i stället. Källan till rösterna står längst ned i satellitbevakningen, som licensen
+för alma kräver. Prova ljudet innan besökarna kommer: slå på uppläsningen och tryck **PLAY**.
 
 Har du bara en stor skärm, lägg fönstren sida vid sida: satellitbevakningen till vänster,
 huvudskärmen i mitten och mission control till höger. Öppna huvudskärmen först.

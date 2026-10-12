@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, wms
+from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -528,6 +528,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "default_speed": DEFAULT_SPEED,  # without a speed in the profile
         },
         "attribution": scenario.ATTRIBUTION,
+        # The voices' credit (alma is CC BY 4.0), for the satellite monitor, when a Piper voice is installed.
+        "speech_credit": speech.CREDIT if any((speech.VOICE_DIR / f"{model}.onnx").is_file() for model in speech.VOICES.values()) else None,
         "layers": {
             "terrain": "/api/layers/terrain",
             "offline_tiles": offline_tiles.available(),
@@ -557,6 +559,8 @@ class Handler(BaseHTTPRequestHandler):
     # One shared scenario for every screen; tests give their handler its own engine.
     engine = ScenarioEngine(scenario.PLAYBACK_START, scenario.PLAYBACK_END, area=scenario.VIEW_BBOX,
                             profile=scenario_profile)
+    # Reads the satellite monitor's new log lines aloud through this computer's speakers.
+    speaker = speech.Speaker()
     # The prepared spatial questions run through one psql in the postgis service.
     psql = spatial.Psql()
     # Live readings of the real IoT nodes; main() connects it to the MQTT broker.
@@ -699,6 +703,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
         path = urlsplit(self.path).path
+        if path in ("/api/speak", "/api/speak/stop"):
+            self.speak(path)
+            return
         if path not in ("/api/scenario/command", "/api/demo/menu"):
             self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
             return
@@ -771,6 +778,27 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error": "invalid_command", "detail": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
         self.send_json(snapshot)
+
+    def speak(self, path: str) -> None:
+        """The satellite monitor's lines to read aloud (speech.py), only from this computer, whose speakers they use."""
+        if self.client_address[0] not in ("127.0.0.1", "::1"):
+            self.send_json({"error": "local_only"}, HTTPStatus.FORBIDDEN)
+            return
+        if path == "/api/speak/stop":
+            self.speaker.stop()
+            self.send_json({"stopped": True})
+            return
+        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            lines = json.loads(self.rfile.read(length))["lines"] if 0 < length <= 4096 else None
+        except (ValueError, KeyError, TypeError):
+            lines = None
+        if not isinstance(lines, list) or not 0 < len(lines) <= speech.MAX_QUEUED or not all(
+                isinstance(line, dict) and isinstance(line.get("text"), str) and line.get("voice") in speech.VOICES for line in lines):
+            self.send_json({"error": "invalid_lines"}, HTTPStatus.BAD_REQUEST)
+            return
+        self.speaker.say([(line["text"], line["voice"]) for line in lines])
+        self.send_json({"queued": len(lines)})
 
     def demo_menu(self) -> None:
         """BYT DEMO in mission control: stop, so that tools/start_demo.py shows its menu again.
@@ -997,6 +1025,8 @@ def main(argv: list[str] | None = None) -> int:
     assessor()
     # The flood's map services are outside the demo: watch whether they answer.
     wms.watch()
+    # Load the read-aloud voices in the background, so the first line is not late.
+    threading.Thread(target=Handler.speaker.available, daemon=True).start()
     # Slow the playback down around every satellite pass in the data and the Landsat scene.
     Handler.engine.set_slow_windows(slow_windows())
     if not scenario.WILDFIRE:
