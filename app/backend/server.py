@@ -793,7 +793,7 @@ class Handler(BaseHTTPRequestHandler):
             lines = json.loads(self.rfile.read(length))["lines"] if 0 < length <= 4096 else None
         except (ValueError, KeyError, TypeError):
             lines = None
-        if not isinstance(lines, list) or not 0 < len(lines) <= speech.MAX_QUEUED or not all(
+        if not isinstance(lines, list) or not 0 < len(lines) <= speech.MAX_SENT or not all(
                 isinstance(line, dict) and isinstance(line.get("text"), str) and line.get("voice") in speech.VOICES for line in lines):
             self.send_json({"error": "invalid_lines"}, HTTPStatus.BAD_REQUEST)
             return

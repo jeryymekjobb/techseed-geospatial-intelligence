@@ -25,6 +25,7 @@ from typing import Any, Callable, Sequence
 from app.backend.scenarios import REPO_ROOT
 
 MAX_QUEUED = 4
+MAX_SENT = 2 * MAX_QUEUED  # lines in one POST /api/speak; the queue keeps the newest MAX_QUEUED
 MAX_TEXT = 300
 VOICE_DIR = REPO_ROOT / "data" / "voices"
 # The Piper voices (rhasspy/piper-voices on Hugging Face), both trained on the NST Swedish data of

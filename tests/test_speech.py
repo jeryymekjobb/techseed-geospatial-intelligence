@@ -114,7 +114,7 @@ def test_the_monitor_sends_its_lines_and_voices_to_the_backend(base_url) -> None
     line = {"text": "Bräddgivare DV1 Bergsåker bräddar", "voice": "alma"}
     assert post(f"{url}/api/speak", {"lines": [line]}) == (200, {"queued": 1})
     wait_for(lambda: speaker.spoken == [("alma", "Bräddgivare DV1 Bergsåker bräddar")])
-    for body in ({"lines": []}, {"lines": [line] * (speech.MAX_QUEUED + 1)}, {"lines": [{"text": "a", "voice": "espeak"}]},
+    for body in ({"lines": []}, {"lines": [line] * (speech.MAX_SENT + 1)}, {"lines": [{"text": "a", "voice": "espeak"}]},
                  {"lines": [{"text": 1, "voice": "nst"}]}, {"texts": ["a"]}):
         assert post(f"{url}/api/speak", body)[0] == 400
     assert post(f"{url}/api/speak/stop", {}) == (200, {"stopped": True})

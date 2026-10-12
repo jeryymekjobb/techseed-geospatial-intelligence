@@ -56,6 +56,11 @@ async function start() {
   let speaking = false;
   const post = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
     .catch(() => null);
+  // The level sensors' report (levelReport), once per scenario day while any alarms; from the stream's
+  // synthetic_sensors events, which come when the sensors change.
+  let levelSensors = [];
+  let reportNext = null;
+  let reportJump = null;
   const speak = (lines) => {
     if (!lines.length) return;
     post("/api/speak", { lines });
@@ -96,6 +101,11 @@ async function start() {
       for (const line of lines) heard.add(satlogKey(line));
     }
     const spoken = spokenLines(lines, heard);
+    const report = levelReport(levelSensors);
+    const due = levelReportDue(reportNext, clock.getTime(), report !== null, scenarioState.jump !== reportJump);
+    reportNext = due.next;
+    reportJump = scenarioState.jump;
+    if (due.speak && scenarioState.playing) spoken.push({ text: report, voice: "alma" });
     if (scenarioState.status?.speech) speak(spoken);
     else if (speaking) post("/api/speak/stop", {});  // switched off: silence at once
     speaking = Boolean(scenarioState.status?.speech);
@@ -180,6 +190,7 @@ async function start() {
   const follow = (event) => { const body = JSON.parse(event.data); show(body.state || body); };
   source.addEventListener("sync", follow);
   source.addEventListener("state", follow);
+  source.addEventListener("synthetic_sensors", (event) => { levelSensors = JSON.parse(event.data).sensors || []; });
   source.onerror = () => { note.textContent = "Anslutningen till backend bröts – försöker igen …"; };
   window.addEventListener("resize", () => {
     monitor.redraw();

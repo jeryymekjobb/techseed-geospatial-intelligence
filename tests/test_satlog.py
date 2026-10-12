@@ -164,3 +164,25 @@ def test_only_new_lines_are_read_aloud_and_many_are_cut_short() -> None:
     assert "if (scenarioState.jump !== heardJump) {" in monitor and 'post("/api/speak", { lines });' in monitor
     assert "speechSynthesis" not in monitor  # the backend speaks Swedish; Chrome had no Swedish voice
     assert "if (scenarioState.status?.speech) speak(spoken);" in monitor
+
+
+def test_the_level_sensors_are_reported_once_per_scenario_day_while_any_alarms() -> None:
+    def sensor(station: str, kind: str, confirms: bool = True, status: str = "ok", **values) -> dict:
+        return {"kind": "level", "status": status, "confirms": confirms, "station": station, "station_kind": kind, **values}
+    sensors = [sensor("Ringsjödammen övre", "level", from_record_cm=3), sensor("Ringsjödammen övre", "level", from_record_cm=3),
+               sensor("Heåkra", "flow", percent=112), sensor("Ellinge", "flow", confirms=False, percent=77),
+               sensor("Högsmölla", "flow", status="failed", percent=None), {"kind": "sewer", "status": "ok", "confirms": True}]
+    assert node(f"levelReport({json.dumps(sensors)})") == (
+        "Nivålarm från 3 nivågivare: Ringsjödammen övre 3 centimeter över tidigare högsta nivå. "
+        "Heåkra 112 procent av tidigare högsta flöde.")
+    assert node(f"levelReport({json.dumps(sensors[3:])})") is None
+    day = 24 * HOUR
+    steps = node(f"""(() => {{ let next = null; const out = [];
+        for (const [clock, alarming, jumped] of [[0, true, false], [{day - 1}, true, false], [{day}, true, false],
+             [{3 * day + 5}, true, false], [{3 * day + 6}, false, false], [{4 * day}, true, false], [{9 * day}, true, true]]) {{
+          const due = levelReportDue(next, clock, alarming, jumped); next = due.next; out.push([due.speak, next]); }}
+        return out; }})()""")
+    assert steps == [[False, day], [False, day], [True, 2 * day], [True, 4 * day], [False, None], [False, 5 * day], [False, 10 * day]]
+    monitor = (SCRIPT.parent / "monitor.js").read_text(encoding="utf-8")
+    assert 'if (due.speak && scenarioState.playing) spoken.push({ text: report, voice: "alma" });' in monitor
+    assert 'source.addEventListener("synthetic_sensors"' in monitor

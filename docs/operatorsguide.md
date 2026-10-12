@@ -339,7 +339,11 @@ inte igång blir det inga byggnadsrader; ladda om satellitbevakningen när PostG
 satellitbevakningen upp nya rader i loggen på svenska genom datorns högtalare, så fort
 scenarioklockan når dem. Satellithändelser (passager, detektioner och satellitbilder) läses
 med en röst och övriga händelser med en annan; att en satellit lämnar området läses inte upp.
-Inget läses upp när sidan laddas, vid **RESET** eller vid ett hopp i tiden. Kommer fler än tre rader på en gång läses de tre senaste upp och sedan hur många fler det
+Inget läses upp när sidan laddas, vid **RESET** eller vid ett hopp i tiden. I Skåne läses
+dessutom nivågivarnas läge upp en gång per scenariodygn så länge någon larmar, alltså ligger över
+det högsta flöde eller den högsta nivå som uppmätts tidigare vid dess SMHI-station, till exempel
+"Nivålarm från 5 nivågivare: Ringsjödammen övre 12 centimeter över tidigare högsta nivå".
+Givare med SENSOR FAILURE eller när IoT är avstängt räknas inte med. Kommer fler än tre rader på en gång läses de tre senaste upp och sedan hur många fler det
 var. Uppläsningen är av tills du slår på den; spara den med **SPARA PROFIL FÖR SCENARIOT** så
 startar demon med den. Backend läser upp med Piper, en svensk talsyntes som fungerar utan
 nät, med rösterna nst (satelliter) och alma (övrigt), så ljudet kommer ur den dator som kör

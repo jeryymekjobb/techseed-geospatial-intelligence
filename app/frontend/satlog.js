@@ -171,4 +171,38 @@ function spokenLines(lines, heard, max = SATLOG_SPOKEN_MAX) {
   return spoken;
 }
 
-if (typeof module !== "undefined") module.exports = { firmsPasses, satelliteLog, spokenLines, satlogKey, SATLOG_SOURCES };
+// The level sensors' report read aloud once per scenario day while any alarms (above the highest
+// flow or level measured before at its SMHI station; level_sensors.py): one part per station,
+// as several sensors can share one. Null when none alarms. `sensors`: the synthetic sensors'
+// `sensors` (failed ones and those switched off with IOT AV are not there or not "ok").
+const SATLOG_REPORT_MS = 24 * 3600000;
+
+function levelReport(sensors) {
+  const alarming = (sensors || []).filter((item) => item.kind === "level" && item.status === "ok" && item.confirms);
+  if (!alarming.length) return null;
+  const stations = new Map();
+  for (const item of alarming) {
+    const value = item.station_kind === "level"
+      ? `${item.from_record_cm} centimeter över tidigare högsta nivå`
+      : `${item.percent} procent av tidigare högsta flöde`;
+    stations.set(item.station, value);
+  }
+  const count = alarming.length === 1 ? "1 nivågivare" : `${alarming.length} nivågivare`;
+  return `Nivålarm från ${count}: ${[...stations].map(([station, value]) => `${station} ${value}`).join(". ")}.`;
+}
+
+// When the report is due: { speak, next } from the next due time (null when none is set), the
+// clock, whether a sensor alarms and whether the clock jumped. The first report after a sensor
+// starts to alarm is a day later (its log line has already been read); a jump only sets the time.
+function levelReportDue(next, clockMs, alarming, jumped) {
+  if (!alarming) return { speak: false, next: null };
+  if (next === null || jumped) return { speak: false, next: clockMs + SATLOG_REPORT_MS };
+  if (clockMs < next) return { speak: false, next };
+  let following = next;
+  while (following <= clockMs) following += SATLOG_REPORT_MS;
+  return { speak: true, next: following };
+}
+
+if (typeof module !== "undefined") {
+  module.exports = { firmsPasses, satelliteLog, spokenLines, satlogKey, levelReport, levelReportDue, SATLOG_SOURCES };
+}
