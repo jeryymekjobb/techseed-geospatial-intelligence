@@ -19,13 +19,17 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 - Decided 2026-10-06: a second demo, flooding in Sundsvall 2026, uses the Västmanland fire demo as its template (same screens and parts; the scenario is chosen at start, the two demos need not run at the same time). It is a scenario built on the real rain of 16–19 August 2026 and the municipality's cloudburst models, clearly marked as a scenario rather than a replayed event; a flood in Sundsvall that day is not confirmed in open sources. See `reports/2026-10-06-datakallor-oversvamning-sundsvall-claude-opus-5-5.md`.
 - Decided 2026-10-06: the user confirmed that the municipality's layers in its geoserver (bxkarta), among them the cloudburst models, may be used in the Sundsvall demo, although the service's terms limit use to five municipalities unless agreed. Only Sundsvall municipality's own layers are used; those of MSVAB, the county board and Lantmäteriet in the same service have other owners.
 - A working Sundsvall flood scenario exists in `app/` (`--scenario sundsvall2026`): the municipality's rain gauges, its cloudburst models and MCF's flood maps, synthetic overflow sensors, a flood assessment, a detection sequence from real Sentinel-1 acquisitions and PostGIS questions; see Del 5 of the operator guide.
+- Decided 2026-10-09: each Mission Control page load sends one shared scenario reset after the page, config and first scenario sync are ready. The reset restores the saved incident display profile. The demo launcher starts scenarios at their `PLAYBACK_START`; an explicit non-default `--at` remains an intentional seek after reset.
 
-## Current Work Handoff (2026-10-08)
+## Current Work Handoff (2026-10-10)
 
-- Local `main` is at `3278075` (`Unify map layers and filters in mission control`), two commits ahead of `origin/main`; neither commit has been pushed.
-- The mission-control layer/filter update is committed: **Kartans lager** combines GOD VIEW categories and their indented layers; Weather controls wind, weather stations and the precipitation radar in both map adapters while preserving each individual layer selection.
-- Verification for the update: all 322 tests passed; `check_demo` passed for Västmanland (10/10), Sundsvall (9/9), Skåne (9/9) and Kårböle/Ljusdal (10/10); a 2D browser smoke check confirmed Weather hides wind and radar and restores their individual selections; `git diff --check` passed.
-- The demo checks used headless software rendering; their frame-rate measurements do not represent the exhibition PC.
+- `main` is at `e4a1e7d` (`Reset demos to their saved startup view`), pushed to `origin/main`; the worktree was clean after the push.
+- Mission Control groups GOD VIEW categories and map layers in **Kartans lager**. Weather filtering controls wind, stations and SMHI radar while preserving individual layer choices. Profiles now persist image types, base maps and effective map-layer visibility.
+- Verification: 330 tests passed and `git diff --check` passed. The latest headless Sundsvall check reaches step 4, then stops because a shared MQTT broker reports an extra live `test-node` in addition to the four simulated booth nodes. Steps 1–3 pass. SwiftShader frame-rate results do not represent the exhibition PC.
+- Mission Control sends one reset after each page load, once the document, config and first scenario sync are ready. The demo launcher defaults every scenario to its `PLAYBACK_START`; an explicit non-default `--at` remains an intentional seek after reset.
+- The local, Git-ignored flood profile selects offline OSM, the Sentinel-1 `radarwater` image type, and hides the SMHI precipitation-radar overlay. The five Sundsvall Sentinel-1 water-mask images are red and are rendered above municipal flood-map WMS layers in both maps. The mask is a simple radar threshold, not a verified flood extent; generated images and `SOURCE.json` remain in unversioned `data/`.
+- No suitable 2026 measured river-flow series was found for Sundsvall: Skallböle KRV (Ljungan) observations end 2024-10-07, Bergeforsens KRV (Indalsälven) observations end 2015-12-31, and Selångersån has no SMHI flow station. The accessible Vattenwebb S-HYPE analysis ends 2024-12-31. No 2026 river-flow overlay has been implemented; a valid measurement source and local class thresholds are still needed.
+- The Löderup–Ystad imagery investigation is parked. The ESA SPOT 1–5 access request is pending validation; no coastal imagery has been downloaded.
 
 ## Backlog
 
