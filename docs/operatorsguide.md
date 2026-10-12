@@ -425,7 +425,8 @@ behöver `&token=din-token` i slutet.
 Knapparna i **fetstil** finns i mission control. Hastigheten väljer du i listan **Hastighet**
 under PLAY, PAUSE och RESET – 1 minut/s, 10 minuter/s, 30 minuter/s, 1 timme/s eller 3
 timmar/s – och tar i bruk med **ANVÄND** till vänster om listan. Listan visar den hastighet som
-gäller. **RESET** ändrar inte hastigheten. Spara den med **SPARA PROFIL FÖR SCENARIOT** så
+gäller. Knapparna som tar ett val i bruk – **ANVÄND**, **ANVÄND TIDER** och **VISA VALD BILD** –
+är röda så länge du har valt något som ännu inte gäller på skärmarna. **RESET** ändrar inte hastigheten. Spara den med **SPARA PROFIL FÖR SCENARIOT** så
 startar demon med den; utan sparad hastighet startar den på 10 minuter/s.
 
 **Demons start och stopp.** Under hastigheten anger du i **Start** och **Stopp** när demon

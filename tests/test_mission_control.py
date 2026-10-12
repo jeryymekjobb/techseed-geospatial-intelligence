@@ -273,3 +273,13 @@ def test_the_fire_s_texts_take_the_year_from_the_scenario_clock() -> None:
     acquired, space = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
     assert acquired == "VIIRS på NOAA-20 passerar över branden 11:20 UTC – verklig passage ur FIRMS 2018."
     assert space == "Satelliternas läge 2018, beräknat ur banelement."
+
+
+def test_the_buttons_that_apply_a_choice_are_red_while_it_is_not_applied() -> None:
+    source = (FRONTEND / "control.js").read_text(encoding="utf-8")
+    assert 'function markPending(id, pending) {\n  $(id).disabled = !pending;\n  $(id).classList.toggle("unsaved", pending);' in source
+    for button in ("apply-speed", "show-pick", "apply-window"):
+        assert f'markPending("{button}", true)' in source or f'markPending("{button}", {"pendingSpeed" if button == "apply-speed" else "pendingPick"} !== null)' in source
+        assert f'$("{button}").disabled' not in source  # only through markPending
+    css = (FRONTEND / "styles.css").read_text(encoding="utf-8")
+    assert ".control button.unsaved { border-color: #ff8a80; background: var(--accent); }" in css

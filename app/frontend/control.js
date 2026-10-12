@@ -22,6 +22,13 @@ let startupResetSent = false;
 let pendingPick = null;  // an image chosen in the list, shown on the screens only with VISA VALD BILD
 let pendingSpeed = null;  // a speed chosen in the list, used only with ANVÄND
 let pendingWindow = false;  // the demo's start or stop edited, sent only with ANVÄND TIDER
+
+// A button that applies a choice (ANVÄND, VISA VALD BILD, ANVÄND TIDER) is red while the choice
+// differs from what the screens show, and greyed out when there is nothing to apply.
+function markPending(id, pending) {
+  $(id).disabled = !pending;
+  $(id).classList.toggle("unsaved", pending);
+}
 let savedProfile = null;  // the profile the demo starts with (config, then SPARA PROFIL)
 let lastState = null;  // the scenario state last shown, to mark unsaved profile settings
 const realSensors = new Map();
@@ -88,7 +95,7 @@ function showState(scenarioState) {
     speeds.append(new Option(`${scenarioState.speed} s/s`, String(scenarioState.speed)));
   }
   speeds.value = pendingSpeed ?? String(scenarioState.speed);
-  $("apply-speed").disabled = pendingSpeed === null;
+  markPending("apply-speed", pendingSpeed !== null);
   const active = { satcom_down: !status.satcom_up, plus60: status.plus60, god_view: status.god_view, space_view: status.space_view, iot: status.iot, detection: Boolean(status.detection) };
   for (const button of document.querySelectorAll("[data-status]")) {
     const on = Boolean(active[button.dataset.status]);
@@ -129,7 +136,7 @@ function showImages(clockUtc) {
   const select = $("image-pick");
   if (!info) {
     select.disabled = true;
-    $("show-pick").disabled = true;
+    markPending("show-pick", false);
     for (const button of document.querySelectorAll("[data-image]")) button.disabled = true;
     $("image-shown").textContent = "Satellitbilderna är inte hämtade.";
     return;
@@ -163,7 +170,7 @@ function showImages(clockUtc) {
   // The list keeps an image chosen in it until VISA VALD BILD, unless it is shown already or has left the list.
   if (pendingPick === current || ![...select.options].some((option) => option.value === pendingPick)) pendingPick = null;
   select.value = pendingPick ?? current;
-  $("show-pick").disabled = pendingPick === null;
+  markPending("show-pick", pendingPick !== null);
   for (const button of document.querySelectorAll("[data-image]")) {
     const on = button.dataset.image === current;
     button.classList.toggle("active", on);
@@ -367,7 +374,7 @@ function setupWindow() {
     input.max = last;
     input.addEventListener("input", () => {
       pendingWindow = true;
-      $("apply-window").disabled = false;
+      markPending("apply-window", true);
     });
   }
   $("window-note").textContent = `Scenariots data: ${localTime.format(new Date(config.playback.data_start_utc))} – `
@@ -383,7 +390,7 @@ $("apply-window").addEventListener("click", () => {
   }
   send("playback_window", `${first}/${last}`).then((state) => {
     pendingWindow = false;
-    $("apply-window").disabled = true;
+    markPending("apply-window", false);
     showState(state);
     $("command-status").textContent = "";
   }).catch((error) => {
@@ -560,7 +567,7 @@ $("image-pick").addEventListener("change", (event) => {
 $("show-pick").addEventListener("click", () => { if (pendingPick !== null) chooseImage(pendingPick); });
 $("speed-pick").addEventListener("change", (event) => {
   pendingSpeed = event.target.value;
-  $("apply-speed").disabled = false;
+  markPending("apply-speed", true);
 });
 $("apply-speed").addEventListener("click", () => {
   if (pendingSpeed === null) return;
