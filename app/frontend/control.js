@@ -432,7 +432,7 @@ function profileUnsaved(cfg, profile, scenarioState) {
     || !same(layers(now.map_layers), layers(saved.map_layers))
     || scenarioState.start_utc !== window.start_utc || scenarioState.end_utc !== window.end_utc
     || scenarioState.speed !== (saved.speed ?? cfg.playback.default_speed)
-    || Boolean(now.speech) !== (saved.speech === true);
+    || Boolean(now.speech) !== (saved.speech !== false);
 }
 
 // SPARA PROFIL is red while the settings differ from the profile.

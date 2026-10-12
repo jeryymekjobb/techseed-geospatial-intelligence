@@ -344,8 +344,8 @@ dessutom nivågivarnas läge upp en gång per scenariodygn så länge någon lar
 det högsta flöde eller den högsta nivå som uppmätts tidigare vid dess SMHI-station, till exempel
 "Nivålarm från 5 nivågivare: Ringsjödammen övre 12 centimeter över tidigare högsta nivå".
 Givare med SENSOR FAILURE eller när IoT är avstängt räknas inte med. Kommer fler än tre rader på en gång läses de tre senaste upp och sedan hur många fler det
-var. Uppläsningen är av tills du slår på den; spara den med **SPARA PROFIL FÖR SCENARIOT** så
-startar demon med den. Backend läser upp med Piper, en svensk talsyntes som fungerar utan
+var. Uppläsningen är på i alla scenarier om du inte stänger av den; sparar du den avstängd med
+**SPARA PROFIL FÖR SCENARIOT** startar demon tyst. Backend läser upp med Piper, en svensk talsyntes som fungerar utan
 nät, med rösterna nst (satelliter) och alma (övrigt), så ljudet kommer ur den dator som kör
 backend. Rösterna installeras en gång med `.venv/bin/pip install -r app/requirements-speech.txt`
 och `.venv/bin/python -m tools.fetch_piper_voices`; saknas de läser datorns enklare röst

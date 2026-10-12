@@ -66,15 +66,18 @@ def test_the_engine_starts_at_the_profiles_speed_and_reset_keeps_the_speed_in_us
     assert ScenarioEngine(START, END, profile=lambda: {"speed": 5}).snapshot()["speed"] == 600.0  # outside the limits
 
 
-def test_reading_aloud_is_saved_in_the_profile_and_off_without_it(tmp_path: Path) -> None:
+def test_reading_aloud_is_saved_in_the_profile_and_on_without_it(tmp_path: Path) -> None:
     path = tmp_path / "profiles.json"
-    assert profiles.save("sundsvall2026", None, None, path, speech=True)["speech"] is True
-    assert profiles.save("skane2024", None, None, path)["speech"] is False
-    engine = ScenarioEngine(START, END, profile=lambda: {"speech": True})
-    assert engine.snapshot()["status"]["speech"] is True
-    assert engine.command("speech", target="off")["status"]["speech"] is False
-    assert engine.command("reset")["status"]["speech"] is True  # RESET: the profile's, like the ticks
-    assert ScenarioEngine(START, END).snapshot()["status"]["speech"] is False
+    assert profiles.save("sundsvall2026", None, None, path, speech=False)["speech"] is False
+    assert profiles.save("skane2024", None, None, path)["speech"] is True  # on unless switched off
+    assert profiles.load("sundsvall2026", path)["speech"] is False
+    assert profiles.load("vastmanland2014", path, incident="wildfire") is None
+    engine = ScenarioEngine(START, END, profile=lambda: {"speech": False})
+    assert engine.snapshot()["status"]["speech"] is False
+    assert engine.command("speech", target="on")["status"]["speech"] is True
+    assert engine.command("reset")["status"]["speech"] is False  # RESET: the profile's, like the ticks
+    assert ScenarioEngine(START, END).snapshot()["status"]["speech"] is True  # no profile: on
+    assert ScenarioEngine(START, END, profile=lambda: {"image_types": None}).snapshot()["status"]["speech"] is True
     with pytest.raises(CommandError):
         engine.command("speech", target="loud")
 

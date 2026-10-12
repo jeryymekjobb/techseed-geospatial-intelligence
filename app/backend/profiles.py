@@ -82,7 +82,7 @@ def load(scenario: str, path: Path | None = None, *, incident: str | None = None
         return None
     clean = {key: [str(item) for item in profile[key]] if isinstance(profile.get(key), list) else None for key in LIST_KEYS}
     return {**clean, "map_layers": _layers(profile.get("map_layers")), "playback": _playback(profile.get("playback")),
-            "speed": _speed(profile.get("speed")), "speech": profile.get("speech") is True, "saved_utc": profile.get("saved_utc"), "source": source}
+            "speed": _speed(profile.get("speed")), "speech": profile.get("speech") is not False, "saved_utc": profile.get("saved_utc"), "source": source}
 
 
 def save(scenario: str, image_types: list[str] | None, base_maps: list[str] | None, path: Path | None = None,
@@ -92,7 +92,7 @@ def save(scenario: str, image_types: list[str] | None, base_maps: list[str] | No
     target = path or PROFILE_FILE
     data = _read(target)
     data[scenario] = {"image_types": image_types, "base_maps": base_maps, "map_layers": _layers(map_layers),
-                      "playback": _playback(playback), "speed": _speed(speed), "speech": speech is True,
+                      "playback": _playback(playback), "speed": _speed(speed), "speech": speech is not False,
                       "saved_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix(".tmp")
