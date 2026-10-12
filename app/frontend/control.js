@@ -393,9 +393,9 @@ $("apply-window").addEventListener("click", () => {
 // A scenario without one uses the older profile of its kind of incident until it is saved.
 const INCIDENT_WORDS = { wildfire: "skogsbrand", flood: "översvämning" };
 
-// Whether the scenario's ticks or start and stop differ from the profile the demo starts with,
-// compared as SPARA PROFIL saves them: untouched layers and base maps count with their defaults,
-// and a profile without start and stop has the whole period.
+// Whether the scenario's ticks, start and stop or speed differ from the profile the demo starts
+// with, compared as SPARA PROFIL saves them: untouched layers and base maps count with their
+// defaults, a profile without start and stop has the whole period, one without a speed the default.
 function profileUnsaved(cfg, profile, scenarioState) {
   const saved = profile || {};
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -408,7 +408,8 @@ function profileUnsaved(cfg, profile, scenarioState) {
   return !same(types(now.image_types), types(saved.image_types))
     || !same(maps(now.base_maps), maps(saved.base_maps))
     || !same(layers(now.map_layers), layers(saved.map_layers))
-    || scenarioState.start_utc !== window.start_utc || scenarioState.end_utc !== window.end_utc;
+    || scenarioState.start_utc !== window.start_utc || scenarioState.end_utc !== window.end_utc
+    || scenarioState.speed !== (saved.speed ?? cfg.playback.default_speed);
 }
 
 // SPARA PROFIL is red while the settings differ from the profile.
@@ -423,6 +424,8 @@ function showProfile(profile) {
   savedProfile = profile;
   const kind = INCIDENT_WORDS[config.incident] || config.incident;
   const saved = profile ? `${localTime.format(new Date(profile.saved_utc))} svensk tid` : "";
+  const speedOption = [...$("speed-pick").options].find((option) => Number(option.value) === (profile?.speed ?? config.playback.default_speed));
+  const speed = speedOption ? speedOption.textContent : `${profile?.speed ?? config.playback.default_speed} s/s`;
   const period = profile?.playback
     ? `${localTime.format(new Date(profile.playback.start_utc))} – ${localTime.format(new Date(profile.playback.end_utc))}`
     : "hela perioden";
@@ -431,7 +434,7 @@ function showProfile(profile) {
     ? `Ingen sparad profil för ${config.title}: standardvalet och hela perioden gäller.`
     : profile.source === "incident"
       ? `Ingen egen profil för ${config.title}: den äldre profilen för ${kind}, sparad ${saved}, används för bildtyper, baskartor och kartlager. SPARA PROFIL sparar en för det här scenariot.`
-      : `Profil för ${config.title} sparad ${saved}; bildtyper, baskartor och kartlager används vid start och RESET, demons tider (${period}) när demon startar.`;
+      : `Profil för ${config.title} sparad ${saved}; bildtyper, baskartor och kartlager används vid start och RESET, demons tider (${period}) och hastigheten (${speed}) när demon startar.`;
   showUnsaved();
 }
 

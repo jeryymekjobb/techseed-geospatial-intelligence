@@ -378,11 +378,11 @@ satelliter som tog bilder.
 - **Baskartorna** är offline-kartan (OSM), OpenStreetMap online (kräver internet) och
   Lantmäteriets topowebb när den är aktiverad (bara 2D). Varje karta visar den första
   ikryssade som den har; utan ikryssad baskarta visar 3D-globen bara Natural Earth II.
-- **SPARA PROFIL FÖR SCENARIOT**, längst ned i vänstra kolumnen, sparar kryssen och demons
-  start och stopp (avsnitt 10) för den demo som körs. Knappen är röd så länge kryssen eller
-  tiderna skiljer sig från profilen som demon startar med, och blir som vanligt igen när du har
-  sparat. Demon startar med profilen, och **RESET** återgår till kryssen i den men
-  behåller start och stopp som de är. Ett scenario
+- **SPARA PROFIL FÖR SCENARIOT**, längst ned i vänstra kolumnen, sparar kryssen, demons
+  start och stopp och hastigheten (avsnitt 10) för den demo som körs. Knappen är röd så länge
+  kryssen, tiderna eller hastigheten skiljer sig från profilen som demon startar med, och blir
+  som vanligt igen när du har sparat. Demon startar med profilen, och **RESET** återgår till
+  kryssen i den men behåller start, stopp och hastighet som de är. Ett scenario
   utan egen profil använder den äldre profilen för sin typ av händelse (skogsbrand eller
   översvämning), om en sådan sparades innan profilerna blev per scenario; texten under knappen
   säger vilken profil som gäller. Utan sparad profil gäller standardvalet: kortvågig IR i
@@ -417,7 +417,8 @@ behöver `&token=din-token` i slutet.
 Knapparna i **fetstil** finns i mission control. Hastigheten väljer du i listan **Hastighet**
 under PLAY, PAUSE och RESET – 1 minut/s, 10 minuter/s, 30 minuter/s, 1 timme/s eller 3
 timmar/s – och tar i bruk med **ANVÄND** till vänster om listan. Listan visar den hastighet som
-gäller.
+gäller. **RESET** ändrar inte hastigheten. Spara den med **SPARA PROFIL FÖR SCENARIOT** så
+startar demon med den; utan sparad hastighet startar den på 10 minuter/s.
 
 **Demons start och stopp.** Under hastigheten anger du i **Start** och **Stopp** när demon
 börjar och slutar, i svensk tid och inom scenariots data (raden under fälten visar hela

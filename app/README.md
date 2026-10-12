@@ -142,7 +142,7 @@ others can only watch.
 |---|---|---|
 | PLAY, PAUSE, RESET | `play`, `pause`, `reset` | RESET also clears every event and filter |
 | ANVÄND TIDER (Start, Stopp) | `playback_window` with `target` `<start>/<stop>` | RESET goes to the start and keeps the start and stop; the playback stops at the stop |
-| SPARA PROFIL FÖR SCENARIOT | `save_profile` | Saves the ticks and the demo's start and stop for the scenario (`data/display-profiles.json`) |
+| SPARA PROFIL FÖR SCENARIOT | `save_profile` | Saves the ticks, the demo's start and stop and its speed for the scenario (`data/display-profiles.json`) |
 | SATELLITE DETECTION | `satellite_detection` | Banner (synthetic event) |
 | SENSOR FAILURE | `sensor_failure` with `target` `sensor-17` | The synthetic sensor drops out of the IoT count |
 | SATCOM FAILURE (again: restore) | `satcom_failure`, `satcom_restore` | See below |

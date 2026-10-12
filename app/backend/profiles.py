@@ -1,5 +1,5 @@
-"""Display profiles: image types, base maps, map-layer visibility and the demo's start and stop,
-saved per scenario.
+"""Display profiles: image types, base maps, map-layer visibility, the demo's start and stop and
+its playback speed, saved per scenario.
 
 SPARA PROFIL in mission control saves the running demo's display settings and its playback window
 (the demo's start and stop, within the scenario's data) for that scenario in
@@ -8,7 +8,9 @@ demo starts with them; RESET returns to the display settings and keeps the start
 A scenario without a profile of its own uses the
 older profile of its kind of incident (wildfire or flood), saved before profiles were per scenario,
 until SPARA PROFIL saves one for it. Profiles without map-layer visibility keep the scenario's
-defaults for those layers; profiles without a playback window play the scenario's whole period.
+defaults for those layers; profiles without a playback window play the scenario's whole period,
+and profiles without a speed play at the engine's default speed. The start, stop and speed apply
+when the demo starts; RESET keeps those in use.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.backend.scenario_engine import MAX_SPEED, MIN_SPEED
 from app.backend.scenarios import REPO_ROOT
 
 PROFILE_FILE = Path(os.environ.get("TECHSEED_PROFILE_FILE") or REPO_ROOT / "data" / "display-profiles.json")
@@ -54,6 +57,13 @@ def _playback(raw: Any) -> dict[str, str] | None:
     return {"start_utc": start, "end_utc": end} if start and end and start < end else None
 
 
+def _speed(raw: Any) -> float | None:
+    """The playback speed in simulated seconds per real second, or None when it is not a valid one."""
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return None
+    return float(raw) if MIN_SPEED <= raw <= MAX_SPEED else None
+
+
 def _layers(raw: Any) -> dict[str, bool] | None:
     return ({str(name): visible for name, visible in raw.items()
              if isinstance(name, str) and isinstance(visible, bool)} if isinstance(raw, dict) else None)
@@ -72,16 +82,17 @@ def load(scenario: str, path: Path | None = None, *, incident: str | None = None
         return None
     clean = {key: [str(item) for item in profile[key]] if isinstance(profile.get(key), list) else None for key in LIST_KEYS}
     return {**clean, "map_layers": _layers(profile.get("map_layers")), "playback": _playback(profile.get("playback")),
-            "saved_utc": profile.get("saved_utc"), "source": source}
+            "speed": _speed(profile.get("speed")), "saved_utc": profile.get("saved_utc"), "source": source}
 
 
 def save(scenario: str, image_types: list[str] | None, base_maps: list[str] | None, path: Path | None = None,
-         *, map_layers: dict[str, bool] | None = None, playback: dict[str, str] | None = None) -> dict[str, Any]:
-    """Save display settings and playback window for the scenario, keeping the other profiles; returns the profile."""
+         *, map_layers: dict[str, bool] | None = None, playback: dict[str, str] | None = None,
+         speed: float | None = None) -> dict[str, Any]:
+    """Save display settings, playback window and speed for the scenario, keeping the other profiles; returns the profile."""
     target = path or PROFILE_FILE
     data = _read(target)
     data[scenario] = {"image_types": image_types, "base_maps": base_maps, "map_layers": _layers(map_layers),
-                      "playback": _playback(playback),
+                      "playback": _playback(playback), "speed": _speed(speed),
                       "saved_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix(".tmp")

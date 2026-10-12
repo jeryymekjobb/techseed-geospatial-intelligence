@@ -33,7 +33,7 @@ in the status as `image_types`, None until ticked, when the screens use their de
 "2026-08-14T00:00:00Z/2026-08-23T00:00:00Z") sets the demo's start and stop within the
 scenario's period (`start`, `end`): RESET and PLAY after the stop go to the start, the playback
 stops at the stop, and seeks stay between them. The saved profile's start and stop are read when
-the engine starts; RESET keeps the start and stop in use. The snapshot's `start_utc` and `end_utc` are the
+the engine starts, and so is its speed; RESET keeps the start, stop and speed in use. The snapshot's `start_utc` and `end_utc` are the
 demo's start and stop; `data_start_utc` and `data_end_utc` the scenario's period.
 `reset` clears the events and the image and map choices and sets the clock to the demo's start;
 the ticks go back to the saved display profile (`profile`, profiles.py), or None without one.
@@ -102,7 +102,7 @@ class ScenarioEngine:
     area: tuple[float, float, float, float] | None = None
     monotonic: Callable[[], float] = time.monotonic
     speed: float = DEFAULT_SPEED
-    # The saved display profile: its ticks are read at the start and at every reset, its start and stop at the start.
+    # The saved display profile: its ticks are read at the start and at every reset, its start, stop and speed at the start.
     profile: Callable[[], dict[str, Any] | None] | None = None
     _clock: datetime = field(init=False)
     # The demo's start and stop within start and end (playback_window, or the saved profile).
@@ -136,6 +136,9 @@ class ScenarioEngine:
                 self._set_window(str(window.get("start_utc")), str(window.get("end_utc")))
             except CommandError:
                 pass  # a window outside this period (another scenario's, say): the whole period
+        speed = saved.get("speed")
+        if isinstance(speed, (int, float)) and not isinstance(speed, bool) and MIN_SPEED <= speed <= MAX_SPEED:
+            self.speed = float(speed)
         self._clock = self._first
 
     def _apply_profile(self) -> dict[str, Any]:

@@ -35,7 +35,7 @@ from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
 from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, wms
-from app.backend.scenario_engine import DETECTION_AFTER, CommandError, ScenarioEngine
+from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
 
@@ -464,6 +464,7 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "data_end_utc": utc_text(scenario.PLAYBACK_END),
             "min_speed": MIN_SPEED,
             "max_speed": MAX_SPEED,
+            "default_speed": DEFAULT_SPEED,  # without a speed in the profile
         },
         "attribution": scenario.ATTRIBUTION,
         "layers": {
@@ -649,7 +650,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             body = json.loads(self.rfile.read(length))
             if body.get("command") == "save_profile":
-                # SPARA PROFIL: the ticks shown now and the demo's start and stop become the scenario's profile.
+                # SPARA PROFIL: the ticks shown now, the demo's start and stop and its speed become the scenario's profile.
                 state = self.engine.snapshot()
                 status = state["status"]
                 try:
@@ -659,6 +660,7 @@ class Handler(BaseHTTPRequestHandler):
                         profile_base_maps(self.settings, status),
                         map_layers=profile_map_layers(self.settings, status),
                         playback={"start_utc": state["start_utc"], "end_utc": state["end_utc"]},
+                        speed=state["speed"],
                     )
                 except OSError as exc:
                     self.send_json({"error": "profile_not_saved", "detail": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)

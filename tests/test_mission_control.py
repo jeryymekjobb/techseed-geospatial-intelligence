@@ -111,7 +111,8 @@ def test_spara_profil_is_marked_while_the_settings_differ_from_the_profile() -> 
     config = {
         "incident": "flood",
         "playback": {"start_utc": "2026-08-14T00:00:00Z", "end_utc": "2026-08-23T00:00:00Z",
-                     "data_start_utc": "2026-08-14T00:00:00Z", "data_end_utc": "2026-08-23T00:00:00Z"},
+                     "data_start_utc": "2026-08-14T00:00:00Z", "data_end_utc": "2026-08-23T00:00:00Z",
+                     "default_speed": 600},
         "layers": {
             "landsat": {"names": {"radar": "Radar", "natural": "Naturliga färger"}},
             "base_maps": [{"id": "offline"}, {"id": "online"}],
@@ -119,7 +120,7 @@ def test_spara_profil_is_marked_while_the_settings_differ_from_the_profile() -> 
                            {"name": "Terräng (OSM)", "default_2d": True, "default_3d": False}],
         },
     }
-    untouched = {"start_utc": "2026-08-14T00:00:00Z", "end_utc": "2026-08-23T00:00:00Z",
+    untouched = {"start_utc": "2026-08-14T00:00:00Z", "end_utc": "2026-08-23T00:00:00Z", "speed": 600,
                  "status": {"image_types": None, "base_maps": None, "map_layers": {}}}
     cases = [
         (None, untouched),  # no profile, nothing changed
@@ -131,6 +132,9 @@ def test_spara_profil_is_marked_while_the_settings_differ_from_the_profile() -> 
         ({"image_types": None, "base_maps": None, "map_layers": None,
           "playback": {"start_utc": "2026-08-16T00:00:00Z", "end_utc": "2026-08-20T00:00:00Z"}},
          {**untouched, "start_utc": "2026-08-16T00:00:00Z", "end_utc": "2026-08-20T00:00:00Z"}),
+        (None, {**untouched, "speed": 60}),  # another speed than the default
+        ({"image_types": None, "base_maps": None, "map_layers": None, "playback": None, "speed": 60},
+         {**untouched, "speed": 60}),  # the saved speed
     ]
     code = (
         f"const landsat = require({json.dumps(str(FRONTEND / 'landsat.js'))});"
@@ -141,7 +145,7 @@ def test_spara_profil_is_marked_while_the_settings_differ_from_the_profile() -> 
         + f"console.log(JSON.stringify({json.dumps(cases)}.map(([profile, state]) => profileUnsaved(config, profile, state))));"
     )
     result = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
-    assert result == [False, True, True, False, True, False]
+    assert result == [False, True, True, False, True, False, True, False]
 
 
 def node(expression: str) -> object:

@@ -50,6 +50,22 @@ def test_a_scenario_without_a_profile_uses_the_older_one_of_its_kind_of_incident
     assert profiles.load("skane2024", path, incident="flood")["image_types"] == ["radarwater"]  # the older one is kept
 
 
+def test_the_speed_is_saved_and_one_outside_the_limits_is_not_kept(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.json"
+    assert profiles.save("sundsvall2026", None, None, path, speed=1800)["speed"] == 1800.0
+    assert profiles.save("skane2024", None, None, path)["speed"] is None  # not saved: the default
+    for speed in [5, 10 * 86400, "fast", True]:
+        assert profiles.save("sundsvall2026", None, None, path, speed=speed)["speed"] is None
+
+
+def test_the_engine_starts_at_the_profiles_speed_and_reset_keeps_the_speed_in_use() -> None:
+    engine = ScenarioEngine(START, END, profile=lambda: {"speed": 1800.0})
+    assert engine.snapshot()["speed"] == 1800.0
+    engine.command("speed", speed=60)
+    assert engine.command("reset")["speed"] == 60.0
+    assert ScenarioEngine(START, END, profile=lambda: {"speed": 5}).snapshot()["speed"] == 600.0  # outside the limits
+
+
 def test_a_playback_window_that_is_not_a_window_is_not_kept(tmp_path: Path) -> None:
     path = tmp_path / "profiles.json"
     for window in [{"start_utc": "2026-08-20T00:00:00Z", "end_utc": "2026-08-14T00:00:00Z"},
@@ -139,7 +155,9 @@ def test_spara_profil_saves_effective_display_settings_and_reset_returns_to_them
     ])
     command = f"{base_url}/api/scenario/command"
     post(command, {"command": "playback_window", "target": "2014-08-01T00:00:00Z/2014-08-03T00:00:00Z"})
+    post(command, {"command": "speed", "speed": 1800})
     answer = post(command, {"command": "save_profile"})
+    assert answer["display_profile"]["speed"] == 1800.0
     assert answer["display_profile"]["base_maps"] == ["offline"]
     assert answer["display_profile"]["image_types"] is None
     assert answer["display_profile"]["map_layers"] == {
@@ -160,6 +178,7 @@ def test_spara_profil_saves_effective_display_settings_and_reset_returns_to_them
     assert (state["clock_utc"], state["end_utc"]) == ("2014-08-05T00:00:00Z", "2014-08-06T00:00:00Z")
     restarted = ScenarioEngine(START, END, profile=server.scenario_profile)
     assert (restarted.snapshot()["clock_utc"], restarted.snapshot()["end_utc"]) == ("2014-08-01T00:00:00Z", "2014-08-03T00:00:00Z")
+    assert restarted.snapshot()["speed"] == 1800.0
     # The screens take the demo's start and stop from the config, and the scenario's period beside them.
     playback = server.config(lantmateriet.Settings(None, None, None, None), restarted)["playback"]
     assert (playback["start_utc"], playback["end_utc"]) == ("2014-08-01T00:00:00Z", "2014-08-03T00:00:00Z")
