@@ -4,10 +4,10 @@ Datum: 2026-10-02
 Författare: Claude Opus 5.5 (`claude-opus-5-5`), via Claude Code.
 Underlag: `onepager.md` och
 `reviews/2026-10-02-jamforelse-implementation-onepager-claude-opus-5-5.md`.
-Status: Förslag, delvis genomfört. B1 och B2 är genomförda, B4 körs simulerat
-enligt beslut 2026-10-04 och B3 är öppen. B5 är genomförd i prototypen men inte
-formellt beslutad. Se [Status 2026-10-04](#status-2026-10-04) och
-[Status 2026-10-02](#status-2026-10-02).
+Status: Fas 0–5 genomförda i prototypen, fas 6 delvis. B1 och B2 är genomförda,
+B4 körs simulerat enligt beslut 2026-10-04 och B3 är öppen. B5 är genomförd i
+prototypen men inte formellt beslutad. Se [Status 2026-10-12](#status-2026-10-12),
+[Status 2026-10-04](#status-2026-10-04) och [Status 2026-10-02](#status-2026-10-02).
 
 Planen bygger vidare på det som finns: backend, data, prognos, kioskläge och
 inspelning. Den lägger till rymd-, IoT-, AI- och styrdelarna i en ordning där
@@ -23,6 +23,51 @@ gränssnittet, enligt `AGENTS.md`.
 | B3 | **Rättigheter och namn** (G-09, G-10, G-12) | Ja till att visa elnät från OSM. Dacreo och BruhnBruhn nämns bara med skriftligt godkännande. |
 | B4 | **IoT-hårdvara** | 3–4 nRF91-noder finns och kan levereras. De visas som riktiga sensorer i montern. Sensorer i brandområdet är syntetiska och märks så (G-02). |
 | B5 | **Visualiseringsmotor** | Byt till CesiumJS utan Cesium ion: OSM-kartbilder, höjddata från Copernicus DEM och satellitbanor beräknade lokalt. Leaflet behålls som reserv. Genomförd i prototypen, ej formellt beslutad. |
+
+## Status 2026-10-12
+
+Avstämning mot koden efter commit `6043543`. Underlag: git-historiken sedan
+2026-10-04, `CONTEXT.md`, `python3 -m pytest` (338 godkända) och två körningar av
+`tools/check_demo.py` för Sundsvall 2026, headless med en egen MQTT-broker.
+
+### Faser
+
+- **Fas 2 genomförd:** upptäcktssekvensen startas med SATELLITE DETECTION på nästa
+  riktiga satellitpassage efter scenarioklockan och stegas med NÄSTA. Den är
+  märkt som syntetisk.
+- **Fas 5 funktionellt bekräftad:** all styrning finns i mission control och
+  huvudskärmen bara visar. Demokontrollen för Sundsvall gick igenom alla nio steg
+  i den andra körningen (RESET 2,71 s). I den första underkändes bara RESET, med
+  5,72 s. Headless Chrome renderade 3D-vyn i mjukvara med 0,2 bilder per sekund,
+  så tiderna säger inget om utställningsdatorn. Kravet på RESET inom 5 s behöver
+  bekräftas med `--headed` på utställningsdatorn. Med den delade brokern stoppade
+  kontrollen tidigare vid steg 4 på grund av en extra nod (`test-node`); dess
+  källa är inte utredd.
+- **Fas 6 delvis:** manus i operatörsguiden för brand- och översvämningsdemona,
+  start med en meny och ett kommando, långsammare tempo och videoinspelning
+  (`tools/record_demo.py`). Kvar: kiosk med automatisk återstart, slutbild,
+  belastningsprov (8 timmar och nätavbrott) och prestandamätning på
+  utställningsdatorn.
+
+### Utöver planen
+
+- Tre demos till: översvämningen i Sundsvall 2026 (scenario, inte en återspelad
+  händelse), vinteröversvämningarna i Skåne 2024 och branden vid Kårböle 2018.
+  Demon väljs i en meny vid start.
+- Sentinel-1 och Sentinel-2, Copernicus EMS-perimetrar, SMHI:s väderradar,
+  vattenföring och sjönivåer.
+- Visningsprofil per scenario med bildtyper, baskartor, kartlager och demons
+  start och stopp, sparad från mission control.
+- Datassimilering med ensemble-Kalmanfilter prövades
+  (`reports/2026-10-05-plan-datassimilering-brandprognos-claude-opus-5-5.md`).
+  Efterhandstestet visade att filtret blev sämre, så dagens prognos behålls.
+
+### Kvar
+
+- Beslut B3: elnät från OSM och partnernamnen.
+- Öppna frågor i `CONTEXT.md`: MVP-scenario, godkända datakällor, licenser och
+  attribuering, och bräddningsdata från MSVA.
+- Backloggen är oförändrad (se Status 2026-10-04).
 
 ## Status 2026-10-04
 
