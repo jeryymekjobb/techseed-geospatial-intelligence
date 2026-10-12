@@ -60,6 +60,13 @@ const state = {
   landsatPick: "auto",  // mission control's choice (the scenario status's image)
   landsatShown: undefined,
   pendingEvents: [],
+  threatData: null,  // { sensorEvents, threats } for the threatened places (showThreats)
+  threatKey: null,
+  threatState: null,  // the last state showThreats drew, for the timer that ends a highlight
+  threatJump: undefined,
+  threatSeen: new Set(),  // the threat lines already come in (satlogKey)
+  threatHighlights: new Map(),  // satlogKey -> when its highlight ends (Date.now())
+  threatTimer: null,
   horizonBeforePlus60: null,
   // IoT (sensors.js): real nodes by "node/kind", the synthetic sensors at the clock.
   realSensors: new Map(),
@@ -1150,8 +1157,38 @@ function followPlaybackWindow(scenarioState) {
   state.hydroShownAt = null;
 }
 
+// The threatened buildings on the map, from the clock as in the satellite monitor's log
+// (satlog.js): every threat since the demo's start as a small icon, and one that has just come in
+// while the clock plays, as it is read aloud, large with its name for THREAT_HIGHLIGHT_MS.
+function showThreats(scenarioState) {
+  if (!state.threatData) return;
+  state.threatState = scenarioState;
+  const clockMs = Date.parse(scenarioState.clock_utc);
+  const startMs = Date.parse(scenarioState.start_utc || state.config.playback.start_utc);
+  const lines = satelliteLog({ events: scenarioState.events || [], ...state.threatData }, clockMs, clockMs - startMs + 1, Infinity,
+    state.config.incident_place);
+  const now = Date.now();
+  const jumped = scenarioState.jump !== state.threatJump;
+  state.threatJump = scenarioState.jump;
+  ({ highlights: state.threatHighlights, seen: state.threatSeen } = threatHighlights(state.threatHighlights, state.threatSeen, lines, now,
+    scenarioState.playing, jumped));
+  // Drawn again when the next highlight ends, also while the clock stands still.
+  clearTimeout(state.threatTimer);
+  if (state.threatHighlights.size) {
+    const ends = Math.min(...state.threatHighlights.values());
+    state.threatTimer = setTimeout(() => showThreats(state.threatState), Math.max(0, ends - now) + 50);
+  }
+  const marks = threatMarks(lines, new Set(state.threatHighlights.keys()));
+  const key = JSON.stringify(marks);
+  if (key === state.threatKey) return;
+  state.threatKey = key;
+  state.map.drawThreats(marks);
+  document.body.dataset.threats = marks.map((mark) => `${mark.latest ? "*" : ""}${mark.name}`).join("|");  // read by the tests
+}
+
 function applyState(scenarioState) {
   followPlaybackWindow(scenarioState);
+  showThreats(scenarioState);
   state.playing = scenarioState.playing;
   state.finished = scenarioState.finished;
   $("play").textContent = scenarioState.playing ? "Paus" : "Spela";
@@ -1349,6 +1386,11 @@ async function startApp(createMap) {
   await setupLandsat(config);
   state.iotConnection = await loadOptional("/api/sensors", (error) => { $("iot-connection").textContent = `IoT kunde inte laddas: ${error.message}.`; });
   showRealSensors();
+  // The threats and the sensors' changes that decide them, once, as in the satellite monitor.
+  state.threatData = {
+    sensorEvents: (await loadOptional("/api/sensors/synthetic/events", () => {}))?.events || [],
+    threats: (await loadOptional("/api/threats", () => {})) || {},
+  };
   setClock(new Date(config.playback.start_utc));
   state.controlToken = new URLSearchParams(window.location.search).get("token");
   $("play").addEventListener("click", () => runCommand(state.playing ? "pause" : "play"));

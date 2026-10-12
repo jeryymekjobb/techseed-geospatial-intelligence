@@ -16,7 +16,7 @@ FRONTEND = Path(__file__).resolve().parents[1] / "app" / "frontend"
 # The calls panel.js makes on state.map.
 INTERFACE = {
     "wantsLabels", "addAttribution", "addTerrain", "addLabels", "addStations", "clearHotspots", "addHotspot",
-    "hotspotCount", "restyleHotspots", "setupWind", "showWind", "setupForecast", "drawForecast", "finish", "showGodView", "drawSyntheticSensors", "focusOn", "drawQueryResult", "setCategoryVisible", "drawSatellites", "flashSatellite", "highlightSatellite", "onContextMenu", "showSpaceView", "setupLandsat", "showLandsat",
+    "hotspotCount", "restyleHotspots", "setupWind", "showWind", "setupForecast", "drawForecast", "finish", "showGodView", "drawSyntheticSensors", "focusOn", "drawQueryResult", "drawThreats", "setCategoryVisible", "drawSatellites", "flashSatellite", "highlightSatellite", "onContextMenu", "showSpaceView", "setupLandsat", "showLandsat",
     "labelStations", "markRain", "addWms", "onWmsChange", "setupRadar", "showRadar", "setupEms", "drawEms",
     "setBaseMap", "flyToIncident", "flyHome", "setLayerVisible",
 }

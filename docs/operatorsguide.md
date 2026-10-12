@@ -326,7 +326,7 @@ kommer från:
 | *Landsat 2014* | Landsat 8 tar en bild över branden |
 | *syntetiskt* | En syntetisk IoT-sensor börjar eller slutar bekräfta händelsen: känner rök eller värme vid branden, en bräddgivare bräddar, eller en nivåsensor går över tidigare högsta nivå |
 | *modell* | Hotad bebyggelse vid branden: orter som prognosen vid en satellitpassage för första gången når inom 24 h, med tidsspannet från hög till låg spridningshastighet |
-| *PostGIS* | Hotad bebyggelse vid översvämningen: hur många byggnader som ligger inom 200 m från en sensor när den börjar larma, ur kartdata i PostGIS |
+| *PostGIS* | Hotad bebyggelse vid översvämningen: hur många byggnader som ligger inom 200 m från en sensor när den börjar larma och den närmaste namngivna orten, ur kartdata i PostGIS |
 | *simulerat* | Från mission control: upptäcktssekvensen startar, SATCOM nere och SATCOM åter, SENSOR FAILURE, IoT av och på, och en sensor som placeras på kartan |
 
 Loggen räknas fram ur scenarioklockan och stämmer därför också efter **RESET** eller ett hopp
@@ -334,6 +334,17 @@ i tiden. En sensorrad visas så fort scenarioklockan når ändringen; sensorerna
 beräknade ur deras modeller i steg om 10 minuter. Efter **SENSOR FAILURE** visas inga fler rader
 för den sensorn, och medan IoT är avstängt visas inga sensorrader eller byggnadsrader. Är PostGIS
 inte igång blir det inga byggnadsrader; ladda om satellitbevakningen när PostGIS är igång.
+
+**Hotad bebyggelse på kartan.** När en rad om hotad bebyggelse kommer i loggen, och läses upp,
+visar huvudskärmens karta (2D och 3D) platsen med en stor röd varningstriangel och namnet i ett
+rött textfält: vid branden orterna som prognosen pekar ut, vid översvämningen byggnaderna inom
+200 m från givaren, i mitten av dem och med namnet på den närmaste namngivna orten i OSM (inom
+2 km, annars givarens namn). Den stora markeringen syns i 8 sekunder och blir sedan en liten
+triangel utan namn, så att kartan inte fylls när en lång brand har hotat många orter. Bara hot som
+kommer in medan klockan går markeras stort; när sidan laddas, vid **RESET** och vid hopp i tiden
+visas alla hot fram till klockan som små trianglar. Markeringarna räknas ur scenarioklockan som
+loggen och syns även när uppläsningen är av. Lagret heter **Hotad bebyggelse** och kan släckas i mission control.
+Huvudskärmen hämtar hoten när den laddas; ladda om den om PostGIS startade senare.
 
 **Uppläsning.** Med **UPPLÄSNING** i mission control (under FLYG TILL och ÖVERSIKT) läser
 satellitbevakningen upp nya rader i loggen på svenska genom datorns högtalare, så fort

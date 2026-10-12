@@ -136,23 +136,46 @@ def points_sql(points: list[tuple[str, float, float]]) -> str:
     return ", ".join(f"('{name.replace(chr(39), chr(39) * 2)}', ST_SetSRID(ST_MakePoint({lon}, {lat}), 4326))" for name, lat, lon in points)
 
 
+# The threatened buildings are named after the nearest named OSM place this close to their middle.
+PLACE_NAME_M = 2000
+
+
 def buildings_near_sql(points: list[tuple[str, float, float]]) -> str:
-    """How many buildings lie within NEAR_OVERFLOW_M of each point, as one JSON object by the points' names."""
-    return (f"SELECT json_object_agg(p.name, (SELECT count(*) FROM targets t WHERE t.kind = 'building' "
-            f"AND ST_DWithin(t.geom::geography, p.geom::geography, {NEAR_OVERFLOW_M}))) "
-            f"FROM (VALUES {points_sql(points)}) AS p(name, geom);")
+    """The buildings within NEAR_OVERFLOW_M of each point, as one JSON object by the points' names: how many,
+    their middle and the nearest named OSM place within PLACE_NAME_M of it (of the point when there are none)."""
+    centre = "coalesce(b.centre, p.geom)::geography"
+    return (f"SELECT json_object_agg(p.name, json_build_object('count', b.count, "
+            f"'latitude', round(ST_Y(b.centre)::numeric, 5), 'longitude', round(ST_X(b.centre)::numeric, 5), "
+            f"'place', (SELECT t.name FROM targets t WHERE t.kind = 'place' AND t.name IS NOT NULL "
+            f"AND ST_DWithin(t.geom::geography, {centre}, {PLACE_NAME_M}) "
+            f"ORDER BY ST_Distance(t.geom::geography, {centre}) LIMIT 1))) "
+            f"FROM (VALUES {points_sql(points)}) AS p(name, geom) "
+            f"CROSS JOIN LATERAL (SELECT count(*) AS count, ST_Centroid(ST_Collect(ST_Centroid(t.geom))) AS centre "
+            f"FROM targets t WHERE t.kind = 'building' "
+            f"AND ST_DWithin(t.geom::geography, p.geom::geography, {NEAR_OVERFLOW_M})) AS b;")
 
 
-def buildings_near(points: list[tuple[str, float, float]], psql: "Psql") -> dict[str, int]:
-    """The buildings within NEAR_OVERFLOW_M of each point (name, latitude, longitude), by name; raises Unavailable."""
+def buildings_near(points: list[tuple[str, float, float]], psql: "Psql") -> dict[str, dict[str, Any]]:
+    """The buildings within NEAR_OVERFLOW_M of each point (name, latitude, longitude), by name:
+    { count, latitude, longitude, place }, the position and place None without buildings or a
+    named place near; raises Unavailable."""
     if not points:
         return {}
     output = psql.query(buildings_near_sql(points)).strip()
     try:
-        counts = json.loads(output)
-    except json.JSONDecodeError as exc:
+        found = json.loads(output)
+        result = {}
+        for name, item in (found or {}).items():
+            located = item.get("latitude") is not None and item.get("longitude") is not None
+            result[str(name)] = {
+                "count": int(item["count"]),
+                "latitude": float(item["latitude"]) if located else None,
+                "longitude": float(item["longitude"]) if located else None,
+                "place": str(item["place"]) if item.get("place") else None,
+            }
+        return result
+    except (json.JSONDecodeError, AttributeError, KeyError, TypeError, ValueError) as exc:
         raise Unavailable(f"oväntat svar från PostGIS: {output[:200]}") from exc
-    return {str(name): int(count) for name, count in (counts or {}).items()}
 
 
 def sql_for(question_id: str, clock: datetime, points: list[tuple[str, float, float]] | None = None) -> str:

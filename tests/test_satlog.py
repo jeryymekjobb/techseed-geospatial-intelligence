@@ -123,21 +123,60 @@ def test_threatened_buildings_are_in_the_log() -> None:
         f" {{clock_utc: new Date({CLOCK} - 60 * {MINUTE}).toISOString(), sensor: 'dv-01', name: 'DV1 Bergsåker', kind: 'sewer', confirms: true}},"
         f" {{clock_utc: new Date({CLOCK} - 30 * {MINUTE}).toISOString(), sensor: 'dv-03', name: 'DV3 Skönsmon', kind: 'sewer', confirms: false}}]"
     )
-    places = [{"clock_utc": "2014-08-04T08:00:00Z", "places": [{"name": name, "span": f"{index + 2}–10 h"} for index, name in
-                                                              enumerate(["Axholm", "Lågbo", "Ormdalen", "Skillberg", "Hönäs", "Näs"])]},
-              {"clock_utc": "2014-08-04T09:30:00Z", "places": [{"name": "Fläckebo", "span": "7–>24 h"}]}]
-    threats = {"places": places, "buildings_near": {"dv-03": 78, "dv-01": 1}, "distance_m": 200}
+    places = [{"clock_utc": "2014-08-04T08:00:00Z", "places": [{"name": name, "span": f"{index + 2}–10 h", "latitude": 59.9, "longitude": 16.0 + index / 10}
+                                                              for index, name in enumerate(["Axholm", "Lågbo", "Ormdalen", "Skillberg", "Hönäs", "Näs"])]},
+              {"clock_utc": "2014-08-04T09:30:00Z", "places": [{"name": "Fläckebo", "span": "7–>24 h", "latitude": 59.95, "longitude": 16.3}]}]
+    threats = {"places": places, "distance_m": 200, "buildings_near": {
+        "dv-03": {"count": 78, "latitude": 62.37, "longitude": 17.31, "place": "Skönsmon"},
+        "dv-01": {"count": 1, "latitude": 62.42, "longitude": 17.36, "place": None},
+    }}
     lines = node(f"satelliteLog({{ sensorEvents: {sensor_events}, threats: {json.dumps(threats)} }}, {CLOCK})")
     assert [(line["text"], line["source"]) for line in lines] == [
         ("Bräddgivare DV3 Skönsmon slutar brädda", "synthetic"),
         ("1 byggnad inom 200 m från Bräddgivare DV1 Bergsåker", "postgis"),
         ("Bräddgivare DV1 Bergsåker bräddar", "synthetic"),
         ("1 ort hotas inom 24 h: Fläckebo 7–>24 h", "model"),
-        ("78 byggnader inom 200 m från Bräddgivare DV3 Skönsmon", "postgis"),
+        ("78 byggnader i Skönsmon inom 200 m från Bräddgivare DV3 Skönsmon", "postgis"),
         ("Bräddgivare DV3 Skönsmon bräddar", "synthetic"),
         ("6 orter hotas inom 24 h: Axholm 2–10 h, Lågbo 3–10 h, Ormdalen 4–10 h, Skillberg 5–10 h och 2 till", "model"),
     ]
     assert node("[SATLOG_SOURCES.model, SATLOG_SOURCES.postgis]") == ["modell", "PostGIS"]
+    # The maps' marks: each place once, small; a highlighted line's places large and last (drawn on top);
+    # without a place, the sensor's name.
+    log = f"satelliteLog({{ sensorEvents: {sensor_events}, threats: {json.dumps(threats)} }}, {CLOCK})"
+    marks = node(f"threatMarks({log})")
+    assert [mark["name"] for mark in marks] == [
+        "Bräddgivare DV1 Bergsåker", "Fläckebo", "Skönsmon", "Axholm", "Lågbo", "Ormdalen", "Skillberg", "Hönäs", "Näs",
+    ] and not any(mark["latest"] for mark in marks)
+    marks = node(f"(() => {{ const lines = {log}; return threatMarks(lines, new Set([satlogKey(lines.find((line) => line.text.startsWith('1 ort')))])); }})()")
+    assert [(mark["name"], mark["latest"]) for mark in marks][-2:] == [("Näs", False), ("Fläckebo", True)]
+    assert marks[0]["name"] == "Bräddgivare DV1 Bergsåker" and marks[0]["latitude"] == 62.42 and marks[0]["longitude"] == 17.36
+    # A sensor that failed before it alarms marks nothing.
+    failed = node(f"threatMarks(satelliteLog({{ events: [{{ kind: 'sensor_failure', target: 'dv-01', clock_utc: '2014-08-04T09:00:00Z' }}], "
+                  f"sensorEvents: {sensor_events}, threats: {json.dumps(threats)} }}, {CLOCK}))")
+    assert "Bräddgivare DV1 Bergsåker" not in [mark["name"] for mark in failed]
+
+
+def test_a_threat_that_comes_in_while_playing_is_highlighted_for_a_few_seconds() -> None:
+    threats = {"places": [{"clock_utc": "2014-08-04T08:00:00Z", "places": [{"name": "Axholm", "span": "2–10 h", "latitude": 59.9, "longitude": 16.0}]},
+                          {"clock_utc": "2014-08-04T10:00:00Z", "places": [{"name": "Fläckebo", "span": "7–>24 h", "latitude": 59.95, "longitude": 16.3}]}]}
+    steps = node(
+        f"(() => {{ const threats = {json.dumps(threats)}; const at = (time) => satelliteLog({{ threats }}, Date.parse(time));"
+        " const names = (step, lines) => threatMarks(lines, new Set(step.highlights.keys())).filter((mark) => mark.latest).map((mark) => mark.name);"
+        " const out = []; let step = { highlights: new Map(), seen: new Set() };"
+        # the load: a jump, nothing large
+        " let lines = at('2014-08-04T09:00:00Z'); step = threatHighlights(step.highlights, step.seen, lines, 0, true, true); out.push(names(step, lines));"
+        # Fläckebo comes in while playing: large
+        " lines = at('2014-08-04T10:05:00Z'); step = threatHighlights(step.highlights, step.seen, lines, 1000, true, false); out.push(names(step, lines));"
+        # still large a moment later, small after THREAT_HIGHLIGHT_MS
+        " step = threatHighlights(step.highlights, step.seen, lines, 1000 + THREAT_HIGHLIGHT_MS - 1, true, false); out.push(names(step, lines));"
+        " step = threatHighlights(step.highlights, step.seen, lines, 1000 + THREAT_HIGHLIGHT_MS, true, false); out.push(names(step, lines));"
+        # a RESET or seek back and forth: not large again, also when paused
+        " step = threatHighlights(step.highlights, step.seen, at('2014-08-04T09:00:00Z'), 20000, false, true);"
+        " lines = at('2014-08-04T10:05:00Z'); step = threatHighlights(step.highlights, step.seen, lines, 21000, false, false); out.push(names(step, lines));"
+        " return [out, THREAT_HIGHLIGHT_MS]; })()"
+    )
+    assert steps == [[[], ["Fläckebo"], ["Fläckebo"], [], []], 8000]
 
 
 def test_only_new_lines_are_read_aloud_and_many_are_cut_short() -> None:

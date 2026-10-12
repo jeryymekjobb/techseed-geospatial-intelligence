@@ -197,25 +197,26 @@ def synthetic_sensor_events() -> dict[str, Any]:
 @lru_cache(maxsize=1)
 def threatened_places() -> tuple[dict[str, Any], ...]:
     """The fire's forecast: at each satellite pass, the places that first come within reach in 24 h at
-    the high rate (forecast.py's places_within_24h), with the span from high to low rate. A model."""
+    the high rate (forecast.py's places_within_24h), with the span from high to low rate and where. A model."""
     if not scenario.WILDFIRE:
         return ()
     seen: set[str] = set()
     found = []
     for state in forecast.forecasts()["states"]:
-        new = [{"name": place["names"][0], "span": place["span"]} for place in state["places_within_24h"] if place["names"][0] not in seen]
+        new = [{"name": place["names"][0], "span": place["span"], "latitude": place["latitude"], "longitude": place["longitude"]} for place in state["places_within_24h"] if place["names"][0] not in seen]
         seen.update(item["name"] for item in new)
         if new:
             found.append({"clock_utc": state["pass_utc"], "places": new})
     return tuple(found)
 
 
-_buildings_near: dict[str, int] | None = None
+_buildings_near: dict[str, dict[str, Any]] | None = None
 
 
 def threats(psql: spatial.Psql) -> dict[str, Any]:
     """Threatened buildings for the satellite monitor's log: the fire's newly threatened places per pass, and
-    the buildings within spatial.NEAR_OVERFLOW_M of each synthetic flood sensor from PostGIS (asked once;
+    the buildings within spatial.NEAR_OVERFLOW_M of each synthetic flood sensor from PostGIS, with their middle and
+    the nearest named place (spatial.buildings_near; asked once;
     `unavailable` says why when PostGIS cannot answer, and it is asked again next time)."""
     global _buildings_near
     result: dict[str, Any] = {"places": list(threatened_places()), "buildings_near": {}, "distance_m": spatial.NEAR_OVERFLOW_M}
@@ -424,6 +425,7 @@ LAYER_CATEGORIES = {
     "Hotspots": "space",
     "Syntetiska sensorer": "iot",
     "Svar på fråga": "infrastructure",
+    "Hotad bebyggelse": "infrastructure",
     "Vind (ERA5-Land)": "weather",
     "Nederbörd (SMHI radar)": "weather",
 }
@@ -454,6 +456,7 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
             shown = name in (source.get("visible") or [])
             items.append(item(f"{title} (modell)", shown, shown))
     items.append(item("Svar på fråga", True, True))
+    items.append(item("Hotad bebyggelse", True, True))
     if satellites.satellites()["available"]:
         items.append({**item(f"Satelliter ({scenario.PLAYBACK_START.year})", None, True), "category": "space"})
     if settings.fastighet_enabled:

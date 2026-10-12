@@ -143,6 +143,7 @@ async function createCesiumMap(config) {
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
+  const threatLayer = group("threats");
   const stationLayer = group("stations");
   const satelliteLayer = group("satellites");
   const satelliteEntities = new Map();  // norad -> { point, track }
@@ -404,6 +405,7 @@ async function createCesiumMap(config) {
         layers.push(["Syntetiska sensorer", (visible) => { syntheticLayer.show = visible; }, () => syntheticLayer.show]);
       }
       layers.push(["Svar på fråga", (visible) => { queryLayer.show = visible; }, () => queryLayer.show]);
+      layers.push(["Hotad bebyggelse", (visible) => { threatLayer.show = visible; }, () => threatLayer.show]);
       layers.push([`Satelliter (${config.playback.start_utc.slice(0, 4)})`, (visible) => { satelliteLayer.show = visible; }, () => satelliteLayer.show]);
       const panel = document.createElement("form");
       panel.className = "layer-panel";
@@ -466,6 +468,27 @@ async function createCesiumMap(config) {
       }
     },
 
+    // The threatened places (satlog.js threatMarks): the newest threat's large with its name, the
+    // earlier ones a small icon, so the many places of a long fire do not hide the newest.
+    drawThreats(marks) {
+      const entities = threatLayer.entities;
+      entities.removeAll();
+      for (const mark of marks) {
+        const size = mark.latest ? 64 : 24;
+        // The newest moved towards the camera, so it is drawn over the earlier ones and the hotspots.
+        const front = { eyeOffset: new Cesium.Cartesian3(0, 0, mark.latest ? -3000 : -1000) };
+        entities.add({
+          name: escapeText(mark.name), position: Cesium.Cartesian3.fromDegrees(mark.longitude, mark.latitude),
+          billboard: { image: svgImage(THREAT_ICON_SVG, size), width: size, height: size * 58 / 64, ...front, ...ON_GROUND },
+          label: mark.latest ? {
+            text: mark.name, font: "bold 24px system-ui, sans-serif", fillColor: cesiumColor("#ffffff"),
+            showBackground: true, backgroundColor: cesiumColor("#8b0f17", 0.92), backgroundPadding: new Cesium.Cartesian2(12, 8),
+            pixelOffset: new Cesium.Cartesian2(size / 2 + 8, 0), horizontalOrigin: Cesium.HorizontalOrigin.LEFT, ...front, ...ON_GROUND,
+          } : undefined,
+        });
+      }
+    },
+
     // The result of a prepared question (spatial.py); null clears it.
     drawQueryResult(collection) {
       const entities = queryLayer.entities;
@@ -500,7 +523,7 @@ async function createCesiumMap(config) {
         for (const [box, shown] of layerBoxes) box.checked = shown();
         return;
       }
-      const groups = { space: [points, satelliteLayer], iot: [syntheticLayer], infrastructure: [queryLayer] };
+      const groups = { space: [points, satelliteLayer], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer] };
       for (const layer of groups[category] || []) layer.show = visible;
       for (const [box, shown] of layerBoxes) box.checked = shown();
     },

@@ -57,8 +57,10 @@ function satlogDecimal(value) {
 // `satellites`: [{ name, instrument, passes: [{ start, end }] }] over the fire (orbits.js);
 // `firms`: firmsPasses(); `scenes`: config.layers.landsat.scenes; `events`: the scenario's events;
 // `sensorEvents`: the synthetic sensors' changes, { clock_utc, sensor, name, kind, confirms };
-// `threats`: /api/threats, { places: [{ clock_utc, places: [{ name, span }] }], buildings_near: { sensor: count }, distance_m }.
+// `threats`: /api/threats, { places: [{ clock_utc, places: [{ name, span, latitude, longitude }] }],
+// buildings_near: { sensor: { count, latitude, longitude, place } }, distance_m }.
 // A sensor that starts confirming adds the buildings near it, under the same conditions as its own line.
+// A threat line carries `marks`, the threatened places to show on the map (threatMarks).
 // A sensor's changes are left out after mission control's SENSOR FAILURE for it, and every
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
@@ -123,10 +125,13 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     const texts = SATLOG_SENSOR_TEXTS[item.kind] || ["bekräftar händelsen", "slutar bekräfta händelsen"];
     lines.push({ atMs, text: `${names.get(item.sensor)} ${item.confirms ? texts[0] : texts[1]}`, source: "synthetic", kind: "sensor" });
     const near = threats.buildings_near?.[item.sensor];
-    if (item.confirms && near) {
+    if (item.confirms && near?.count) {
+      const where = near.place ? ` i ${near.place}` : "";
       lines.push({
-        atMs, text: `${near} ${near === 1 ? "byggnad" : "byggnader"} inom ${threats.distance_m} m från ${names.get(item.sensor)}`,
+        atMs, text: `${near.count} ${near.count === 1 ? "byggnad" : "byggnader"}${where} inom ${threats.distance_m} m från ${names.get(item.sensor)}`,
         source: "postgis", kind: "threat",
+        marks: near.latitude === null || near.latitude === undefined ? []
+          : [{ name: near.place || names.get(item.sensor), latitude: near.latitude, longitude: near.longitude }],
       });
     }
   }
@@ -137,6 +142,8 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     lines.push({
       atMs: Date.parse(pass.clock_utc), text: `${count} inom 24 h: ${named}${more > 0 ? ` och ${more} till` : ""}`,
       source: "model", kind: "threat",
+      marks: pass.places.filter((place) => place.latitude !== undefined)
+        .map((place) => ({ name: place.name, latitude: place.latitude, longitude: place.longitude })),
     });
   }
   // An event recorded at a moment shows at that moment; among equal moments the later source first.
@@ -146,6 +153,45 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     .sort((a, b) => b.atMs - a.atMs || b.order - a.order)
     .slice(0, limit)
     .map(({ order, ...line }) => line);
+}
+
+// The threatened place's icon on both maps: a red warning triangle.
+const THREAT_ICON_SVG = '<svg viewBox="0 0 64 58"><path d="M32 3 L61 55 H3 Z" fill="#c1121f" stroke="#ffffff" '
+  + 'stroke-width="4" stroke-linejoin="round"/><rect x="29" y="18" width="6" height="22" rx="2" fill="#ffffff"/>'
+  + '<circle cx="32" cy="47" r="3.8" fill="#ffffff"/></svg>';
+// How long a threat that has just come in is drawn large with its name, in real time.
+const THREAT_HIGHLIGHT_MS = 8000;
+
+// The threatened places on the main screen's maps (map2d.js, map3d.js): those of the log's threat
+// lines (as satelliteLog gives them), each place once, { name, latitude, longitude, latest }.
+// `latest` marks the places of the lines in `highlighted` (a Set of satlogKey), drawn large with
+// their name; they come last, so the maps draw them on top of the others (a small icon each).
+function threatMarks(lines, highlighted = new Set()) {
+  const marks = new Map();
+  for (const line of lines) {
+    if (line.kind !== "threat" || !line.marks?.length) continue;
+    const latest = highlighted.has(satlogKey(line));
+    for (const mark of line.marks) {
+      const key = `${mark.name}|${mark.latitude}|${mark.longitude}`;
+      if (!marks.has(key) || latest) marks.set(key, { ...mark, latest: latest || marks.get(key)?.latest || false });
+    }
+  }
+  return [...marks.values()].sort((a, b) => a.latest - b.latest);
+}
+
+// Which threat lines to highlight: { highlights, seen } from the earlier `highlights` (a Map of
+// satlogKey to when it ends, in real time), the keys already `seen`, the lines, the real time and
+// whether the clock plays and has jumped. A threat line that comes in while the clock plays is
+// highlighted for THREAT_HIGHLIGHT_MS, as it is read aloud; a load, RESET or jump only marks the
+// lines as seen and ends every highlight.
+function threatHighlights(highlights, seen, lines, nowMs, playing, jumped) {
+  const keys = lines.filter((line) => line.kind === "threat" && line.marks?.length).map(satlogKey);
+  if (jumped) return { highlights: new Map(), seen: new Set(keys) };
+  const next = new Map([...highlights].filter(([, until]) => until > nowMs));
+  for (const key of keys) {
+    if (!seen.has(key) && playing) next.set(key, nowMs + THREAT_HIGHLIGHT_MS);
+  }
+  return { highlights: next, seen: new Set([...seen, ...keys]) };
 }
 
 // What the satellite monitor reads aloud of the log: the lines (newest first, as satelliteLog gives
@@ -204,5 +250,5 @@ function levelReportDue(next, clockMs, alarming, jumped) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { firmsPasses, satelliteLog, spokenLines, satlogKey, levelReport, levelReportDue, SATLOG_SOURCES };
+  module.exports = { firmsPasses, satelliteLog, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, SATLOG_SOURCES };
 }

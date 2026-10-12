@@ -32,6 +32,13 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .map-label-town { font-size: 16px; font-weight: 700; }
 .map-label-village { font-size: 14px; font-weight: 600; }
 .map-label-lake { font-style: italic; color: #1f5fa8; }
+/* Threatened buildings (map2d.js drawThreats): the newest threat large with its name, the earlier ones a small icon. */
+.threat-mark { pointer-events: none; }
+.threat-body { position: absolute; display: flex; align-items: center; gap: 6px; transform: translate(-12px, -50%); white-space: nowrap; }
+.threat-body svg { width: 24px; height: 22px; flex: none; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.threat-body span { font: 700 24px system-ui, sans-serif; color: #fff; background: rgba(139, 15, 23, 0.92); padding: 8px 14px; border: 2px solid #fff; border-radius: 6px; }
+.threat-mark.latest .threat-body { transform: translate(-32px, -50%); gap: 10px; }
+.threat-mark.latest .threat-body svg { width: 64px; height: 58px; }
 .barb-icon { pointer-events: none; }
 /* Cesium's info box beside what was clicked (map3d.js placeInfoBox), with a pointer towards it. */
 .cesium-infoBox.anchored { top: 0; right: auto; width: 380px; max-width: calc(100% - 32px); transform: none; border: 1px solid #444; border-radius: 7px; z-index: 950; }

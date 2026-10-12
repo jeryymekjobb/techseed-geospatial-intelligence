@@ -261,8 +261,10 @@ the scenario, not measured, and always marked synthetic.
 synthetic sensor starts and stops confirming the incident over the scenario's period
 (sampled every 10 minutes), for the satellite monitor's log of satellite and IoT events.
 `GET /api/threats` gives that log's threatened buildings: the fire forecast's places that first
-come within reach in 24 h at each pass (`places`), and for a flood the buildings within 200 m
-of each synthetic sensor from PostGIS (`buildings_near`; `unavailable` when PostGIS cannot answer).
+come within reach in 24 h at each pass (`places`, with their positions), and for a flood the
+buildings within 200 m of each synthetic sensor from PostGIS (`buildings_near`: how many, their
+middle and the nearest named OSM place within 2 km; `unavailable` when PostGIS cannot answer). The
+main screen's maps mark them as the clock reaches them (layer "Hotad bebyggelse").
 
 ### Assessment and questions
 

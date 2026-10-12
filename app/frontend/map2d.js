@@ -62,6 +62,11 @@ function createLeafletMap(config) {
   }
   const queryLayer = L.layerGroup().addTo(map);
   overlays["Svar på fråga"] = queryLayer;
+  const threatLayer = L.layerGroup().addTo(map);
+  overlays["Hotad bebyggelse"] = threatLayer;
+  // Above the sensors' permanent names (the tooltip pane, 650), so they never cover the newest threat.
+  map.createPane("threats").style.zIndex = 660;
+  map.getPane("threats").style.pointerEvents = "none";
   const stationLayer = L.layerGroup().addTo(map);
   // Satellite images are below the flood maps, except the transparent radar-water mask.
   // Images are in WGS 84 and stretched to their bounds.
@@ -337,6 +342,22 @@ function createLeafletMap(config) {
       }
     },
 
+    // The threatened places (satlog.js threatMarks): the newest threat's large with its name, the
+    // earlier ones a small icon, so the many places of a long fire do not hide the newest.
+    drawThreats(marks) {
+      threatLayer.clearLayers();
+      for (const mark of marks) {
+        const name = document.createElement("span");
+        name.textContent = mark.name;  // OSM names are text, never markup
+        const icon = L.divIcon({
+          className: `threat-mark${mark.latest ? " latest" : ""}`, iconSize: [0, 0],
+          html: `<div class="threat-body">${THREAT_ICON_SVG}${mark.latest ? name.outerHTML : ""}</div>`,
+        });
+        L.marker([mark.latitude, mark.longitude], { icon, pane: "threats", interactive: false, keyboard: false, zIndexOffset: mark.latest ? 1000 : 0 })
+          .addTo(threatLayer);
+      }
+    },
+
     // The result of a prepared question (spatial.py); null clears it.
     drawQueryResult(collection) {
       queryLayer.clearLayers();
@@ -358,7 +379,7 @@ function createLeafletMap(config) {
         setMapLayerVisible(radarOverlay, visible && radarVisible);
         return;
       }
-      const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer] };
+      const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer] };
       for (const layer of groups[category] || []) {
         if (!layer) continue;
         if (visible) layer.addTo(map);
