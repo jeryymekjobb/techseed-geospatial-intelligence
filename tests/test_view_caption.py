@@ -61,3 +61,13 @@ def test_the_depth_legend_has_the_municipality_s_seven_classes_and_shows_with_a_
     shown = node("flood_legend.js", "[depthLegendShown(['SundsvallsKommun:100-ar_maxvattendjup']), "
                  "depthLegendShown(['SundsvallsKommun:100-ar_maxvattenhastighet', '13']), depthLegendShown([])]")
     assert shown == [True, False, False]
+
+
+def test_the_flood_maps_note_names_the_scenario_s_own_period() -> None:
+    periods = node("flood_legend.js", "[floodPeriodText('2026-08-14T00:00:00Z', '2026-08-23T00:00:00Z'), "
+                   "floodPeriodText('2024-01-20T00:00:00Z', '2024-02-26T00:00:00Z'), "
+                   "floodPeriodText('2023-12-20T00:00:00Z', '2024-01-01T00:00:00Z')]")
+    assert periods == ["augusti 2026", "januari–februari 2024", "december 2023"]  # UTC days; the end is not part of it
+    for page in ("index.html", "3d.html"):
+        html = (FRONTEND / page).read_text(encoding="utf-8")
+        assert 'id="flood-maps-note"' in html and "augusti 2026" not in html

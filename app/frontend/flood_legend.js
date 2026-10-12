@@ -18,4 +18,16 @@ function depthLegendShown(visibleLayers) {
   return visibleLayers.some((name) => name.endsWith("maxvattendjup"));
 }
 
-if (typeof module !== "undefined") module.exports = { DEPTH_CLASSES, depthLegendShown };
+// The scenario's period in words for the flood maps' note: "augusti 2026", "januari–februari 2024".
+// The periods are whole UTC days, so the months are counted in UTC.
+function floodPeriodText(startUtc, endUtc) {
+  const month = new Intl.DateTimeFormat("sv-SE", { timeZone: "UTC", month: "long" });
+  const year = new Intl.DateTimeFormat("sv-SE", { timeZone: "UTC", year: "numeric" });
+  const start = new Date(startUtc);
+  const end = new Date(Date.parse(endUtc) - 1);  // the period ends just before its end time
+  const [startMonth, endMonth, startYear, endYear] = [month.format(start), month.format(end), year.format(start), year.format(end)];
+  if (startYear !== endYear) return `${startMonth} ${startYear}–${endMonth} ${endYear}`;
+  return startMonth === endMonth ? `${startMonth} ${startYear}` : `${startMonth}–${endMonth} ${startYear}`;
+}
+
+if (typeof module !== "undefined") module.exports = { DEPTH_CLASSES, depthLegendShown, floodPeriodText };

@@ -388,6 +388,9 @@ function showRadar(clock) {
 // A service that does not answer is left out, so its requests do not hold up the screens.
 function setupFloodMaps(config) {
   const legend = $("flood-legend");
+  // The scenario's own period, not the demo's start and stop.
+  const period = floodPeriodText(config.playback.data_start_utc, config.playback.data_end_utc);
+  $("flood-maps-note").textContent = `Modeller av vad som kan översvämmas, inte observationer av ${period}. Välj lager i kartans lagerlista.`;
   for (const source of config.layers.wms || []) {
     if (source.available === false) {
       const item = document.createElement("li");
