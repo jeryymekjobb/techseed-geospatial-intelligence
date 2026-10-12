@@ -46,8 +46,6 @@
         <button id="fly-incident" type="button" data-command="camera" data-target="incident">FLYG TILL</button>
         <button type="button" data-command="camera" data-target="home">ÖVERSIKT</button>
       </div>
-    </section>
-    <section>
       <h2>Satellitbilder</h2>
       <div class="control-row detection-row">
         <button type="button" data-command="satellite_detection" data-status="detection">SATELLITE DETECTION</button>
@@ -59,6 +57,18 @@
         <button type="button" data-image="off">KARTA</button>
         <button type="button" data-image="auto">SENASTE SATELLITBILD</button>
       </div>
+      <label class="image-pick">Bild <select id="image-pick"></select></label>
+      <div class="control-row pick-row">
+        <button id="show-pick" type="button" disabled>VISA VALD BILD</button>
+      </div>
+      <div id="image-shown" class="status" aria-live="polite"></div>
+      <div class="control-row pick-row">
+        <button id="save-profile" type="button">SPARA PROFIL</button>
+      </div>
+      <div id="profile-note" class="status" aria-live="polite"></div>
+    </section>
+    <section>
+      <h2>Kartan</h2>
       <fieldset id="map-layers" class="image-types">
         <legend>Kartans lager</legend>
       </fieldset>
@@ -68,15 +78,6 @@
       <fieldset id="base-maps" class="image-types">
         <legend>Baskartor</legend>
       </fieldset>
-      <div class="control-row pick-row">
-        <button id="save-profile" type="button">SPARA PROFIL</button>
-      </div>
-      <div id="profile-note" class="status" aria-live="polite"></div>
-      <label class="image-pick">Bild <select id="image-pick"></select></label>
-      <div class="control-row pick-row">
-        <button id="show-pick" type="button" disabled>VISA VALD BILD</button>
-      </div>
-      <div id="image-shown" class="status" aria-live="polite"></div>
       <div id="panel-choices" class="panel-choices"></div>
     </section>
     <section>

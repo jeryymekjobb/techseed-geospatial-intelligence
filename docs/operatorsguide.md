@@ -340,7 +340,8 @@ Huvudskärmen ska visa kartan över brandområdet, och i panelen till höger ska
 Överst på huvudskärmen, efter den gula märkningen, står vad kartan visar under sina lager, med
 datum: till exempel "Visas: Satellitbild – Landsat 8, falska färger, kortvågig IR, tagen 4 aug.
 2014 12:06 svensk tid", eller "Visas: Karta – OpenStreetMap, data från …" med datumet då kartans
-OpenStreetMap-data hämtades. Du väljer i gruppen **Satellitbilder** i mission control: knapparna
+OpenStreetMap-data hämtades. Du väljer i gruppen **Satellitbilder** i mission controls vänstra
+kolumn, under uppspelningsknapparna: knapparna
 **KARTA** och **SENASTE SATELLITBILD**, eller en bild i listan **Bild** som du sedan visar med
 **VISA VALD BILD**. Senaste satellitbild är
 den senaste bilden av de ikryssade bildtyperna som är tagen fram till scenariotiden (se nedan).
@@ -357,7 +358,7 @@ kartan kan du fortfarande zooma, dra och högerklicka. Lägg till `?controls=1` 
 att få tillbaka huvudskärmens egna knappar och lagerlistor vid felsökning. Uppspelningsknapparna
 där styr alla skärmar, medan lagerlistan och stationslistorna bara gäller den skärmen.
 
-**Kartans lager.** Rutan **Kartans lager**, under KARTA och SENASTE SATELLITBILD, har en
+**Kartans lager.** Rutan **Kartans lager**, överst i gruppen **Kartan** i mittkolumnen, har en
 kryssruta per lager och de fyra kategorierna för GOD VIEW: **Space** (detektioner och
 satelliter), **IoT** (syntetiska sensorer), **Infrastructure** (svar på fråga) och **Weather**
 (vind, SMHI:s nederbördsradar och väderstationer). En kategori döljer eller visar alla sina
@@ -365,7 +366,7 @@ lager, med en banner och i GOD VIEW:s lista på huvudskärmen; dess lager står 
 och går inte att ändra medan kategorin är dold. Maritime, Aviation och Emergency är gråa: de
 ingår inte i demon.
 
-**Bildtyper och baskartor.** Under knapparna listar mission control demons bildtyper och
+**Bildtyper och baskartor.** Under Kartans lager listar mission control demons bildtyper och
 baskartor med kryssrutor. Vilka typer som är mest användbara beror på händelsen och på vilka
 satelliter som tog bilder.
 
@@ -377,8 +378,10 @@ satelliter som tog bilder.
 - **Baskartorna** är offline-kartan (OSM), OpenStreetMap online (kräver internet) och
   Lantmäteriets topowebb när den är aktiverad (bara 2D). Varje karta visar den första
   ikryssade som den har; utan ikryssad baskarta visar 3D-globen bara Natural Earth II.
-- **SPARA PROFIL FÖR SCENARIOT** sparar kryssen och demons start och stopp (avsnitt 10) för
-  den demo som körs. Demon startar med profilen, och **RESET** återgår till kryssen i den men
+- **SPARA PROFIL FÖR SCENARIOT**, längst ned i vänstra kolumnen, sparar kryssen och demons
+  start och stopp (avsnitt 10) för den demo som körs. Knappen är röd så länge kryssen eller
+  tiderna skiljer sig från profilen som demon startar med, och blir som vanligt igen när du har
+  sparat. Demon startar med profilen, och **RESET** återgår till kryssen i den men
   behåller start och stopp som de är. Ett scenario
   utan egen profil använder den äldre profilen för sin typ av händelse (skogsbrand eller
   översvämning), om en sådan sparades innan profilerna blev per scenario; texten under knappen

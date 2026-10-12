@@ -94,6 +94,55 @@ def test_the_window_fields_convert_between_utc_and_swedish_time() -> None:
     assert result == ["2026-08-14T02:00", "2026-08-14T00:00:00Z", "2024-01-20T01:00", "2024-01-20T00:00:00Z", None]
 
 
+def test_the_satellite_image_buttons_and_spara_profil_are_in_the_left_column() -> None:
+    html = (FRONTEND / "control.html").read_text(encoding="utf-8")
+    left = html.split('<section class="control-clock">', 1)[1].split("</section>", 1)[0]
+    for element in ['data-command="satellite_detection"', 'id="next"', 'id="detection-step"', 'data-image="off"',
+                    'data-image="auto"', 'id="image-pick"', 'id="show-pick"', 'id="image-shown"',
+                    'id="save-profile"', 'id="profile-note"']:
+        assert left.count(element) == 1, element
+    assert left.index('id="show-all"') < left.index("<h2>Satellitbilder</h2>") < left.index('id="save-profile"')
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_spara_profil_is_marked_while_the_settings_differ_from_the_profile() -> None:
+    source = (FRONTEND / "control.js").read_text(encoding="utf-8")
+    compare = source[source.index("function profileUnsaved"):source.index("// SPARA PROFIL is red")]
+    config = {
+        "incident": "flood",
+        "playback": {"start_utc": "2026-08-14T00:00:00Z", "end_utc": "2026-08-23T00:00:00Z"},
+        "layers": {
+            "landsat": {"names": {"radar": "Radar", "natural": "Naturliga färger"}},
+            "base_maps": [{"id": "offline"}, {"id": "online"}],
+            "map_layers": [{"name": "Nederbörd (SMHI radar)", "default_2d": True, "default_3d": True},
+                           {"name": "Terräng (OSM)", "default_2d": True, "default_3d": False}],
+        },
+    }
+    untouched = {"start_utc": "2026-08-14T00:00:00Z", "end_utc": "2026-08-23T00:00:00Z",
+                 "status": {"image_types": None, "base_maps": None, "map_layers": {}}}
+    cases = [
+        (None, untouched),  # no profile, nothing changed
+        (None, {**untouched, "status": {**untouched["status"], "map_layers": {"Terräng (OSM)": True}}}),
+        (None, {**untouched, "end_utc": "2026-08-20T00:00:00Z"}),
+        ({"image_types": None, "base_maps": ["offline"], "map_layers": {"Nederbörd (SMHI radar)": True, "Terräng (OSM)": False},
+          "playback": None}, untouched),  # saved as it is now
+        ({"image_types": ["natural"], "base_maps": None, "map_layers": None, "playback": None}, untouched),
+        ({"image_types": None, "base_maps": None, "map_layers": None,
+          "playback": {"start_utc": "2026-08-16T00:00:00Z", "end_utc": "2026-08-20T00:00:00Z"}},
+         {**untouched, "start_utc": "2026-08-16T00:00:00Z", "end_utc": "2026-08-20T00:00:00Z"}),
+    ]
+    code = (
+        f"const landsat = require({json.dumps(str(FRONTEND / 'landsat.js'))});"
+        f"const basemaps = require({json.dumps(str(FRONTEND / 'basemaps.js'))});"
+        "const { imageTypesShown } = landsat; const { baseMapsShown } = basemaps;"
+        + compare
+        + f"const config = {json.dumps(config)};"
+        + f"console.log(JSON.stringify({json.dumps(cases)}.map(([profile, state]) => profileUnsaved(config, profile, state))));"
+    )
+    result = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+    assert result == [False, True, True, False, True, False]
+
+
 def node(expression: str) -> object:
     code = (
         f"const events = require({json.dumps(str(FRONTEND / 'scenario_events.js'))});"

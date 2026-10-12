@@ -22,6 +22,8 @@ let startupResetSent = false;
 let pendingPick = null;  // an image chosen in the list, shown on the screens only with VISA VALD BILD
 let pendingSpeed = null;  // a speed chosen in the list, used only with ANVÄND
 let pendingWindow = false;  // the demo's start or stop edited, sent only with ANVÄND TIDER
+let savedProfile = null;  // the profile the demo starts with (config, then SPARA PROFIL)
+let lastState = null;  // the scenario state last shown, to mark unsaved profile settings
 const realSensors = new Map();
 let iotConnection = null;
 
@@ -80,6 +82,8 @@ function showState(scenarioState) {
   const speeds = $("speed-pick");
   if (pendingSpeed === String(scenarioState.speed)) pendingSpeed = null;
   showWindow(scenarioState);
+  lastState = scenarioState;
+  showUnsaved();
   if (![...speeds.options].some((option) => Number(option.value) === scenarioState.speed)) {
     speeds.append(new Option(`${scenarioState.speed} s/s`, String(scenarioState.speed)));
   }
@@ -389,7 +393,34 @@ $("apply-window").addEventListener("click", () => {
 // A scenario without one uses the older profile of its kind of incident until it is saved.
 const INCIDENT_WORDS = { wildfire: "skogsbrand", flood: "översvämning" };
 
+// Whether the scenario's ticks or start and stop differ from the profile the demo starts with,
+// compared as SPARA PROFIL saves them: untouched layers and base maps count with their defaults,
+// and a profile without start and stop has the whole period.
+function profileUnsaved(cfg, profile, scenarioState) {
+  const saved = profile || {};
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const types = (ticked) => imageTypesShown(ticked, cfg.incident, cfg.layers.landsat?.names);
+  const maps = (ticked) => baseMapsShown(ticked, cfg.layers.base_maps);
+  const layers = (ticked) => (cfg.layers.map_layers || []).map((item) => [item.name, ticked?.[item.name] ?? item.default_3d ?? item.default_2d])
+    .filter(([, visible]) => visible !== null && visible !== undefined).map(([name, visible]) => [name, Boolean(visible)]);
+  const window = saved.playback || { start_utc: cfg.playback.start_utc, end_utc: cfg.playback.end_utc };
+  const now = scenarioState.status;
+  return !same(types(now.image_types), types(saved.image_types))
+    || !same(maps(now.base_maps), maps(saved.base_maps))
+    || !same(layers(now.map_layers), layers(saved.map_layers))
+    || scenarioState.start_utc !== window.start_utc || scenarioState.end_utc !== window.end_utc;
+}
+
+// SPARA PROFIL is red while the settings differ from the profile.
+function showUnsaved() {
+  if (!config || !lastState) return;
+  const unsaved = profileUnsaved(config, savedProfile, lastState);
+  $("save-profile").classList.toggle("unsaved", unsaved);
+  $("save-profile").title = unsaved ? "Inställningarna skiljer sig från den sparade profilen." : "";
+}
+
 function showProfile(profile) {
+  savedProfile = profile;
   const kind = INCIDENT_WORDS[config.incident] || config.incident;
   const saved = profile ? `${localTime.format(new Date(profile.saved_utc))} svensk tid` : "";
   const period = profile?.playback
@@ -401,6 +432,7 @@ function showProfile(profile) {
     : profile.source === "incident"
       ? `Ingen egen profil för ${config.title}: den äldre profilen för ${kind}, sparad ${saved}, används för bildtyper, baskartor och kartlager. SPARA PROFIL sparar en för det här scenariot.`
       : `Profil för ${config.title} sparad ${saved}; bildtyper, baskartor och kartlager används vid start och RESET, demons tider (${period}) när demon startar.`;
+  showUnsaved();
 }
 
 $("save-profile").addEventListener("click", async () => {
@@ -414,6 +446,7 @@ $("save-profile").addEventListener("click", async () => {
     return;
   }
   showProfile(data.display_profile);
+  showState(data);
   $("command-status").textContent = "";
 });
 
