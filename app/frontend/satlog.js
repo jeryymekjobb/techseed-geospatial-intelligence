@@ -195,12 +195,13 @@ function threatHighlights(highlights, seen, lines, nowMs, playing, jumped) {
 }
 
 // What the satellite monitor reads aloud of the log: the lines (newest first, as satelliteLog gives
-// them) not yet in `heard` (a Set of satlogKey), oldest first, each with its voice; with more than
-// `max` new lines, the `max` newest and how many more there were. A satellite's pass over the area is not read, only when it sends data to the ground: FIRMS
-// detections and satellite images, with the voice "nst"; all other events take "alma" (speech.py).
-// `heard` gets every line.
+// them) not yet in `heard` (a Set of satlogKey), oldest first, as { text }; with more than `max`
+// new lines, the `max` newest and how many more there were. A satellite's pass over the area is
+// not read, only when it sends data to the ground: FIRMS detections and satellite images.
+// `heard` gets every line. alternateVoices gives them their voices.
 const SATLOG_SPOKEN_MAX = 3;
-const SATLOG_SATELLITE_SOURCES = ["firms", "landsat"];
+// The Piper voices (speech.py) take turns, one message each.
+const SATLOG_VOICES = ["nst", "alma"];
 
 function satlogKey(line) {
   return `${line.atMs}|${line.text}`;
@@ -210,11 +211,17 @@ function spokenLines(lines, heard, max = SATLOG_SPOKEN_MAX) {
   const fresh = lines.filter((line) => !heard.has(satlogKey(line)));
   for (const line of fresh) heard.add(satlogKey(line));
   const said = fresh.filter((line) => line.source !== "computed");
-  const spoken = said.slice(0, max).reverse()
-    .map((line) => ({ text: line.text, voice: SATLOG_SATELLITE_SOURCES.includes(line.source) ? "nst" : "alma" }));
+  const spoken = said.slice(0, max).reverse().map((line) => ({ text: line.text }));
   const more = said.length - max;
-  if (more > 0) spoken.push({ text: `och ${more} ${more === 1 ? "händelse" : "händelser"} till`, voice: "alma" });
+  if (more > 0) spoken.push({ text: `och ${more} ${more === 1 ? "händelse" : "händelser"} till` });
   return spoken;
+}
+
+// The messages to read with their voices, taking turns from SATLOG_VOICES[next]: { lines: [{ text,
+// voice }], next }, where `next` is the turn of the following message, also when it comes later.
+function alternateVoices(messages, next = 0) {
+  const lines = messages.map((message, index) => ({ text: message.text, voice: SATLOG_VOICES[(next + index) % SATLOG_VOICES.length] }));
+  return { lines, next: (next + messages.length) % SATLOG_VOICES.length };
 }
 
 // The level sensors' report read aloud once per scenario day while any alarms (above the highest
@@ -250,5 +257,5 @@ function levelReportDue(next, clockMs, alarming, jumped) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { firmsPasses, satelliteLog, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, SATLOG_SOURCES };
+  module.exports = { firmsPasses, satelliteLog, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, SATLOG_SOURCES };
 }

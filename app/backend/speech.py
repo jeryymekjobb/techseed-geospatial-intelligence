@@ -2,7 +2,7 @@
 
 The satellite monitor (monitor.js) chooses the lines and their voices and sends them to
 POST /api/speak; this module speaks them one at a time in Swedish with Piper, a neural speech
-synthesis that runs offline: satellite events with the voice "nst", the others with "alma"
+synthesis that runs offline, the voices "nst" and "alma" taking turns, one message each
 (VOICES, fetched to data/voices/ by tools/fetch_piper_voices.py). Each line is synthesised to a
 WAV file and played with pw-play. Without Piper or a voice's model the line is read with
 speech-dispatcher's Swedish espeak-ng voice instead (`spd-say -l sv`). The browser's own speech

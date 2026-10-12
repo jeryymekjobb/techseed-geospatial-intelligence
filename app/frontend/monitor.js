@@ -56,6 +56,7 @@ async function start() {
   const heard = new Set();
   let heardJump = null;
   let speaking = false;
+  let nextVoice = 0;  // the voices take turns, one message each (alternateVoices)
   const post = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
     .catch(() => null);
   // The level sensors' report (levelReport), once per scenario day while any alarms; from the stream's
@@ -107,8 +108,12 @@ async function start() {
     const due = levelReportDue(reportNext, clock.getTime(), report !== null, scenarioState.jump !== reportJump);
     reportNext = due.next;
     reportJump = scenarioState.jump;
-    if (due.speak && scenarioState.playing) spoken.push({ text: report, voice: "alma" });
-    if (scenarioState.status?.speech) speak(spoken);
+    if (due.speak && scenarioState.playing) spoken.push({ text: report });
+    if (scenarioState.status?.speech && spoken.length) {
+      const voiced = alternateVoices(spoken, nextVoice);
+      nextVoice = voiced.next;
+      speak(voiced.lines);
+    }
     else if (speaking) post("/api/speak/stop", {});  // switched off: silence at once
     speaking = Boolean(scenarioState.status?.speech);
     const key = lines.map(satlogKey).join("\n");

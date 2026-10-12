@@ -185,10 +185,9 @@ def test_only_new_lines_are_read_aloud_and_many_are_cut_short() -> None:
     spoken = node(f"(() => {{ const heard = new Set({lines(50, 40)}.map(satlogKey)); "
                   f"return [spokenLines({lines(30, 40, 50)}, heard), spokenLines({lines(30, 40, 50)}, heard), "
                   f"spokenLines({lines(1, 2, 3, 4, 5, 30, 40, 50)}, heard)]; }})()")
-    assert spoken == [[{"text": "rad 30", "voice": "alma"}], [],
-                      [{"text": f"rad {m}", "voice": "alma"} for m in (3, 2, 1)] + [{"text": "och 2 händelser till", "voice": "alma"}]]
-    # Only satellites sending data to the ground are read, with nst: FIRMS detections and images, not
-    # a pass over the area or leaving it; the others take alma.
+    assert spoken == [[{"text": "rad 30"}], [], [{"text": f"rad {m}"} for m in (3, 2, 1)] + [{"text": "och 2 händelser till"}]]
+    # Only satellites sending data to the ground are read: FIRMS detections and images, not a pass
+    # over the area or leaving it.
     mixed = [
         {"atMs": CLOCK - 1, "text": "Aqua (MODIS) lämnar Sundsvall", "source": "computed", "kind": "leave"},
         {"atMs": CLOCK - 2, "text": "Sentinel-1C tar bild över Sundsvall", "source": "landsat", "kind": "landsat"},
@@ -197,14 +196,24 @@ def test_only_new_lines_are_read_aloud_and_many_are_cut_short() -> None:
         {"atMs": CLOCK - 5, "text": "Aqua (MODIS) över Sundsvall", "source": "computed", "kind": "enter"},
     ]
     assert node(f"spokenLines({json.dumps(mixed)}, new Set(), 5)") == [
-        {"text": "3 detektioner från Aqua (MODIS), starkast 12,5 MW", "voice": "nst"},
-        {"text": "SATCOM nere – satellitdata köas", "voice": "alma"},
-        {"text": "Sentinel-1C tar bild över Sundsvall", "voice": "nst"},
+        {"text": "3 detektioner från Aqua (MODIS), starkast 12,5 MW"},
+        {"text": "SATCOM nere – satellitdata köas"},
+        {"text": "Sentinel-1C tar bild över Sundsvall"},
+    ]
+    # The voices take turns, one message each, also from one reading to the next.
+    turns = node("(() => { const first = alternateVoices([{ text: 'a' }, { text: 'b' }, { text: 'c' }]);"
+                 " const second = alternateVoices([{ text: 'd' }], first.next); const third = alternateVoices([{ text: 'e' }, { text: 'f' }], second.next);"
+                 " return [first, second, third, alternateVoices([], 1)]; })()")
+    assert turns == [
+        {"lines": [{"text": "a", "voice": "nst"}, {"text": "b", "voice": "alma"}, {"text": "c", "voice": "nst"}], "next": 1},
+        {"lines": [{"text": "d", "voice": "alma"}], "next": 0},
+        {"lines": [{"text": "e", "voice": "nst"}, {"text": "f", "voice": "alma"}], "next": 0},
+        {"lines": [], "next": 1},
     ]
     monitor = (SCRIPT.parent / "monitor.js").read_text(encoding="utf-8")
     assert "if (scenarioState.jump !== heardJump) {" in monitor and 'post("/api/speak", { lines });' in monitor
     assert "speechSynthesis" not in monitor  # the backend speaks Swedish; Chrome had no Swedish voice
-    assert "if (scenarioState.status?.speech) speak(spoken);" in monitor
+    assert "const voiced = alternateVoices(spoken, nextVoice);" in monitor and "nextVoice = voiced.next;" in monitor
 
 
 def test_the_level_sensors_are_reported_once_per_scenario_day_while_any_alarms() -> None:
@@ -225,5 +234,5 @@ def test_the_level_sensors_are_reported_once_per_scenario_day_while_any_alarms()
         return out; }})()""")
     assert steps == [[False, day], [False, day], [True, 2 * day], [True, 4 * day], [False, None], [False, 5 * day], [False, 10 * day]]
     monitor = (SCRIPT.parent / "monitor.js").read_text(encoding="utf-8")
-    assert 'if (due.speak && scenarioState.playing) spoken.push({ text: report, voice: "alma" });' in monitor
+    assert "if (due.speak && scenarioState.playing) spoken.push({ text: report });" in monitor
     assert 'source.addEventListener("synthetic_sensors"' in monitor
