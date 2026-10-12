@@ -44,22 +44,45 @@ async function start() {
   const sensorEvents = (await getJson("/api/sensors/synthetic/events").catch(() => ({ events: [] }))).events;
   const scenes = config.layers.landsat?.scenes || [];
   let logShown = null;
+  let logKey = null;  // the lines last drawn, so the list is only rebuilt when they change
+  // Scrolled down to older lines, how far the view is from the list's end; null at the top. The
+  // view keeps that distance while new lines come in at the top and while the list changes size.
+  const logList = document.getElementById("monitor-log-lines");
+  let logFromEnd = null;
+  let logRestoring = false;
+  const keepLogView = () => {
+    if (logFromEnd === null) return;
+    logRestoring = true;
+    logList.scrollTop = Math.max(0, logList.scrollHeight - logList.clientHeight - logFromEnd);
+    requestAnimationFrame(() => { logRestoring = false; });
+  };
+  logList.addEventListener("scroll", () => {
+    if (logRestoring) return;
+    logFromEnd = logList.scrollTop > 0 ? logList.scrollHeight - logList.scrollTop - logList.clientHeight : null;
+  });
+  new ResizeObserver(keepLogView).observe(logList);
+  // Everything from the demo's start (scenarioState.start_utc) up to the clock, newest first; the
+  // list scrolls back to the first line.
   const showLog = (scenarioState, clock) => {
     logShown = [scenarioState, clock];
-    const first = Math.floor((clock.getTime() - SATLOG_WINDOW_MS) / DAY);
+    const startMs = Date.parse(scenarioState.start_utc || config.playback.start_utc);
+    const first = Math.floor(startMs / DAY);
     const last = Math.floor(clock.getTime() / DAY);
     const satellites = data.satellites.filter(hasPasses).map((satellite) => ({
       name: satellite.name, instrument: satellite.instrument,
-      passes: Array.from({ length: last - first + 1 }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat(),
+      passes: Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat(),
     }));
     const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [], sensorEvents }, clock.getTime(),
-      SATLOG_WINDOW_MS, SATLOG_LIMIT, place);
-    const log = document.getElementById("monitor-log-lines");
+      clock.getTime() - startMs + 1, Infinity, place);
+    const key = lines.map((line) => `${line.atMs}|${line.text}`).join("\n");
+    if (key === logKey) return;
+    logKey = key;
+    const log = logList;
     log.innerHTML = "";
     if (!lines.length) {
       const empty = document.createElement("li");
       empty.className = "monitor-log-empty";
-      empty.textContent = "Inga satellit- eller IoT-händelser det senaste dygnet.";
+      empty.textContent = "Inga satellit- eller IoT-händelser sedan demons start.";
       log.append(empty);
       return;
     }
@@ -74,12 +97,7 @@ async function start() {
       row.append(time, ` ${line.text} `, source);
       log.append(row);
     });
-    // Show only whole lines: drop the oldest that do not fit the space below the overview.
-    const bottom = log.getBoundingClientRect().bottom;
-    for (const row of [...log.children].reverse()) {
-      if (row.getBoundingClientRect().bottom <= bottom + 0.5 || log.children.length === 1) break;
-      row.remove();
-    }
+    keepLogView();
   };
   const monitor = createSatelliteMonitor(document.getElementById("monitor"), centre, (time) => hourMinute.format(time),
     { width: 0, mapHeight: 0, rowHeight: 30, fit: true }, place, config.playback.start_utc.slice(0, 4));

@@ -180,7 +180,7 @@ body.monitor-page { display: flex; flex-direction: column; height: 100%; backgro
 .monitor-log { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0 12px 6px; }
 .monitor-log h2 { margin: 0 0 4px; font-size: 0.9rem; letter-spacing: 0.05em; color: #ffd54a; }
 .monitor-log h2 small { color: #b8b8b8; font-weight: 400; letter-spacing: 0; }
-.monitor-log ol { flex: 1; min-height: 0; overflow: hidden; margin: 0; padding: 0; list-style: none; font-size: 1.15rem; }
+.monitor-log ol { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; font-size: 1.15rem; scrollbar-color: #777 #1e1e1e; }
 .monitor-log li { padding: 2px 8px; border-left: 4px solid #555; }
 .monitor-log li.latest { color: #ffd54a; font-weight: 700; background: #ffd54a1a; }
 .monitor-log li.firms { border-color: #ff2a00; }

@@ -6,8 +6,9 @@
 // and mission control's simulated events. Pure, so it can be tested in Node.
 "use strict";
 
+// The defaults of satelliteLog's window and limit; the satellite monitor passes the time since the
+// demo's start and no limit, so its list scrolls back to the first line.
 const SATLOG_WINDOW_MS = 24 * 3600000;
-// More lines than fit; the page shows as many as its space allows and cuts the oldest.
 const SATLOG_LIMIT = 50;
 const SATLOG_SOURCES = { computed: "beräknat", firms: "FIRMS", landsat: "satellitbild", synthetic: "syntetiskt", simulated: "simulerat" };
 // What a synthetic sensor's change says, by its kind: [starts confirming, stops confirming].

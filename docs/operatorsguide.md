@@ -313,9 +313,11 @@ Varje satellits bana är svag där den redan har flugit och stark där den är p
 Aqua har var sin nyans av orange, och färgprickarna i listan längst ned visar vilken färg
 som hör till vilken satellit.
 
-Under världskartan och tidslinjen finns **Satellit- och IoT-händelser**, en logg över det
-senaste dygnet i scenariot med den senaste händelsen överst och i gult. Loggen fyller utrymmet
-ned till listan, och varje rad är märkt med var uppgiften kommer från:
+Under världskartan och tidslinjen finns **Satellit- och IoT-händelser**, en logg över allt som
+hänt sedan demons start, med den senaste händelsen överst och i gult. Loggen går att skrolla
+ned till den första händelsen. Har du skrollat ned ligger vyn kvar medan nya händelser kommer
+in överst; skrolla upp igen för att följa de senaste. Varje rad är märkt med var uppgiften
+kommer från:
 
 | Märkning | Händelser |
 |---|---|

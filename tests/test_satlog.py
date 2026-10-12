@@ -101,3 +101,17 @@ def test_the_sensors_changes_and_mission_control_s_iot_events_are_in_the_log() -
         ("Sensor 17 känner rök eller värme", "synthetic"),
     ]
     assert node("SATLOG_SOURCES.synthetic") == "syntetiskt"
+
+
+def test_the_monitor_lists_everything_since_the_demo_s_start_in_a_scrolling_list() -> None:
+    start = CLOCK - 3 * 24 * HOUR
+    passes = [{"start": start + hours * HOUR, "end": start + hours * HOUR + MINUTE} for hours in range(0, 72, 2)]
+    data = f"{{satellites: [{{name: 'Aqua', passes: {json.dumps(passes)}}}]}}"
+    lines = node(f"satelliteLog({data}, {CLOCK}, {CLOCK} - {start} + 1, Infinity)")
+    assert len(lines) == 72 and lines[-1]["atMs"] == start  # back to the first line, at the demo's start
+    assert node(f"satelliteLog({data}, {CLOCK}, {CLOCK} - {start + MINUTE} + 1, Infinity)")[-1]["atMs"] == start + MINUTE
+    frontend = SCRIPT.parent
+    monitor = (frontend / "monitor.js").read_text(encoding="utf-8")
+    assert "clock.getTime() - startMs + 1, Infinity, place" in monitor and "row.remove()" not in monitor
+    assert ".monitor-log ol { flex: 1; min-height: 0; overflow-y: auto;" in (frontend / "styles.css").read_text(encoding="utf-8")
+    assert "från demons start, senaste överst" in (frontend / "monitor.html").read_text(encoding="utf-8")
