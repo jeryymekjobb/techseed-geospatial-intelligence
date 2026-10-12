@@ -4,7 +4,8 @@ saved per scenario.
 SPARA PROFIL in mission control saves the running demo's display settings and its playback window
 (the demo's start and stop, within the scenario's data) for that scenario in
 data/display-profiles.json, which is not in the repository: it belongs to the exhibition PC. The
-demo starts with them, and RESET returns to them. A scenario without a profile of its own uses the
+demo starts with them; RESET returns to the display settings and keeps the start and stop in use.
+A scenario without a profile of its own uses the
 older profile of its kind of incident (wildfire or flood), saved before profiles were per scenario,
 until SPARA PROFIL saves one for it. Profiles without map-layer visibility keep the scenario's
 defaults for those layers; profiles without a playback window play the scenario's whole period.

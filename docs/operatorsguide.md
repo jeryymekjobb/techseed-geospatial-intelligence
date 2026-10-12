@@ -378,7 +378,8 @@ satelliter som tog bilder.
   Lantmäteriets topowebb när den är aktiverad (bara 2D). Varje karta visar den första
   ikryssade som den har; utan ikryssad baskarta visar 3D-globen bara Natural Earth II.
 - **SPARA PROFIL FÖR SCENARIOT** sparar kryssen och demons start och stopp (avsnitt 10) för
-  den demo som körs. Demon startar med profilen, och **RESET** återgår till den. Ett scenario
+  den demo som körs. Demon startar med profilen, och **RESET** återgår till kryssen i den men
+  behåller start och stopp som de är. Ett scenario
   utan egen profil använder den äldre profilen för sin typ av händelse (skogsbrand eller
   översvämning), om en sådan sparades innan profilerna blev per scenario; texten under knappen
   säger vilken profil som gäller. Utan sparad profil gäller standardvalet: kortvågig IR i
@@ -418,9 +419,10 @@ gäller.
 **Demons start och stopp.** Under hastigheten anger du i **Start** och **Stopp** när demon
 börjar och slutar, i svensk tid och inom scenariots data (raden under fälten visar hela
 perioden). **ANVÄND TIDER** tar dem i bruk direkt: **RESET** och **PLAY** efter slutet går till
-start, uppspelningen stannar vid stopp och **VISA ALLA** går till stopp. Tiderna gäller tills
-nästa **RESET**; spara dem med **SPARA PROFIL FÖR SCENARIOT** (avsnitt 8) så används de varje
-gång demon startar.
+start, uppspelningen stannar vid stopp och **VISA ALLA** går till stopp. **RESET** ändrar inte
+tiderna, inte heller när mission control laddas om; de gäller tills du anger nya eller demon
+startas om. Spara dem med **SPARA PROFIL FÖR SCENARIOT** (avsnitt 8) så används de varje gång
+demon startar.
 
 Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 

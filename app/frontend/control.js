@@ -364,7 +364,7 @@ function setupWindow() {
     });
   }
   $("window-note").textContent = `Scenariots data: ${localTime.format(new Date(config.playback.start_utc))} – `
-    + `${localTime.format(new Date(config.playback.end_utc))}. RESET går till start, uppspelningen stannar vid stopp; SPARA PROFIL sparar tiderna.`;
+    + `${localTime.format(new Date(config.playback.end_utc))}. RESET går till start men ändrar inte tiderna, uppspelningen stannar vid stopp; SPARA PROFIL sparar tiderna.`;
 }
 
 $("apply-window").addEventListener("click", () => {
@@ -400,7 +400,7 @@ function showProfile(profile) {
     ? `Ingen sparad profil för ${config.title}: standardvalet och hela perioden gäller.`
     : profile.source === "incident"
       ? `Ingen egen profil för ${config.title}: den äldre profilen för ${kind}, sparad ${saved}, används för bildtyper, baskartor och kartlager. SPARA PROFIL sparar en för det här scenariot.`
-      : `Profil för ${config.title} sparad ${saved}; bildtyper, baskartor, kartlager och demons tider (${period}) används vid start och RESET.`;
+      : `Profil för ${config.title} sparad ${saved}; bildtyper, baskartor och kartlager används vid start och RESET, demons tider (${period}) när demon startar.`;
 }
 
 $("save-profile").addEventListener("click", async () => {

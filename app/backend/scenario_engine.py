@@ -32,11 +32,11 @@ in the status as `image_types`, None until ticked, when the screens use their de
 `playback_window` with the target "<start>/<stop>" (UTC times, for example
 "2026-08-14T00:00:00Z/2026-08-23T00:00:00Z") sets the demo's start and stop within the
 scenario's period (`start`, `end`): RESET and PLAY after the stop go to the start, the playback
-stops at the stop, and seeks stay between them. The snapshot's `start_utc` and `end_utc` are the
+stops at the stop, and seeks stay between them. The saved profile's start and stop are read when
+the engine starts; RESET keeps the start and stop in use. The snapshot's `start_utc` and `end_utc` are the
 demo's start and stop; `data_start_utc` and `data_end_utc` the scenario's period.
-`reset` clears the events and the image and map choices together with the clock; the
-ticks and the demo's start and stop go back to the saved display profile (`profile`,
-profiles.py), or to the defaults (None, the whole period) without one.
+`reset` clears the events and the image and map choices and sets the clock to the demo's start;
+the ticks go back to the saved display profile (`profile`, profiles.py), or None without one.
 
 So that visitors can follow the satellite passes, the clock goes no faster than
 SLOW_SPEED inside the slow windows (set_slow_windows), whatever the chosen speed;
@@ -102,7 +102,7 @@ class ScenarioEngine:
     area: tuple[float, float, float, float] | None = None
     monotonic: Callable[[], float] = time.monotonic
     speed: float = DEFAULT_SPEED
-    # The saved display profile, read at the start and at every reset.
+    # The saved display profile: its ticks are read at the start and at every reset, its start and stop at the start.
     profile: Callable[[], dict[str, Any] | None] | None = None
     _clock: datetime = field(init=False)
     # The demo's start and stop within start and end (playback_window, or the saved profile).
@@ -129,23 +129,24 @@ class ScenarioEngine:
     def __post_init__(self) -> None:
         self._first, self._last = self.start, self.end
         self._since = self.monotonic()
-        self._apply_profile()
-        self._clock = self._first
-
-    def _apply_profile(self) -> None:
-        saved = (self.profile() if self.profile else None) or {}
-        self._image_types = saved.get("image_types")
-        self._base_maps = saved.get("base_maps")
-        layers = saved.get("map_layers")
-        self._map_layers = ({name: visible for name, visible in layers.items()
-                             if isinstance(name, str) and isinstance(visible, bool)} if isinstance(layers, dict) else {})
-        self._first, self._last = self.start, self.end
+        saved = self._apply_profile()
         window = saved.get("playback")
         if isinstance(window, dict):
             try:
                 self._set_window(str(window.get("start_utc")), str(window.get("end_utc")))
             except CommandError:
                 pass  # a window outside this period (another scenario's, say): the whole period
+        self._clock = self._first
+
+    def _apply_profile(self) -> dict[str, Any]:
+        """The saved profile's ticks; returns the profile."""
+        saved = (self.profile() if self.profile else None) or {}
+        self._image_types = saved.get("image_types")
+        self._base_maps = saved.get("base_maps")
+        layers = saved.get("map_layers")
+        self._map_layers = ({name: visible for name, visible in layers.items()
+                             if isinstance(name, str) and isinstance(visible, bool)} if isinstance(layers, dict) else {})
+        return saved
 
     def _set_window(self, first: str, last: str) -> None:
         """The demo's start and stop; refused unless start < stop, both within the scenario's period."""

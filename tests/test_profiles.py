@@ -74,7 +74,7 @@ def test_the_engine_starts_with_the_profile_and_reset_returns_to_it() -> None:
     assert ScenarioEngine(START, END).snapshot()["status"]["image_types"] is None  # no profile: the screens' default
 
 
-def test_the_engine_starts_and_stops_at_the_profiles_playback_window_and_reset_returns_to_it() -> None:
+def test_the_engine_starts_with_the_profiles_playback_window_and_reset_keeps_the_window_in_use() -> None:
     saved = {"playback": {"start_utc": "2014-08-02T06:00:00Z", "end_utc": "2014-08-05T00:00:00Z"}}
     engine = ScenarioEngine(START, END, profile=lambda: saved)
     state = engine.snapshot()
@@ -86,9 +86,13 @@ def test_the_engine_starts_and_stops_at_the_profiles_playback_window_and_reset_r
     assert engine.command("play")["clock_utc"] == "2014-08-02T06:00:00Z"  # PLAY after the stop: from the start
     state = engine.command("playback_window", target="2014-08-01T00:00:00Z/2014-08-03T00:00:00Z")
     assert (state["start_utc"], state["end_utc"]) == ("2014-08-01T00:00:00Z", "2014-08-03T00:00:00Z")
-    assert engine.command("reset")["clock_utc"] == "2014-08-02T06:00:00Z"  # RESET: the saved window again
-    saved = {"playback": {"start_utc": "2026-08-14T00:00:00Z", "end_utc": "2026-08-20T00:00:00Z"}}  # not this period
-    state = engine.command("reset")
+    engine.command("seek", at="2014-08-02T00:00:00Z")
+    saved = {"playback": {"start_utc": "2014-08-04T00:00:00Z", "end_utc": "2014-08-06T00:00:00Z"}}  # saved again meanwhile
+    state = engine.command("reset")  # RESET: the start of the window in use, not the saved one
+    assert (state["clock_utc"], state["start_utc"], state["end_utc"]) == (
+        "2014-08-01T00:00:00Z", "2014-08-01T00:00:00Z", "2014-08-03T00:00:00Z")
+    other = {"playback": {"start_utc": "2026-08-14T00:00:00Z", "end_utc": "2026-08-20T00:00:00Z"}}  # not this period
+    state = ScenarioEngine(START, END, profile=lambda: other).snapshot()
     assert (state["clock_utc"], state["end_utc"]) == ("2014-07-31T00:00:00Z", "2014-08-15T00:00:00Z")
 
 
@@ -152,6 +156,9 @@ def test_spara_profil_saves_effective_display_settings_and_reset_returns_to_them
     state = post(command, {"command": "reset"})
     assert state["status"]["base_maps"] == ["offline"]
     assert state["status"]["map_layers"]["Nederbörd (SMHI radar)"] is True
-    assert (state["clock_utc"], state["end_utc"]) == ("2014-08-01T00:00:00Z", "2014-08-03T00:00:00Z")
+    # RESET keeps the start and stop in use; the saved ones apply when the backend starts.
+    assert (state["clock_utc"], state["end_utc"]) == ("2014-08-05T00:00:00Z", "2014-08-06T00:00:00Z")
+    restarted = ScenarioEngine(START, END, profile=server.scenario_profile).snapshot()
+    assert (restarted["clock_utc"], restarted["end_utc"]) == ("2014-08-01T00:00:00Z", "2014-08-03T00:00:00Z")
     with urlopen(f"{base_url}/api/config", timeout=10) as response:
         assert json.loads(response.read())["layers"]["display_profile"]["base_maps"] == ["offline"]
