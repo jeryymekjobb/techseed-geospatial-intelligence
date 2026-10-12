@@ -425,7 +425,9 @@ perioden). **ANVÄND TIDER** tar dem i bruk direkt: **RESET** och **PLAY** efter
 start, uppspelningen stannar vid stopp och **VISA ALLA** går till stopp. **RESET** ändrar inte
 tiderna, inte heller när mission control laddas om; de gäller tills du anger nya eller demon
 startas om. Spara dem med **SPARA PROFIL FÖR SCENARIOT** (avsnitt 8) så används de varje gång
-demon startar.
+demon startar: skärmarna öppnas på starttiden, och panelens diagram (regn, vattenföring och
+brandens tidslinje) spänner från start till stopp. "Sedan start" i regnet räknas från demons
+start.
 
 Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 

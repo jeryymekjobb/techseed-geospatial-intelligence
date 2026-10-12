@@ -429,8 +429,10 @@ def scenario_profile() -> dict[str, Any] | None:
     return profiles.load(scenario.NAME, incident=scenario.INCIDENT)
 
 
-def config(settings: lantmateriet.Settings) -> dict[str, Any]:
+def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None) -> dict[str, Any]:
     min_lat, max_lat, min_lon, max_lon = scenario.VIEW_BBOX
+    # The demo's start and stop: the saved profile's at the start, or those set since (playback_window).
+    state = (engine or Handler.engine).snapshot()
     fire = scenario.FIRE_BBOX
     west, south, east, north = scenario.MAP_BBOX
     return {
@@ -455,8 +457,11 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
         "fire_centre": list(scenario.FIRE_CENTRE),
         "fire_selection_bounds": [[fire[0], fire[2]], [fire[1], fire[3]]],
         "playback": {
-            "start_utc": utc_text(scenario.PLAYBACK_START),
-            "end_utc": utc_text(scenario.PLAYBACK_END),
+            "start_utc": state["start_utc"],
+            "end_utc": state["end_utc"],
+            # The scenario's whole period, within which the demo's start and stop are set.
+            "data_start_utc": utc_text(scenario.PLAYBACK_START),
+            "data_end_utc": utc_text(scenario.PLAYBACK_END),
             "min_speed": MIN_SPEED,
             "max_speed": MAX_SPEED,
         },
@@ -531,7 +536,7 @@ class Handler(BaseHTTPRequestHandler):
         query = dict(parse_qsl(url.query))
         path = url.path
         if path == "/api/config":
-            self.send_json(config(self.settings))
+            self.send_json(config(self.settings, self.engine))
         elif path == "/api/hotspots":
             items = detections()
             self.send_json({

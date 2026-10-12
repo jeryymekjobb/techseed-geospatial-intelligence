@@ -28,13 +28,14 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from app.backend import offline_tiles
+from app.backend import offline_tiles, profiles
 from app.backend.scenarios import AVAILABLE
 from tools.check_demo import served_tiles_file
 
@@ -48,9 +49,17 @@ MENU_TITLE = "Techseed Geospatial Intelligence Demos"
 
 
 def scenario_settings(name: str) -> tuple[str, str]:
-    """The scenario's map tiles file and playback start, without choosing it here."""
+    """The scenario's map tiles file and the demo's start, without choosing it here: the start
+    saved in the scenario's display profile (app/backend/profiles.py) when it lies in the
+    scenario's period, else the scenario's playback start."""
     module = importlib.import_module(f"app.backend.scenarios.{name}")
-    return module.TILES_FILE, module.PLAYBACK_START.strftime("%Y-%m-%dT%H:%M:%SZ")
+    start = module.PLAYBACK_START.strftime("%Y-%m-%dT%H:%M:%SZ")
+    window = (profiles.load(name, incident=module.INCIDENT) or {}).get("playback")
+    if window:
+        saved = datetime.fromisoformat(window["start_utc"].replace("Z", "+00:00"))
+        if module.PLAYBACK_START <= saved < module.PLAYBACK_END:
+            start = window["start_utc"]
+    return module.TILES_FILE, start
 
 
 def demos() -> list[dict[str, str]]:

@@ -6,8 +6,9 @@
 
 const HOUR_MS = 3600000;
 
-// Millimetres in the hour and the 24 hours up to the clock, and since the start of the data.
-function rainSums(observations, clockMs) {
+// Millimetres in the hour and the 24 hours up to the clock, and since the start (the demo's
+// start; without one, the start of the data). An hour counts when it ends after the start.
+function rainSums(observations, clockMs, startMs = -Infinity) {
   let hour = 0;
   let day = 0;
   let total = 0;
@@ -15,7 +16,7 @@ function rainSums(observations, clockMs) {
     const atMs = Date.parse(observation.time_utc);
     if (atMs > clockMs) break;
     const value = observation.precip_mm || 0;
-    total += value;
+    if (atMs > startMs) total += value;
     if (atMs > clockMs - 24 * HOUR_MS) day += value;
     if (atMs > clockMs - HOUR_MS) hour += value;
   }

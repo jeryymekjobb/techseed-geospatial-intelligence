@@ -125,7 +125,10 @@ The backend holds one scenario clock (`app/backend/scenario_engine.py`); every
 open GUI follows it through `/api/scenario/stream`, and the buttons send
 commands to `POST /api/scenario/command` (`play`, `pause`, `reset`, `seek` with
 `at`, `speed` with `speed`, `playback_window` with `target` `<start>/<stop>` in UTC
-for the demo's start and stop within the scenario's period). A second screen on the network, for example a
+for the demo's start and stop within the scenario's period). `/api/config` gives the
+demo's start and stop as `playback.start_utc` and `playback.end_utc` - the saved
+profile's when the backend starts - and the scenario's period as `playback.data_start_utc`
+and `playback.data_end_utc`; `tools/start_demo.py` opens the screens at the saved start. A second screen on the network, for example a
 mission-control tablet, therefore shows the same moment. When the backend
 listens on the network (`--host 0.0.0.0`), set `SCENARIO_CONTROL_TOKEN` and open
 the GUI with `?token=<the token>` on screens that may control the scenario;

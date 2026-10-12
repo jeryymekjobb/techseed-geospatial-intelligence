@@ -21,6 +21,7 @@ const COMPASS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "
 const clockTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const localTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short" });
 const localDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium" });
+const chartDay = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" });
 
 const state = {
   config: null,
@@ -193,7 +194,7 @@ function showRain(clock) {
   state.map.markRain(classes);
   const station = state.weather.stations.find((item) => item.id === state.rainStation);
   if (!station) return;
-  const sums = rainSums(station.observations, clock.getTime());
+  const sums = rainSums(station.observations, clock.getTime(), Date.parse(state.config.playback.start_utc));
   $("rain-values").innerHTML = [
     ["Senaste timmen", `${decimal(sums.hour)} mm`],
     ["Senaste dygnet", `${decimal(sums.day)} mm`],
@@ -220,11 +221,15 @@ function drawRain(station, clock) {
     return `<rect class="rain-bar" x="${index * step}" y="${height - 14 - barHeight}" width="${Math.max(1, step - 0.5)}" height="${barHeight}">`
       + `<title>${formatLocal(at)}: ${decimal(value)} mm</title></rect>`;
   });
-  // A date every day, or every few days in a long period, so the dates do not overlap.
+  // A date at every Swedish midnight, or every few days in a long period, so the dates do not overlap.
   const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
-  for (let day = start; day < end; day += every * 86400000) {
-    const x = ((day - start) / HOUR_MS) * step;
-    parts.push(`<text x="${x + 1}" y="${height - 3}">${new Date(day).toISOString().slice(5, 10)}</text>`);
+  let midnights = 0;
+  for (let at = start; at < end; at += HOUR_MS) {
+    const local = Object.fromEntries(chartDay.formatToParts(new Date(at)).map((part) => [part.type, part.value]));
+    if (local.hour !== "00") continue;
+    if (midnights++ % every === 0) {
+      parts.push(`<text x="${((at - start) / HOUR_MS) * step + 1}" y="${height - 3}">${local.month}-${local.day}</text>`);
+    }
   }
   const x = ((clock.getTime() - start) / HOUR_MS) * step;
   parts.push(`<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`);
@@ -1131,7 +1136,19 @@ async function setupQuestions() {
   });
 }
 
+// The demo's start and stop (config.playback, from the saved profile) follow the scenario when
+// mission control changes them, and the charts that span them are drawn again.
+function followPlaybackWindow(scenarioState) {
+  const playback = state.config.playback;
+  if (!scenarioState.start_utc || (playback.start_utc === scenarioState.start_utc && playback.end_utc === scenarioState.end_utc)) return;
+  playback.start_utc = scenarioState.start_utc;
+  playback.end_utc = scenarioState.end_utc;
+  state.rainShownAt = null;
+  state.hydroShownAt = null;
+}
+
 function applyState(scenarioState) {
+  followPlaybackWindow(scenarioState);
   state.playing = scenarioState.playing;
   state.finished = scenarioState.finished;
   $("play").textContent = scenarioState.playing ? "Paus" : "Spela";

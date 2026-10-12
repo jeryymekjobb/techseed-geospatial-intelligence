@@ -357,8 +357,8 @@ function showWindow(scenarioState) {
 }
 
 function setupWindow() {
-  const first = wallTime(config.playback.start_utc);
-  const last = wallTime(config.playback.end_utc);
+  const first = wallTime(config.playback.data_start_utc);
+  const last = wallTime(config.playback.data_end_utc);
   for (const input of [$("window-start"), $("window-end")]) {
     input.min = first;
     input.max = last;
@@ -367,8 +367,8 @@ function setupWindow() {
       $("apply-window").disabled = false;
     });
   }
-  $("window-note").textContent = `Scenariots data: ${localTime.format(new Date(config.playback.start_utc))} – `
-    + `${localTime.format(new Date(config.playback.end_utc))}. RESET går till start men ändrar inte tiderna, uppspelningen stannar vid stopp; SPARA PROFIL sparar tiderna.`;
+  $("window-note").textContent = `Scenariots data: ${localTime.format(new Date(config.playback.data_start_utc))} – `
+    + `${localTime.format(new Date(config.playback.data_end_utc))}. RESET går till start men ändrar inte tiderna, uppspelningen stannar vid stopp; SPARA PROFIL sparar tiderna.`;
 }
 
 $("apply-window").addEventListener("click", () => {
@@ -403,7 +403,7 @@ function profileUnsaved(cfg, profile, scenarioState) {
   const maps = (ticked) => baseMapsShown(ticked, cfg.layers.base_maps);
   const layers = (ticked) => (cfg.layers.map_layers || []).map((item) => [item.name, ticked?.[item.name] ?? item.default_3d ?? item.default_2d])
     .filter(([, visible]) => visible !== null && visible !== undefined).map(([name, visible]) => [name, Boolean(visible)]);
-  const window = saved.playback || { start_utc: cfg.playback.start_utc, end_utc: cfg.playback.end_utc };
+  const window = saved.playback || { start_utc: cfg.playback.data_start_utc, end_utc: cfg.playback.data_end_utc };
   const now = scenarioState.status;
   return !same(types(now.image_types), types(saved.image_types))
     || !same(maps(now.base_maps), maps(saved.base_maps))

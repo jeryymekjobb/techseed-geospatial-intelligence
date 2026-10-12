@@ -21,6 +21,17 @@ def test_each_scenario_starts_with_its_own_map_and_time() -> None:
     assert start_demo.services_command() == ["docker", "compose", "up", "-d", "tiles", "postgis", "mosquitto"]
 
 
+def test_a_demo_starts_at_the_start_saved_in_its_profile(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.backend import profiles
+
+    monkeypatch.setattr(profiles, "PROFILE_FILE", tmp_path / "display-profiles.json")
+    profiles.save("sundsvall2026", None, None, playback={"start_utc": "2026-08-14T22:00:00Z", "end_utc": "2026-08-18T00:00:00Z"})
+    profiles.save("skane2024", None, None, playback={"start_utc": "2026-08-14T22:00:00Z", "end_utc": "2026-08-18T00:00:00Z"})
+    assert start_demo.scenario_settings("sundsvall2026") == ("sundsvall.mbtiles", "2026-08-14T22:00:00Z")
+    # A start outside the scenario's period (not Skåne's winter): the scenario's own start.
+    assert start_demo.scenario_settings("skane2024") == ("skane.mbtiles", "2024-01-20T00:00:00Z")
+
+
 def test_a_port_in_use_is_found() -> None:
     with socket.socket() as server:
         server.bind(("127.0.0.1", 0))

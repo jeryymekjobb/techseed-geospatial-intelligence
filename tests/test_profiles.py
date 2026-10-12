@@ -158,7 +158,12 @@ def test_spara_profil_saves_effective_display_settings_and_reset_returns_to_them
     assert state["status"]["map_layers"]["Nederbörd (SMHI radar)"] is True
     # RESET keeps the start and stop in use; the saved ones apply when the backend starts.
     assert (state["clock_utc"], state["end_utc"]) == ("2014-08-05T00:00:00Z", "2014-08-06T00:00:00Z")
-    restarted = ScenarioEngine(START, END, profile=server.scenario_profile).snapshot()
-    assert (restarted["clock_utc"], restarted["end_utc"]) == ("2014-08-01T00:00:00Z", "2014-08-03T00:00:00Z")
+    restarted = ScenarioEngine(START, END, profile=server.scenario_profile)
+    assert (restarted.snapshot()["clock_utc"], restarted.snapshot()["end_utc"]) == ("2014-08-01T00:00:00Z", "2014-08-03T00:00:00Z")
+    # The screens take the demo's start and stop from the config, and the scenario's period beside them.
+    playback = server.config(lantmateriet.Settings(None, None, None, None), restarted)["playback"]
+    assert (playback["start_utc"], playback["end_utc"]) == ("2014-08-01T00:00:00Z", "2014-08-03T00:00:00Z")
+    assert (playback["data_start_utc"], playback["data_end_utc"]) == (
+        server.utc_text(scenario.PLAYBACK_START), server.utc_text(scenario.PLAYBACK_END))
     with urlopen(f"{base_url}/api/config", timeout=10) as response:
         assert json.loads(response.read())["layers"]["display_profile"]["base_maps"] == ["offline"]

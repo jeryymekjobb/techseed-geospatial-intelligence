@@ -110,7 +110,8 @@ def test_spara_profil_is_marked_while_the_settings_differ_from_the_profile() -> 
     compare = source[source.index("function profileUnsaved"):source.index("// SPARA PROFIL is red")]
     config = {
         "incident": "flood",
-        "playback": {"start_utc": "2026-08-14T00:00:00Z", "end_utc": "2026-08-23T00:00:00Z"},
+        "playback": {"start_utc": "2026-08-14T00:00:00Z", "end_utc": "2026-08-23T00:00:00Z",
+                     "data_start_utc": "2026-08-14T00:00:00Z", "data_end_utc": "2026-08-23T00:00:00Z"},
         "layers": {
             "landsat": {"names": {"radar": "Radar", "natural": "Naturliga färger"}},
             "base_maps": [{"id": "offline"}, {"id": "online"}],

@@ -36,6 +36,11 @@ def test_the_hour_and_the_day_up_to_the_clock() -> None:
     assert sums("2026-08-16T06:00:00Z") == {"hour": 0, "day": 0, "total": 0}
 
 
+def test_since_start_counts_from_the_demo_s_start() -> None:
+    since = node(f"rainSums({json.dumps(OBSERVATIONS)}, Date.parse('2026-08-17T10:00:00Z'), Date.parse('2026-08-16T07:00:00Z'))")
+    assert since == {"hour": 1.0, "day": 1.0, "total": 11.6}  # the hour ending at the start is before it
+
+
 def test_one_value_per_playback_hour_for_the_chart() -> None:
     values = node(f"hourlyRain({json.dumps(OBSERVATIONS)}, Date.parse('2026-08-16T05:00:00Z'), Date.parse('2026-08-16T10:00:00Z'))")
     assert values == [0, 4.2, 10.6, 0, 0]
