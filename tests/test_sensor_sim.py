@@ -172,3 +172,22 @@ def test_sensor_texts_keep_real_and_synthetic_apart() -> None:
     assert node_sensors(f"[syntheticState({json.dumps(hot)}), syntheticState({json.dumps(failed)})]") == ["confirms", "failed"]
     assert node_sensors('confirmsText({confirms: 2, operating: 3})') == "IoT bekräftar 2/3 (syntetiska sensorer)"
     assert node_sensors('connectionText({connection: "unavailable", detail: "paho-mqtt saknas.", sensors: []})') == "IoT: paho-mqtt saknas."
+
+
+def test_the_sensors_changes_are_listed_for_the_log(base_url: str) -> None:
+    with urlopen(f"{base_url}/api/sensors/synthetic/events", timeout=30) as response:
+        result = json.loads(response.read())
+    events = result["events"]
+    assert result["step_minutes"] == 10 and events
+    assert [item["clock_utc"] for item in events] == sorted(item["clock_utc"] for item in events)
+    for sensor in {item["sensor"] for item in events}:
+        changes = [item["confirms"] for item in events if item["sensor"] == sensor]
+        # Each sensor starts confirming first, and then alternates.
+        assert changes == [index % 2 == 0 for index in range(len(changes))]
+    assert {item["kind"] for item in events} == {"fire"}
+    # A change is where the model's state differs from the sample before it.
+    first = events[0]
+    moment = server.parse_utc(first["clock_utc"])
+    state = {item["id"]: item["confirms"] for item in server.synthetic_sensors().at(moment)["sensors"]}
+    before = {item["id"]: item["confirms"] for item in server.synthetic_sensors().at(moment - server.SENSOR_EVENT_STEP)["sensors"]}
+    assert state[first["sensor"]] and not before[first["sensor"]]

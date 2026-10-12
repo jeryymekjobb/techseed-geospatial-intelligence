@@ -169,6 +169,31 @@ def synthetic_sensors() -> sensor_sim.SyntheticSensors | flood_sensors.FloodSens
     return sensor_sim.SyntheticSensors(items, wind_field(), scenario.FIRE_CENTRE)
 
 
+# How often the synthetic sensors are sampled for the log of their changes.
+SENSOR_EVENT_STEP = timedelta(minutes=10)
+
+
+@lru_cache(maxsize=1)
+def synthetic_sensor_events() -> dict[str, Any]:
+    """When each synthetic sensor starts and stops confirming the incident over the scenario's period,
+    for the satellite monitor's log (satlog.js): the sensors' own model sampled every SENSOR_EVENT_STEP,
+    without mission control's failures or placed sensors, which the log takes from the scenario's events.
+    A change is stamped with the first sample that shows it."""
+    sensors = synthetic_sensors()
+    events: list[dict[str, Any]] = []
+    confirming: dict[str, bool] = {}
+    moment = scenario.PLAYBACK_START
+    while moment <= scenario.PLAYBACK_END:
+        for item in sensors.at(moment)["sensors"]:
+            if item["status"] != "ok" or item["confirms"] == confirming.get(item["id"], False):
+                continue
+            confirming[item["id"]] = item["confirms"]
+            events.append({"clock_utc": utc_text(moment), "sensor": item["id"], "name": item["name"],
+                           "kind": item.get("kind", "fire"), "confirms": item["confirms"]})
+        moment += SENSOR_EVENT_STEP
+    return {"step_minutes": SENSOR_EVENT_STEP.total_seconds() / 60, "events": events}
+
+
 def synthetic_at(state: dict[str, Any]) -> dict[str, Any]:
     """The synthetic sensors at the scenario clock, with mission control's sensor failures;
     none when mission control has switched IoT off."""
@@ -574,6 +599,8 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/assessment":
             state = self.engine.snapshot()
             self.send_json({**assessment_at(state), "clock_utc": state["clock_utc"]})
+        elif path == "/api/sensors/synthetic/events":
+            self.send_json(synthetic_sensor_events())
         elif path == "/api/sensors/synthetic":
             state = self.engine.snapshot()
             self.send_json({**synthetic_at(state), "clock_utc": state["clock_utc"]})

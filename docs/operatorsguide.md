@@ -313,19 +313,22 @@ Varje satellits bana är svag där den redan har flugit och stark där den är p
 Aqua har var sin nyans av orange, och färgprickarna i listan längst ned visar vilken färg
 som hör till vilken satellit.
 
-Under världskartan och tidslinjen finns **Satellithändelser**, en logg över det senaste
-dygnet i scenariot med den senaste händelsen överst och i gult. Loggen fyller utrymmet ned
-till listan, och varje rad är märkt med var uppgiften kommer från:
+Under världskartan och tidslinjen finns **Satellit- och IoT-händelser**, en logg över det
+senaste dygnet i scenariot med den senaste händelsen överst och i gult. Loggen fyller utrymmet
+ned till listan, och varje rad är märkt med var uppgiften kommer från:
 
 | Märkning | Händelser |
 |---|---|
 | *beräknat* | En satellit går in över eller lämnar branden, beräknat ur banorna |
 | *FIRMS 2014* | Detektionerna från en passage: hur många och den starkaste |
 | *Landsat 2014* | Landsat 8 tar en bild över branden |
-| *simulerat* | Från mission control: upptäcktssekvensen startar, SATCOM nere och SATCOM åter |
+| *syntetiskt* | En syntetisk IoT-sensor börjar eller slutar bekräfta händelsen: känner rök eller värme vid branden, en bräddgivare bräddar, eller en nivåsensor går över tidigare högsta nivå |
+| *simulerat* | Från mission control: upptäcktssekvensen startar, SATCOM nere och SATCOM åter, SENSOR FAILURE, IoT av och på, och en sensor som placeras på kartan |
 
 Loggen räknas fram ur scenarioklockan och stämmer därför också efter **RESET** eller ett hopp
-i tiden.
+i tiden. En sensorrad visas så fort scenarioklockan når ändringen; sensorernas ändringar är
+beräknade ur deras modeller i steg om 10 minuter. Efter **SENSOR FAILURE** visas inga fler rader
+för den sensorn, och medan IoT är avstängt visas inga sensorrader.
 
 Har du bara en stor skärm, lägg fönstren sida vid sida: satellitbevakningen till vänster,
 huvudskärmen i mitten och mission control till höger. Öppna huvudskärmen först.

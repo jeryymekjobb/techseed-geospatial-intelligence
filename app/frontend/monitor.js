@@ -38,8 +38,10 @@ async function start() {
   note.textContent = `${data.label}. Källa: ${data.source}.`;
   const centre = config.fire_centre;
   const place = config.incident_place;
-  // The satellite log: FIRMS passes and Landsat scenes once, the computed passes per day from passCache.
+  // The log of satellite and IoT events: FIRMS passes, Landsat scenes and the synthetic sensors' changes
+  // once (each line shows when the clock reaches it), the computed passes per day from passCache.
   const firms = firmsPasses((await getJson("/api/hotspots").catch(() => ({ features: [] }))).features);
+  const sensorEvents = (await getJson("/api/sensors/synthetic/events").catch(() => ({ events: [] }))).events;
   const scenes = config.layers.landsat?.scenes || [];
   let logShown = null;
   const showLog = (scenarioState, clock) => {
@@ -50,14 +52,14 @@ async function start() {
       name: satellite.name, instrument: satellite.instrument,
       passes: Array.from({ length: last - first + 1 }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat(),
     }));
-    const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [] }, clock.getTime(),
+    const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [], sensorEvents }, clock.getTime(),
       SATLOG_WINDOW_MS, SATLOG_LIMIT, place);
     const log = document.getElementById("monitor-log-lines");
     log.innerHTML = "";
     if (!lines.length) {
       const empty = document.createElement("li");
       empty.className = "monitor-log-empty";
-      empty.textContent = "Inga satellithändelser det senaste dygnet.";
+      empty.textContent = "Inga satellit- eller IoT-händelser det senaste dygnet.";
       log.append(empty);
       return;
     }

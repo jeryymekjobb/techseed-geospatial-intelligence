@@ -1,4 +1,4 @@
-"""Tests for the satellite log under the satellite monitor (app/frontend/satlog.js), in Node."""
+"""Tests for the log of satellite and IoT events under the satellite monitor (app/frontend/satlog.js), in Node."""
 
 from __future__ import annotations
 
@@ -51,6 +51,7 @@ def test_the_log_lists_what_happened_up_to_the_clock_newest_first() -> None:
     lines = node(f"satelliteLog({json.dumps(data)}, {CLOCK})")
     assert [(line["text"], line["source"]) for line in lines] == [
         ("Suomi NPP (VIIRS) över branden", "computed"),
+        ("IoT avstängt från mission control", "simulated"),
         ("SATCOM nere – satellitdata köas", "simulated"),
         ("Landsat 8 tar bild över branden", "landsat"),
         ("Suomi NPP (VIIRS) lämnar branden", "computed"),
@@ -72,3 +73,31 @@ def test_firms_lines_name_their_year_and_noaa_20() -> None:
     lines = node(f"satelliteLog({{ firms: firmsPasses([{json.dumps(hotspot('2018-07-17T11:20:00Z', 'N20'))}]) }}, "
                  "Date.parse('2018-07-17T12:00:00Z'))")
     assert [(line["text"], line["sourceText"]) for line in lines] == [("1 detektion från NOAA-20 (VIIRS), starkast 1 MW", "FIRMS 2018")]
+
+
+def test_the_sensors_changes_and_mission_control_s_iot_events_are_in_the_log() -> None:
+    def at(minutes: int) -> str:
+        return f"new Date({CLOCK} - {minutes} * {MINUTE}).toISOString()"
+    sensor_events = (
+        f"[{{clock_utc: {at(300)}, sensor: 'sensor-17', name: 'Sensor 17', kind: 'fire', confirms: true}},"
+        f" {{clock_utc: {at(200)}, sensor: 'dv-03', name: 'DV3 Kubikenborg', kind: 'sewer', confirms: true}},"
+        f" {{clock_utc: {at(100)}, sensor: 'sensor-17', name: 'Sensor 17', kind: 'fire', confirms: false}},"  # after its failure
+        f" {{clock_utc: {at(50)}, sensor: 'ng-01', name: 'NG1 Räddningsvägen', kind: 'level', confirms: true}},"  # while IoT is off
+        f" {{clock_utc: {at(10)}, sensor: 'dv-03', name: 'DV3 Kubikenborg', kind: 'sewer', confirms: false}}]"
+    )
+    events = (
+        f"[{{kind: 'sensor_failure', target: 'sensor-17', clock_utc: {at(150)}}},"
+        f" {{kind: 'iot', clock_utc: {at(60)}}}, {{kind: 'iot', clock_utc: {at(40)}}},"
+        f" {{kind: 'place_sensor', target: 'placed-1', clock_utc: {at(30)}}}]"
+    )
+    lines = node(f"satelliteLog({{ events: {events}, sensorEvents: {sensor_events} }}, {CLOCK})")
+    assert [(line["text"], line["source"]) for line in lines] == [
+        ("Bräddgivare DV3 Kubikenborg slutar brädda", "synthetic"),
+        ("Syntetisk sensor P1 placerad på kartan", "simulated"),
+        ("IoT påslaget från mission control", "simulated"),
+        ("IoT avstängt från mission control", "simulated"),
+        ("SENSOR FAILURE – Sensor 17 slutar svara", "simulated"),
+        ("Bräddgivare DV3 Kubikenborg bräddar", "synthetic"),
+        ("Sensor 17 känner rök eller värme", "synthetic"),
+    ]
+    assert node("SATLOG_SOURCES.synthetic") == "syntetiskt"

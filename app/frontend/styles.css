@@ -187,6 +187,7 @@ body.monitor-page { display: flex; flex-direction: column; height: 100%; backgro
 .monitor-log li.computed { border-color: #4fc3f7; }
 .monitor-log li.landsat { border-color: #7cb342; }
 .monitor-log li.simulated { border-color: #e040fb; }
+.monitor-log li.synthetic { border-color: #ffa726; }
 .monitor-log time { display: inline-block; min-width: 7.5em; color: #b8b8b8; font-variant-numeric: tabular-nums; }
 .monitor-log li.latest time { color: inherit; }
 .monitor-log-source { font-size: 0.75em; font-weight: 400; color: #b8b8b8; border: 1px solid #555; border-radius: 3px; padding: 0 4px; }

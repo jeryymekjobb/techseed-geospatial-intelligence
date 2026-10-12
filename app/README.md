@@ -256,7 +256,9 @@ Three **synthetic sensors** in the fire area (`app/backend/sensor_sim.py`,
 invented positions) show the ERA5-Land air temperature plus a heat term that
 grows towards the front, and smoke near or downwind of it; they are computed from
 the scenario, not measured, and always marked synthetic.
-`GET /api/sensors/synthetic`.
+`GET /api/sensors/synthetic`; `GET /api/sensors/synthetic/events` lists when each
+synthetic sensor starts and stops confirming the incident over the scenario's period
+(sampled every 10 minutes), for the satellite monitor's log of satellite and IoT events.
 
 ### Assessment and questions
 

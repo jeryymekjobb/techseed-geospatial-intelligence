@@ -1,14 +1,22 @@
-// The satellite log under the satellite monitor (monitor.html): what has happened with the
-// satellites up to the scenario clock, newest first. Built from the clock every time, so it
-// is the same after a RESET, a jump or a reload. Each line says where it comes from:
-// passes computed from the element sets, FIRMS detections and satellite images of its year, and
-// mission control's simulated events. Pure, so it can be tested in Node.
+// The log of satellite and IoT events under the satellite monitor (monitor.html): what has
+// happened with the satellites and the synthetic IoT sensors up to the scenario clock, newest
+// first. Built from the clock every time, so it is the same after a RESET, a jump or a reload.
+// Each line says where it comes from: passes computed from the element sets, FIRMS detections
+// and satellite images of its year, the synthetic sensors' changes (/api/sensors/synthetic/events)
+// and mission control's simulated events. Pure, so it can be tested in Node.
 "use strict";
 
 const SATLOG_WINDOW_MS = 24 * 3600000;
 // More lines than fit; the page shows as many as its space allows and cuts the oldest.
 const SATLOG_LIMIT = 50;
-const SATLOG_SOURCES = { computed: "beräknat", firms: "FIRMS", landsat: "satellitbild", simulated: "simulerat" };
+const SATLOG_SOURCES = { computed: "beräknat", firms: "FIRMS", landsat: "satellitbild", synthetic: "syntetiskt", simulated: "simulerat" };
+// What a synthetic sensor's change says, by its kind: [starts confirming, stops confirming].
+const SATLOG_SENSOR_TEXTS = {
+  fire: ["känner rök eller värme", "slutar känna rök eller värme"],
+  sewer: ["bräddar", "slutar brädda"],
+  level: ["över tidigare högsta nivå", "under tidigare högsta nivå"],
+};
+const SATLOG_SENSOR_NAMES = { fire: "", sewer: "Bräddgivare ", level: "Nivåsensor " };
 const SATLOG_FIRMS_NAMES = { Aqua: "Aqua", Terra: "Terra", SNPP: "Suomi NPP", N20: "NOAA-20" };
 // FIRMS detections of one satellite this close in time come from the same pass.
 const SATLOG_PASS_GAP_MS = 15 * 60000;
@@ -41,10 +49,13 @@ function satlogDecimal(value) {
 
 // The log lines, newest first: { atMs, text, source, kind }.
 // `satellites`: [{ name, instrument, passes: [{ start, end }] }] over the fire (orbits.js);
-// `firms`: firmsPasses(); `scenes`: config.layers.landsat.scenes; `events`: the scenario's events.
+// `firms`: firmsPasses(); `scenes`: config.layers.landsat.scenes; `events`: the scenario's events;
+// `sensorEvents`: the synthetic sensors' changes, { clock_utc, sensor, name, kind, confirms }.
+// A sensor's changes are left out after mission control's SENSOR FAILURE for it, and every
+// sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -75,8 +86,34 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [] },
     satcom_failure: "SATCOM nere – satellitdata köas",
     satcom_restore: "SATCOM åter – SYNC av köade data",
   };
+  const names = new Map(sensorEvents.map((item) => [item.sensor, `${SATLOG_SENSOR_NAMES[item.kind] ?? ""}${item.name}`]));
+  const failedAt = new Map();
+  const iotOff = [];  // [from, to) while IoT was off
+  let iotOn = true;
+  let placed = 0;
   for (const event of events) {
-    if (eventTexts[event.kind]) lines.push({ atMs: Date.parse(event.clock_utc), text: eventTexts[event.kind], source: "simulated", kind: event.kind });
+    const atMs = Date.parse(event.clock_utc);
+    if (eventTexts[event.kind]) lines.push({ atMs, text: eventTexts[event.kind], source: "simulated", kind: event.kind });
+    if (event.kind === "sensor_failure") {
+      const name = names.get(event.target) || event.target || "en sensor";
+      lines.push({ atMs, text: `SENSOR FAILURE – ${name} slutar svara`, source: "simulated", kind: event.kind });
+      if (event.target && !failedAt.has(event.target)) failedAt.set(event.target, atMs);
+    } else if (event.kind === "iot") {
+      iotOn = !iotOn;
+      lines.push({ atMs, text: iotOn ? "IoT påslaget från mission control" : "IoT avstängt från mission control", source: "simulated", kind: event.kind });
+      if (iotOn) iotOff[iotOff.length - 1][1] = atMs;
+      else iotOff.push([atMs, Infinity]);
+    } else if (event.kind === "place_sensor") {
+      placed += 1;
+      lines.push({ atMs, text: `Syntetisk sensor P${placed} placerad på kartan`, source: "simulated", kind: event.kind });
+    }
+  }
+  for (const item of sensorEvents) {
+    const atMs = Date.parse(item.clock_utc);
+    if (failedAt.has(item.sensor) && atMs >= failedAt.get(item.sensor)) continue;
+    if (iotOff.some(([from, to]) => atMs >= from && atMs < to)) continue;
+    const texts = SATLOG_SENSOR_TEXTS[item.kind] || ["bekräftar händelsen", "slutar bekräfta händelsen"];
+    lines.push({ atMs, text: `${names.get(item.sensor)} ${item.confirms ? texts[0] : texts[1]}`, source: "synthetic", kind: "sensor" });
   }
   // An event recorded at a moment shows at that moment; among equal moments the later source first.
   return lines
