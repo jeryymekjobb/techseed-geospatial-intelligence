@@ -214,6 +214,9 @@ def test_only_new_lines_are_read_aloud_and_many_are_cut_short() -> None:
     assert "if (scenarioState.jump !== heardJump) {" in monitor and 'post("/api/speak", { lines });' in monitor
     assert "speechSynthesis" not in monitor  # the backend speaks Swedish; Chrome had no Swedish voice
     assert "const voiced = alternateVoices(spoken, nextVoice);" in monitor and "nextVoice = voiced.next;" in monitor
+    # Silenced only when reading aloud is switched off: a stop on every state with nothing new cut each line short.
+    assert '} else if (speaking) post("/api/speak/stop", {});' in monitor
+    assert "if (scenarioState.status?.speech && spoken.length)" not in monitor
 
 
 def test_the_level_sensors_are_reported_once_per_scenario_day_while_any_alarms() -> None:

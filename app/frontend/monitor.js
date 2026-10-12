@@ -109,12 +109,13 @@ async function start() {
     reportNext = due.next;
     reportJump = scenarioState.jump;
     if (due.speak && scenarioState.playing) spoken.push({ text: report });
-    if (scenarioState.status?.speech && spoken.length) {
-      const voiced = alternateVoices(spoken, nextVoice);
-      nextVoice = voiced.next;
-      speak(voiced.lines);
-    }
-    else if (speaking) post("/api/speak/stop", {});  // switched off: silence at once
+    if (scenarioState.status?.speech) {
+      if (spoken.length) {
+        const voiced = alternateVoices(spoken, nextVoice);
+        nextVoice = voiced.next;
+        speak(voiced.lines);
+      }
+    } else if (speaking) post("/api/speak/stop", {});  // switched off, and only then: silence at once
     speaking = Boolean(scenarioState.status?.speech);
     const key = lines.map(satlogKey).join("\n");
     if (key === logKey) return;
