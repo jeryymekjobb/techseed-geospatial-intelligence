@@ -29,8 +29,14 @@ in the status as `image_types`, None until ticked, when the screens use their de
 `map_layer_on` and `map_layer_off` switch a map layer by its name for every screen
 (`map_layers` in the status: the layers switched, the others as each map starts them).
 `base_maps` ticks the base maps the same way (`base_maps` in the status; basemaps.js).
+`playback_window` with the target "<start>/<stop>" (UTC times, for example
+"2026-08-14T00:00:00Z/2026-08-23T00:00:00Z") sets the demo's start and stop within the
+scenario's period (`start`, `end`): RESET and PLAY after the stop go to the start, the playback
+stops at the stop, and seeks stay between them. The snapshot's `start_utc` and `end_utc` are the
+demo's start and stop; `data_start_utc` and `data_end_utc` the scenario's period.
 `reset` clears the events and the image and map choices together with the clock; the
-ticks go back to the saved display profile (`profile`, profiles.py), or None without one.
+ticks and the demo's start and stop go back to the saved display profile (`profile`,
+profiles.py), or to the defaults (None, the whole period) without one.
 
 So that visitors can follow the satellite passes, the clock goes no faster than
 SLOW_SPEED inside the slow windows (set_slow_windows), whatever the chosen speed;
@@ -72,6 +78,7 @@ TARGET_PATTERN = re.compile(r"[a-z0-9_-]{1,64}")
 IMAGE_PATTERN = re.compile(r"auto|off|[A-Za-z0-9_]{1,80}\|[a-z]{1,20}")
 IMAGE_TYPES_PATTERN = re.compile(r"(?:[a-z]{1,20}(?:,[a-z]{1,20}){0,19})?")
 CHOICE_PATTERN = re.compile(r"[a-z_]{1,32}=[A-Za-z0-9_.:-]{1,40}")
+WINDOW_PATTERN = re.compile(r"[0-9T:+Z.-]{10,32}/[0-9T:+Z.-]{10,32}")
 MAX_EVENTS = 100
 
 
@@ -98,6 +105,9 @@ class ScenarioEngine:
     # The saved display profile, read at the start and at every reset.
     profile: Callable[[], dict[str, Any] | None] | None = None
     _clock: datetime = field(init=False)
+    # The demo's start and stop within start and end (playback_window, or the saved profile).
+    _first: datetime = field(init=False)
+    _last: datetime = field(init=False)
     _playing: bool = field(default=False, init=False)
     _since: float = field(default=0.0, init=False)
     revision: int = field(default=0, init=False)
@@ -117,9 +127,10 @@ class ScenarioEngine:
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
 
     def __post_init__(self) -> None:
-        self._clock = self.start
+        self._first, self._last = self.start, self.end
         self._since = self.monotonic()
         self._apply_profile()
+        self._clock = self._first
 
     def _apply_profile(self) -> None:
         saved = (self.profile() if self.profile else None) or {}
@@ -128,6 +139,23 @@ class ScenarioEngine:
         layers = saved.get("map_layers")
         self._map_layers = ({name: visible for name, visible in layers.items()
                              if isinstance(name, str) and isinstance(visible, bool)} if isinstance(layers, dict) else {})
+        self._first, self._last = self.start, self.end
+        window = saved.get("playback")
+        if isinstance(window, dict):
+            try:
+                self._set_window(str(window.get("start_utc")), str(window.get("end_utc")))
+            except CommandError:
+                pass  # a window outside this period (another scenario's, say): the whole period
+
+    def _set_window(self, first: str, last: str) -> None:
+        """The demo's start and stop; refused unless start < stop, both within the scenario's period."""
+        try:
+            first_at, last_at = parse_utc(first), parse_utc(last)
+        except ValueError as exc:
+            raise CommandError("invalid start or stop time") from exc
+        if not self.start <= first_at < last_at <= self.end:
+            raise CommandError(f"the demo's start must be before its stop, both between {utc_text(self.start)} and {utc_text(self.end)}")
+        self._first, self._last = first_at, last_at
 
     def set_slow_windows(self, windows: list[tuple[datetime, datetime]]) -> None:
         """Scenario periods in which the clock goes no faster than SLOW_SPEED; overlaps are merged."""
@@ -156,14 +184,14 @@ class ScenarioEngine:
         if self._playing:
             remaining = now - self._since  # real seconds
             clock = self._clock
-            while remaining > 0 and clock < self.end:
+            while remaining > 0 and clock < self._last:
                 window = self._window_at(clock)
                 if window:
                     boundary = window[1]
                 else:
                     later = bisect.bisect_right(self._slow, (clock, datetime.max.replace(tzinfo=clock.tzinfo)))
-                    boundary = self._slow[later][0] if later < len(self._slow) else self.end
-                boundary = min(boundary, self.end)
+                    boundary = self._slow[later][0] if later < len(self._slow) else self._last
+                boundary = min(boundary, self._last)
                 speed = self._speed_at(clock)
                 needed = (boundary - clock).total_seconds() / speed
                 if needed >= remaining:
@@ -171,8 +199,8 @@ class ScenarioEngine:
                     remaining = 0.0
                 else:
                     clock, remaining = boundary, remaining - needed
-            self._clock = min(self.end, clock)
-            if self._clock >= self.end:
+            self._clock = min(self._last, clock)
+            if self._clock >= self._last:
                 self._playing = False
                 self.revision += 1
         self._since = now
@@ -183,12 +211,14 @@ class ScenarioEngine:
             return {
                 "clock_utc": utc_text(self._clock),
                 "playing": self._playing,
-                "finished": self._clock >= self.end,
+                "finished": self._clock >= self._last,
                 "speed": self.speed,
                 "effective_speed": self._speed_at(self._clock),
                 "slowed": self._speed_at(self._clock) < self.speed,
-                "start_utc": utc_text(self.start),
-                "end_utc": utc_text(self.end),
+                "start_utc": utc_text(self._first),
+                "end_utc": utc_text(self._last),
+                "data_start_utc": utc_text(self.start),
+                "data_end_utc": utc_text(self.end),
                 "revision": self.revision,
                 "jump": self.jump,
                 "events": list(self.events),
@@ -253,7 +283,7 @@ class ScenarioEngine:
             raise CommandError("invalid pass time") from exc
         self._detection = {"pass_utc": utc_text(moment), "step": 0}
         self._playing = False
-        self._clock = max(self.start, min(self.end, moment - DETECTION_BEFORE))
+        self._clock = max(self._first, min(self._last, moment - DETECTION_BEFORE))
         self.jump += 1
 
     def _next_detection_step(self) -> None:
@@ -266,7 +296,7 @@ class ScenarioEngine:
             return
         if DETECTION_STEPS[step] == "zoom":
             # The pass's detections appear on the map.
-            self._clock = min(self.end, parse_utc(self._detection["pass_utc"]) + DETECTION_AFTER)
+            self._clock = min(self._last, parse_utc(self._detection["pass_utc"]) + DETECTION_AFTER)
             self.jump += 1
 
     def _record_event(self, kind: str, target: str | None, **extra: Any) -> None:
@@ -297,21 +327,21 @@ class ScenarioEngine:
         with self._lock:
             self._advance()
             if name == "play":
-                if self._clock >= self.end:
-                    self._clock = self.start
+                if self._clock >= self._last:
+                    self._clock = self._first
                     self.jump += 1
                 self._playing = True
             elif name == "pause":
                 self._playing = False
             elif name == "reset":
                 self._playing = False
-                self._clock = self.start
                 self.events.clear()
                 self._detection = None
                 self._image = "auto"
                 self._map_layers.clear()
                 self._choices.clear()
                 self._apply_profile()
+                self._clock = self._first
                 if self._question["id"] is not None:
                     self._question = {"id": None, "seq": self._question["seq"] + 1}
                 self.jump += 1
@@ -322,8 +352,19 @@ class ScenarioEngine:
                     moment = parse_utc(at)
                 except ValueError as exc:
                     raise CommandError("invalid time") from exc
-                self._clock = max(self.start, min(self.end, moment))
+                self._clock = max(self._first, min(self._last, moment))
                 self.jump += 1
+            elif name == "playback_window":
+                if not target or not WINDOW_PATTERN.fullmatch(target):
+                    raise CommandError("playback_window needs the target <start>/<stop> in UTC")
+                first, _, last = target.partition("/")
+                self._set_window(first, last)
+                moved = max(self._first, min(self._last, self._clock))
+                if moved != self._clock:
+                    self._clock = moved
+                    self.jump += 1
+                if self._clock >= self._last:
+                    self._playing = False
             elif name == "speed":
                 if speed is None or not MIN_SPEED <= float(speed) <= MAX_SPEED:
                     raise CommandError(f"speed must be {MIN_SPEED:.0f}–{MAX_SPEED:.0f}")

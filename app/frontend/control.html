@@ -34,6 +34,13 @@
           </select>
         </label>
       </div>
+      <fieldset class="playback-window">
+        <legend>Demons start och stopp, svensk tid</legend>
+        <label>Start <input id="window-start" type="datetime-local" step="60"></label>
+        <label>Stopp <input id="window-end" type="datetime-local" step="60"></label>
+        <button id="apply-window" type="button" disabled>ANVÄND TIDER</button>
+      </fieldset>
+      <div id="window-note" class="status" aria-live="polite"></div>
       <div class="control-row speed-row">
         <button id="show-all" type="button" data-command="seek">VISA ALLA</button>
         <button id="fly-incident" type="button" data-command="camera" data-target="incident">FLYG TILL</button>

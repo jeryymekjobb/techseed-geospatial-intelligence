@@ -424,6 +424,11 @@ def profile_map_layers(settings: lantmateriet.Settings, status: dict[str, Any]) 
     return result
 
 
+def scenario_profile() -> dict[str, Any] | None:
+    """The running scenario's display profile (profiles.py)."""
+    return profiles.load(scenario.NAME, incident=scenario.INCIDENT)
+
+
 def config(settings: lantmateriet.Settings) -> dict[str, Any]:
     min_lat, max_lat, min_lon, max_lon = scenario.VIEW_BBOX
     fire = scenario.FIRE_BBOX
@@ -471,8 +476,8 @@ def config(settings: lantmateriet.Settings) -> dict[str, Any]:
             "base_maps": base_maps(settings),
             "map_layers": map_layers(settings),
             "panel_choices": panel_choices(),
-            # The saved display profile of the scenario's kind of incident (profiles.py), or None.
-            "display_profile": profiles.load(scenario.INCIDENT),
+            # The scenario's saved display profile, else its kind of incident's older one (profiles.py), or None.
+            "display_profile": scenario_profile(),
             "lantmateriet_fastighet": settings.fastighet_enabled,
             "lantmateriet_fastighet_layers": settings.fastighet_layers if settings.fastighet_enabled else "",
         },
@@ -484,7 +489,7 @@ class Handler(BaseHTTPRequestHandler):
     settings = lantmateriet.Settings.from_environment()
     # One shared scenario for every screen; tests give their handler its own engine.
     engine = ScenarioEngine(scenario.PLAYBACK_START, scenario.PLAYBACK_END, area=scenario.VIEW_BBOX,
-                            profile=lambda: profiles.load(scenario.INCIDENT))
+                            profile=scenario_profile)
     # The prepared spatial questions run through one psql in the postgis service.
     psql = spatial.Psql()
     # Live readings of the real IoT nodes; main() connects it to the MQTT broker.
@@ -639,14 +644,16 @@ class Handler(BaseHTTPRequestHandler):
         try:
             body = json.loads(self.rfile.read(length))
             if body.get("command") == "save_profile":
-                # SPARA PROFIL: the ticks shown now become the profile of the scenario's kind of incident.
-                status = self.engine.snapshot()["status"]
+                # SPARA PROFIL: the ticks shown now and the demo's start and stop become the scenario's profile.
+                state = self.engine.snapshot()
+                status = state["status"]
                 try:
                     saved = profiles.save(
-                        scenario.INCIDENT,
+                        scenario.NAME,
                         status["image_types"],
                         profile_base_maps(self.settings, status),
                         map_layers=profile_map_layers(self.settings, status),
+                        playback={"start_utc": state["start_utc"], "end_utc": state["end_utc"]},
                     )
                 except OSError as exc:
                     self.send_json({"error": "profile_not_saved", "detail": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)

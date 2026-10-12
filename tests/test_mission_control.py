@@ -73,6 +73,27 @@ def test_mission_control_resets_once_after_document_config_and_initial_sync_are_
     assert source.index("resetAfterMissionControlLoad();", config_complete) > config_complete
 
 
+def test_the_demos_start_and_stop_are_set_in_swedish_time_and_sent_with_anvand_tider() -> None:
+    html = (FRONTEND / "control.html").read_text(encoding="utf-8")
+    for element in ['id="window-start" type="datetime-local"', 'id="window-end" type="datetime-local"', 'id="apply-window"']:
+        assert html.count(element) == 1
+    source = (FRONTEND / "control.js").read_text(encoding="utf-8")
+    assert 'send("playback_window", `${first}/${last}`)' in source
+    assert "setupWindow();" in source and "showWindow(scenarioState);" in source
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_window_fields_convert_between_utc_and_swedish_time() -> None:
+    source = (FRONTEND / "control.js").read_text(encoding="utf-8")
+    helpers = source[source.index("const wallClock"):source.index("function showWindow")]
+    code = helpers + (
+        "console.log(JSON.stringify([wallTime('2026-08-14T00:00:00Z'), utcFromWallTime('2026-08-14T02:00'),"
+        " wallTime('2024-01-20T00:00:00Z'), utcFromWallTime('2024-01-20T01:00'), utcFromWallTime('')]));"
+    )
+    result = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+    assert result == ["2026-08-14T02:00", "2026-08-14T00:00:00Z", "2024-01-20T01:00", "2024-01-20T00:00:00Z", None]
+
+
 def node(expression: str) -> object:
     code = (
         f"const events = require({json.dumps(str(FRONTEND / 'scenario_events.js'))});"

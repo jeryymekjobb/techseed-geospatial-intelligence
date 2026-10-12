@@ -377,12 +377,14 @@ satelliter som tog bilder.
 - **Baskartorna** är offline-kartan (OSM), OpenStreetMap online (kräver internet) och
   Lantmäteriets topowebb när den är aktiverad (bara 2D). Varje karta visar den första
   ikryssade som den har; utan ikryssad baskarta visar 3D-globen bara Natural Earth II.
-- **SPARA PROFIL FÖR SKOGSBRAND** eller **… ÖVERSVÄMNING** sparar kryssen för demons typ av
-  händelse. Alla demos av den typen startar med profilen, och **RESET** återgår till den.
-  Utan sparad profil gäller standardvalet: kortvågig IR i bränderna, radar i
-  översvämningarna och offline-kartan. Profilerna sparas i `data/display-profiles.json` på
-  utställningsdatorn och följer inte med repot. Ta bort filen för att gå tillbaka till
-  standardvalet.
+- **SPARA PROFIL FÖR SCENARIOT** sparar kryssen och demons start och stopp (avsnitt 10) för
+  den demo som körs. Demon startar med profilen, och **RESET** återgår till den. Ett scenario
+  utan egen profil använder den äldre profilen för sin typ av händelse (skogsbrand eller
+  översvämning), om en sådan sparades innan profilerna blev per scenario; texten under knappen
+  säger vilken profil som gäller. Utan sparad profil gäller standardvalet: kortvågig IR i
+  bränderna, radar i översvämningarna, offline-kartan och scenariots hela period. Profilerna
+  sparas i `data/display-profiles.json` på utställningsdatorn och följer inte med repot. Ta
+  bort filen för att gå tillbaka till standardvalet.
 
 ## 9. Mission control på en surfplatta (valfritt)
 
@@ -412,6 +414,13 @@ Knapparna i **fetstil** finns i mission control. Hastigheten väljer du i listan
 under PLAY, PAUSE och RESET – 1 minut/s, 10 minuter/s, 30 minuter/s, 1 timme/s eller 3
 timmar/s – och tar i bruk med **ANVÄND** till vänster om listan. Listan visar den hastighet som
 gäller.
+
+**Demons start och stopp.** Under hastigheten anger du i **Start** och **Stopp** när demon
+börjar och slutar, i svensk tid och inom scenariots data (raden under fälten visar hela
+perioden). **ANVÄND TIDER** tar dem i bruk direkt: **RESET** och **PLAY** efter slutet går till
+start, uppspelningen stannar vid stopp och **VISA ALLA** går till stopp. Tiderna gäller tills
+nästa **RESET**; spara dem med **SPARA PROFIL FÖR SCENARIOT** (avsnitt 8) så används de varje
+gång demon startar.
 
 Texten i kolumnen "Säg" är förslag. Använd dina egna ord.
 

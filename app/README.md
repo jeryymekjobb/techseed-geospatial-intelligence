@@ -124,7 +124,8 @@ the Copernicus DEM licence.
 The backend holds one scenario clock (`app/backend/scenario_engine.py`); every
 open GUI follows it through `/api/scenario/stream`, and the buttons send
 commands to `POST /api/scenario/command` (`play`, `pause`, `reset`, `seek` with
-`at`, `speed` with `speed`). A second screen on the network, for example a
+`at`, `speed` with `speed`, `playback_window` with `target` `<start>/<stop>` in UTC
+for the demo's start and stop within the scenario's period). A second screen on the network, for example a
 mission-control tablet, therefore shows the same moment. When the backend
 listens on the network (`--host 0.0.0.0`), set `SCENARIO_CONTROL_TOKEN` and open
 the GUI with `?token=<the token>` on screens that may control the scenario;
@@ -137,6 +138,8 @@ others can only watch.
 | Button | Command | On the main screens |
 |---|---|---|
 | PLAY, PAUSE, RESET | `play`, `pause`, `reset` | RESET also clears every event and filter |
+| ANVÄND TIDER (Start, Stopp) | `playback_window` with `target` `<start>/<stop>` | RESET goes to the start, the playback stops at the stop |
+| SPARA PROFIL FÖR SCENARIOT | `save_profile` | Saves the ticks and the demo's start and stop for the scenario (`data/display-profiles.json`) |
 | SATELLITE DETECTION | `satellite_detection` | Banner (synthetic event) |
 | SENSOR FAILURE | `sensor_failure` with `target` `sensor-17` | The synthetic sensor drops out of the IoT count |
 | SATCOM FAILURE (again: restore) | `satcom_failure`, `satcom_restore` | See below |

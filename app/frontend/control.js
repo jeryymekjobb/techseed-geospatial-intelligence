@@ -21,6 +21,7 @@ let startupSyncReady = false;
 let startupResetSent = false;
 let pendingPick = null;  // an image chosen in the list, shown on the screens only with VISA VALD BILD
 let pendingSpeed = null;  // a speed chosen in the list, used only with ANVÄND
+let pendingWindow = false;  // the demo's start or stop edited, sent only with ANVÄND TIDER
 const realSensors = new Map();
 let iotConnection = null;
 
@@ -78,6 +79,7 @@ function showState(scenarioState) {
   // The speed list shows the speed in use, or the one chosen until ANVÄND.
   const speeds = $("speed-pick");
   if (pendingSpeed === String(scenarioState.speed)) pendingSpeed = null;
+  showWindow(scenarioState);
   if (![...speeds.options].some((option) => Number(option.value) === scenarioState.speed)) {
     speeds.append(new Option(`${scenarioState.speed} s/s`, String(scenarioState.speed)));
   }
@@ -321,16 +323,84 @@ function showBaseMaps() {
   for (const box of document.querySelectorAll("#base-maps input")) box.checked = ticked.includes(box.value);
 }
 
-// SPARA PROFIL: the ticked image types, base maps and map layers become the profile of the demo's
-// kind of incident (app/backend/profiles.py), which its demos start with and RESET returns to.
+// The demo's start and stop (playback_window), within the scenario's period, shown and entered in
+// Swedish time; datetime-local fields hold Stockholm wall time ("2026-08-14T02:00").
+const wallClock = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Europe/Stockholm", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+
+function wallTime(utc) {
+  const parts = Object.fromEntries(wallClock.formatToParts(new Date(utc)).map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+function utcFromWallTime(text) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(text || "");
+  if (!match) return null;
+  const wanted = Date.UTC(match[1], match[2] - 1, match[3], match[4], match[5]);
+  let guess = wanted;
+  for (let round = 0; round < 2; round += 1) {  // Stockholm's offset at the guess, then again across a DST change
+    const shown = Date.parse(`${wallTime(guess)}:00Z`);
+    guess += wanted - shown;
+  }
+  return new Date(guess).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+function showWindow(scenarioState) {
+  if (!config || pendingWindow) return;
+  $("window-start").value = wallTime(scenarioState.start_utc);
+  $("window-end").value = wallTime(scenarioState.end_utc);
+}
+
+function setupWindow() {
+  const first = wallTime(config.playback.start_utc);
+  const last = wallTime(config.playback.end_utc);
+  for (const input of [$("window-start"), $("window-end")]) {
+    input.min = first;
+    input.max = last;
+    input.addEventListener("input", () => {
+      pendingWindow = true;
+      $("apply-window").disabled = false;
+    });
+  }
+  $("window-note").textContent = `Scenariots data: ${localTime.format(new Date(config.playback.start_utc))} – `
+    + `${localTime.format(new Date(config.playback.end_utc))}. RESET går till start, uppspelningen stannar vid stopp; SPARA PROFIL sparar tiderna.`;
+}
+
+$("apply-window").addEventListener("click", () => {
+  const first = utcFromWallTime($("window-start").value);
+  const last = utcFromWallTime($("window-end").value);
+  if (!first || !last) {
+    $("command-status").textContent = "Ange både start och stopp.";
+    return;
+  }
+  send("playback_window", `${first}/${last}`).then((state) => {
+    pendingWindow = false;
+    $("apply-window").disabled = true;
+    showState(state);
+    $("command-status").textContent = "";
+  }).catch((error) => {
+    $("command-status").textContent = `Tiderna kunde inte ändras: ${error.message}`;
+  });
+});
+
+// SPARA PROFIL: the ticked image types, base maps, map layers and the demo's start and stop become
+// the scenario's profile (app/backend/profiles.py), which the demo starts with and RESET returns to.
+// A scenario without one uses the older profile of its kind of incident until it is saved.
 const INCIDENT_WORDS = { wildfire: "skogsbrand", flood: "översvämning" };
 
 function showProfile(profile) {
   const kind = INCIDENT_WORDS[config.incident] || config.incident;
-  $("save-profile").textContent = `SPARA PROFIL FÖR ${kind.toUpperCase()}`;
-  $("profile-note").textContent = profile
-    ? `Profil för ${kind} sparad ${localTime.format(new Date(profile.saved_utc))} svensk tid; bildtyper, baskartor och kartlager används vid start och RESET.`
-    : `Ingen sparad profil för ${kind}: standardvalet gäller.`;
+  const saved = profile ? `${localTime.format(new Date(profile.saved_utc))} svensk tid` : "";
+  const period = profile?.playback
+    ? `${localTime.format(new Date(profile.playback.start_utc))} – ${localTime.format(new Date(profile.playback.end_utc))}`
+    : "hela perioden";
+  $("save-profile").textContent = "SPARA PROFIL FÖR SCENARIOT";
+  $("profile-note").textContent = !profile
+    ? `Ingen sparad profil för ${config.title}: standardvalet och hela perioden gäller.`
+    : profile.source === "incident"
+      ? `Ingen egen profil för ${config.title}: den äldre profilen för ${kind}, sparad ${saved}, används för bildtyper, baskartor och kartlager. SPARA PROFIL sparar en för det här scenariot.`
+      : `Profil för ${config.title} sparad ${saved}; bildtyper, baskartor, kartlager och demons tider (${period}) används vid start och RESET.`;
 }
 
 $("save-profile").addEventListener("click", async () => {
@@ -479,6 +549,7 @@ fetch("/api/config").then((response) => response.json()).then((loaded) => {
   $("show-all").dataset.at = config.playback.end_utc;
   $("fly-incident").textContent = `FLYG TILL ${config.incident_place.toUpperCase()}`;
   showProfile(config.layers.display_profile);
+  setupWindow();
   $("control-label").textContent = config.control_label;
   place = config.incident_place;
   if (clockShown) showImages(clockShown);
