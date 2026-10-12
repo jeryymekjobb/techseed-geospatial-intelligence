@@ -93,6 +93,15 @@ function hasPasses(item) {
   return Boolean(item.half_swath_km || item.acquisitions);
 }
 
+// The satellites that send the scenario data to the ground, by name: FIRMS's detections (`firms`),
+// Sentinel-1's catalogue acquisitions, or one of the scenario's satellite images (`scenes`,
+// config.layers.landsat.scenes; an image without a satellite is Landsat 8's). Only they get an orbit
+// on the screens; the others, such as the ISS, show where they are without one.
+function contributingSatellites(satellites, scenes) {
+  const imaged = new Set((scenes || []).map((scene) => scene.satellite || "Landsat 8"));
+  return new Set((satellites || []).filter((item) => item.firms || item.acquisitions || imaged.has(item.name)).map((item) => item.name));
+}
+
 // The passes of a satellite between two times: its catalogue acquisitions, or computed from its swath.
 function satellitePasses(lib, item, startMs, endMs, latitude, longitude) {
   if (item.acquisitions) {
@@ -146,4 +155,4 @@ function passesBetween(lib, elements, startMs, endMs, latitude, longitude, halfS
   return passes;
 }
 
-if (typeof module !== "undefined") module.exports = { elementAt, subpoint, groundDistanceKm, orbitTrack, nextPass, passesBetween, hasPasses, satellitePasses };
+if (typeof module !== "undefined") module.exports = { elementAt, subpoint, groundDistanceKm, orbitTrack, nextPass, passesBetween, hasPasses, contributingSatellites, satellitePasses };

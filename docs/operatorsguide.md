@@ -309,7 +309,10 @@ Vill du hellre öppna fönstren själv, öppna tre fönster i Chrome:
 | Mission control | <http://127.0.0.1:8765/control.html> | Din skärm bredvid. |
 
 Satellitbevakningen visar hela tiden var satelliterna är och när de passerar över branden.
-Varje satellits bana är svag där den redan har flugit och stark där den är på väg. Terra och
+Varje satellits bana är svag där den redan har flugit och stark där den är på väg. Banor ritas,
+här och på 3D-globen, bara för satelliter som levererar data till marken i scenariot:
+FIRMS-detektioner, Sentinel-1:s radarbilder eller någon av scenariots satellitbilder. Övriga
+satelliter, som ISS, visas som en punkt med namn utan bana. Terra och
 Aqua har var sin nyans av orange, och färgprickarna i listan längst ned visar vilken färg
 som hör till vilken satellit.
 

@@ -677,10 +677,12 @@ function showSatellites(clock) {
   if (state.satellitesDrawnAt === clock.getTime()) return;
   state.satellitesDrawnAt = clock.getTime();
   const lib = state.satelliteLib;
+  // Only the satellites that send the scenario data to the ground get an orbit (orbits.js).
+  const contributing = contributingSatellites(state.satellites.satellites, state.config.layers.landsat?.scenes);
   const items = state.satellites.satellites.map((satellite) => ({
     ...satellite,
     point: subpoint(lib, satellite.elements, clock),
-    track: orbitTrack(lib, satellite.elements, clock, 50, 2),
+    track: contributing.has(satellite.name) ? orbitTrack(lib, satellite.elements, clock, 50, 2) : [],
   })).filter((item) => item.point);
   state.map.drawSatellites(items);
   if (state.monitor) {

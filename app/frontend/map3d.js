@@ -529,7 +529,8 @@ async function createCesiumMap(config) {
     },
 
     // The scenario's satellites at the clock (panel.js computes them with orbits.js): a point at
-    // its height with its name, and the orbit 50 minutes back and ahead.
+    // its height with its name, and the orbit 50 minutes back and ahead (none for a satellite that
+    // sends the scenario no data: an empty track).
     drawSatellites(items) {
       for (const item of items) {
         const color = cesiumColor(SATELLITE_COLORS[item.instrument] || "#d0d0d0");

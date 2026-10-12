@@ -123,6 +123,19 @@ def test_sentinel_1_passes_are_the_catalogue_acquisitions() -> None:
     assert node("orbits.js", f"[hasPasses({json.dumps(item)}), hasPasses({{half_swath_km: null}}), hasPasses({{half_swath_km: 92.5}})]") == [True, False, True]
 
 
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_only_the_satellites_that_send_the_scenario_data_get_an_orbit() -> None:
+    satellites = [{"name": "Aqua", "firms": "Aqua"}, {"name": "Sentinel-1C", "firms": None, "acquisitions": ["2026-08-16T05:21:32Z"]},
+                  {"name": "Sentinel-2A", "firms": None}, {"name": "Sentinel-2B", "firms": None}, {"name": "Landsat 8", "firms": None},
+                  {"name": "Landsat 9", "firms": None}, {"name": "ISS", "firms": None}]
+    scenes = [{"satellite": "Sentinel-2A"}, {"acquired_utc": "2014-07-31T10:00:00Z"}]  # without a satellite: Landsat 8
+    assert node("orbits.js", f"[...contributingSatellites({json.dumps(satellites)}, {json.dumps(scenes)})]") == [
+        "Aqua", "Sentinel-1C", "Sentinel-2A", "Landsat 8"]
+    assert node("orbits.js", "[...contributingSatellites([{name: 'ISS', firms: null}], undefined)]") == []
+    for screen in ("monitor.js", "panel.js"):
+        assert "contributing.has(satellite.name) ? orbitTrack(" in (FRONTEND / screen).read_text(encoding="utf-8")
+
+
 def run_flood(code: str) -> str:
     import os
     import sys

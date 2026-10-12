@@ -46,6 +46,8 @@ async function start() {
   // Threatened buildings: asked again on the next load if PostGIS could not answer.
   const threats = await getJson("/api/threats").catch(() => ({}));
   const scenes = config.layers.landsat?.scenes || [];
+  // Only the satellites that send the scenario data to the ground get an orbit (orbits.js).
+  const contributing = contributingSatellites(data.satellites, scenes);
   let logShown = null;
   let logKey = null;  // the lines last drawn, so the list is only rebuilt when they change
   // Reading aloud (mission control's UPPLÄSNING, the status's `speech`): only lines that come in while
@@ -164,7 +166,7 @@ async function start() {
     const items = data.satellites.map((satellite) => ({
       ...satellite,
       point: subpoint(lib, satellite.elements, clock),
-      track: orbitTrack(lib, satellite.elements, clock, 50, 2),
+      track: contributing.has(satellite.name) ? orbitTrack(lib, satellite.elements, clock, 50, 2) : [],
       passes: hasPasses(satellite)
         ? Array.from({ length: last - first + 1 }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat() : null,
     })).filter((item) => item.point);
