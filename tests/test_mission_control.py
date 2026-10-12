@@ -102,6 +102,11 @@ def test_the_satellite_image_buttons_and_spara_profil_are_in_the_left_column() -
                     'id="save-profile"', 'id="profile-note"']:
         assert left.count(element) == 1, element
     assert left.index('id="show-all"') < left.index("<h2>Satellitbilder</h2>") < left.index('id="save-profile"')
+    # The flood's rain gauge is chosen in the left column too, above Satellitbilder; the other choices stay under Kartan.
+    assert left.index('id="show-all"') < left.index('id="left-choices"') < left.index("<h2>Satellitbilder</h2>")
+    assert html.count('id="panel-choices"') == 1 and 'id="panel-choices"' not in left
+    source = (FRONTEND / "control.js").read_text(encoding="utf-8")
+    assert 'const LEFT_CHOICES = ["rain_station"];' in source
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")

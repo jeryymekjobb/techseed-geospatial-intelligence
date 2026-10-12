@@ -204,9 +204,12 @@ function setupQuestions(questions) {
 
 // The main screen's panel: the forecast horizon and the stations it shows (the status's choices;
 // server.py panel_choices), one list each; a list not chosen in shows the panel's default.
+// The panel's choices that sit in mission control's left column; the others are under Kartan.
+const LEFT_CHOICES = ["rain_station"];
+
 function setupChoices(choices) {
-  const box = $("panel-choices");
   for (const [key, choice] of Object.entries(choices)) {
+    const box = $(LEFT_CHOICES.includes(key) ? "left-choices" : "panel-choices");
     const label = document.createElement("label");
     label.className = "image-pick";
     label.append(`${choice.label} `);
@@ -228,7 +231,7 @@ function setupChoices(choices) {
 
 function showChoices() {
   if (!config || !status) return;
-  for (const select of document.querySelectorAll("#panel-choices select")) {
+  for (const select of document.querySelectorAll("select[data-choice]")) {
     const key = select.dataset.choice;
     select.value = status.choices?.[key] ?? config.layers.panel_choices[key].default;
   }
