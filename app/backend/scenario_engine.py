@@ -29,6 +29,8 @@ in the status as `image_types`, None until ticked, when the screens use their de
 `map_layer_on` and `map_layer_off` switch a map layer by its name for every screen
 (`map_layers` in the status: the layers switched, the others as each map starts them).
 `base_maps` ticks the base maps the same way (`base_maps` in the status; basemaps.js).
+`speech` with the target "on" or "off" switches the satellite monitor's reading aloud of new log
+lines (`speech` in the status; off unless the saved profile has it on).
 `playback_window` with the target "<start>/<stop>" (UTC times, for example
 "2026-08-14T00:00:00Z/2026-08-23T00:00:00Z") sets the demo's start and stop within the
 scenario's period (`start`, `end`): RESET and PLAY after the stop go to the start, the playback
@@ -120,6 +122,7 @@ class ScenarioEngine:
     _image: str = field(default="auto", init=False)
     _image_types: list[str] | None = field(default=None, init=False)
     _base_maps: list[str] | None = field(default=None, init=False)
+    _speech: bool = field(default=False, init=False)
     _camera: dict[str, Any] = field(default_factory=lambda: {"target": None, "seq": 0}, init=False)
     _map_layers: dict[str, bool] = field(default_factory=dict, init=False)
     _choices: dict[str, str] = field(default_factory=dict, init=False)
@@ -146,6 +149,7 @@ class ScenarioEngine:
         saved = (self.profile() if self.profile else None) or {}
         self._image_types = saved.get("image_types")
         self._base_maps = saved.get("base_maps")
+        self._speech = saved.get("speech") is True
         layers = saved.get("map_layers")
         self._map_layers = ({name: visible for name, visible in layers.items()
                              if isinstance(name, str) and isinstance(visible, bool)} if isinstance(layers, dict) else {})
@@ -229,6 +233,7 @@ class ScenarioEngine:
                 "status": {**self._status(), "detection": self._detection_status(), "image": self._image,
                            "image_types": None if self._image_types is None else list(self._image_types),
                            "base_maps": None if self._base_maps is None else list(self._base_maps),
+                           "speech": self._speech,
                            "camera": dict(self._camera), "map_layers": dict(self._map_layers),
                            "choices": dict(self._choices), "question": dict(self._question)},
             }
@@ -407,6 +412,10 @@ class ScenarioEngine:
                 if target not in ("incident", "home"):
                     raise CommandError('camera needs "incident" or "home"')
                 self._camera = {"target": target, "seq": self._camera["seq"] + 1}
+            elif name == "speech":
+                if target not in ("on", "off"):
+                    raise CommandError('speech needs "on" or "off"')
+                self._speech = target == "on"
             elif name == "base_maps":
                 if target is None or not IMAGE_TYPES_PATTERN.fullmatch(target):
                     raise CommandError('base_maps needs base maps separated by commas, for example "offline,online"')

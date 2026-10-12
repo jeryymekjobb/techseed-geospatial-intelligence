@@ -138,3 +138,15 @@ def test_threatened_buildings_are_in_the_log() -> None:
         ("6 orter hotas inom 24 h: Axholm 2–10 h, Lågbo 3–10 h, Ormdalen 4–10 h, Skillberg 5–10 h och 2 till", "model"),
     ]
     assert node("[SATLOG_SOURCES.model, SATLOG_SOURCES.postgis]") == ["modell", "PostGIS"]
+
+
+def test_only_new_lines_are_read_aloud_and_many_are_cut_short() -> None:
+    def lines(*minutes: int) -> str:
+        return json.dumps([{"atMs": CLOCK - m * MINUTE, "text": f"rad {m}"} for m in sorted(minutes)])
+    spoken = node(f"(() => {{ const heard = new Set({lines(50, 40)}.map(satlogKey)); "
+                  f"return [spokenLines({lines(30, 40, 50)}, heard), spokenLines({lines(30, 40, 50)}, heard), "
+                  f"spokenLines({lines(1, 2, 3, 4, 5, 30, 40, 50)}, heard)]; }})()")
+    assert spoken == [["rad 30"], [], ["rad 3", "rad 2", "rad 1", "och 2 händelser till"]]
+    monitor = (SCRIPT.parent / "monitor.js").read_text(encoding="utf-8")
+    assert "if (scenarioState.jump !== heardJump) {" in monitor and 'utterance.lang = "sv-SE";' in monitor
+    assert "if (scenarioState.status?.speech) speak(texts);" in monitor

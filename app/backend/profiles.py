@@ -1,5 +1,5 @@
-"""Display profiles: image types, base maps, map-layer visibility, the demo's start and stop and
-its playback speed, saved per scenario.
+"""Display profiles: image types, base maps, map-layer visibility, whether the satellite monitor
+reads new log lines aloud, the demo's start and stop and its playback speed, saved per scenario.
 
 SPARA PROFIL in mission control saves the running demo's display settings and its playback window
 (the demo's start and stop, within the scenario's data) for that scenario in
@@ -82,17 +82,17 @@ def load(scenario: str, path: Path | None = None, *, incident: str | None = None
         return None
     clean = {key: [str(item) for item in profile[key]] if isinstance(profile.get(key), list) else None for key in LIST_KEYS}
     return {**clean, "map_layers": _layers(profile.get("map_layers")), "playback": _playback(profile.get("playback")),
-            "speed": _speed(profile.get("speed")), "saved_utc": profile.get("saved_utc"), "source": source}
+            "speed": _speed(profile.get("speed")), "speech": profile.get("speech") is True, "saved_utc": profile.get("saved_utc"), "source": source}
 
 
 def save(scenario: str, image_types: list[str] | None, base_maps: list[str] | None, path: Path | None = None,
          *, map_layers: dict[str, bool] | None = None, playback: dict[str, str] | None = None,
-         speed: float | None = None) -> dict[str, Any]:
+         speed: float | None = None, speech: bool | None = None) -> dict[str, Any]:
     """Save display settings, playback window and speed for the scenario, keeping the other profiles; returns the profile."""
     target = path or PROFILE_FILE
     data = _read(target)
     data[scenario] = {"image_types": image_types, "base_maps": base_maps, "map_layers": _layers(map_layers),
-                      "playback": _playback(playback), "speed": _speed(speed),
+                      "playback": _playback(playback), "speed": _speed(speed), "speech": speech is True,
                       "saved_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix(".tmp")

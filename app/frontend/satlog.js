@@ -148,4 +148,21 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     .map(({ order, ...line }) => line);
 }
 
-if (typeof module !== "undefined") module.exports = { firmsPasses, satelliteLog, SATLOG_SOURCES };
+// What the satellite monitor reads aloud of the log: the lines (newest first, as satelliteLog gives
+// them) not yet in `heard` (a Set of satlogKey), oldest first; with more than `max` new lines, the
+// `max` newest and how many more there were. `heard` gets every line.
+const SATLOG_SPOKEN_MAX = 3;
+
+function satlogKey(line) {
+  return `${line.atMs}|${line.text}`;
+}
+
+function spokenLines(lines, heard, max = SATLOG_SPOKEN_MAX) {
+  const fresh = lines.filter((line) => !heard.has(satlogKey(line)));
+  for (const line of fresh) heard.add(satlogKey(line));
+  const texts = fresh.slice(0, max).reverse().map((line) => line.text);
+  if (fresh.length > max) texts.push(`och ${fresh.length - max} ${fresh.length - max === 1 ? "händelse" : "händelser"} till`);
+  return texts;
+}
+
+if (typeof module !== "undefined") module.exports = { firmsPasses, satelliteLog, spokenLines, satlogKey, SATLOG_SOURCES };

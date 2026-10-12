@@ -66,6 +66,19 @@ def test_the_engine_starts_at_the_profiles_speed_and_reset_keeps_the_speed_in_us
     assert ScenarioEngine(START, END, profile=lambda: {"speed": 5}).snapshot()["speed"] == 600.0  # outside the limits
 
 
+def test_reading_aloud_is_saved_in_the_profile_and_off_without_it(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.json"
+    assert profiles.save("sundsvall2026", None, None, path, speech=True)["speech"] is True
+    assert profiles.save("skane2024", None, None, path)["speech"] is False
+    engine = ScenarioEngine(START, END, profile=lambda: {"speech": True})
+    assert engine.snapshot()["status"]["speech"] is True
+    assert engine.command("speech", target="off")["status"]["speech"] is False
+    assert engine.command("reset")["status"]["speech"] is True  # RESET: the profile's, like the ticks
+    assert ScenarioEngine(START, END).snapshot()["status"]["speech"] is False
+    with pytest.raises(CommandError):
+        engine.command("speech", target="loud")
+
+
 def test_a_playback_window_that_is_not_a_window_is_not_kept(tmp_path: Path) -> None:
     path = tmp_path / "profiles.json"
     for window in [{"start_utc": "2026-08-20T00:00:00Z", "end_utc": "2026-08-14T00:00:00Z"},
@@ -156,7 +169,9 @@ def test_spara_profil_saves_effective_display_settings_and_reset_returns_to_them
     command = f"{base_url}/api/scenario/command"
     post(command, {"command": "playback_window", "target": "2014-08-01T00:00:00Z/2014-08-03T00:00:00Z"})
     post(command, {"command": "speed", "speed": 1800})
+    post(command, {"command": "speech", "target": "on"})
     answer = post(command, {"command": "save_profile"})
+    assert answer["display_profile"]["speech"] is True
     assert answer["display_profile"]["speed"] == 1800.0
     assert answer["display_profile"]["base_maps"] == ["offline"]
     assert answer["display_profile"]["image_types"] is None

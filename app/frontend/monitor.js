@@ -47,6 +47,28 @@ async function start() {
   const scenes = config.layers.landsat?.scenes || [];
   let logShown = null;
   let logKey = null;  // the lines last drawn, so the list is only rebuilt when they change
+  // Reading aloud (mission control's UPPLÄSNING, the status's `speech`): only lines that come in while
+  // the clock runs; a load, a RESET or a jump in time (the state's `jump`) only marks the lines as heard.
+  const heard = new Set();
+  let heardJump = null;
+  let queued = 0;
+  const speak = (texts) => {
+    if (!window.speechSynthesis || !texts.length) return;
+    if (queued > SATLOG_SPOKEN_MAX) {
+      window.speechSynthesis.cancel();
+      queued = 0;
+    }
+    const voice = window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith("sv"));
+    for (const text of texts) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "sv-SE";
+      if (voice) utterance.voice = voice;
+      utterance.onend = utterance.onerror = () => { queued = Math.max(0, queued - 1); };
+      queued += 1;
+      window.speechSynthesis.speak(utterance);
+    }
+    document.body.dataset.spoken = texts.join(" | ");  // read by the tests
+  };
   // Scrolled down to older lines, how far the view is from the list's end; null at the top. The
   // view keeps that distance while new lines come in at the top and while the list changes size.
   const logList = document.getElementById("monitor-log-lines");
@@ -76,7 +98,18 @@ async function start() {
     }));
     const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [], sensorEvents, threats }, clock.getTime(),
       clock.getTime() - startMs + 1, Infinity, place);
-    const key = lines.map((line) => `${line.atMs}|${line.text}`).join("\n");
+    if (scenarioState.jump !== heardJump) {
+      heardJump = scenarioState.jump;
+      heard.clear();
+      for (const line of lines) heard.add(satlogKey(line));
+    }
+    const texts = spokenLines(lines, heard);
+    if (scenarioState.status?.speech) speak(texts);
+    else if (queued && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      queued = 0;
+    }
+    const key = lines.map(satlogKey).join("\n");
     if (key === logKey) return;
     logKey = key;
     const log = logList;

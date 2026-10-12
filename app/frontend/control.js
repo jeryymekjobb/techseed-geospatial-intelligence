@@ -89,6 +89,9 @@ function showState(scenarioState) {
   const speeds = $("speed-pick");
   if (pendingSpeed === String(scenarioState.speed)) pendingSpeed = null;
   showWindow(scenarioState);
+  // UPPLÄSNING: the satellite monitor reads new log lines aloud.
+  $("speech-toggle").textContent = status.speech ? "UPPLÄSNING PÅ" : "UPPLÄSNING AV";
+  $("speech-toggle").classList.toggle("active", Boolean(status.speech));
   lastState = scenarioState;
   showUnsaved();
   if (![...speeds.options].some((option) => Number(option.value) === scenarioState.speed)) {
@@ -381,6 +384,15 @@ function setupWindow() {
     + `${localTime.format(new Date(config.playback.data_end_utc))}. RESET går till start men ändrar inte tiderna, uppspelningen stannar vid stopp; SPARA PROFIL sparar tiderna.`;
 }
 
+$("speech-toggle").addEventListener("click", () => {
+  send("speech", status?.speech ? "off" : "on").then((state) => {
+    showState(state);
+    $("command-status").textContent = "";
+  }).catch((error) => {
+    $("command-status").textContent = `Uppläsningen kunde inte ändras: ${error.message}`;
+  });
+});
+
 $("apply-window").addEventListener("click", () => {
   const first = utcFromWallTime($("window-start").value);
   const last = utcFromWallTime($("window-end").value);
@@ -419,7 +431,8 @@ function profileUnsaved(cfg, profile, scenarioState) {
     || !same(maps(now.base_maps), maps(saved.base_maps))
     || !same(layers(now.map_layers), layers(saved.map_layers))
     || scenarioState.start_utc !== window.start_utc || scenarioState.end_utc !== window.end_utc
-    || scenarioState.speed !== (saved.speed ?? cfg.playback.default_speed);
+    || scenarioState.speed !== (saved.speed ?? cfg.playback.default_speed)
+    || Boolean(now.speech) !== (saved.speech === true);
 }
 
 // SPARA PROFIL is red while the settings differ from the profile.

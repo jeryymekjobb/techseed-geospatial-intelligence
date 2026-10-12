@@ -726,6 +726,7 @@ class Handler(BaseHTTPRequestHandler):
                         map_layers=profile_map_layers(self.settings, status),
                         playback={"start_utc": state["start_utc"], "end_utc": state["end_utc"]},
                         speed=state["speed"],
+                        speech=status["speech"],
                     )
                 except OSError as exc:
                     self.send_json({"error": "profile_not_saved", "detail": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)

@@ -34,6 +34,10 @@ def test_each_screen_is_a_chrome_app_with_its_own_profile_and_place() -> None:
     assert command[1:5] == ["--app=http://127.0.0.1:8765/control.html", f"--user-data-dir={screens.PROFILES / 'control'}",
                             "--window-position=3440,0", "--window-size=2560,1600"]
     assert "--disable-features=Translate" in command
+    # Only the satellite monitor may speak without a click in its window first.
+    assert "--autoplay-policy=no-user-gesture-required" not in command
+    monitor = screens.chrome_command("/usr/bin/google-chrome", "http://127.0.0.1:8765", screens.Window("monitor", "/monitor.html", 0, 0, 1, 1))
+    assert "--autoplay-policy=no-user-gesture-required" in monitor
 
 
 def test_the_old_screen_is_closed_with_its_own_profile_as_the_pattern() -> None:

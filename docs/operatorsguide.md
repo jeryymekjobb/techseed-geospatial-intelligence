@@ -335,6 +335,14 @@ beräknade ur deras modeller i steg om 10 minuter. Efter **SENSOR FAILURE** visa
 för den sensorn, och medan IoT är avstängt visas inga sensorrader eller byggnadsrader. Är PostGIS
 inte igång blir det inga byggnadsrader; ladda om satellitbevakningen när PostGIS är igång.
 
+**Uppläsning.** Med **UPPLÄSNING** i mission control (under FLYG TILL och ÖVERSIKT) läser
+satellitbevakningen upp nya rader i loggen på svenska genom datorns högtalare, så fort
+scenarioklockan når dem. Inget läses upp när sidan laddas, vid **RESET** eller vid ett hopp i
+tiden. Kommer fler än tre rader på en gång läses de tre senaste upp och sedan hur många fler det
+var. Uppläsningen är av tills du slår på den; spara den med **SPARA PROFIL FÖR SCENARIOT** så
+startar demon med den. Rösten är datorns inbyggda svenska talsyntes (espeak-ng via
+speech-dispatcher). Prova ljudet innan besökarna kommer: slå på uppläsningen och tryck **PLAY**.
+
 Har du bara en stor skärm, lägg fönstren sida vid sida: satellitbevakningen till vänster,
 huvudskärmen i mitten och mission control till höger. Öppna huvudskärmen först.
 

@@ -115,7 +115,9 @@ def chrome_command(chrome: str, base_url: str, window: Window) -> list[str]:
     return [chrome, f"--app={base_url}{window.path}", f"--user-data-dir={PROFILES / window.screen}",
             f"--window-position={window.x},{window.y}", f"--window-size={window.width},{window.height}",
             # The screens are in Swedish: no offer to translate them over the demo.
-            "--no-first-run", "--no-default-browser-check", "--disable-features=Translate", "--lang=sv"]
+            "--no-first-run", "--no-default-browser-check", "--disable-features=Translate", "--lang=sv",
+            # The satellite monitor reads new log lines aloud without anyone clicking in its window first.
+            *(["--autoplay-policy=no-user-gesture-required"] if window.screen == "monitor" else [])]
 
 
 def no_translation(profile: Path) -> None:
