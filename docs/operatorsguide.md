@@ -332,6 +332,9 @@ kommer från:
 | *PostGIS* | Hotad bebyggelse vid översvämningen: hur många byggnader som ligger inom 200 m från en sensor när den börjar larma och den närmaste namngivna orten, ur kartdata i PostGIS |
 | *simulerat* | Från mission control: upptäcktssekvensen startar, SATCOM nere och SATCOM åter, SENSOR FAILURE, IoT av och på, och en sensor som placeras på kartan |
 
+Loggen skriver enheterna med hela ord, till exempel "starkast 27,9 megawatt", "inom 200 meter"
+och "16 till mer än 24 timmar", eftersom den läses upp.
+
 Loggen räknas fram ur scenarioklockan och stämmer därför också efter **RESET** eller ett hopp
 i tiden. En sensorrad visas så fort scenarioklockan når ändringen; sensorernas ändringar är
 beräknade ur deras modeller i steg om 10 minuter. Efter **SENSOR FAILURE** visas inga fler rader

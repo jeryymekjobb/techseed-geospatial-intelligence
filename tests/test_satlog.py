@@ -55,7 +55,7 @@ def test_the_log_lists_what_happened_up_to_the_clock_newest_first() -> None:
         ("SATCOM nere – satellitdata köas", "simulated"),
         ("Landsat 8 tar bild över branden", "landsat"),
         ("Suomi NPP (VIIRS) lämnar branden", "computed"),
-        ("154 detektioner från Suomi NPP (VIIRS), starkast 7 MW", "firms"),
+        ("154 detektioner från Suomi NPP (VIIRS), starkast 7 megawatt", "firms"),
         ("Suomi NPP (VIIRS) över branden", "computed"),
     ]
 
@@ -72,7 +72,7 @@ def test_the_log_keeps_the_last_day_and_a_few_lines() -> None:
 def test_firms_lines_name_their_year_and_noaa_20() -> None:
     lines = node(f"satelliteLog({{ firms: firmsPasses([{json.dumps(hotspot('2018-07-17T11:20:00Z', 'N20'))}]) }}, "
                  "Date.parse('2018-07-17T12:00:00Z'))")
-    assert [(line["text"], line["sourceText"]) for line in lines] == [("1 detektion från NOAA-20 (VIIRS), starkast 1 MW", "FIRMS 2018")]
+    assert [(line["text"], line["sourceText"]) for line in lines] == [("1 detektion från NOAA-20 (VIIRS), starkast 1 megawatt", "FIRMS 2018")]
 
 
 def test_the_sensors_changes_and_mission_control_s_iot_events_are_in_the_log() -> None:
@@ -133,14 +133,17 @@ def test_threatened_buildings_are_in_the_log() -> None:
     lines = node(f"satelliteLog({{ sensorEvents: {sensor_events}, threats: {json.dumps(threats)} }}, {CLOCK})")
     assert [(line["text"], line["source"]) for line in lines] == [
         ("Bräddgivare DV3 Skönsmon slutar brädda", "synthetic"),
-        ("1 byggnad inom 200 m från Bräddgivare DV1 Bergsåker", "postgis"),
+        ("1 byggnad inom 200 meter från Bräddgivare DV1 Bergsåker", "postgis"),
         ("Bräddgivare DV1 Bergsåker bräddar", "synthetic"),
-        ("1 ort hotas inom 24 h: Fläckebo 7–>24 h", "model"),
-        ("78 byggnader i Skönsmon inom 200 m från Bräddgivare DV3 Skönsmon", "postgis"),
+        ("1 ort hotas inom 24 timmar: Fläckebo 7 till mer än 24 timmar", "model"),
+        ("78 byggnader i Skönsmon inom 200 meter från Bräddgivare DV3 Skönsmon", "postgis"),
         ("Bräddgivare DV3 Skönsmon bräddar", "synthetic"),
-        ("6 orter hotas inom 24 h: Axholm 2–10 h, Lågbo 3–10 h, Ormdalen 4–10 h, Skillberg 5–10 h och 2 till", "model"),
+        ("6 orter hotas inom 24 timmar: Axholm 2–10 timmar, Lågbo 3–10 timmar, Ormdalen 4–10 timmar, Skillberg 5–10 timmar och 2 till", "model"),
     ]
     assert node("[SATLOG_SOURCES.model, SATLOG_SOURCES.postgis]") == ["modell", "PostGIS"]
+    # Whole words, as the log is read aloud: the forecast's spans from forecast.py.
+    assert node("['1 h', '5 h', '2–6 h', '16–>24 h', '', 'okänt'].map(satlogSpan)") == [
+        "1 timme", "5 timmar", "2–6 timmar", "16 till mer än 24 timmar", "", "okänt"]
     # The maps' marks: each place once, small; a highlighted line's places large and last (drawn on top);
     # without a place, the sensor's name.
     log = f"satelliteLog({{ sensorEvents: {sensor_events}, threats: {json.dumps(threats)} }}, {CLOCK})"

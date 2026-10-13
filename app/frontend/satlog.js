@@ -49,11 +49,25 @@ function firmsPasses(features) {
   return passes.map(({ lastMs, ...pass }) => pass);
 }
 
+// The forecast's span (forecast.py: "5 h", "2–6 h", "16–>24 h") in whole words, as the log is read
+// aloud: "5 timmar", "2–6 timmar", "16 till mer än 24 timmar".
+function satlogSpan(span) {
+  const hours = (count) => `${count} ${count === "1" ? "timme" : "timmar"}`;
+  let match = /^(\d+) h$/.exec(span);
+  if (match) return hours(match[1]);
+  match = /^(\d+)–(\d+) h$/.exec(span);
+  if (match) return `${match[1]}–${hours(match[2])}`;
+  match = /^(\d+)–>(\d+) h$/.exec(span);
+  if (match) return `${match[1]} till mer än ${hours(match[2])}`;
+  return span;
+}
+
 function satlogDecimal(value) {
   return String(Math.round(value * 10) / 10).replace(".", ",");
 }
 
-// The log lines, newest first: { atMs, text, source, kind }.
+// The log lines, newest first: { atMs, text, source, kind }, in whole words (megawatt, meter, timmar),
+// as they are read aloud.
 // `satellites`: [{ name, instrument, passes: [{ start, end }] }] over the fire (orbits.js);
 // `firms`: firmsPasses(); `scenes`: config.layers.landsat.scenes; `events`: the scenario's events;
 // `sensorEvents`: the synthetic sensors' changes, { clock_utc, sensor, name, kind, confirms };
@@ -79,7 +93,7 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     const name = SATLOG_FIRMS_NAMES[pass.satellite] || pass.satellite;
     const count = pass.detections === 1 ? "1 detektion" : `${pass.detections} detektioner`;
     lines.push({
-      atMs: pass.atMs, text: `${count} från ${name} (${pass.instrument}), starkast ${satlogDecimal(pass.maxFrp)} MW`, source: "firms", kind: "firms",
+      atMs: pass.atMs, text: `${count} från ${name} (${pass.instrument}), starkast ${satlogDecimal(pass.maxFrp)} megawatt`, source: "firms", kind: "firms",
       sourceText: `FIRMS ${new Date(pass.atMs).getUTCFullYear()}`,
     });
   }
@@ -128,7 +142,7 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     if (item.confirms && near?.count) {
       const where = near.place ? ` i ${near.place}` : "";
       lines.push({
-        atMs, text: `${near.count} ${near.count === 1 ? "byggnad" : "byggnader"}${where} inom ${threats.distance_m} m från ${names.get(item.sensor)}`,
+        atMs, text: `${near.count} ${near.count === 1 ? "byggnad" : "byggnader"}${where} inom ${threats.distance_m} meter från ${names.get(item.sensor)}`,
         source: "postgis", kind: "threat",
         marks: near.latitude === null || near.latitude === undefined ? []
           : [{ name: near.place || names.get(item.sensor), latitude: near.latitude, longitude: near.longitude }],
@@ -136,11 +150,11 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     }
   }
   for (const pass of threats.places || []) {
-    const named = pass.places.slice(0, SATLOG_PLACES_NAMED).map((place) => `${place.name} ${place.span}`).join(", ");
+    const named = pass.places.slice(0, SATLOG_PLACES_NAMED).map((place) => `${place.name} ${satlogSpan(place.span)}`).join(", ");
     const more = pass.places.length - SATLOG_PLACES_NAMED;
     const count = pass.places.length === 1 ? "1 ort hotas" : `${pass.places.length} orter hotas`;
     lines.push({
-      atMs: Date.parse(pass.clock_utc), text: `${count} inom 24 h: ${named}${more > 0 ? ` och ${more} till` : ""}`,
+      atMs: Date.parse(pass.clock_utc), text: `${count} inom 24 timmar: ${named}${more > 0 ? ` och ${more} till` : ""}`,
       source: "model", kind: "threat",
       marks: pass.places.filter((place) => place.latitude !== undefined)
         .map((place) => ({ name: place.name, latitude: place.latitude, longitude: place.longitude })),
@@ -257,5 +271,5 @@ function levelReportDue(next, clockMs, alarming, jumped) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { firmsPasses, satelliteLog, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, SATLOG_SOURCES };
+  module.exports = { firmsPasses, satelliteLog, satlogSpan, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, SATLOG_SOURCES };
 }
