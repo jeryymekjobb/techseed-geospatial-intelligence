@@ -154,6 +154,8 @@ def test_the_lexicon_gives_its_words_their_sounds() -> None:
     assert "".join(speech.lexicon_phonemes(Voice(), "bild från Sentinel-2", {"Sentinel": "sɛn"})) == "BILD FRÅN sɛn-2"
     assert "".join(speech.lexicon_phonemes(Voice(), "ab", {})) == "AB"
     assert speech.LEXICON["Sentinel"] == "sˈɛntɪnɛl" and 1.0 < speech.LENGTH_SCALE < 1.2
+    # "watt" with a short, stressed a (the user chose this of three samples).
+    assert speech.LEXICON["megawatt"] == "mˌeːɡavˈatː" and speech.LEXICON["watt"] == "vˈatː"
 
 
 @pytest.mark.skipif(not (speech.VOICE_DIR / f"{speech.VOICES['alma']}.onnx").is_file(), reason="needs the Piper voices (tools/fetch_piper_voices.py)")

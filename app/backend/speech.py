@@ -62,6 +62,9 @@ ORDINALS = ("första", "andra", "tredje", "fjärde", "femte", "sjätte", "sjunde
 # Swedish voices use them). Add a word when it is heard wrong.
 LEXICON = {
     "Sentinel": "sˈɛntɪnɛl",
+    # A short a, stressed, as the long t forces: espeak-ng's "mˈeːɡavˌat" is heard as "wat".
+    "megawatt": "mˌeːɡavˈatː",
+    "watt": "vˈatː",
 }
 _MONTH = "|".join(MONTHS)
 
