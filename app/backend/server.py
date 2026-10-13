@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, speech, wms
+from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, met_forecast, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -428,6 +428,8 @@ LAYER_CATEGORIES = {
     "Hotad bebyggelse": "infrastructure",
     "Vind (ERA5-Land)": "weather",
     "Nederbörd (SMHI radar)": "weather",
+    "Prognosvind (MET Norway)": "weather",
+    "Väderkarta (MET Norway)": "weather",
 }
 
 
@@ -451,6 +453,9 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
         items.append(item("Nederbörd (SMHI radar)", True, True))
     if ems.perimeters() is not None:
         items.append(item("Brandområde (Copernicus EMS)", True, True))
+    if met_forecast.runs():
+        items.append(item("Prognosvind (MET Norway)", False, False))
+        items.append(item("Väderkarta (MET Norway)", False, False))
     for source in wms.sources() or []:
         for name, title in source["layers"].items():
             shown = name in (source.get("visible") or [])
@@ -544,6 +549,9 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "radar": radar.layer(),
             "hydro": hydro.stations() is not None,  # SMHI's flows and lake levels at /api/hydro
             "ems": ems.perimeters() is not None,  # Copernicus EMS's perimeters of the fire at /api/ems
+            # MET Norway's archived weather forecasts at /api/met-forecast (met_forecast.py), with their credit.
+            "met_forecast": {"label": met_forecast.LABEL, "attribution": met_forecast.ATTRIBUTION,
+                             "issues": met_forecast.issues()} if met_forecast.runs() else None,
             "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "base_maps": base_maps(settings),
@@ -625,6 +633,19 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/ems":
             data = ems.perimeters()
             self.send_json(data if data else {"error": "not_in_scenario"}, HTTPStatus.OK if data else HTTPStatus.NOT_FOUND)
+        elif path == "/api/met-forecast":
+            # The forecast as issued and published by the clock (`at`, UTC), or the shared scenario clock.
+            try:
+                clock = parse_utc(query["at"]) if query.get("at") else parse_utc(self.engine.snapshot()["clock_utc"])
+                clock = clock if clock.tzinfo else clock.replace(tzinfo=timezone.utc)
+            except ValueError:
+                self.send_json({"error": "invalid_at"}, HTTPStatus.BAD_REQUEST)
+                return
+            data = met_forecast.at(clock) if met_forecast.runs() else None
+            if not met_forecast.runs():
+                self.send_json({"error": "not_in_scenario"}, HTTPStatus.NOT_FOUND)
+            else:
+                self.send_json(data or {"error": "none_published_yet"}, HTTPStatus.OK if data else HTTPStatus.NOT_FOUND)
         elif path == "/api/hydro":
             data = hydro.stations()
             self.send_json(data if data else {"error": "not_in_scenario"}, HTTPStatus.OK if data else HTTPStatus.NOT_FOUND)
