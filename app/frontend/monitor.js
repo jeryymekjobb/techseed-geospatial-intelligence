@@ -57,6 +57,7 @@ async function start() {
   let heardJump = null;
   let speaking = false;
   let nextVoice = 0;  // the voices take turns, one message each (alternateVoices)
+  let summarySince = null;  // when the scenario came to its start (summaryState), to read its summary once
   const post = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
     .catch(() => null);
   // The level sensors' report (levelReport), once per scenario day while any alarms; from the stream's
@@ -64,9 +65,9 @@ async function start() {
   let levelSensors = [];
   let reportNext = null;
   let reportJump = null;
-  const speak = (lines) => {
+  const speak = (lines, keep = false) => {
     if (!lines.length) return;
-    post("/api/speak", { lines });
+    post("/api/speak", keep ? { lines, keep } : { lines });
     document.body.dataset.spoken = lines.map((line) => `${line.voice}: ${line.text}`).join(" | ");  // read by the tests
   };
   // Scrolled down to older lines, how far the view is from the list's end; null at the top. The
@@ -109,7 +110,16 @@ async function start() {
     reportNext = due.next;
     reportJump = scenarioState.jump;
     if (due.speak && scenarioState.playing) spoken.push({ text: report });
+    // The scenario's summary when it comes to its start, as the main screen shows it; all of it waits
+    // in the backend's queue, as the clock stands still.
+    const summary = summaryState(summarySince, scenarioState, Date.now());
+    summarySince = summary.since;
     if (scenarioState.status?.speech) {
+      if (summary.entered && config.summary?.length) {
+        const voiced = alternateVoices(summaryMessages(config.title, config.summary), nextVoice);
+        nextVoice = voiced.next;
+        speak(voiced.lines, true);
+      }
       if (spoken.length) {
         const voiced = alternateVoices(spoken, nextVoice);
         nextVoice = voiced.next;

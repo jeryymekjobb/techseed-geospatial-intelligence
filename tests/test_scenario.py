@@ -123,3 +123,17 @@ def test_ljusdal_2018_is_a_fire_from_four_firms_satellites_with_its_own_forecast
     assert result.stdout.strip().split(maxsplit=6) == ["ljusdal2018", "wildfire", "ljusdal2018", "ljusdal.mbtiles", "SMHI_Hamra_A", "True",
                                                "['Aqua', 'N20', 'SNPP', 'Terra']"]
     assert run_python("from app.backend import scenario; print(scenario.FORECAST_STATION)", None).stdout.strip() == "SMHI Sala A"
+
+
+def test_every_scenario_has_a_summary_that_says_what_is_real() -> None:
+    code = "from app.backend import scenario; import json; print(json.dumps(scenario.SUMMARY))"
+    for name in ["vastmanland2014", "ljusdal2018", "sundsvall2026", "skane2024"]:
+        result = run_python(code, name)
+        assert result.returncode == 0, result.stderr
+        lines = __import__("json").loads(result.stdout)
+        assert 4 <= len(lines) <= 7 and all(isinstance(line, str) and line for line in lines)
+        assert any("syntetisk" in line for line in lines), name  # the simulated parts are named as such
+        assert not any(word in " ".join(lines) for word in [" mm ", " h ", " MW", " m "]), name  # whole words, as read aloud
+        if name == "ljusdal2018":
+            assert "Landsat är för molnig över branden de veckorna och är inte med." in lines
+    assert server.config(lantmateriet.Settings(None, None, None, None, None))["summary"] == scenario.SUMMARY

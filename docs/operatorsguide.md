@@ -354,13 +354,20 @@ visas alla hot fram till klockan som små trianglar. Markeringarna räknas ur sc
 loggen och syns även när uppläsningen är av. Lagret heter **Hotad bebyggelse** och kan släckas i mission control.
 Huvudskärmen hämtar hoten när den laddas; ladda om den om PostGIS startade senare.
 
+**Sammanfattning vid start.** När scenariot står vid sin start, alltså när skärmarna laddas
+och efter **RESET**, visar huvudskärmen ett kort med vad demon visar och vad som är verkligt,
+beräknat och simulerat, till exempel att Landsat är för molnig över Kårböle och inte är med.
+Kortet försvinner när du trycker **PLAY**, eller efter 30 sekunder. Med uppläsningen på läser
+satellitbevakningen upp kortet, en rad i taget med rösterna omväxlande. Texten står i
+scenariots fil (`SUMMARY` i `app/backend/scenarios/`).
+
 **Uppläsning.** Med **UPPLÄSNING** i mission control (under FLYG TILL och ÖVERSIKT) läser
 satellitbevakningen upp nya rader i loggen på svenska genom datorns högtalare, så fort
 scenarioklockan når dem. De två rösterna turas om, en för varje meddelande, så att det hörs
 när ett nytt meddelande börjar. Av satelliterna läses bara det upp när en satellit
 skickar data till marken, alltså FIRMS-detektioner och satellitbilder; att en satellit går in
 över eller lämnar området syns i loggen men läses inte upp.
-Inget läses upp när sidan laddas, vid **RESET** eller vid ett hopp i tiden. I Skåne läses
+Inga loggrader läses upp när sidan laddas, vid **RESET** eller vid ett hopp i tiden. I Skåne läses
 dessutom nivågivarnas läge upp en gång per scenariodygn så länge någon larmar, alltså ligger över
 det högsta flöde eller den högsta nivå som uppmätts tidigare vid dess SMHI-station, till exempel
 "Nivålarm från 5 nivågivare: Ringsjödammen övre 12 centimeter över tidigare högsta nivå".

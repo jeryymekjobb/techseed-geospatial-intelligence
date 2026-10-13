@@ -21,6 +21,7 @@ _module = importlib.import_module(f"app.backend.scenarios.{NAME}")
 TITLE = _module.TITLE
 DATA_LABEL = _module.DATA_LABEL
 CONTROL_LABEL = _module.CONTROL_LABEL
+SUMMARY = getattr(_module, "SUMMARY", [])
 FIRMS_FILES = _module.FIRMS_FILES
 TERRAIN_FILE = _module.TERRAIN_FILE
 TARGETS_FILE = _module.TARGETS_FILE

@@ -514,6 +514,7 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
         "title": scenario.TITLE,
         "data_label": scenario.DATA_LABEL,
         "control_label": scenario.CONTROL_LABEL,
+        "summary": scenario.SUMMARY,
         "camera_route": scenario.CAMERA_ROUTE,
         # The area of the offline map, the DEM and the Landsat images.
         "map_bounds": [[south, west], [north, east]],
@@ -793,14 +794,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         length = int(self.headers.get("Content-Length") or 0)
         try:
-            lines = json.loads(self.rfile.read(length))["lines"] if 0 < length <= 4096 else None
-        except (ValueError, KeyError, TypeError):
-            lines = None
+            body = json.loads(self.rfile.read(length)) if 0 < length <= 4096 else {}
+            lines, keep = body["lines"], body.get("keep") is True
+        except (ValueError, KeyError, TypeError, AttributeError):
+            lines, keep = None, False
         if not isinstance(lines, list) or not 0 < len(lines) <= speech.MAX_SENT or not all(
                 isinstance(line, dict) and isinstance(line.get("text"), str) and line.get("voice") in speech.VOICES for line in lines):
             self.send_json({"error": "invalid_lines"}, HTTPStatus.BAD_REQUEST)
             return
-        self.speaker.say([(line["text"], line["voice"]) for line in lines])
+        self.speaker.say([(line["text"], line["voice"]) for line in lines], keep=keep)
         self.send_json({"queued": len(lines)})
 
     def demo_menu(self) -> None:

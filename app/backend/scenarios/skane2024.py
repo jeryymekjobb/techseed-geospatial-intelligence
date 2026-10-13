@@ -30,6 +30,15 @@ INCIDENT_AREA = "Mellersta Skåne"
 TITLE = "Översvämningarna i Skåne 2024"
 DATA_LABEL = "Historiska data vintern 2024 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: FLOOD – Skåne vintern 2024, historiska data"
+# The summary the main screen shows, and the satellite monitor reads aloud, when the scenario
+# comes to its start (satlog.js summaryState): what the demo shows and what is real.
+SUMMARY = [
+    "Vinterns översvämningar 2024 vid Ringsjöarna, Hörbyån, Kävlingeån och Vombsjön. De återges med verkliga data, inte live.",
+    "SMHI:s vattenföring och vattenstånd: flödena satte rekord 24–27 januari, och Ringsjöarna nådde den 10 februari sin högsta nivå sedan mätningarna började 1974.",
+    "Sentinel-1:s radarbilder från 20 januari till 22 februari och Sentinel-2-bilder från före, under och efter (en jämförelse). Landsat har ingen användbar bild under perioden.",
+    "Regn från SMHI och VA-huvudmännens mätare, och MCF:s klimatanpassade 100-årsflöde (modell).",
+    "Nivågivarna NG1–NG8 är syntetiska (simulerade) och följer SMHI:s stationer.",
+]
 
 FIRMS_FILES: list = []
 TERRAIN_FILE = DATA / "osm" / "terrain-skane.geojson"

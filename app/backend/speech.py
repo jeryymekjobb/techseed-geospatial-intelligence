@@ -9,7 +9,9 @@ speech-dispatcher's Swedish espeak-ng voice instead (`spd-say -l sv`). The brows
 synthesis is not used: Chrome on the exhibition PC lists no voices and then speaks English.
 
 At most MAX_QUEUED lines wait; older ones are dropped, so the voice never falls far behind the
-scenario clock. `stop` empties the queue and cancels what is being said.
+scenario clock. Lines sent with `keep` - the scenario's summary at its start, while the clock
+stands still - all wait, until lines without it come. `stop` empties the queue and cancels what
+is being said.
 """
 
 from __future__ import annotations
@@ -68,7 +70,7 @@ class Speaker:
         self.play = list(play)
         self.fallback = list(fallback)
         self.cancel = list(cancel)
-        self.queue: deque[tuple[str, str]] = deque(maxlen=MAX_QUEUED)
+        self.queue: deque[tuple[str, str]] = deque()
         self.condition = threading.Condition()
         self.current: subprocess.Popen[bytes] | None = None
         self.spoken: list[tuple[str, str]] = []  # (voice used, text), for the tests
@@ -83,13 +85,16 @@ class Speaker:
                 self.voices = {}
         return sorted(self.voices)
 
-    def say(self, lines: Sequence[tuple[str, str]]) -> None:
-        """Queue lines as (text, voice); a voice that is not in VOICES reads with "alma"."""
+    def say(self, lines: Sequence[tuple[str, str]], keep: bool = False) -> None:
+        """Queue lines as (text, voice); a voice that is not in VOICES reads with "alma". Without `keep`
+        only the newest MAX_QUEUED lines wait."""
         with self.condition:
             for text, voice in lines:
                 text = " ".join(str(text).split())[:MAX_TEXT]
                 if text:
                     self.queue.append((text, voice if voice in VOICES else "alma"))
+            while not keep and len(self.queue) > MAX_QUEUED:
+                self.queue.popleft()
             if self.thread is None:
                 self.thread = threading.Thread(target=self._run, daemon=True)
                 self.thread.start()

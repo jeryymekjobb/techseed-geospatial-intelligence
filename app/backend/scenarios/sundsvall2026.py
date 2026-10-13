@@ -27,6 +27,15 @@ INCIDENT_AREA = "Sundsvall"
 TITLE = "Översvämning i Sundsvall 2026 – scenario"
 DATA_LABEL = "Scenario byggt på verkligt regn augusti 2026 – inte en återgiven händelse"
 CONTROL_LABEL = "Scenario: FLOOD – Sundsvall 2026, verkligt regn, scenario"
+# The summary the main screen shows, and the satellite monitor reads aloud, when the scenario
+# comes to its start (satlog.js summaryState): what the demo shows and what is real.
+SUMMARY = [
+    "Ett scenario byggt på det verkliga regnet 16–19 augusti 2026. Att Sundsvall översvämmades de dagarna är inte bekräftat.",
+    "Regn från kommunens regnmätare och SMHI:s station Brämön A, och SMHI:s väderradar.",
+    "Kommunens och MCF:s översvämningskartor (modell), hämtade över internet.",
+    "Satellitbilder: Sentinel-1:s radar, som ser genom moln, och Landsat 8 och Sentinel-2, vars augustibilder är molniga.",
+    "Bräddgivarna DV1–DV8 är syntetiska (simulerade), räknade ur det verkliga regnet.",
+]
 
 # The fire's FIRMS detections and forecast have no part in this scenario.
 FIRMS_FILES: list = []

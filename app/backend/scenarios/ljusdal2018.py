@@ -28,6 +28,16 @@ INCIDENT_AREA = "brandområdet"
 TITLE = "Skogsbranden vid Kårböle 2018"
 DATA_LABEL = "Historiska data 2018 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: WILDFIRE – Ljusdal/Kårböle 2018, historiska data"
+# The summary the main screen shows, and the satellite monitor reads aloud, when the scenario
+# comes to its start (satlog.js summaryState): what the demo shows and what is real.
+SUMMARY = [
+    "Blixten tände skogen nära Kårböle i Ljusdal den 14 juli 2018. Branden återges med verkliga arkivdata, inte live.",
+    "Satellitdetektioner av värme från NASA FIRMS: Terra och Aqua (MODIS), Suomi NPP och NOAA-20 (VIIRS), 14–28 juli.",
+    "Sentinel-2-bilder från före (4 juli), under (27 juli) och efter branden (2 september, en jämförelse): naturliga färger, kortvågig IR och fukt i vegetationen (NDMI).",
+    "Landsat är för molnig över branden de veckorna och är inte med.",
+    "Brandområdet enligt Copernicus EMS och en spridningsprognos (modell) med brandväder från SMHI Hamra A.",
+    "IoT-sensorerna är syntetiska (simulerade).",
+]
 
 FIRMS_FILES = [
     FIRMS_DIR / "fire_archive_M-C61_818930.csv",

@@ -220,7 +220,7 @@ def test_only_new_lines_are_read_aloud_and_many_are_cut_short() -> None:
         {"lines": [], "next": 1},
     ]
     monitor = (SCRIPT.parent / "monitor.js").read_text(encoding="utf-8")
-    assert "if (scenarioState.jump !== heardJump) {" in monitor and 'post("/api/speak", { lines });' in monitor
+    assert "if (scenarioState.jump !== heardJump) {" in monitor and 'post("/api/speak", keep ? { lines, keep } : { lines });' in monitor
     assert "speechSynthesis" not in monitor  # the backend speaks Swedish; Chrome had no Swedish voice
     assert "const voiced = alternateVoices(spoken, nextVoice);" in monitor and "nextVoice = voiced.next;" in monitor
     # Silenced only when reading aloud is switched off: a stop on every state with nothing new cut each line short.
@@ -248,3 +248,32 @@ def test_the_level_sensors_are_reported_once_per_scenario_day_while_any_alarms()
     monitor = (SCRIPT.parent / "monitor.js").read_text(encoding="utf-8")
     assert "if (due.speak && scenarioState.playing) spoken.push({ text: report });" in monitor
     assert 'source.addEventListener("synthetic_sensors"' in monitor
+
+
+def test_the_summary_shows_when_the_scenario_comes_to_its_start_until_play_or_for_half_a_minute() -> None:
+    start = "2018-07-17T09:15:00Z"
+    at_start = {"playing": False, "clock_utc": start, "start_utc": start}
+    states = node(f"""(() => {{
+      const atStart = {json.dumps(at_start)};
+      const first = summaryState(null, atStart, 1000);
+      const later = summaryState(first.since, atStart, 1000 + SUMMARY_MS - 1);
+      const over = summaryState(first.since, atStart, 1000 + SUMMARY_MS);
+      const playing = summaryState(first.since, {{ ...atStart, playing: true }}, 2000);
+      const moved = summaryState(null, {{ ...atStart, clock_utc: "2018-07-17T09:16:00Z" }}, 3000);
+      const again = summaryState(playing.since, atStart, 4000);
+      return [first, later, over, playing, moved, again];
+    }})()""")
+    assert states == [
+        {"since": 1000, "shown": True, "entered": True},
+        {"since": 1000, "shown": True, "entered": False},
+        {"since": 1000, "shown": False, "entered": False},
+        {"since": None, "shown": False, "entered": False},
+        {"since": None, "shown": False, "entered": False},
+        {"since": 4000, "shown": True, "entered": True},  # after RESET: shown and read again
+    ]
+    assert node("summaryMessages('Skogsbranden vid Kårböle 2018', ['a', 'b'])") == [
+        {"text": "Skogsbranden vid Kårböle 2018. Det här visas."}, {"text": "a"}, {"text": "b"}]
+    frontend = SCRIPT.parent
+    monitor = (frontend / "monitor.js").read_text(encoding="utf-8")
+    assert "if (summary.entered && config.summary?.length) {" in monitor and "speak(voiced.lines, true);" in monitor
+    assert "showSummary(scenarioState);" in (frontend / "panel.js").read_text(encoding="utf-8")

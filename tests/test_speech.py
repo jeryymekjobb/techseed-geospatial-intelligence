@@ -65,6 +65,18 @@ def test_old_lines_are_dropped_and_stop_silences() -> None:
     assert [text for _, text in speaker.spoken][-1] == "rad 9" and not speaker.queue
 
 
+
+def test_the_summary_s_lines_all_wait_until_ordinary_lines_come() -> None:
+    speaker = speech.Speaker(fake_voices("nst", "alma"), PLAY, PLAY, CANCEL)
+    speaker.say([(f"rad {n}", "nst") for n in range(1, 8)], keep=True)
+    wait_for(lambda: len(speaker.spoken) == 7)
+    assert [text for _, text in speaker.spoken] == [f"rad {n}" for n in range(1, 8)]
+    speaker.say([("rad 8", "nst")])
+    speaker.say([(f"rad {n}", "nst") for n in range(9, 16)], keep=True)
+    speaker.say([("rad 16", "alma")])  # an ordinary line: again only the newest MAX_QUEUED wait
+    wait_for(lambda: speaker.spoken[-1] == ("alma", "rad 16"))
+    assert len(speaker.spoken) <= 8 + 1 + speech.MAX_QUEUED
+
 def test_without_a_piper_voice_espeak_ng_reads_and_without_anything_the_log_stays_silent() -> None:
     speaker = speech.Speaker(fake_voices("nst"), PLAY, PLAY, CANCEL)
     speaker.say([("Bräddgivare DV1 Bergsåker bräddar", "alma")])
@@ -117,4 +129,5 @@ def test_the_monitor_sends_its_lines_and_voices_to_the_backend(base_url) -> None
     for body in ({"lines": []}, {"lines": [line] * (speech.MAX_SENT + 1)}, {"lines": [{"text": "a", "voice": "espeak"}]},
                  {"lines": [{"text": 1, "voice": "nst"}]}, {"texts": ["a"]}):
         assert post(f"{url}/api/speak", body)[0] == 400
+    assert post(f"{url}/api/speak", {"lines": [line], "keep": True}) == (200, {"queued": 1})
     assert post(f"{url}/api/speak/stop", {}) == (200, {"stopped": True})
