@@ -277,7 +277,11 @@ def test_the_summary_shows_when_the_scenario_comes_to_its_start_until_play() -> 
     frontend = SCRIPT.parent
     monitor = (frontend / "monitor.js").read_text(encoding="utf-8")
     assert "if (summary.entered && config.summary?.length) {" in monitor and "speak(voiced.lines, true);" in monitor
-    assert "showSummary(scenarioState);" in (frontend / "panel.js").read_text(encoding="utf-8")
+    panel = (frontend / "panel.js").read_text(encoding="utf-8")
+    assert "showSummary(scenarioState);" in panel
+    # Its start button sends PLAY, also on the display-only main screen, whose panel buttons are hidden.
+    assert 'start.textContent = "▶ STARTA SCENARIOT";' in panel and 'start.addEventListener("click", () => runCommand("play"));' in panel
+    assert ".scenario-summary .summary-start { display: block; margin: 16px auto 0;" in (frontend / "styles.css").read_text(encoding="utf-8")
 
 
 def test_measured_values_are_read_with_a_half_rounded_away_from_zero() -> None:

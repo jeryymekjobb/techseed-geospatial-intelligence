@@ -361,7 +361,8 @@ satellitbevakningen ligger i samma hörn, flyttar rutan upp under zoomknapparna.
 **Sammanfattning vid start.** När scenariot står vid sin start, alltså när skärmarna laddas
 och efter **RESET**, visar huvudskärmen ett kort med vad demon visar och vad som är verkligt,
 beräknat och simulerat, till exempel att Landsat är för molnig över Kårböle och inte är med.
-Kortet ligger kvar tills du trycker **PLAY**. Med uppläsningen på läser
+Kortet ligger kvar tills du trycker **PLAY** i mission control eller knappen **▶ STARTA
+SCENARIOT** längst ned i kortet, som startar uppspelningen på samma sätt. Med uppläsningen på läser
 satellitbevakningen upp kortet, en rad i taget med rösterna omväxlande. Texten står i
 scenariots fil (`SUMMARY` i `app/backend/scenarios/`).
 

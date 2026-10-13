@@ -1195,8 +1195,8 @@ function showThreats(scenarioState) {
   document.body.dataset.threats = marks.map((mark) => `${mark.latest ? "*" : ""}${mark.name}`).join("|");  // read by the tests
 }
 
-// The scenario's summary when it comes to its start (satlog.js summaryState), until PLAY; the
-// satellite monitor reads it aloud.
+// The scenario's summary when it comes to its start (satlog.js summaryState), until PLAY, with a
+// button that starts the scenario; the satellite monitor reads it aloud.
 function showSummary(scenarioState) {
   const lines = state.config.summary || [];
   const summary = summaryState(state.summarySince ?? null, scenarioState, Date.now());
@@ -1212,7 +1212,13 @@ function showSummary(scenarioState) {
       item.textContent = line;
       list.append(item);
     }
-    element.append(title, list);
+    // Starts the scenario as PLAY in mission control does; the card goes when the clock runs.
+    const start = document.createElement("button");
+    start.type = "button";
+    start.className = "summary-start";
+    start.textContent = "▶ STARTA SCENARIOT";
+    start.addEventListener("click", () => runCommand("play"));
+    element.append(title, list, start);
   }
   element.hidden = !(summary.shown && lines.length);
 }
