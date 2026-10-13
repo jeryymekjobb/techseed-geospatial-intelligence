@@ -306,6 +306,12 @@ def test_level_sensors_alarm_when_their_station_is_above_its_record(tmp_path: Pa
     assert keys["iot:placed-1"]["text"] == "IoT Sensor P1: larmar, Sjön 2 cm över tidigare högsta nivå (syntetisk)"
 
 
+
+def test_the_level_sensors_round_a_half_away_from_zero_as_said_aloud() -> None:
+    from app.backend import level_sensors as lsen
+    assert [lsen.round_half_up(value) for value in (0.5, 1.5, 2.5, 12.5, -2.5, 2.49, 112.5, 0.0)] == [1, 2, 3, 13, -3, 2, 113, 0]
+    assert lsen.round_half_up(100 * 22.5 / 20) == 113  # 112.5 per cent: round() would say 112
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_the_screens_name_the_level_sensors_and_the_scenario_s_word_for_them() -> None:
     sensor = {"kind": "level", "name": "NG3 Södra vägen", "status": "ok", "confirms": True, "station": "Högsmölla", "station_kind": "flow",

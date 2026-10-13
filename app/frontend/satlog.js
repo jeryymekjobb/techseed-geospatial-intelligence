@@ -78,8 +78,12 @@ function satlogSpanOf(spans) {
   return latest === earliest ? `${earliest} h` : `${earliest}–${latest} h`;
 }
 
+// A measured value with one decimal and a decimal comma, a half away from zero (4,35 to 4,4 and
+// -4,35 to -4,4). Ten times the value is first cut to 12 significant digits, so a binary fraction
+// just below the half (4.35 * 10 is 43.49999…) is read as the half it stands for.
 function satlogDecimal(value) {
-  return String(Math.round(value * 10) / 10).replace(".", ",");
+  const tenths = Math.round(Number((Math.abs(value) * 10).toPrecision(12)));
+  return `${value < 0 && tenths ? "-" : ""}${tenths / 10}`.replace(".", ",");
 }
 
 // The log lines, newest first: { atMs, text, source, kind, spoken? }, in whole words (megawatt, meter,
@@ -302,5 +306,5 @@ function summaryMessages(title, lines) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, SATLOG_SOURCES };
+  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, satlogDecimal, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, SATLOG_SOURCES };
 }

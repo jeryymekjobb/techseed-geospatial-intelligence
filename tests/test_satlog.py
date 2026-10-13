@@ -278,3 +278,13 @@ def test_the_summary_shows_when_the_scenario_comes_to_its_start_until_play() -> 
     monitor = (frontend / "monitor.js").read_text(encoding="utf-8")
     assert "if (summary.entered && config.summary?.length) {" in monitor and "speak(voiced.lines, true);" in monitor
     assert "showSummary(scenarioState);" in (frontend / "panel.js").read_text(encoding="utf-8")
+
+
+def test_measured_values_are_read_with_a_half_rounded_away_from_zero() -> None:
+    values = [4.35, 47.05, 0.05, 0.04, 13, 9.95, 1.45, 8.25, -4.35, -0.04, 0]
+    assert node(f"{json.dumps(values)}.map(satlogDecimal)") == [
+        "4,4", "47,1", "0,1", "0", "13", "10", "1,5", "8,3", "-4,4", "0", "0"]
+    # Every value with two decimals up to 2 000 megawatt as on paper: the tenths, up at a half.
+    assert node("(() => { let wrong = 0; for (let k = 0; k < 200000; k++) {"
+                " const tenths = Math.floor(k / 10) + (k % 10 >= 5 ? 1 : 0);"
+                " if (satlogDecimal(k / 100) !== String(tenths / 10).replace('.', ',')) wrong += 1; } return wrong; })()") == 0

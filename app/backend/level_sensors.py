@@ -14,12 +14,19 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any, Sequence
 
 from app.backend.flood_sensors import distance_km, parse_utc
 
 LABEL = "Syntetiska nivågivare – larmet härleds ur SMHI:s uppmätta flöde eller nivå, inte mätningar"
+
+
+def round_half_up(value: float) -> int:
+    """`value` to a whole number with a half away from zero (2.5 to 3, -2.5 to -3), as the screens and
+    the voice say it; Python's round() takes a half to the even number (2.5 to 2)."""
+    return int(Decimal(repr(value)).quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 
 def latest(station: dict[str, Any], clock: datetime) -> float | None:
@@ -63,8 +70,8 @@ class LevelSensors:
             record = station["earlier_max"]["value"]
             # A flow as a share of its record; a level in centimetres from it, as its share of the
             # height above the station's zero says little.
-            percent = round(100 * value / record) if value is not None and station["kind"] == "flow" else None
-            from_record_cm = round(value - record) if value is not None and station["kind"] == "level" else None
+            percent = round_half_up(100 * value / record) if value is not None and station["kind"] == "flow" else None
+            from_record_cm = round_half_up(value - record) if value is not None and station["kind"] == "level" else None
             sensors.append({**item, "status": "ok", "value": value, "earlier_max": record, "percent": percent,
                             "from_record_cm": from_record_cm, "confirms": value is not None and value > record})
         operating = [item for item in sensors if item["status"] == "ok"]
