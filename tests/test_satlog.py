@@ -251,14 +251,14 @@ def test_the_level_sensors_are_reported_once_per_scenario_day_while_any_alarms()
     assert 'source.addEventListener("synthetic_sensors"' in monitor
 
 
-def test_the_summary_shows_when_the_scenario_comes_to_its_start_until_play_or_for_half_a_minute() -> None:
+def test_the_summary_shows_when_the_scenario_comes_to_its_start_until_play() -> None:
     start = "2018-07-17T09:15:00Z"
     at_start = {"playing": False, "clock_utc": start, "start_utc": start}
     states = node(f"""(() => {{
       const atStart = {json.dumps(at_start)};
       const first = summaryState(null, atStart, 1000);
-      const later = summaryState(first.since, atStart, 1000 + SUMMARY_MS - 1);
-      const over = summaryState(first.since, atStart, 1000 + SUMMARY_MS);
+      const later = summaryState(first.since, atStart, 1000 + 60000);
+      const over = summaryState(first.since, atStart, 1000 + 3600000);
       const playing = summaryState(first.since, {{ ...atStart, playing: true }}, 2000);
       const moved = summaryState(null, {{ ...atStart, clock_utc: "2018-07-17T09:16:00Z" }}, 3000);
       const again = summaryState(playing.since, atStart, 4000);
@@ -267,7 +267,7 @@ def test_the_summary_shows_when_the_scenario_comes_to_its_start_until_play_or_fo
     assert states == [
         {"since": 1000, "shown": True, "entered": True},
         {"since": 1000, "shown": True, "entered": False},
-        {"since": 1000, "shown": False, "entered": False},
+        {"since": 1000, "shown": True, "entered": False},  # still there after an hour: only PLAY puts it out
         {"since": None, "shown": False, "entered": False},
         {"since": None, "shown": False, "entered": False},
         {"since": 4000, "shown": True, "entered": True},  # after RESET: shown and read again

@@ -1194,8 +1194,8 @@ function showThreats(scenarioState) {
   document.body.dataset.threats = marks.map((mark) => `${mark.latest ? "*" : ""}${mark.name}`).join("|");  // read by the tests
 }
 
-// The scenario's summary when it comes to its start (satlog.js summaryState), until PLAY or for
-// SUMMARY_MS; the satellite monitor reads it aloud.
+// The scenario's summary when it comes to its start (satlog.js summaryState), until PLAY; the
+// satellite monitor reads it aloud.
 function showSummary(scenarioState) {
   const lines = state.config.summary || [];
   const summary = summaryState(state.summarySince ?? null, scenarioState, Date.now());
@@ -1214,9 +1214,6 @@ function showSummary(scenarioState) {
     element.append(title, list);
   }
   element.hidden = !(summary.shown && lines.length);
-  clearTimeout(state.summaryTimer);
-  if (!element.hidden) state.summaryTimer = setTimeout(() => showSummary(state.summaryState), summary.since + SUMMARY_MS - Date.now() + 50);
-  state.summaryState = scenarioState;
 }
 
 function applyState(scenarioState) {

@@ -356,7 +356,7 @@ Huvudskärmen hämtar hoten när den laddas; ladda om den om PostGIS startade se
 **Sammanfattning vid start.** När scenariot står vid sin start, alltså när skärmarna laddas
 och efter **RESET**, visar huvudskärmen ett kort med vad demon visar och vad som är verkligt,
 beräknat och simulerat, till exempel att Landsat är för molnig över Kårböle och inte är med.
-Kortet försvinner när du trycker **PLAY**, eller efter 30 sekunder. Med uppläsningen på läser
+Kortet ligger kvar tills du trycker **PLAY**. Med uppläsningen på läser
 satellitbevakningen upp kortet, en rad i taget med rösterna omväxlande. Texten står i
 scenariots fil (`SUMMARY` i `app/backend/scenarios/`).
 

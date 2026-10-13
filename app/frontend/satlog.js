@@ -286,16 +286,14 @@ function levelReportDue(next, clockMs, alarming, jumped) {
 
 // The scenario's summary (/api/config's `summary`) at its start: the main screen shows it and the
 // satellite monitor reads it aloud when the scenario comes to its start - the clock at the
-// playback's start and standing still, after a load or RESET - until PLAY, at most SUMMARY_MS.
+// playback's start and standing still, after a load or RESET - until PLAY.
 // `since`: when the scenario came to its start, from the last call, or null. Returns that moment,
-// whether the summary shows at `nowMs` and whether the scenario has just come to its start.
-const SUMMARY_MS = 30000;
-
+// whether the summary shows and whether the scenario has just come to its start.
 function summaryState(since, scenarioState, nowMs) {
   const atStart = !scenarioState.playing && scenarioState.clock_utc === scenarioState.start_utc;
   if (!atStart) return { since: null, shown: false, entered: false };
   const from = since ?? nowMs;
-  return { since: from, shown: nowMs - from < SUMMARY_MS, entered: since === null };
+  return { since: from, shown: true, entered: since === null };
 }
 
 // The summary's messages read aloud: the title, then each line.
@@ -304,5 +302,5 @@ function summaryMessages(title, lines) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, SUMMARY_MS, SATLOG_SOURCES };
+  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, SATLOG_SOURCES };
 }
