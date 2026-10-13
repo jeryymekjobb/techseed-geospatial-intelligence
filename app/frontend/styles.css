@@ -57,6 +57,22 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .barb path, .barb circle { fill: none; stroke: #0b3d91; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .barb .halo { stroke: #fff; stroke-width: 4.5; opacity: 0.85; }
 .barb .pennant { fill: #0b3d91; }
+.forecast-barb .barb path:not(.halo), .forecast-barb .barb circle:not(.halo) { stroke: #c2410c; }
+.forecast-barb .barb .pennant { fill: #c2410c; }
+/* MET Norway's weather chart: the isobars' hPa, the highs and lows and the lightning. */
+.isobar-label { font: 600 11px system-ui, sans-serif; color: #1f3a7a; white-space: nowrap; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
+.isobar-label, .isobar-centre { transform: translate(-50%, -50%); }
+.isobar-centre { display: grid; justify-items: center; font: 700 26px system-ui, sans-serif; line-height: 1; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+.isobar-centre small { font-size: 11px; font-weight: 600; }
+.isobar-centre.high { color: #1f3a7a; }
+.isobar-centre.low { color: #b3261e; }
+.chart-lightning { font-size: 22px; line-height: 1; transform: translate(-50%, -50%); text-shadow: 0 0 2px #3a2a00; }
+/* Which forecast the map shows, while a forecast layer is ticked (panel.js showForecastCaption). */
+.forecast-caption { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 950; padding: 6px 14px; border-radius: 6px;
+  background: #202020e6; color: #fff; font-size: 0.95rem; text-align: center; box-shadow: 0 2px 8px #0008; pointer-events: none; }
+.forecast-caption[hidden] { display: none; }
+.forecast-caption strong { color: #ffd54a; font-size: 1.15rem; }
+.forecast-caption small { display: block; color: #d0d0d0; font-size: 0.8rem; }
 .forecast-label { margin: 2px 0 6px; padding: 3px 6px; border-left: 4px solid #b3261e; background: #fbe9e7; font-size: 0.8rem; font-weight: 600; }
 .forecast-values { display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; margin: 6px 0; font-size: 0.85rem; }
 .forecast-values dt { color: var(--muted); }
@@ -246,4 +262,13 @@ body.monitor-page { display: flex; flex-direction: column; height: 100%; backgro
 body[data-incident="flood"] [data-incident="wildfire"], body[data-incident="wildfire"] [data-incident="flood"] { display: none; }
 .rain-bar { fill: #1f5fa8; }
 .rain-now { stroke: #b3261e; stroke-width: 2; }
+/* MET Norway's forecast (met_forecast.js): rain as bars, the wind navy and the gust dashed orange. */
+.met-rain { fill: #1f5fa8; opacity: 0.7; }
+.met-wind { fill: none; stroke: #0b3d91; stroke-width: 1.6; }
+.met-gust { fill: none; stroke: #c2410c; stroke-width: 1.2; stroke-dasharray: 3 2; }
+.chart-section .met-forecast-values div { flex-basis: 100%; white-space: normal; }
+.chart-section .met-forecast-values dt { white-space: nowrap; min-width: 2.6em; }
+.met-legend { margin: 0 0 2px; font-size: 0.75rem; color: var(--muted); }
+.met-legend .wind { color: #0b3d91; } .met-legend .gust { color: #c2410c; } .met-legend .rain { color: #1f5fa8; }
+.met-forecast-notices { margin: 4px 0; padding-left: 1.1em; font-size: 0.85rem; font-weight: 600; }
 .legend .alert { color: var(--accent); font-weight: 600; }

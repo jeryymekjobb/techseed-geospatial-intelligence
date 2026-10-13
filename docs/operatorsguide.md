@@ -956,6 +956,28 @@ Välj **Skogsbranden vid Kårböle 2018** i menyn (avsnitt 7). Skillnader mot V�
   juli till 17 936 hektar 7 augusti. Varje karta visas från slutet av bildens dag, eftersom
   bilderna saknar klockslag. Förklaringen under "Prognos (modell)" säger vilken bild och yta som
   visas. Jämför med brandfronten ur FIRMS, som är skalet runt alla detektioner och därför större.
+- **Väderprognos (MET Norway)** i panelen under detektionsdiagrammet: den prognos från MET
+  Norways nordiska modell MEPS (samma samarbete som SMHI är med i) som hade utfärdats och
+  publicerats vid scenariotiden, alltså så som räddningstjänsten kunde ha sett den, inte facit.
+  Diagrammet visar vind, byvind och regn vid branden 0–66 timmar framåt med en röd linje för
+  klockan; raderna under sammanfattar 6, 12 och 24 timmar. Korta punkter säger vad som spelar
+  roll för insatsen: vindvridning, byvind på minst 10 m/s, regn eller inget regn, luftfuktighet
+  ned mot 30 % och risk för åska (nya bränder kan tändas). Brandrisken (FWI) de närmaste dygnen
+  är **beräknad** av demon ur SMHI:s observationer fram till prognosen och prognosen därefter, inte
+  MET Norways. En ny prognos kommer var sjätte timme (cirka tre timmar efter körningen); har den
+  något nytt står det i satellitbevakningens logg och läses upp, till exempel "Ny väderprognos:
+  Risk för åska om 7 timmar, nya bränder kan tändas". Kryssa **Prognosvind (MET Norway)** i
+  mission controls lagerlista för orange vindpilar sex timmar framåt; de blå pilarna är vinden
+  just nu (ERA5-Land).
+- **Väderkarta:** kryssa **Väderkarta (MET Norway)** i mission controls lagerlista (kolumnen
+  Kartan, under Väder). Kartan blir platt och visar Skandinavien med lufttrycket som isobarer var
+  2 hPa med H och L, regnet de tre timmarna fram till kartans tid (blått till lila: från 0,3, 1, 3
+  och 10 mm) och ⚡ där MEPS åskindex är högt. Kartan gäller **nästa** av 00Z, 03Z, 06Z … efter
+  scenarioklockan, ur den senast publicerade prognosen: klockan 01 svensk tid (23Z i juli) visas
+  prognosen för 00Z. Överst på kartan står vilken tid som visas och när prognosen utfärdades, till
+  exempel "Väderkarta 15 juli 00Z"; för **Prognosvind** står dess tid på samma sätt. Kryssa ur
+  lagret för att komma tillbaka till exakt den vy du hade. I 2D finns offlinekartan bara kring
+  branden; välj baskartan OpenStreetMap online för kustlinjerna.
 
 Generalrepetition:
 
@@ -984,5 +1006,6 @@ export TECHSEED_SCENARIO=ljusdal2018
 .venv/bin/python -m tools.fetch_osm_targets --bbox 61.75,14.9,62.2,15.8 --out data/ljusdal2018/osm/targets-ljusdal.geojson
 .venv/bin/python -m tools.fetch_sentinel2_scene
 .venv/bin/python -m tools.fetch_ems_perimeters
+.venv/bin/python -m tools.fetch_met_forecasts   # MET Norways väderprognoser som de utfärdades, ca 20 min
 .venv/bin/python -m tools.load_postgis    # databasen ljusdal2018, för frågorna
 ```

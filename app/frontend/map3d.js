@@ -9,6 +9,11 @@
 const FIRE_VIEW = { pitch: -50, range: 42_000, seconds: 2.2 };
 // GOD VIEW: the whole of Europe, so satellites and other layers fit around the fire.
 const GOD_VIEW = { lon: 15, lat: 55, height: 12_000_000, seconds: 4.0 };
+// The weather chart's view ("Väderkarta (MET Norway)"): Scandinavia on the flat map (2D).
+const WEATHER_CHART_RECTANGLE = [4, 55, 31, 70];
+// The weather chart's lightning: a yellow bolt with a dark edge.
+const LIGHTNING_IMAGE = svgImage('<svg viewBox="0 0 24 32"><path d="M14 1 L3 18 H11 L8 31 L21 12 H13 Z" fill="#ffd400" '
+  + 'stroke="#3a2a00" stroke-width="1.5" stroke-linejoin="round"/></svg>', 28);
 // SPACE VIEW: the satellites' orbits around Scandinavia.
 const SPACE_VIEW = { lon: 16, lat: 45, height: 20_000_000, seconds: 4.0 };
 // The detection sequence: from the south and high enough to see the satellite and the fire.
@@ -48,10 +53,12 @@ function svgImage(svg, size) {
 const BARB_STYLE = "<style>path,circle{fill:none;stroke:#0b3d91;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}"
   + ".halo{stroke:#fff;stroke-width:4.5;opacity:.85}.pennant{fill:#0b3d91}</style>";
 const barbImages = new Map();
-function barbImage(speed) {
+const FORECAST_BARB = "#c2410c";  // MET Norway's forecast wind: orange, apart from ERA5-Land's blue
+function barbImage(speed, colour = "#0b3d91") {
   const svg = windBarbSvg(speed);
-  if (!barbImages.has(svg)) barbImages.set(svg, svgImage(svg.replace(/^(<svg [^>]*>)/, `$1${BARB_STYLE}`), 100));
-  return barbImages.get(svg);
+  const key = `${colour}${svg}`;
+  if (!barbImages.has(key)) barbImages.set(key, svgImage(svg.replace(/^(<svg [^>]*>)/, `$1${BARB_STYLE.replaceAll("#0b3d91", colour)}`), 100));
+  return barbImages.get(key);
 }
 
 // Spread arrows pointing up (north), as in the 2D map: observed solid red, model dashed orange.
@@ -140,6 +147,10 @@ async function createCesiumMap(config) {
   };
   const labelLayer = group("labels");
   const windLayer = group("wind");
+  const forecastWindLayer = group("forecast-wind");  // MET Norway's forecast wind (met_forecast.py)
+  forecastWindLayer.show = false;
+  const isobarLayer = group("isobars");  // MET Norway's weather chart (met_forecast.py isobars)
+  isobarLayer.show = false;
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
@@ -161,6 +172,9 @@ async function createCesiumMap(config) {
   let radarVisible = true;
   let weatherCategoryVisible = true;
   let windVisible = true;
+  let forecastWindVisible = false;
+  let isobarVisible = false;
+  let viewBeforeChart = null;  // the scene mode and camera to come back to when the weather chart is unticked
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
   let terrainLayer = null;
@@ -350,6 +364,63 @@ async function createCesiumMap(config) {
       });
     },
 
+    // MET Norway's forecast wind some hours ahead, as orange barbs; off until mission control ticks it.
+    setupForecastWind() {
+      layers.push(["Prognosvind (MET Norway)", (visible) => {
+        forecastWindVisible = visible;
+        forecastWindLayer.show = visible && weatherCategoryVisible;
+      }, () => forecastWindVisible && weatherCategoryVisible]);
+    },
+
+    drawForecastWind(points, hoursAhead) {
+      forecastWindLayer.entities.removeAll();
+      for (const point of points || []) {
+        forecastWindLayer.entities.add({
+          name: `Prognosvind om ${hoursAhead} timmar (MET Norway)`,
+          description: `${String(point.wind_ms).replace(".", ",")} m/s`,
+          position: Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude),
+          billboard: { image: barbImage(point.wind_ms, FORECAST_BARB), alignedAxis: Cesium.Cartesian3.UNIT_Z,
+                       rotation: northRotation((point.wind_from_deg + 180) % 360), ...ON_GROUND },
+        });
+      }
+    },
+
+    // MET Norway's weather chart: the rain of three hours, isobars every 2 hPa with their hPa, H and L,
+    // and lightning; off until ticked.
+    setupWeatherChart() {
+      layers.push(["Väderkarta (MET Norway)", (visible) => {
+        isobarVisible = visible;
+        isobarLayer.show = visible && weatherCategoryVisible;
+      }, () => isobarVisible && weatherCategoryVisible]);
+    },
+
+    drawWeatherChart(chart) {
+      const entities = isobarLayer.entities;
+      entities.removeAll();
+      const text = (latitude, longitude, value, font, colour) => entities.add({
+        position: Cesium.Cartesian3.fromDegrees(longitude, latitude),
+        label: { text: value, font, fillColor: cesiumColor(colour), outlineColor: cesiumColor("#ffffff"), outlineWidth: 3,
+                 style: Cesium.LabelStyle.FILL_AND_OUTLINE, ...ON_GROUND },
+      });
+      if (chart?.rain_png) {
+        const [[south, west], [north, east]] = chart.rain_bounds;
+        entities.add({ rectangle: { coordinates: Cesium.Rectangle.fromDegrees(west, south, east, north),
+                                    material: new Cesium.ImageMaterialProperty({ image: chart.rain_png, transparent: true }) } });
+      }
+      for (const mark of chart?.thunder || []) {
+        entities.add({ position: Cesium.Cartesian3.fromDegrees(mark.longitude, mark.latitude), billboard: { image: LIGHTNING_IMAGE, ...ON_GROUND } });
+      }
+      for (const line of chart?.lines || []) {
+        entities.add({ polyline: { positions: Cesium.Cartesian3.fromDegreesArray(line.coords.flatMap(([lat, lon]) => [lon, lat])),
+                                   width: 1.6, clampToGround: true, material: cesiumColor("#1f3a7a", 0.85) } });
+        const [lat, lon] = line.coords[Math.floor(line.coords.length / 2)];
+        text(lat, lon, String(line.hpa), "12px system-ui, sans-serif", "#1f3a7a");
+      }
+      for (const centre of chart?.centres || []) {
+        text(centre.latitude, centre.longitude, `${centre.kind} ${centre.hpa}`, "bold 22px system-ui, sans-serif", centre.kind === "H" ? "#1f3a7a" : "#b3261e");
+      }
+    },
+
     setupForecast() {
       layers.push(["Prognos (modell)", (visible) => { forecastLayer.show = visible; }, () => forecastLayer.show]);
     },
@@ -518,6 +589,8 @@ async function createCesiumMap(config) {
       if (category === "weather") {
         weatherCategoryVisible = visible;
         windLayer.show = visible && windVisible;
+        forecastWindLayer.show = visible && forecastWindVisible;
+        isobarLayer.show = visible && isobarVisible;
         stationLayer.show = visible;
         if (radarLayer) radarLayer.show = visible && radarVisible;
         for (const [box, shown] of layerBoxes) box.checked = shown();
@@ -736,6 +809,23 @@ async function createCesiumMap(config) {
     // Show an evidence object from the assessment.
     focusOn(lat, lon) {
       return flyToFire(lon, lat);
+    },
+
+    // The weather chart: the flat map (2D) over Scandinavia when its layer is ticked, and back to the
+    // scene mode and view one had when it is unticked.
+    showWeatherChartView(on) {
+      const scene = viewer.scene;
+      if (on) {
+        const camera = viewer.camera;
+        viewBeforeChart = { mode: scene.mode, position: camera.position.clone(), direction: camera.direction.clone(), up: camera.up.clone() };
+        scene.morphTo2D(0);
+        viewer.camera.setView({ destination: Cesium.Rectangle.fromDegrees(...WEATHER_CHART_RECTANGLE) });
+      } else if (viewBeforeChart) {
+        const before = viewBeforeChart;
+        viewBeforeChart = null;
+        if (before.mode === Cesium.SceneMode.SCENE3D) scene.morphTo3D(0);
+        viewer.camera.setView({ destination: before.position, orientation: { direction: before.direction, up: before.up } });
+      }
     },
 
     // Mission control's GOD VIEW: out to Europe, and back to the fire when it is switched off.

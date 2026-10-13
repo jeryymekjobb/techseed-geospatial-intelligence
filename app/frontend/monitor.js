@@ -97,7 +97,8 @@ async function start() {
       name: satellite.name, instrument: satellite.instrument,
       passes: Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat(),
     }));
-    const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [], sensorEvents, threats }, clock.getTime(),
+    const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [], sensorEvents, threats,
+      forecastIssues: config.layers.met_forecast?.issues || [] }, clock.getTime(),
       clock.getTime() - startMs + 1, Infinity, place);
     if (scenarioState.jump !== heardJump) {
       heardJump = scenarioState.jump;

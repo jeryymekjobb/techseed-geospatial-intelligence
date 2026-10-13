@@ -13,6 +13,7 @@ const SATLOG_WINDOW_MS = 24 * 3600000;
 const SATLOG_LIMIT = 50;
 const SATLOG_SOURCES = {
   computed: "beräknat", firms: "FIRMS", landsat: "satellitbild", synthetic: "syntetiskt", model: "modell", postgis: "PostGIS", simulated: "simulerat",
+  metno: "MET Norway",
 };
 // How many of a pass's newly threatened places the line names; the rest are counted.
 const SATLOG_PLACES_NAMED = 4;
@@ -106,7 +107,7 @@ function satlogWhole(value) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {} }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -176,6 +177,13 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
         marks: near.latitude === null || near.latitude === undefined ? []
           : [{ name: near.place || names.get(item.sensor), latitude: near.latitude, longitude: near.longitude }],
       });
+    }
+  }
+  // A new MET Norway weather forecast with news for the next 24 hours (met_forecast.py issues: only
+  // kinds the run before did not have, so "no rain" is not said every six hours).
+  for (const issue of forecastIssues) {
+    if (issue.news?.length) {
+      lines.push({ atMs: Date.parse(issue.available_utc), text: `Ny väderprognos: ${issue.news.join(". ")}`, source: "metno", kind: "met_forecast" });
     }
   }
   for (const pass of threats.places || []) {

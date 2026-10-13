@@ -12,6 +12,8 @@ function spreadArrowIcon(observedDeg, modelDeg) {
 
 // GOD VIEW in 2D: Europe, south-west and north-east corners.
 const GOD_VIEW_BOUNDS = [[36, -10], [71, 40]];
+// The weather chart's view ("Väderkarta (MET Norway)"): Scandinavia, where MEPS draws the isobars.
+const WEATHER_CHART_BOUNDS = [[55, 4], [70, 31]];
 
 function createLeafletMap(config) {
   const map = L.map("map", {
@@ -90,6 +92,11 @@ function createLeafletMap(config) {
   let weatherCategoryVisible = true;
   let windVisible = true;
   let radarVisible = true;
+  let forecastWindLayer = null;  // MET Norway's forecast wind (met_forecast.py), orange barbs
+  let forecastWindVisible = false;
+  let isobarLayer = null;  // MET Norway's weather chart: isobars every 2 hPa, highs and lows, rain and lightning
+  let viewBeforeChart = null;  // the view to come back to when the weather chart is unticked
+  let isobarVisible = false;
 
   function setMapLayerVisible(layer, visible) {
     if (!layer) return;
@@ -283,6 +290,55 @@ function createLeafletMap(config) {
       });
     },
 
+    // MET Norway's forecast wind over the map some hours ahead (met_forecast.py), as orange barbs;
+    // off until mission control ticks it, as the ERA5-Land barbs show the wind of the hour.
+    setupForecastWind() {
+      forecastWindLayer = L.layerGroup();
+      overlays["Prognosvind (MET Norway)"] = forecastWindLayer;
+    },
+
+    drawForecastWind(points, hoursAhead) {
+      if (!forecastWindLayer) return;
+      forecastWindLayer.clearLayers();
+      for (const point of points || []) {
+        const svg = windBarbSvg(point.wind_ms).replace("<svg ", `<svg style="transform: rotate(${(point.wind_from_deg + 180) % 360}deg)" `);
+        L.marker([point.latitude, point.longitude], {
+          icon: L.divIcon({ className: "barb-icon forecast-barb", iconSize: [100, 100], iconAnchor: [50, 50], html: svg }), keyboard: false,
+        }).bindTooltip(`Prognosvind om ${hoursAhead} timmar (MET Norway): ${String(point.wind_ms).replace(".", ",")} m/s`, { direction: "top" })
+          .addTo(forecastWindLayer);
+      }
+    },
+
+    // MET Norway's weather chart (met_forecast.py): the rain of three hours as a transparent image,
+    // dark blue isobars with their hPa, H and L, and lightning; off until mission control ticks
+    // "Väderkarta (MET Norway)".
+    setupWeatherChart() {
+      isobarLayer = L.layerGroup();
+      overlays["Väderkarta (MET Norway)"] = isobarLayer;
+    },
+
+    drawWeatherChart(chart) {
+      if (!isobarLayer) return;
+      isobarLayer.clearLayers();
+      if (chart?.rain_png) L.imageOverlay(chart.rain_png, chart.rain_bounds, { opacity: 0.85, interactive: false }).addTo(isobarLayer);
+      for (const line of chart?.lines || []) {
+        L.polyline(line.coords, { color: "#1f3a7a", weight: 1.6, opacity: 0.85, interactive: false }).addTo(isobarLayer);
+        const middle = line.coords[Math.floor(line.coords.length / 2)];
+        L.marker(middle, { icon: L.divIcon({ className: "isobar-label", html: String(line.hpa), iconSize: [0, 0] }), interactive: false, keyboard: false })
+          .addTo(isobarLayer);
+      }
+      for (const centre of chart?.centres || []) {
+        L.marker([centre.latitude, centre.longitude], {
+          icon: L.divIcon({ className: `isobar-centre ${centre.kind === "H" ? "high" : "low"}`, html: `${centre.kind}<small>${centre.hpa}</small>`, iconSize: [0, 0] }),
+          interactive: false, keyboard: false,
+        }).addTo(isobarLayer);
+      }
+      for (const mark of chart?.thunder || []) {
+        L.marker([mark.latitude, mark.longitude], { icon: L.divIcon({ className: "chart-lightning", html: "⚡", iconSize: [0, 0] }),
+          interactive: false, keyboard: false }).addTo(isobarLayer);
+      }
+    },
+
     setupForecast() {
       forecastLayer = L.layerGroup().addTo(map);
       overlays["Prognos (modell)"] = forecastLayer;
@@ -321,6 +377,12 @@ function createLeafletMap(config) {
         effectiveVisible = visible && weatherCategoryVisible;
       } else if (name === "Nederbörd (SMHI radar)") {
         radarVisible = visible;
+        effectiveVisible = visible && weatherCategoryVisible;
+      } else if (name === "Prognosvind (MET Norway)") {
+        forecastWindVisible = visible;
+        effectiveVisible = visible && weatherCategoryVisible;
+      } else if (name === "Väderkarta (MET Norway)") {
+        isobarVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
       }
       if (effectiveVisible === map.hasLayer(layer)) return true;
@@ -377,6 +439,8 @@ function createLeafletMap(config) {
         setMapLayerVisible(windLayer, visible && windVisible);
         setMapLayerVisible(stationLayer, visible);
         setMapLayerVisible(radarOverlay, visible && radarVisible);
+        setMapLayerVisible(forecastWindLayer, visible && forecastWindVisible);
+        setMapLayerVisible(isobarLayer, visible && isobarVisible);
         return;
       }
       const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer] };
@@ -435,6 +499,22 @@ function createLeafletMap(config) {
 
     flyHome() {
       map.flyToBounds(config.view_bounds, { duration: 2 });
+    },
+
+    // The weather chart: out over Scandinavia when its layer is ticked (the isobars are hundreds of
+    // kilometres apart), back to the view one had when it is unticked; the offline tiles cover only
+    // the fire area.
+    showWeatherChartView(on) {
+      if (on) {
+        viewBeforeChart = { centre: map.getCenter(), zoom: map.getZoom(), bounds: map.options.maxBounds };
+        map.setMaxBounds(null);
+        map.flyToBounds(WEATHER_CHART_BOUNDS, { duration: 2 });
+      } else if (viewBeforeChart) {
+        const before = viewBeforeChart;
+        viewBeforeChart = null;
+        map.flyTo(before.centre, before.zoom, { duration: 2 });
+        map.once("moveend", () => map.setMaxBounds(before.bounds || null));
+      }
     },
 
     showGodView(on) {

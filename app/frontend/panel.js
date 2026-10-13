@@ -21,6 +21,7 @@ const COMPASS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "
 const clockTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const localTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short" });
 const localDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium" });
+const dayMonth = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "long" });
 const chartDay = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" });
 
 const state = {
@@ -275,6 +276,107 @@ function setupRain(config) {
     + "en timme utan värde räknas som torr. Senaste månaderna är inte alltid kvalitetsgranskade.";
 }
 
+// MET Norway's weather forecast as issued at the clock (/api/met-forecast, met_forecast.py and
+// met_forecast.js): a section after the detections' chart, fetched again when the clock enters a
+// new hour, and the forecast wind as a map layer that mission control ticks.
+function setupMetForecast(config) {
+  const section = document.createElement("section");
+  section.id = "met-forecast-section";
+  section.className = "chart-section";
+  section.dataset.incident = "wildfire";
+  section.innerHTML = "<h2>Väderprognos (MET Norway)</h2>"
+    + '<div id="met-forecast-issued" class="forecast-label"></div>'
+    + '<svg id="met-forecast-chart" class="timeline" role="img" aria-label="Prognos för vind, byvind och regn vid branden"></svg>'
+    + '<div class="met-legend"><span class="wind">━ vind</span> · <span class="gust">┅ byvind</span> · <span class="rain">▮ regn</span> vid branden</div>'
+    + '<dl id="met-forecast-values" class="forecast-values met-forecast-values"></dl>'
+    + '<ul id="met-forecast-notices" class="met-forecast-notices"></ul><div id="met-forecast-fwi" class="status"></div>'
+    + '<div id="met-forecast-chart-time" class="status"></div>';
+  $("timeline").closest("section").after(section);
+  state.map.setupForecastWind();
+  state.map.setupWeatherChart();
+  const caption = document.createElement("div");
+  caption.id = "forecast-caption";
+  caption.className = "forecast-caption";
+  caption.hidden = true;
+  $("map").append(caption);
+  state.map.addAttribution(config.layers.met_forecast.attribution);
+}
+
+async function showMetForecast(clock) {
+  if (!state.config.layers.met_forecast || !clock) return;
+  const hour = new Date(Math.floor(clock.getTime() / HOUR_MS) * HOUR_MS).toISOString().replace(".000Z", "Z");
+  if (hour === state.metForecastHour) return;
+  state.metForecastHour = hour;
+  let forecast = null;
+  try {
+    const response = await fetch(`/api/met-forecast?at=${encodeURIComponent(hour)}`);
+    forecast = response.ok ? await response.json() : null;
+  } catch {
+    forecast = null;
+  }
+  if (hour !== state.metForecastHour) return;  // the clock has moved on meanwhile
+  if (!forecast) {
+    $("met-forecast-issued").textContent = "Ingen prognos utfärdad ännu vid scenariotiden.";
+    for (const id of ["met-forecast-chart", "met-forecast-values", "met-forecast-notices"]) $(id).innerHTML = "";
+    $("met-forecast-fwi").textContent = "";
+    $("met-forecast-chart-time").textContent = "";
+    state.map.drawForecastWind([], 0);
+    state.map.drawWeatherChart(null);
+    state.metForecastShown = null;
+    showForecastCaption();
+    return;
+  }
+  $("met-forecast-issued").textContent = `Utfärdad ${formatLocal(forecast.issued_utc)} – historisk prognos, inte live`;
+  const svg = $("met-forecast-chart");
+  svg.setAttribute("viewBox", `0 0 300 ${MET_CHART_HEIGHT}`);
+  svg.innerHTML = metForecastChart(forecast.hours, clock.getTime(), (ms) => {
+    const local = Object.fromEntries(chartDay.formatToParts(new Date(ms)).map((part) => [part.type, part.value]));
+    return local.hour === "00" ? `${local.month}-${local.day}` : null;
+  });
+  $("met-forecast-values").innerHTML = metSummaryRows(forecast.summaries.filter((item) => item.hours <= 24)).map(chartValue).join("");
+  const notices = $("met-forecast-notices");
+  notices.innerHTML = "";
+  for (const notice of forecast.notices) {
+    const item = document.createElement("li");
+    item.textContent = notice.text;
+    notices.append(item);
+  }
+  $("met-forecast-fwi").textContent = forecast.fwi.length
+    ? `Brandrisk (FWI, beräknad ur prognosen): ${forecast.fwi.map((day) => `${dayMonth.format(new Date(`${day.date}T12:00:00Z`))} ${Math.round(day.fwi)}`).join(", ")}`
+    : "";
+  state.map.drawForecastWind(forecast.wind_grid, forecast.wind_grid_hours_ahead);
+  state.map.drawWeatherChart(forecast.isobars);
+  $("met-forecast-chart-time").textContent = forecast.isobars
+    ? `Väderkartan (lagret Väderkarta): prognos för ${zulu(forecast.isobars.valid_utc)}, ${formatLocal(forecast.isobars.valid_utc)}`
+    : "";
+  state.metForecastShown = forecast;
+  showForecastCaption();
+}
+
+// "15 juli 00Z": a forecast's time as weather charts name it.
+const utcDayMonth = new Intl.DateTimeFormat("sv-SE", { timeZone: "UTC", day: "numeric", month: "long" });
+function zulu(isoUtc) {
+  return `${utcDayMonth.format(new Date(isoUtc))} ${String(new Date(isoUtc).getUTCHours()).padStart(2, "0")}Z`;
+}
+
+// Over the map, while a forecast layer is ticked: which forecast time it shows, from which run.
+function showForecastCaption() {
+  const caption = $("forecast-caption");
+  if (!caption) return;
+  const forecast = state.metForecastShown;
+  const lines = [];
+  if (forecast && state.layersApplied["Väderkarta (MET Norway)"] && forecast.isobars) {
+    lines.push(`<strong>Väderkarta ${zulu(forecast.isobars.valid_utc)}</strong> (${formatLocal(forecast.isobars.valid_utc)})`);
+  }
+  if (forecast && state.layersApplied["Prognosvind (MET Norway)"]) {
+    lines.push(`<strong>Prognosvind ${zulu(forecast.wind_grid_valid_utc)}</strong> (${formatLocal(forecast.wind_grid_valid_utc)})`);
+  }
+  caption.hidden = !lines.length;
+  if (!lines.length) return;
+  const details = state.layersApplied["Väderkarta (MET Norway)"] ? " · isobarer var 2 hPa, regn senaste 3 timmar, ⚡ åska" : "";
+  caption.innerHTML = `${lines.join("<br>")}<small>Prognos från MET Norway utfärdad ${zulu(forecast.issued_utc)}${details} – inte live</small>`;
+}
+
 // Copernicus EMS's perimeter of the fire (/api/ems, ems.js), with a line in the forecast's legend.
 function setupEms(config) {
   state.map.setupEms();
@@ -509,6 +611,7 @@ function setClock(clock) {
   if (state.config.incident === "wildfire") {
     drawTimeline(state.daily, clock);
     showWeather(clock);
+    showMetForecast(clock);
   }
   showRain(clock);
   showHydro(clock);
@@ -974,8 +1077,12 @@ function applyMapLayers(status) {
   for (const item of state.config.layers.map_layers || []) {
     const wanted = status.map_layers?.[item.name] ?? item[key];
     if (wanted === null || wanted === undefined || state.layersApplied[item.name] === wanted) continue;
-    if (state.map.setLayerVisible(item.name, wanted)) state.layersApplied[item.name] = wanted;
+    if (!state.map.setLayerVisible(item.name, wanted)) continue;
+    // The weather chart is read over Scandinavia: the map flies out when it is ticked and back when not.
+    if (item.name === "Väderkarta (MET Norway)" && (wanted || state.layersApplied[item.name])) state.map.showWeatherChartView(wanted);
+    state.layersApplied[item.name] = wanted;
   }
+  showForecastCaption();
 }
 
 // Mission control's questions: a new one is asked and answered here; a screen that connects shows
@@ -1417,6 +1524,7 @@ async function startApp(createMap) {
     }
     for (const item of document.querySelectorAll(".forecast-station")) item.textContent = config.forecast_station;
     state.map.setupForecast();
+    if (config.layers.met_forecast) setupMetForecast(config);
     $("forecast-horizon").addEventListener("change", (event) => {
       state.forecastHorizon = event.target.value;
       drawForecast(state.clock);
