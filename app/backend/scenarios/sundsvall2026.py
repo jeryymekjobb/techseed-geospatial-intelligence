@@ -32,9 +32,9 @@ CONTROL_LABEL = "Scenario: FLOOD – Sundsvall 2026, verkligt regn, scenario"
 SUMMARY = [
     "Ett scenario byggt på det verkliga regnet 16–19 augusti 2026. Att Sundsvall översvämmades de dagarna är inte bekräftat.",
     "Regn från kommunens regnmätare och SMHI:s station Brämön A, och SMHI:s väderradar.",
-    "Kommunens och MCF:s översvämningskartor (modell), hämtade över internet.",
-    "Satellitbilder: Sentinel-1:s radar, som ser genom moln, och Landsat 8 och Sentinel-2, vars augustibilder är molniga.",
-    "Bräddgivarna DV1–DV8 är syntetiska (simulerade), räknade ur det verkliga regnet.",
+    "Kommunens och MCF:s modellberäknade översvämningskartor, hämtade över internet.",
+    "Radarbilder från Sentinel-1, som ser genom moln, och bilder från Landsat 8 och Sentinel-2, vars augustibilder är molniga.",
+    "Bräddgivarna DV1–DV8 är simulerade och beräknade ur det verkliga regnet.",
 ]
 
 # The fire's FIRMS detections and forecast have no part in this scenario.

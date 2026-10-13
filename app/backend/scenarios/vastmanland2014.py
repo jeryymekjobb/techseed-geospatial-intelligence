@@ -19,11 +19,11 @@ CONTROL_LABEL = "Scenario: WILDFIRE – Västmanland 2014, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario
 # comes to its start (satlog.js summaryState): what the demo shows and what is real.
 SUMMARY = [
-    "Skogsbranden i Västmanland började den 31 juli 2014. Den återges med verkliga arkivdata, inte live.",
-    "Satellitdetektioner av värme från NASA FIRMS: Terra och Aqua (MODIS) och Suomi NPP (VIIRS).",
-    "Landsat 8-bilder från före (10 juni), under (4 augusti) och efter branden (14 september, en jämförelse): naturliga färger, kortvågig IR och fukt i vegetationen (NDMI).",
-    "En spridningsprognos (modell) med brandväder från SMHI Sala A och vind från ERA5-Land.",
-    "IoT-sensorerna är syntetiska (simulerade).",
+    "Skogsbranden i Västmanland började den 31 juli 2014. Den återges med verkliga arkivdata, inte i realtid.",
+    "Satelliternas upptäckter av värme från NASA FIRMS: Terra och Aqua (MODIS) och Suomi NPP (VIIRS).",
+    "Bilder från Landsat 8 före (10 juni), under (4 augusti) och efter branden (14 september, som jämförelse): naturliga färger, falska färger i kortvågigt infrarött och fukten i växtligheten (NDMI).",
+    "En modellberäknad prognos för spridningen, med brandväder från SMHI Sala A och vind från ERA5-Land.",
+    "Sensorerna på marken är simulerade.",
 ]
 
 FIRMS_FILES = [

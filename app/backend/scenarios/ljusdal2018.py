@@ -31,12 +31,12 @@ CONTROL_LABEL = "Scenario: WILDFIRE – Ljusdal/Kårböle 2018, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario
 # comes to its start (satlog.js summaryState): what the demo shows and what is real.
 SUMMARY = [
-    "Blixten tände skogen nära Kårböle i Ljusdal den 14 juli 2018. Branden återges med verkliga arkivdata, inte live.",
-    "Satellitdetektioner av värme från NASA FIRMS: Terra och Aqua (MODIS), Suomi NPP och NOAA-20 (VIIRS), 14–28 juli.",
-    "Sentinel-2-bilder från före (4 juli), under (27 juli) och efter branden (2 september, en jämförelse): naturliga färger, kortvågig IR och fukt i vegetationen (NDMI).",
-    "Landsat är för molnig över branden de veckorna och är inte med.",
-    "Brandområdet enligt Copernicus EMS och en spridningsprognos (modell) med brandväder från SMHI Hamra A.",
-    "IoT-sensorerna är syntetiska (simulerade).",
+    "Blixten tände skogen nära Kårböle i Ljusdal den 14 juli 2018. Branden återges med verkliga arkivdata, inte i realtid.",
+    "Satelliternas upptäckter av värme från NASA FIRMS: Terra och Aqua (MODIS), Suomi NPP och NOAA-20 (VIIRS), 14–28 juli.",
+    "Bilder från Sentinel-2 före (4 juli), under (27 juli) och efter branden (2 september, som jämförelse): naturliga färger, falska färger i kortvågigt infrarött och fukten i växtligheten (NDMI).",
+    "Landsats bilder från de veckorna är för molniga över branden och är inte med.",
+    "Brandområdet enligt Copernicus krishanteringstjänst (EMS) och en modellberäknad prognos för spridningen, med brandväder från SMHI Hamra A.",
+    "Sensorerna på marken är simulerade.",
 ]
 
 FIRMS_FILES = [

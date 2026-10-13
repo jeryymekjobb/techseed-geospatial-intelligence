@@ -132,8 +132,10 @@ def test_every_scenario_has_a_summary_that_says_what_is_real() -> None:
         assert result.returncode == 0, result.stderr
         lines = __import__("json").loads(result.stdout)
         assert 4 <= len(lines) <= 7 and all(isinstance(line, str) and line for line in lines)
-        assert any("syntetisk" in line for line in lines), name  # the simulated parts are named as such
+        assert any("simulerade" in line for line in lines), name  # the simulated parts are named as such
         assert not any(word in " ".join(lines) for word in [" mm ", " h ", " MW", " m "]), name  # whole words, as read aloud
+        # Swedish, not Swenglish: the words the user asked to replace.
+        assert not any(word in " ".join(lines) for word in ["live", "IoT", "IR ", "syntetisk", "vegetation", "detektioner", "-bilder", "klimatanpassad"]), name
         if name == "ljusdal2018":
-            assert "Landsat är för molnig över branden de veckorna och är inte med." in lines
+            assert "Landsats bilder från de veckorna är för molniga över branden och är inte med." in lines
     assert server.config(lantmateriet.Settings(None, None, None, None, None))["summary"] == scenario.SUMMARY
