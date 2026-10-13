@@ -206,7 +206,7 @@ def test_only_new_lines_are_read_aloud_and_many_are_cut_short() -> None:
         {"atMs": CLOCK - 5, "text": "Aqua (MODIS) över Sundsvall", "source": "computed", "kind": "enter"},
     ]
     assert node(f"spokenLines({json.dumps(mixed)}, new Set(), 5)") == [
-        {"text": "3 detektioner från Aqua (MODIS), starkast 12,5 MW"},
+        {"text": "3 detektioner från Aqua, starkast 12,5 MW"},  # without "(MODIS)"
         {"text": "SATCOM nere – satellitdata köas"},
         {"text": "Sentinel-1C tar bild över Sundsvall"},
     ]
@@ -292,3 +292,20 @@ def test_measured_values_are_read_with_a_half_rounded_away_from_zero() -> None:
     assert node("(() => { let wrong = 0; for (let k = 0; k < 200000; k++) {"
                 " const tenths = Math.floor(k / 10) + (k % 10 >= 5 ? 1 : 0);"
                 " if (satlogDecimal(k / 100) !== String(tenths / 10).replace('.', ',')) wrong += 1; } return wrong; })()") == 0
+
+
+def test_the_voice_says_the_fire_s_power_to_the_nearest_whole_number() -> None:
+    assert node("[47.1, 3.5, 2.5, 0.4, 13.96, 4.45, -3.5, 0].map(satlogWhole)") == ["47", "4", "3", "0", "14", "4", "-4", "0"]
+    firms = node("firmsPasses([" + ",".join(json.dumps(hotspot(f"2014-08-04T10:0{n}:00Z", frp=frp)) for n, frp in [(1, 47.05), (2, 3.5)]) + "])")
+    lines = node(f"satelliteLog({{ firms: {json.dumps(firms)} }}, {CLOCK})")
+    assert [line["text"] for line in lines] == ["2 detektioner från Suomi NPP (VIIRS), starkast 47,1 megawatt"]
+    assert node(f"spokenLines(satelliteLog({{ firms: {json.dumps(firms)} }}, {CLOCK}), new Set())") == [
+        {"text": "2 detektioner från Suomi NPP, starkast 47 megawatt"}]
+
+
+def test_the_voice_leaves_out_abbreviations_in_brackets() -> None:
+    assert node("satlogSaid('Terra och Aqua (MODIS), Suomi NPP och NOAA-20 (VIIRS), fukten i växtligheten (NDMI), Copernicus (EMS) och')") \
+        == "Terra och Aqua, Suomi NPP och NOAA-20, fukten i växtligheten, Copernicus och"
+    # Dates and words in brackets are kept.
+    assert node("satlogSaid('före (4 juli) och efter (2 september, som jämförelse)')") == "före (4 juli) och efter (2 september, som jämförelse)"
+    assert node("summaryMessages('T', ['Satelliter: Aqua (MODIS).'])[1].text") == "Satelliter: Aqua."

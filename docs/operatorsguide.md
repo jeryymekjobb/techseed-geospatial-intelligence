@@ -333,7 +333,9 @@ kommer från:
 | *simulerat* | Från mission control: upptäcktssekvensen startar, SATCOM nere och SATCOM åter, SENSOR FAILURE, IoT av och på, och en sensor som placeras på kartan |
 
 Loggen skriver enheterna med hela ord, till exempel "starkast 27,9 megawatt", "inom 200 meter"
-och "16 till mer än 24 timmar", eftersom den läses upp. När fler än en ort hotas säger rösten
+och "16 till mer än 24 timmar", eftersom den läses upp. Rösten säger mätvärden avrundade till
+närmaste heltal, med 5 uppåt: "starkast 28 megawatt". Förkortningar inom parentes, som (MODIS),
+(VIIRS) och (NDMI), läses inte upp; skärmarna visar dem som förut. När fler än en ort hotas säger rösten
 bara hur många och tidsspannet från den tidigaste till den senaste ankomsten, till exempel
 "5 orter hotas inom 2 till mer än 24 timmar"; namnen står i loggen och på kartan.
 

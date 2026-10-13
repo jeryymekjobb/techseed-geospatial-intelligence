@@ -86,6 +86,13 @@ function satlogDecimal(value) {
   return `${value < 0 && tenths ? "-" : ""}${tenths / 10}`.replace(".", ",");
 }
 
+// A measured value to the nearest whole number, a half away from zero (3,5 to 4), as read aloud; cut
+// to 12 significant digits first, as in satlogDecimal.
+function satlogWhole(value) {
+  const whole = Math.round(Number(Math.abs(value).toPrecision(12)));
+  return `${value < 0 && whole ? "-" : ""}${whole}`;
+}
+
 // The log lines, newest first: { atMs, text, source, kind, spoken? }, in whole words (megawatt, meter,
 // timmar), as they are read aloud; `spoken`, when there, is read instead of `text`.
 // `satellites`: [{ name, instrument, passes: [{ start, end }] }] over the fire (orbits.js);
@@ -112,8 +119,10 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
   for (const pass of firms) {
     const name = SATLOG_FIRMS_NAMES[pass.satellite] || pass.satellite;
     const count = pass.detections === 1 ? "1 detektion" : `${pass.detections} detektioner`;
+    const said = `${count} från ${name} (${pass.instrument}), starkast`;
     lines.push({
-      atMs: pass.atMs, text: `${count} från ${name} (${pass.instrument}), starkast ${satlogDecimal(pass.maxFrp)} megawatt`, source: "firms", kind: "firms",
+      atMs: pass.atMs, text: `${said} ${satlogDecimal(pass.maxFrp)} megawatt`, source: "firms", kind: "firms",
+      spoken: `${said} ${satlogWhole(pass.maxFrp)} megawatt`,  // read aloud to the nearest whole number
       sourceText: `FIRMS ${new Date(pass.atMs).getUTCFullYear()}`,
     });
   }
@@ -239,11 +248,17 @@ function satlogKey(line) {
   return `${line.atMs}|${line.text}`;
 }
 
+// A text as the voice says it: without abbreviations in brackets, such as "(VIIRS)" and "(NDMI)",
+// which the screens still show.
+function satlogSaid(text) {
+  return text.replace(/ \([A-ZÅÄÖ0-9-]{2,}\)/g, "");
+}
+
 function spokenLines(lines, heard, max = SATLOG_SPOKEN_MAX) {
   const fresh = lines.filter((line) => !heard.has(satlogKey(line)));
   for (const line of fresh) heard.add(satlogKey(line));
   const said = fresh.filter((line) => line.source !== "computed");
-  const spoken = said.slice(0, max).reverse().map((line) => ({ text: line.spoken || line.text }));
+  const spoken = said.slice(0, max).reverse().map((line) => ({ text: satlogSaid(line.spoken || line.text) }));
   const more = said.length - max;
   if (more > 0) spoken.push({ text: `och ${more} ${more === 1 ? "händelse" : "händelser"} till` });
   return spoken;
@@ -302,9 +317,9 @@ function summaryState(since, scenarioState, nowMs) {
 
 // The summary's messages read aloud: the title, then each line.
 function summaryMessages(title, lines) {
-  return [`${title}. Det här visas.`, ...(lines || [])].map((text) => ({ text }));
+  return [`${title}. Det här visas.`, ...(lines || [])].map((text) => ({ text: satlogSaid(text) }));
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, satlogDecimal, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, SATLOG_SOURCES };
+  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, satlogDecimal, satlogWhole, satlogSaid, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, SATLOG_SOURCES };
 }
