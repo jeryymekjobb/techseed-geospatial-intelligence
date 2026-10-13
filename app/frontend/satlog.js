@@ -62,12 +62,28 @@ function satlogSpan(span) {
   return span;
 }
 
+// The places' spans together, from the earliest arrival to the latest: "2–6 h" and "16–>24 h" give
+// "2–>24 h". Spans that cannot be read are left out; "" when none can.
+function satlogSpanOf(spans) {
+  let earliest = Infinity, latest = -Infinity, open = null;
+  for (const span of spans) {
+    const match = /^(\d+)(?:–(>?)(\d+))? h$/.exec(span || "");
+    if (!match) continue;
+    earliest = Math.min(earliest, Number(match[1]));
+    if (match[2]) open = Math.max(open ?? 0, Number(match[3]));
+    else latest = Math.max(latest, Number(match[3] ?? match[1]));
+  }
+  if (earliest === Infinity) return "";
+  if (open !== null) return `${earliest}–>${open} h`;
+  return latest === earliest ? `${earliest} h` : `${earliest}–${latest} h`;
+}
+
 function satlogDecimal(value) {
   return String(Math.round(value * 10) / 10).replace(".", ",");
 }
 
-// The log lines, newest first: { atMs, text, source, kind }, in whole words (megawatt, meter, timmar),
-// as they are read aloud.
+// The log lines, newest first: { atMs, text, source, kind, spoken? }, in whole words (megawatt, meter,
+// timmar), as they are read aloud; `spoken`, when there, is read instead of `text`.
 // `satellites`: [{ name, instrument, passes: [{ start, end }] }] over the fire (orbits.js);
 // `firms`: firmsPasses(); `scenes`: config.layers.landsat.scenes; `events`: the scenario's events;
 // `sensorEvents`: the synthetic sensors' changes, { clock_utc, sensor, name, kind, confirms };
@@ -155,6 +171,8 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     const count = pass.places.length === 1 ? "1 ort hotas" : `${pass.places.length} orter hotas`;
     lines.push({
       atMs: Date.parse(pass.clock_utc), text: `${count} inom 24 timmar: ${named}${more > 0 ? ` och ${more} till` : ""}`,
+      // Read aloud, several places are not named: only how many and when, all of them together.
+      ...(pass.places.length > 1 ? { spoken: `${count} inom ${satlogSpan(satlogSpanOf(pass.places.map((place) => place.span))) || "24 timmar"}` } : {}),
       source: "model", kind: "threat",
       marks: pass.places.filter((place) => place.latitude !== undefined)
         .map((place) => ({ name: place.name, latitude: place.latitude, longitude: place.longitude })),
@@ -225,7 +243,7 @@ function spokenLines(lines, heard, max = SATLOG_SPOKEN_MAX) {
   const fresh = lines.filter((line) => !heard.has(satlogKey(line)));
   for (const line of fresh) heard.add(satlogKey(line));
   const said = fresh.filter((line) => line.source !== "computed");
-  const spoken = said.slice(0, max).reverse().map((line) => ({ text: line.text }));
+  const spoken = said.slice(0, max).reverse().map((line) => ({ text: line.spoken || line.text }));
   const more = said.length - max;
   if (more > 0) spoken.push({ text: `och ${more} ${more === 1 ? "händelse" : "händelser"} till` });
   return spoken;
@@ -271,5 +289,5 @@ function levelReportDue(next, clockMs, alarming, jumped) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { firmsPasses, satelliteLog, satlogSpan, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, SATLOG_SOURCES };
+  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, SATLOG_SOURCES };
 }

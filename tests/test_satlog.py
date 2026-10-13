@@ -144,6 +144,12 @@ def test_threatened_buildings_are_in_the_log() -> None:
     # Whole words, as the log is read aloud: the forecast's spans from forecast.py.
     assert node("['1 h', '5 h', '2–6 h', '16–>24 h', '', 'okänt'].map(satlogSpan)") == [
         "1 timme", "5 timmar", "2–6 timmar", "16 till mer än 24 timmar", "", "okänt"]
+    # Read aloud, several places are not named: how many, from the earliest arrival to the latest.
+    assert [line.get("spoken") for line in lines if line["source"] == "model"] == [None, "6 orter hotas inom 2–10 timmar"]
+    assert node(f"spokenLines(satelliteLog({{ threats: {json.dumps(threats)} }}, {CLOCK}), new Set()).map((line) => line.text)") == [
+        "6 orter hotas inom 2–10 timmar", "1 ort hotas inom 24 timmar: Fläckebo 7 till mer än 24 timmar"]
+    assert node("[['2–6 h', '16–>24 h'], ['5 h', '5 h'], ['3 h', '1–2 h'], ['', 'okänt']].map(satlogSpanOf)") == [
+        "2–>24 h", "5 h", "1–3 h", ""]
     # The maps' marks: each place once, small; a highlighted line's places large and last (drawn on top);
     # without a place, the sensor's name.
     log = f"satelliteLog({{ sensorEvents: {sensor_events}, threats: {json.dumps(threats)} }}, {CLOCK})"
