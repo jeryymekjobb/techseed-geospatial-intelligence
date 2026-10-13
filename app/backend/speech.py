@@ -11,7 +11,8 @@ synthesis is not used: Chrome on the exhibition PC lists no voices and then spea
 Before a line is synthesised, `spoken_form` writes it as it should be said, since the Swedish
 rules of espeak-ng, which turn the text into sounds for both voices, read "47,1" as "fyrtisju punkt
 ett", drop the dash of "2–6" and read "SMHI" as one syllable: a decimal comma becomes "komma", a
-dash between two numbers "till", a hyphen in a designation nothing ("Sentinel 2"), a day of the
+dash between two numbers "till", "1" before a common-gender word "en" ("en ort"), a hyphen in a
+designation nothing ("Sentinel 2"), a day of the
 month its ordinal ("fjortonde juli"), and an abbreviation in capitals is spelt letter by letter
 ("S M H I"), except those said as words (SAID_AS_WORDS). LEXICON gives words whose vowel length
 espeak-ng gets wrong their sounds directly. The voices speak slightly slower than Piper's default
@@ -65,7 +66,13 @@ LEXICON = {
     # A short a, stressed, as the long t forces: espeak-ng's "mˈeːɡavˌat" is heard as "wat".
     "megawatt": "mˌeːɡavˈatː",
     "watt": "vˈatː",
+    # A short o, as in "bort", and an r of its own: espeak-ng's "ˈuːʈ" was hard to hear, and the
+    # retroflex "ˈʊʈ" sounded like "oht" (the user chose this of two samples).
+    "ort": "ˈʊrt",
+    "orter": "ˈʊrtər",
 }
+# Words said "en" after the number 1, as they are common gender: espeak-ng says "ett ort".
+COMMON_GENDER = {"ort", "detektion", "byggnad", "timme", "händelse", "nivågivare", "bräddgivare", "sensor", "millimeter"}
 _MONTH = "|".join(MONTHS)
 
 
@@ -76,6 +83,7 @@ def spoken_form(text: str) -> str:
                   lambda m: f"{ordinal(m[1])} till {ordinal(m[2])} {m[3]}", text)
     text = re.sub(rf"\b(\d{{1,2}}) ({_MONTH})\b", lambda m: f"{ordinal(m[1])} {m[2]}", text)
     text = re.sub(r"(\d),(\d)", r"\1 komma \2", text)
+    text = re.sub(r"(?<![\d,])\b1 (\w+)", lambda m: f"en {m[1]}" if m[1] in COMMON_GENDER else m[0], text)
     text = re.sub(r"(?<=[\w])–(?=[\w])", " till ", text)
     # A hyphen in a designation is not said ("Sentinel-2", "NOAA-20", "ERA5-Land"); alone, "-2" is "minus två".
     text = re.sub(r"(?<=\w)-(?=\w)", " ", text)

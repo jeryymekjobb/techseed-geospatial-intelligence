@@ -137,6 +137,8 @@ def test_lines_are_written_as_they_should_be_said() -> None:
     said = speech.spoken_form
     assert said("starkast 47,1 megawatt, 54,57 meter") == "starkast 47 komma 1 megawatt, 54 komma 57 meter"
     assert said("3 orter hotas inom 2–6 timmar") == "3 orter hotas inom 2 till 6 timmar"
+    # "en ort", not "ett ort"; a 1 in a larger number or before another word stays.
+    assert said("1 ort hotas inom 24 timmar, 1 detektion, 21 orter, 1 till 6") == "en ort hotas inom 24 timmar, en detektion, 21 orter, 1 till 6"
     assert said("Terra, 14–28 juli, den 4 juli 2018 och 31 januari") == \
         "Terra, fjortonde till tjugoåttonde juli, den fjärde juli 2018 och trettioförsta januari"
     assert said("Data från SMHI, MCF och VA-huvudmännen; NG5 och DV1–DV8; IoT avstängt") == \
@@ -156,6 +158,7 @@ def test_the_lexicon_gives_its_words_their_sounds() -> None:
     assert speech.LEXICON["Sentinel"] == "sˈɛntɪnɛl" and 1.0 < speech.LENGTH_SCALE < 1.2
     # "watt" with a short, stressed a (the user chose this of three samples).
     assert speech.LEXICON["megawatt"] == "mˌeːɡavˈatː" and speech.LEXICON["watt"] == "vˈatː"
+    assert speech.LEXICON["ort"] == "ˈʊrt"  # a short o, as in "bort", and an r one hears
 
 
 @pytest.mark.skipif(not (speech.VOICE_DIR / f"{speech.VOICES['alma']}.onnx").is_file(), reason="needs the Piper voices (tools/fetch_piper_voices.py)")
