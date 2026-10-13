@@ -8,6 +8,15 @@ WAV file and played with pw-play. Without Piper or a voice's model the line is r
 speech-dispatcher's Swedish espeak-ng voice instead (`spd-say -l sv`). The browser's own speech
 synthesis is not used: Chrome on the exhibition PC lists no voices and then speaks English.
 
+Before a line is synthesised, `spoken_form` writes it as it should be said, since the Swedish
+rules of espeak-ng, which turn the text into sounds for both voices, read "47,1" as "fyrtisju punkt
+ett", drop the dash of "2–6" and read "SMHI" as one syllable: a decimal comma becomes "komma", a
+dash between two numbers "till", a hyphen in a designation nothing ("Sentinel 2"), a day of the
+month its ordinal ("fjortonde juli"), and an abbreviation in capitals is spelt letter by letter
+("S M H I"), except those said as words (SAID_AS_WORDS). LEXICON gives words whose vowel length
+espeak-ng gets wrong their sounds directly. The voices speak slightly slower than Piper's default
+(LENGTH_SCALE), for the numbers.
+
 At most MAX_QUEUED lines wait; older ones are dropped, so the voice never falls far behind the
 scenario clock. Lines sent with `keep` - the scenario's summary at its start, while the clock
 stands still - all wait, until lines without it come. `stop` empties the queue and cancels what
@@ -16,6 +25,7 @@ is being said.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import tempfile
 import threading
@@ -36,6 +46,66 @@ VOICE_DIR = REPO_ROOT / "data" / "voices"
 VOICES = {"nst": "sv_SE-nst-medium", "alma": "sv_SE-alma-medium"}
 CREDIT = ("Uppläsning: Piper, rösterna nst (CC0) och alma (CC BY 4.0), tränade på NST:s svenska "
           "taldata från Språkbanken vid Nasjonalbiblioteket")
+# Slower than Piper's 1.0, so the numbers come through.
+LENGTH_SCALE = 1.12
+# Abbreviations in capitals that are said as words; every other one is spelt letter by letter.
+SAID_AS_WORDS = {"NASA", "FIRMS", "NOAA", "MODIS", "VIIRS", "SATCOM", "SYNC", "SENSOR", "FAILURE", "ERA"}
+# Written forms that are spelt although not all in capitals.
+SPELT = {"IoT": "I O T"}
+MONTHS = ("januari", "februari", "mars", "april", "maj", "juni", "juli", "augusti", "september", "oktober",
+          "november", "december")
+ORDINALS = ("första", "andra", "tredje", "fjärde", "femte", "sjätte", "sjunde", "åttonde", "nionde", "tionde",
+            "elfte", "tolfte", "trettonde", "fjortonde", "femtonde", "sextonde", "sjuttonde", "artonde", "nittonde",
+            "tjugonde", "tjugoförsta", "tjugoandra", "tjugotredje", "tjugofjärde", "tjugofemte", "tjugosjätte",
+            "tjugosjunde", "tjugoåttonde", "tjugonionde", "trettionde", "trettioförsta")
+# Words espeak-ng says with the wrong vowel length or stress, with their sounds (IPA, as Piper's
+# Swedish voices use them). Add a word when it is heard wrong.
+LEXICON = {
+    "Sentinel": "sˈɛntɪnɛl",
+}
+_MONTH = "|".join(MONTHS)
+
+
+def spoken_form(text: str) -> str:
+    """`text` as it should be said (see the module's text): numbers, dates and abbreviations."""
+    ordinal = lambda day: ORDINALS[int(day) - 1] if 1 <= int(day) <= 31 else day  # noqa: E731
+    text = re.sub(rf"\b(\d{{1,2}})–(\d{{1,2}}) ({_MONTH})\b",
+                  lambda m: f"{ordinal(m[1])} till {ordinal(m[2])} {m[3]}", text)
+    text = re.sub(rf"\b(\d{{1,2}}) ({_MONTH})\b", lambda m: f"{ordinal(m[1])} {m[2]}", text)
+    text = re.sub(r"(\d),(\d)", r"\1 komma \2", text)
+    text = re.sub(r"(?<=[\w])–(?=[\w])", " till ", text)
+    # A hyphen in a designation is not said ("Sentinel-2", "NOAA-20", "ERA5-Land"); alone, "-2" is "minus två".
+    text = re.sub(r"(?<=\w)-(?=\w)", " ", text)
+    for written, said in SPELT.items():
+        text = re.sub(rf"\b{written}\b", said, text)
+
+    def spell(match: re.Match[str]) -> str:
+        letters, digits = match[1], match[2]
+        if letters in SAID_AS_WORDS:
+            return match[0]
+        return " ".join(letters) + (f" {digits}" if digits else "")
+
+    return re.sub(r"\b([A-ZÅÄÖ]{2,})(\d*)\b", spell, text)
+
+
+def lexicon_phonemes(voice: Any, text: str, lexicon: dict[str, str] = LEXICON) -> list[str]:
+    """The text's sounds from Piper's phonemizer, with LEXICON's words put in as they are written there."""
+    if not lexicon:
+        return [phoneme for sentence in voice.phonemize(text) for phoneme in sentence]
+    phonemes: list[str] = []
+    for part in re.split(r"\b(" + "|".join(map(re.escape, lexicon)) + r")\b", text):
+        if part in lexicon:
+            phonemes.extend(lexicon[part])
+        elif part.strip():
+            sentences = voice.phonemize(part)
+            if phonemes and part[:1].isspace():
+                phonemes.append(" ")
+            phonemes.extend(phoneme for sentence in sentences for phoneme in sentence)
+            if part[-1:].isspace():
+                phonemes.append(" ")
+    return phonemes
+
+
 PLAY = ("pw-play",)
 FALLBACK = ("spd-say", "--wait", "-l", "sv")
 CANCEL = ("spd-say", "--cancel")
@@ -55,8 +125,19 @@ def piper_voices(folder: Path = VOICE_DIR) -> dict[str, Callable[[str, Path], No
         voice: Any = PiperVoice.load(path)
 
         def synthesise(text: str, target: Path, voice: Any = voice) -> None:
+            from piper.config import SynthesisConfig
+            import numpy as np
+
+            ids = voice.phonemes_to_ids(lexicon_phonemes(voice, text))
+            audio = voice.phoneme_ids_to_audio(ids, SynthesisConfig(length_scale=LENGTH_SCALE))
+            audio = audio[0] if isinstance(audio, tuple) else audio
+            peak = float(np.max(np.abs(audio))) if len(audio) else 0.0
+            samples = (np.clip(audio / peak if peak > 1e-8 else audio, -1.0, 1.0) * 32767).astype("<i2")
             with wave.open(str(target), "wb") as wav:
-                voice.synthesize_wav(text, wav)
+                wav.setframerate(voice.config.sample_rate)
+                wav.setsampwidth(2)
+                wav.setnchannels(1)
+                wav.writeframes(samples.tobytes())
 
         found[name] = synthesise
     return found
@@ -114,6 +195,7 @@ class Speaker:
     def _command(self, text: str, voice: str, folder: Path) -> tuple[list[str], str]:
         """The command that says the line, and the voice it uses."""
         self.available()
+        text = spoken_form(text)
         synthesise = (self.voices or {}).get(voice)
         if synthesise is not None:
             target = folder / "line.wav"

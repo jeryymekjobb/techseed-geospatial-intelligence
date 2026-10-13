@@ -131,3 +131,36 @@ def test_the_monitor_sends_its_lines_and_voices_to_the_backend(base_url) -> None
         assert post(f"{url}/api/speak", body)[0] == 400
     assert post(f"{url}/api/speak", {"lines": [line], "keep": True}) == (200, {"queued": 1})
     assert post(f"{url}/api/speak/stop", {}) == (200, {"stopped": True})
+
+
+def test_lines_are_written_as_they_should_be_said() -> None:
+    said = speech.spoken_form
+    assert said("starkast 47,1 megawatt, 54,57 meter") == "starkast 47 komma 1 megawatt, 54 komma 57 meter"
+    assert said("3 orter hotas inom 2–6 timmar") == "3 orter hotas inom 2 till 6 timmar"
+    assert said("Terra, 14–28 juli, den 4 juli 2018 och 31 januari") == \
+        "Terra, fjortonde till tjugoåttonde juli, den fjärde juli 2018 och trettioförsta januari"
+    assert said("Data från SMHI, MCF och VA-huvudmännen; NG5 och DV1–DV8; IoT avstängt") == \
+        "Data från S M H I, M C F och V A huvudmännen; N G 5 och D V 1 till D V 8; I O T avstängt"
+    # Said as words; a designation's hyphen is not said ("minus" alone); a dash with spaces is kept.
+    assert said("NASA FIRMS och NOAA-20; SATCOM nere – satellitdata köas") == "NASA FIRMS och NOAA 20; SATCOM nere – satellitdata köas"
+    assert said("Bilder från Sentinel-2 och ERA5-Land") == "Bilder från Sentinel 2 och ERA5 Land"
+
+
+def test_the_lexicon_gives_its_words_their_sounds() -> None:
+    class Voice:
+        def phonemize(self, text: str) -> list[list[str]]:
+            return [list(text.strip().upper())]
+
+    assert "".join(speech.lexicon_phonemes(Voice(), "bild från Sentinel-2", {"Sentinel": "sɛn"})) == "BILD FRÅN sɛn-2"
+    assert "".join(speech.lexicon_phonemes(Voice(), "ab", {})) == "AB"
+    assert speech.LEXICON["Sentinel"] == "sˈɛntɪnɛl" and 1.0 < speech.LENGTH_SCALE < 1.2
+
+
+@pytest.mark.skipif(not (speech.VOICE_DIR / f"{speech.VOICES['alma']}.onnx").is_file(), reason="needs the Piper voices (tools/fetch_piper_voices.py)")
+def test_a_real_voice_says_a_line_with_the_lexicon_and_the_slower_pace(tmp_path: Path) -> None:
+    voices = speech.piper_voices()
+    target = tmp_path / "line.wav"
+    voices["alma"](speech.spoken_form("Bilder från Sentinel-2, starkast 47,1 megawatt"), target)
+    with wave.open(str(target)) as wav:
+        assert wav.getnchannels() == 1 and wav.getsampwidth() == 2 and wav.getframerate() == 22050
+        assert wav.getnframes() / wav.getframerate() > 2  # some seconds of speech
