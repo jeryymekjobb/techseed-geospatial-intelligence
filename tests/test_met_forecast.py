@@ -88,3 +88,23 @@ def test_the_weather_chart_is_the_next_synoptic_hour_after_the_clock() -> None:
     assert mf.isobars_at(forecast, ISSUED + timedelta(hours=3))["valid_utc"] == "2018-07-17T12:00:00Z"
     assert mf.isobars_at(forecast, ISSUED + timedelta(hours=7))["valid_utc"] == "2018-07-17T12:00:00Z"  # past them all: the last
     assert mf.isobars_at(run(), ISSUED + timedelta(hours=6)) is None  # a run fetched before the isobars
+
+
+def test_a_flood_hears_of_heavy_rain_snow_and_thunder_not_of_fires() -> None:
+    texts = lambda forecast, **kw: [item["text"] for item in mf.notices(mf.hourly(forecast), "flood", **kw)]  # noqa: E731
+    rainy = run(rain_acc=[0.0] * 5 + [6.0] + [8.0] * 19, gust=[6.0] * 20 + [12.0] * 5, thunder=[0.0] * 8 + [0.5] + [0.0] * 16)
+    assert texts(rainy) == [
+        "Kraftigt regn, upp till 6 millimeter på en timme om 5 timmar",
+        "Nederbörd, 8 millimeter de närmaste 24 timmarna",
+        "Byvind upp till 12 meter per sekund om 20 timmar",
+        "Risk för åska och skyfall om 8 timmar",
+    ]
+    cold = run(rain_acc=[0.0] + [float(hour) for hour in range(1, 25)])
+    for hour in range(25):
+        cold["point"]["temperature_k"][hour] = 272.0
+    assert "Nederbörden faller mest som snö" in texts(cold)
+    assert texts(run()) == ["Ingen nederbörd de närmaste 24 timmarna"]
+    # Without a thunder variable (AROME-MetCoOp in 2014) no thunder is said, whatever the threshold.
+    silent = run()
+    silent["point"]["thunderstorm_index"] = None
+    assert all(item["thunderstorm_index"] is None for item in mf.hourly(silent))

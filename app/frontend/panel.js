@@ -283,15 +283,18 @@ function setupMetForecast(config) {
   const section = document.createElement("section");
   section.id = "met-forecast-section";
   section.className = "chart-section";
-  section.dataset.incident = "wildfire";
+  const place = config.incident === "wildfire" ? "branden" : config.incident_place;
   section.innerHTML = "<h2>Väderprognos (MET Norway)</h2>"
     + '<div id="met-forecast-issued" class="forecast-label"></div>'
-    + '<svg id="met-forecast-chart" class="timeline" role="img" aria-label="Prognos för vind, byvind och regn vid branden"></svg>'
-    + '<div class="met-legend"><span class="wind">━ vind</span> · <span class="gust">┅ byvind</span> · <span class="rain">▮ regn</span> vid branden</div>'
+    + `<svg id="met-forecast-chart" class="timeline" role="img" aria-label="Prognos för vind, byvind och regn vid ${place}"></svg>`
+    + `<div class="met-legend"><span class="wind">━ vind</span> · <span class="gust">┅ byvind</span> · <span class="rain">▮ regn</span> vid ${place}</div>`
     + '<dl id="met-forecast-values" class="forecast-values met-forecast-values"></dl>'
     + '<ul id="met-forecast-notices" class="met-forecast-notices"></ul><div id="met-forecast-fwi" class="status"></div>'
     + '<div id="met-forecast-chart-time" class="status"></div>';
-  $("timeline").closest("section").after(section);
+  // After the time charts: the fire's detections, or the flood's rain and flows.
+  const charts = [...document.querySelectorAll(".panel .chart-section")]
+    .filter((chart) => chart !== section && (!chart.dataset.incident || chart.dataset.incident === config.incident));
+  charts[charts.length - 1].after(section);
   state.map.setupForecastWind();
   state.map.setupWeatherChart();
   const caption = document.createElement("div");
@@ -373,7 +376,8 @@ function showForecastCaption() {
   }
   caption.hidden = !lines.length;
   if (!lines.length) return;
-  const details = state.layersApplied["Väderkarta (MET Norway)"] ? " · isobarer var 2 hPa, regn senaste 3 timmar, ⚡ åska" : "";
+  const details = state.layersApplied["Väderkarta (MET Norway)"]
+    ? ` · isobarer var 1 hPa, regn senaste 3 timmar${forecast.has_thunder ? ", ⚡ åska" : " (modellen har inget åskindex)"}` : "";
   caption.innerHTML = `${lines.join("<br>")}<small>Prognos från MET Norway utfärdad ${zulu(forecast.issued_utc)}${details} – inte live</small>`;
 }
 
@@ -611,8 +615,8 @@ function setClock(clock) {
   if (state.config.incident === "wildfire") {
     drawTimeline(state.daily, clock);
     showWeather(clock);
-    showMetForecast(clock);
   }
+  showMetForecast(clock);
   showRain(clock);
   showHydro(clock);
   showEms(clock);
@@ -1527,13 +1531,13 @@ async function startApp(createMap) {
     }
     for (const item of document.querySelectorAll(".forecast-station")) item.textContent = config.forecast_station;
     state.map.setupForecast();
-    if (config.layers.met_forecast) setupMetForecast(config);
     $("forecast-horizon").addEventListener("change", (event) => {
       state.forecastHorizon = event.target.value;
       drawForecast(state.clock);
     });
   }
 
+  if (config.layers.met_forecast) setupMetForecast(config);
   state.map.finish();
   setupScenarioView();
   // The flood's rain classes and maps right after the status, where the fire has its forecast; its

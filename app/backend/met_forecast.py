@@ -36,8 +36,8 @@ DIRECTORY = scenario.MET_FORECAST_DIR
 # assumption, rounded up): the screens take a run only from then.
 AVAILABLE_AFTER = timedelta(hours=3)
 SUMMARY_HOURS = (6, 12, 24, 48)
-LABEL = "Historisk prognos från MET Norway (MEPS) – som den utfärdades, inte live"
-ATTRIBUTION = "Väderprognos: MET Norway (MEPS, MetCoOp), NLOD/CC BY 4.0"
+LABEL = "Historisk prognos från MET Norway (MetCoOp) – som den utfärdades, inte live"
+ATTRIBUTION = "Väderprognos: MET Norway (MetCoOp: AROME-MetCoOp och MEPS), NLOD/CC BY 4.0"
 # A notice when: the wind turns at least this much within 24 h (and blows at least WIND_SHIFT_MIN_MS),
 # the gust reaches GUST_MS, rain sums to RAIN_MM in 24 h (none: below DRY_MM), the humidity falls
 # to LOW_HUMIDITY, or the thunderstorm index reaches THUNDER.
@@ -47,7 +47,14 @@ GUST_MS = 10.0
 RAIN_MM = 2.0
 DRY_MM = 0.2
 LOW_HUMIDITY = 30.0
-THUNDER = 0.3
+# The thunder notice by the run's thunder variable (fetch_met_forecasts.archive_for); AROME-MetCoOp
+# (2014) has none, so no thunder is said there.
+THUNDER_BY_VARIABLE = {"thunderstorm_index_combined": 0.3, "lightning_index": 0.3}
+THUNDER = THUNDER_BY_VARIABLE["thunderstorm_index_combined"]
+# The floods: a notice for heavy rain (SMHI's class "kraftigt regn": more than 4 mm in an hour) and
+# for snow (the precipitation that falls at or below SNOW_C).
+HEAVY_RAIN_MM_H = 4.0
+SNOW_C = 0.5
 COMPASS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "SV", "VSV", "V", "VNV", "NV", "NNV"]
 COMPASS_WORDS = {"N": "norr", "NO": "nordost", "O": "öster", "SO": "sydost", "S": "söder", "SV": "sydväst", "V": "väster", "NV": "nordväst"}
 
@@ -82,6 +89,7 @@ def run_at(clock: datetime, all_runs: tuple[dict[str, Any], ...] | None = None) 
 def hourly(run: dict[str, Any]) -> list[dict[str, Any]]:
     """The run's hours at the fire, with the hourly precipitation from the accumulated sums."""
     point = run["point"]
+    thunder = point.get("thunder_index", point.get("thunderstorm_index"))  # the older name in runs fetched in 2018's pilot
     hours, previous = [], 0.0
     for index, moment in enumerate(run["times_utc"]):
         accumulated = point["precipitation_acc_mm"][index]
@@ -97,7 +105,7 @@ def hourly(run: dict[str, Any]) -> list[dict[str, Any]]:
             "humidity_pct": point["humidity"][index],
             "precipitation_mm": rain if index else 0.0,
             "cloud_pct": point["cloud_pct"][index],
-            "thunderstorm_index": point["thunderstorm_index"][index],
+            "thunderstorm_index": thunder[index] if thunder else None,
         })
     return hours
 
@@ -135,12 +143,19 @@ def when(hours: int) -> str:
     return "nu" if hours == 0 else f"om {hours_word(hours)}"
 
 
-def notices(ahead: list[dict[str, Any]]) -> list[dict[str, str]]:
+def thunder_threshold(run: dict[str, Any]) -> float:
+    return THUNDER_BY_VARIABLE.get(run.get("thunder_variable") or "thunderstorm_index_combined", THUNDER)
+
+
+def notices(ahead: list[dict[str, Any]], incident: str = scenario.INCIDENT, thunder_at: float = THUNDER) -> list[dict[str, str]]:
     """What the next 24 hours of the run mean for the rescue service: { kind, text } with a short
-    Swedish line; the kinds are wind_shift, gust, rain, dry, humidity and thunder."""
+    Swedish line. A fire: wind_shift, gust, rain, dry, humidity and thunder; a flood: heavy_rain,
+    rain, dry, gust, snow and thunder."""
     day = ahead[:24]
     if len(day) < 6:
         return []
+    if incident == "flood":
+        return flood_notices(day, thunder_at)
     found = []
     now_direction, now_speed = mean_direction(day[:3])
     for start in range(3, len(day) - 2):
@@ -161,8 +176,32 @@ def notices(ahead: list[dict[str, Any]]) -> list[dict[str, str]]:
     if driest["humidity_pct"] <= LOW_HUMIDITY:
         found.append({"kind": "humidity", "text": f"Låg luftfuktighet, ned till {round(driest['humidity_pct'])} procent"})
     thunder = max(day, key=lambda item: item["thunderstorm_index"] or 0.0)
-    if (thunder["thunderstorm_index"] or 0.0) >= THUNDER:
+    if (thunder["thunderstorm_index"] or 0.0) >= thunder_at:
         found.append({"kind": "thunder", "text": f"Risk för åska {when(day.index(thunder))}, nya bränder kan tändas"})
+    return found
+
+
+def flood_notices(day: list[dict[str, Any]], thunder_at: float) -> list[dict[str, str]]:
+    """The flood's notices: the rain that matters for the rivers and the drains first."""
+    found = []
+    heaviest = max(day, key=lambda item: item["precipitation_mm"] or 0.0)
+    if (heaviest["precipitation_mm"] or 0.0) > HEAVY_RAIN_MM_H:
+        found.append({"kind": "heavy_rain", "text": f"Kraftigt regn, upp till {round(heaviest['precipitation_mm'])} millimeter "
+                                                    f"på en timme {when(day.index(heaviest))}"})
+    rain = sum(item["precipitation_mm"] or 0.0 for item in day)
+    if rain >= RAIN_MM:
+        found.append({"kind": "rain", "text": f"Nederbörd, {round(rain)} millimeter de närmaste 24 timmarna"})
+    elif rain < DRY_MM:
+        found.append({"kind": "dry", "text": "Ingen nederbörd de närmaste 24 timmarna"})
+    snow = sum(item["precipitation_mm"] or 0.0 for item in day if item["temperature_c"] is not None and item["temperature_c"] <= SNOW_C)
+    if rain >= RAIN_MM and snow >= rain / 2:
+        found.append({"kind": "snow", "text": "Nederbörden faller mest som snö"})
+    gust = max(day, key=lambda item: item["gust_ms"])
+    if gust["gust_ms"] >= GUST_MS:
+        found.append({"kind": "gust", "text": f"Byvind upp till {round(gust['gust_ms'])} meter per sekund {when(day.index(gust))}"})
+    thunder = max(day, key=lambda item: item["thunderstorm_index"] or 0.0)
+    if (thunder["thunderstorm_index"] or 0.0) >= thunder_at:
+        found.append({"kind": "thunder", "text": f"Risk för åska och skyfall {when(day.index(thunder))}"})
     return found
 
 
@@ -237,8 +276,11 @@ def at(clock: datetime) -> dict[str, Any] | None:
         "available_utc": (parse(run["issued_utc"]) + AVAILABLE_AFTER).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "hours": hours,
         "summaries": [item for item in (summary(ahead, hours_ahead) for hours_ahead in SUMMARY_HOURS) if item],
-        "notices": notices(ahead),
-        "fwi": fire_weather_index(run, hours),
+        "notices": notices(ahead, thunder_at=thunder_threshold(run)),
+        "fwi": fire_weather_index(run, hours) if scenario.INCIDENT == "wildfire" else [],
+        "model": run.get("model", "MEPS"),
+        "has_thunder": bool(run.get("thunder_variable", "thunderstorm_index_combined")) and run["point"].get(
+            "thunder_index", run["point"].get("thunderstorm_index")) is not None,
         "wind_grid": wind_grid(run, clock),
         "wind_grid_hours_ahead": WIND_AHEAD_H,
         "wind_grid_valid_utc": run["times_utc"][wind_hour(run, clock)],
@@ -253,7 +295,7 @@ def issues() -> list[dict[str, Any]]:
     for run in runs():
         available = parse(run["issued_utc"]) + AVAILABLE_AFTER
         ahead = [item for item in hourly(run) if parse(item["time_utc"]) >= available]
-        said = notices(ahead)
+        said = notices(ahead, thunder_at=thunder_threshold(run))
         found.append({"available_utc": available.strftime("%Y-%m-%dT%H:%M:%SZ"), "issued_utc": run["issued_utc"],
                       "notices": said, "news": [item["text"] for item in said if item["kind"] not in previous]})
         previous = {item["kind"] for item in said}

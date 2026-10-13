@@ -27,3 +27,18 @@ def test_the_grid_s_wind_is_turned_to_compass_directions() -> None:
 
 def test_the_licence_and_the_attribution_name_met_norway() -> None:
     assert "CC BY 4.0" in fetch.LICENCE and "MET Norway" in fetch.ATTRIBUTION
+
+
+def test_a_passing_server_failure_is_tried_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(fetch.time, "sleep", lambda seconds: None)
+    calls = []
+
+    def flaky(value: int) -> int:
+        calls.append(value)
+        if len(calls) < 3:
+            raise RuntimeError("NetCDF: DAP failure")
+        return value * 2
+
+    assert fetch.retried(flaky, 21) == 42 and len(calls) == 3
+    with pytest.raises(RuntimeError):
+        fetch.retried(lambda: (_ for _ in ()).throw(RuntimeError("down")))

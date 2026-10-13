@@ -39,6 +39,8 @@ WIND_FILE = REPO_ROOT / "weather_data" / "era5-land" / "era5-land-vastmanland-20
 DEM_DIR = REPO_ROOT / "data" / "dem"
 TERRAIN_DIR = REPO_ROOT / "data" / "terrain"
 LANDSAT_DIR = REPO_ROOT / "data" / "landsat"
+# MET Norway's archived weather forecasts, as issued (tools/fetch_met_forecasts.py, met_forecast.py).
+MET_FORECAST_DIR = REPO_ROOT / "data" / "vastmanland2014" / "met-forecast"
 TLE_DIR = REPO_ROOT / "data" / "tle"
 TLE_FILE_NAME = "tle-2014.json"
 

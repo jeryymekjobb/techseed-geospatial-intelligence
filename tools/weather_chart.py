@@ -19,7 +19,10 @@ CENTRAL_MERIDIAN = 15.0
 # The rain's classes in the three hours (mm, at least) and their colours, light blue to purple.
 RAIN_CLASSES = [(0.3, (155, 211, 255, 150)), (1.0, (79, 163, 224, 175)), (3.0, (31, 95, 168, 195)), (10.0, (123, 47, 191, 210))]
 PIXELS_PER_DEGREE = (10, 20)  # longitude, latitude: about 5 km each way at 62° N
-THUNDER = 0.6
+# A symbol where the model's thunder variable reaches this: MEPS's combined thunderstorm index (2018)
+# and its lightning index (from 2024); AROME-MetCoOp (2014) has none.
+THUNDER_THRESHOLDS = {"thunderstorm_index_combined": 0.6, "lightning_index": 0.6}
+THUNDER = THUNDER_THRESHOLDS["thunderstorm_index_combined"]
 THUNDER_SPACING_KM = 100.0
 
 
@@ -63,12 +66,12 @@ def rain_png(rain_mm: Any, xs: Sequence[float], ys: Sequence[float], area: Seque
     return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
-def thunder_marks(index: Any, latitudes: Any, longitudes: Any) -> list[dict[str, float]]:
-    """Where the thunderstorm index reaches THUNDER, strongest first, one per THUNDER_SPACING_KM."""
+def thunder_marks(index: Any, latitudes: Any, longitudes: Any, threshold: float = THUNDER) -> list[dict[str, float]]:
+    """Where the thunder index reaches `threshold`, strongest first, one per THUNDER_SPACING_KM."""
     import numpy as np
 
     values = np.nan_to_num(np.asarray(index, dtype=float))
-    rows, cols = np.where(values >= THUNDER)
+    rows, cols = np.where(values >= threshold)
     order = np.argsort(-values[rows, cols])
     kept: list[dict[str, float]] = []
     for k in order:

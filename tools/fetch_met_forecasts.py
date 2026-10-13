@@ -14,7 +14,7 @@ control run (`meps_mbr0_pp_2_5km_<run>.nc`):
   accumulated precipitation, for the map's forecast wind;
 - over Scandinavia, every ISOBAR_STEP-th point (about 20 km), at the synoptic hours (00, 03 ...
   21 UTC) of the run's first ISOBAR_HOURS hours, the map's weather chart: the air pressure at sea
-  level drawn as isobars every 2 hPa with the highs and lows (tools/isobars.py), the rain of the
+  level drawn as isobars every hPa with the highs and lows (tools/isobars.py), the rain of the
   three hours up to then as a transparent image and lightning where the thunderstorm index is
   high (tools/weather_chart.py).
 
@@ -24,8 +24,9 @@ not observations or a reanalysis; the screens say so.
 
     TECHSEED_SCENARIO=ljusdal2018 .venv/bin/python -m tools.fetch_met_forecasts
 
-A run already fetched is kept; --force fetches it again, and --isobars-only adds the isobars to
-runs fetched before they were added.
+A run already fetched is kept; --force fetches it again, and --isobars-only draws the weather
+charts of runs fetched before, skipping those already drawn at the present interval (so a run
+broken off by MET Norway's server goes on where it stopped).
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Sequence
@@ -42,6 +44,8 @@ from tools import isobars as isobar_lines
 from tools import weather_chart
 
 ARCHIVE = "https://thredds.met.no/thredds/dodsC/meps25epsarchive"
+AROME_ARCHIVE = "https://thredds.met.no/thredds/dodsC/aromemetcoopstarc"
+MEPS_START = datetime(2016, 11, 8, tzinfo=timezone.utc)  # before it, AROME-MetCoOp's deterministic runs
 RUN_HOURS = (0, 6, 12, 18)
 LEAD_HOURS = 66
 GRID_STEP = 2  # every second 2.5 km point: 5 km between the map's arrows
@@ -54,7 +58,6 @@ POINT_VARIABLES = {
     "humidity": "relative_humidity_2m",
     "precipitation_acc_mm": "precipitation_amount_acc",
     "cloud_pct": "cloud_area_fraction",
-    "thunderstorm_index": "thunderstorm_index_combined",
 }
 # The weather chart: every ISOBAR_STEP-th point over ISOBAR_AREA (west, south, east, north), the
 # synoptic hours of the run's first ISOBAR_HOURS hours (a run is shown until the next one is published).
@@ -66,8 +69,26 @@ ATTRIBUTION = "Väderprognos: MET Norway (MEPS, MetCoOp), NLOD/CC BY 4.0"
 OUT_DIR = getattr(scenario, "MET_FORECAST_DIR", None)
 
 
+def archive_for(run: datetime) -> dict[str, Any]:
+    """The archive of a run's time: its file, the model's name and its thunder variable (None without one).
+    AROME-MetCoOp until MEPS came in November 2016 (no thunder index); MEPS's post-processed control
+    member until 2019; from 2024 MEPS's deterministic run, as an NcML aggregation in 2024 and one file
+    from 2025, with a lightning index. The years between are not used by any scenario."""
+    if run < MEPS_START:
+        return {"url": f"{AROME_ARCHIVE}/{run:%Y/%m/%d}/AROME_MetCoOp_{run:%H}_fp.nc_{run:%Y%m%d}",
+                "model": "AROME-MetCoOp (deterministic)", "thunder": None}
+    if run.year < 2020:
+        return {"url": f"{ARCHIVE}/{run:%Y/%m/%d}/meps_mbr0_pp_2_5km_{run:%Y%m%dT%H}Z.nc",
+                "model": "MEPS, control member, post-processed (meps_mbr0_pp_2_5km)", "thunder": "thunderstorm_index_combined"}
+    if run.year < 2025:
+        return {"url": f"{ARCHIVE}/{run:%Y/%m/%d}/meps_det_sfc_{run:%Y%m%dT%H}Z.ncml",
+                "model": "MEPS, deterministic (meps_det_sfc)", "thunder": "lightning_index"}
+    return {"url": f"{ARCHIVE}/{run:%Y/%m/%d}/meps_det_2_5km_{run:%Y%m%dT%H}Z.nc",
+            "model": "MEPS, deterministic (meps_det_2_5km)", "thunder": "lightning_index"}
+
+
 def run_url(run: datetime) -> str:
-    return f"{ARCHIVE}/{run:%Y/%m/%d}/meps_mbr0_pp_2_5km_{run:%Y%m%dT%H}Z.nc"
+    return archive_for(run)["url"]
 
 
 def runs(start: datetime, end: datetime) -> list[datetime]:
@@ -127,9 +148,12 @@ def rounded(values: Any, digits: int) -> list[float | None]:
 def fetch_run(run: datetime, grid: dict[str, Any]) -> dict[str, Any]:
     """One run's point series and map grid."""
     import netCDF4
+    import numpy as np
 
-    with netCDF4.Dataset(run_url(run)) as dataset:
-        issued = datetime.fromtimestamp(float(dataset["forecast_reference_time"][:]), tz=timezone.utc)
+    archive = archive_for(run)
+    with netCDF4.Dataset(archive["url"]) as dataset:
+        issued = (datetime.fromtimestamp(float(dataset["forecast_reference_time"][:]), tz=timezone.utc)
+                  if "forecast_reference_time" in dataset.variables else run)
         times = [datetime.fromtimestamp(float(value), tz=timezone.utc) for value in dataset["time"][: LEAD_HOURS + 1]]
         j, i = grid["point"]
         x_wind, y_wind = series(dataset, "x_wind_10m", j, i), series(dataset, "y_wind_10m", j, i)
@@ -137,9 +161,10 @@ def fetch_run(run: datetime, grid: dict[str, Any]) -> dict[str, Any]:
         point: dict[str, Any] = {"wind_ms": [speed for speed, _ in winds], "wind_from_deg": [direction for _, direction in winds]}
         for key, name in POINT_VARIABLES.items():
             values = series(dataset, name, j, i)
-            if key == "humidity":
+            if key == "humidity" and np.nanmax(values) <= 1.5:
                 values = values * 100  # a fraction in the file
-            point[key] = rounded(values, 1 if key != "thunderstorm_index" else 2)
+            point[key] = rounded(values, 1)
+        point["thunder_index"] = rounded(series(dataset, archive["thunder"], j, i), 2) if archive["thunder"] else None
         rows, cols = grid["rows"], grid["cols"]
         x_grid, y_grid = series(dataset, "x_wind_10m", rows, cols), series(dataset, "y_wind_10m", rows, cols)
         precipitation = series(dataset, "precipitation_amount_acc", rows, cols)
@@ -156,7 +181,9 @@ def fetch_run(run: datetime, grid: dict[str, Any]) -> dict[str, Any]:
         "times_utc": [moment.strftime("%Y-%m-%dT%H:%M:%SZ") for moment in times],
         "point": {"latitude": grid["point_latitude"], "longitude": grid["point_longitude"], **point},
         "grid": cells,
-        "source": run_url(run),
+        "source": archive["url"],
+        "model": archive["model"],
+        "thunder_variable": archive["thunder"],
     }
 
 
@@ -180,7 +207,9 @@ def fetch_isobars(run: datetime, area: dict[str, Any]) -> list[dict[str, Any]]:
             index = (window[0],) + (0,) * (variable.ndim - 3) + window[1:]
             return np.ma.filled(variable[index].astype(float), np.nan)
 
-        pressure, accumulated, thunder = read("air_pressure_at_sea_level") / 100.0, read("precipitation_amount_acc"), read("thunderstorm_index_combined")
+        thunder_variable = archive_for(run)["thunder"]
+        pressure, accumulated = read("air_pressure_at_sea_level") / 100.0, read("precipitation_amount_acc")
+        thunder = read(thunder_variable) if thunder_variable else None
         for index in wanted:
             chart = isobar_lines.isobars(pressure[index], area["latitudes"], area["longitudes"])
             for line in chart["lines"]:  # every second point is enough at 20 km
@@ -190,8 +219,9 @@ def fetch_isobars(run: datetime, area: dict[str, Any]) -> list[dict[str, Any]]:
                 "valid_utc": times[index].strftime("%Y-%m-%dT%H:%M:%SZ"), **chart,
                 "rain_png": weather_chart.rain_png(rain, area["xs"], area["ys"], ISOBAR_AREA),
                 "rain_bounds": [[ISOBAR_AREA[1], ISOBAR_AREA[0]], [ISOBAR_AREA[3], ISOBAR_AREA[2]]],
-                "thunder": weather_chart.thunder_marks(np.nanmax(thunder[max(0, index - 2):index + 1], axis=0),
-                                                       area["latitudes"], area["longitudes"]),
+                "thunder": None if thunder is None else weather_chart.thunder_marks(
+                    np.nanmax(thunder[max(0, index - 2):index + 1], axis=0), area["latitudes"], area["longitudes"],
+                    weather_chart.THUNDER_THRESHOLDS[thunder_variable]),
             })
     return charts
 
@@ -210,6 +240,19 @@ def isobar_area(first_run: datetime) -> dict[str, Any]:
     cols = slice(int(cols.min()), int(cols.max()) + 1, ISOBAR_STEP)
     return {"rows": rows, "cols": cols, "latitudes": np.asarray(latitudes[rows, cols]), "longitudes": np.asarray(longitudes[rows, cols]),
             "xs": xs[cols], "ys": ys[rows]}
+
+
+def retried(fetch: Any, *args: Any, attempts: int = 3) -> Any:
+    """`fetch(*args)`, again after a pause when MET Norway's server fails for a moment ("DAP failure",
+    "DAP server error"); a run missing from the archive fails every time and is reported then."""
+    for attempt in range(attempts):
+        try:
+            return fetch(*args)
+        except (RuntimeError, OSError):
+            if attempt == attempts - 1:
+                raise
+            time.sleep(10 * (attempt + 1))
+    return None
 
 
 def grid_for(first_run: datetime) -> dict[str, Any]:
@@ -236,15 +279,19 @@ def main(argv: list[str] | None = None) -> int:
     end = datetime.combine(scenario.PERIOD_END, datetime.min.time(), tzinfo=timezone.utc) + timedelta(hours=18)
     wanted = runs(start, end)
     args.out.mkdir(parents=True, exist_ok=True)
-    grid = grid_for(wanted[0])
-    area = isobar_area(wanted[0])
+    grid = retried(grid_for, wanted[0])
+    area = retried(isobar_area, wanted[0])
     fetched, missing = [], []
     for run in wanted:
         target = args.out / f"{run:%Y%m%dT%H}Z.json"
         if args.isobars_only:
             if target.is_file():
                 record = json.loads(target.read_text(encoding="utf-8"))
-                record["isobars"] = fetch_isobars(run, area)
+                if record.get("isobar_interval_hpa") == isobar_lines.INTERVAL_HPA and not args.force:
+                    fetched.append(run)  # drawn already: a run broken off goes on from here
+                    continue
+                record["isobars"] = retried(fetch_isobars, run, area)
+                record["isobar_interval_hpa"] = isobar_lines.INTERVAL_HPA
                 target.write_text(json.dumps(record, separators=(",", ":")) + "\n", encoding="utf-8")
                 fetched.append(run)
                 print(f"{run:%Y-%m-%d %H} UTC: isobarer för {len(record['isobars'])} tider", flush=True)
@@ -255,7 +302,8 @@ def main(argv: list[str] | None = None) -> int:
             fetched.append(run)
             continue
         try:
-            record = {**fetch_run(run, grid), "isobars": fetch_isobars(run, area)}
+            record = {**retried(fetch_run, run, grid), "isobars": retried(fetch_isobars, run, area),
+                      "isobar_interval_hpa": isobar_lines.INTERVAL_HPA}
         except OSError as exc:  # not in the archive
             missing.append(f"{run:%Y-%m-%dT%H}Z: {exc}")
             print(f"saknas: {run:%Y-%m-%d %H} UTC", flush=True)
@@ -264,8 +312,8 @@ def main(argv: list[str] | None = None) -> int:
         fetched.append(run)
         print(f"{run:%Y-%m-%d %H} UTC: {len(record['times_utc'])} timmar, {len(record['grid'])} rutor", flush=True)
     (args.out / "SOURCE.json").write_text(json.dumps({
-        "model": "MEPS (MetCoOp Ensemble Prediction System), control member, post-processed (meps_mbr0_pp_2_5km)",
-        "archive": ARCHIVE,
+        "model": sorted({archive_for(run)["model"] for run in wanted}),
+        "archive": sorted({archive_for(run)["url"].rsplit("/", 4)[0] for run in wanted}),
         "runs_utc": [f"{run:%Y-%m-%dT%H:%M:%SZ}" for run in fetched],
         "missing": missing,
         "point": scenario.FIRE_CENTRE,

@@ -50,6 +50,8 @@ RADAR_DIR = DATA / "radar"
 DEM_DIR = DATA / "dem"
 TERRAIN_DIR = DATA / "terrain"
 LANDSAT_DIR = DATA / "landsat"
+# MET Norway's archived weather forecasts, as issued (tools/fetch_met_forecasts.py, met_forecast.py).
+MET_FORECAST_DIR = DATA / "met-forecast"
 SENTINEL2_DIR = DATA / "sentinel2"
 # The Sentinel-1 radar images of the acquisitions (tools/fetch_sentinel1_scene.py).
 SENTINEL1_DIR = DATA / "sentinel1"
