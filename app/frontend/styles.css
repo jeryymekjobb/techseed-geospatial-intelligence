@@ -237,6 +237,9 @@ body.monitor-page { display: flex; flex-direction: column; height: 100%; backgro
 .ndmi-legend[hidden] { display: none; }
 .ndmi-legend .bar { grid-column: 1 / -1; height: 10px; border-radius: 3px; }
 .ndmi-legend span:last-child { text-align: right; }
+.radarwater-legend { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; font-size: 0.8rem; }
+.radarwater-legend[hidden] { display: none; }
+.radarwater-legend .swatch { flex: none; width: 14px; height: 14px; margin-top: 2px; border-radius: 2px; background: rgb(255, 0, 0); opacity: 0.86; }
 .iot-confirms { margin-top: 6px; font-weight: 700; }
 .control-layout h3 { margin: 8px 0 4px; font-size: 0.9rem; color: #d0d0d0; }
 .assessment-outcome { font-size: 1.15rem; font-weight: 700; }

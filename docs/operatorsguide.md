@@ -675,7 +675,8 @@ Demon använder samma skärmar och knappar som branddemon. I stället för brand
   Sentinel-2, vars augustibilder är molniga. Från början visas den senaste radarbilden fram
   till scenariotiden. Välj karta eller en annan bild i gruppen **Satellitbilder** i mission
   control; raden överst på huvudskärmen säger vad som visas och när bilden togs. En radarbild
-  kan också visas som **vatten i radarbilden utanför sjöar och hav**, en beräknad mask.
+  kan också visas som **vatten i radarbilden utanför sjöar och hav**, en beräknad mask i rött;
+  panelen förklarar då färgen under **Satellitbild**.
 
 Kommunens och MCF:s kartor hämtas från deras karttjänster medan demon körs. Datorn behöver
 därför internet för dem. Allt annat fungerar utan.

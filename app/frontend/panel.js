@@ -630,7 +630,12 @@ function setClock(clock) {
 async function setupLandsat(config) {
   const section = document.createElement("section");
   section.innerHTML = '<h2>Satellitbild</h2>'
-    + '<div id="landsat-legend" class="ndmi-legend" hidden></div><div id="landsat-note" class="status"></div>'
+    + '<div id="landsat-legend" class="ndmi-legend" hidden></div>'
+    // The radar's computed water (radarwater): what its red means, while it is shown.
+    + '<div id="radarwater-legend" class="radarwater-legend" hidden><span class="swatch"></span><span><strong>Rött:</strong> vatten '
+    + 'i radarbilden utanför sjöar och hav, beräknat med en enkel tröskel – inte en kartlagd översvämning. '
+    + 'Sentinel-1 ser genom moln.</span></div>'
+    + '<div id="landsat-note" class="status"></div>'
     + '<div class="status">Välj karta eller bild i mission control.</div>';
   $("satellite-section").after(section);
   const info = config.layers.landsat;
@@ -708,6 +713,7 @@ function showLandsatAt(clock) {
     || `${scene.label}, ${sceneConditions(scene)}. ${state.landsat.names[image]}.`
       + (selection.reason === "comparison" ? " Tagen senare – inte läget vid scenariotiden." : "");
   $("landsat-legend").hidden = !(key && image === "ndmi");
+  $("radarwater-legend").hidden = !(key && image === "radarwater");
   if (key) showViewCaption(...sceneOfKey(key), selection.reason);
   else showViewCaption(null, null, selection.reason);
   if (key === state.landsatShown) return;

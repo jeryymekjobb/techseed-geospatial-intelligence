@@ -105,3 +105,9 @@ def test_the_time_charts_are_right_under_the_playback() -> None:
     panel = (FRONTEND / "panel.js").read_text(encoding="utf-8")
     assert '$("rain-station").closest("section").after(section);' in panel  # the flows' chart follows the rain's
     assert 'const charts = document.querySelectorAll(".panel .chart-section");' in panel  # the status comes after them
+
+
+def test_the_radar_s_red_water_is_explained_while_it_is_shown() -> None:
+    panel = (FRONTEND / "panel.js").read_text(encoding="utf-8")
+    assert "vatten '\n    + 'i radarbilden utanför sjöar och hav, beräknat med en enkel tröskel – inte en kartlagd översvämning." in panel
+    assert '$("radarwater-legend").hidden = !(key && image === "radarwater");' in panel
