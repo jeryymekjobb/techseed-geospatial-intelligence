@@ -385,7 +385,7 @@ async function createCesiumMap(config) {
       }
     },
 
-    // MET Norway's weather chart: the rain of three hours, isobars every 2 hPa with their hPa, H and L,
+    // MET Norway's weather chart: the rain of three hours, isobars every hPa (each fourth with its value), H and L,
     // and lightning; off until ticked.
     setupWeatherChart() {
       layers.push(["Väderkarta (MET Norway)", (visible) => {
@@ -411,8 +411,11 @@ async function createCesiumMap(config) {
         entities.add({ position: Cesium.Cartesian3.fromDegrees(mark.longitude, mark.latitude), billboard: { image: LIGHTNING_IMAGE, ...ON_GROUND } });
       }
       for (const line of chart?.lines || []) {
+        // Every hPa; each fourth (1000, 1004 …) bolder and with its value, as on weather charts.
+        const main = line.hpa % 4 === 0;
         entities.add({ polyline: { positions: Cesium.Cartesian3.fromDegreesArray(line.coords.flatMap(([lat, lon]) => [lon, lat])),
-                                   width: 1.6, clampToGround: true, material: cesiumColor("#1f3a7a", 0.85) } });
+                                   width: main ? 1.8 : 0.8, clampToGround: true, material: cesiumColor("#1f3a7a", main ? 0.9 : 0.6) } });
+        if (!main) continue;
         const [lat, lon] = line.coords[Math.floor(line.coords.length / 2)];
         text(lat, lon, String(line.hpa), "12px system-ui, sans-serif", "#1f3a7a");
       }

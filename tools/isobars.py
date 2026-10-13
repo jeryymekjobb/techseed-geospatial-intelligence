@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-INTERVAL_HPA = 2
+INTERVAL_HPA = 1
 SMOOTHING_PASSES = 1
 # A high or a low is the extreme within this many grid cells each way, and at least this much
 # above or below the mean around it (hPa).

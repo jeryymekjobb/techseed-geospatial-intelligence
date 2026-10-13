@@ -310,7 +310,7 @@ function createLeafletMap(config) {
     },
 
     // MET Norway's weather chart (met_forecast.py): the rain of three hours as a transparent image,
-    // dark blue isobars with their hPa, H and L, and lightning; off until mission control ticks
+    // dark blue isobars every hPa (each fourth with its value), H and L, and lightning; off until mission control ticks
     // "Väderkarta (MET Norway)".
     setupWeatherChart() {
       isobarLayer = L.layerGroup();
@@ -322,7 +322,10 @@ function createLeafletMap(config) {
       isobarLayer.clearLayers();
       if (chart?.rain_png) L.imageOverlay(chart.rain_png, chart.rain_bounds, { opacity: 0.85, interactive: false }).addTo(isobarLayer);
       for (const line of chart?.lines || []) {
-        L.polyline(line.coords, { color: "#1f3a7a", weight: 1.6, opacity: 0.85, interactive: false }).addTo(isobarLayer);
+        // Every hPa; each fourth (1000, 1004 …) bolder and with its value, as on weather charts.
+        const main = line.hpa % 4 === 0;
+        L.polyline(line.coords, { color: "#1f3a7a", weight: main ? 1.8 : 0.8, opacity: main ? 0.9 : 0.6, interactive: false }).addTo(isobarLayer);
+        if (!main) continue;
         const middle = line.coords[Math.floor(line.coords.length / 2)];
         L.marker(middle, { icon: L.divIcon({ className: "isobar-label", html: String(line.hpa), iconSize: [0, 0] }), interactive: false, keyboard: false })
           .addTo(isobarLayer);

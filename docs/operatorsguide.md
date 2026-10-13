@@ -976,7 +976,7 @@ Välj **Skogsbranden vid Kårböle 2018** i menyn (avsnitt 7). Skillnader mot V�
   just nu (ERA5-Land).
 - **Väderkarta:** kryssa **Väderkarta (MET Norway)** i mission controls lagerlista (kolumnen
   Kartan, under Väder). Kartan blir platt och visar Skandinavien med lufttrycket som isobarer var
-  2 hPa med H och L, regnet de tre timmarna fram till kartans tid (blått till lila: från 0,3, 1, 3
+  hPa (var fjärde kraftigare och med sitt värde) med H och L, regnet de tre timmarna fram till kartans tid (blått till lila: från 0,3, 1, 3
   och 10 mm) och ⚡ där MEPS åskindex är högt. Kartan gäller **nästa** av 00Z, 03Z, 06Z … efter
   scenarioklockan, ur den senast publicerade prognosen: klockan 01 svensk tid (23Z i juli) visas
   prognosen för 00Z. Överst på kartan står vilken tid som visas och när prognosen utfärdades, till
