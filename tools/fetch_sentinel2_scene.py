@@ -4,11 +4,14 @@
 The scenes are the scenario's SENTINEL2_SCENES (Level-2A surface reflectance), named
 by product up to the relative orbit, for example `S2A_MSIL2A_20260820T101701_R065`:
 every tile of that datatake over the map area is used, so an area across two tiles
-or UTM zones is whole. Per scene it writes two PNGs, three for a wildfire:
+or UTM zones is whole. Per scene it writes two PNGs, four for a wildfire:
 
 - natural colour (bands B04-B03-B02, reflectance 0-0.25);
 - for a wildfire scenario, false colour with short-wave infrared (B12-B8A-B04, reflectance
   0-0.4), as Landsat's 7-5-4: burnt forest is dark red-brown, active fire bright;
+- for a wildfire scenario, the moisture in the vegetation by the normalised difference moisture
+  index NDMI (B8A - B11) / (B8A + B11), in Landsat's NDMI colours, brown dry to blue moist;
+  clouds, cloud shadows, water and missing data are transparent;
 - water by the normalised difference water index NDWI (B03 - B08) / (B03 + B08):
   blue where NDWI is above 0, otherwise transparent; clouds, cloud shadows and
   missing data from the scene classification (SCL) are transparent as well.
@@ -31,7 +34,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from app.backend import scenario
-from tools.fetch_landsat_scene import STAC, docker_command, get_json, without_token
+from tools.fetch_landsat_scene import NDMI_COLOURS, STAC, docker_command, get_json, without_token
 
 COLLECTION = "sentinel-2-l2a"
 TOKEN_URL = f"https://planetarycomputer.microsoft.com/api/sas/v1/token/{COLLECTION}"
@@ -41,14 +44,18 @@ BBOX = scenario.MAP_BBOX
 SIZE = scenario.SENTINEL2_SIZE
 # The area each scene's coverage, cloud and water are reported for (west, south, east, north).
 FOCUS_AREA = scenario.LANDSAT_FOCUS_AREA
+WILDFIRE = scenario.INCIDENT == "wildfire"
 NATURAL = {"bands": ["B04", "B03", "B02"], "reflectance": (0.0, 0.25)}
 # Short-wave infrared, near infrared and red, for the fires' burnt areas.
 SWIR = {"bands": ["B12", "B8A", "B04"], "reflectance": (0.0, 0.4)}
-COMPOSITES = {"natural": NATURAL, **({"swir": SWIR} if scenario.INCIDENT == "wildfire" else {})}
-RAW_BANDS = ("B03", "B08", "SCL")
-# Scene classification: 0 no data, 1 saturated, 3 cloud shadow, 8-9 cloud, 10 thin cirrus.
+COMPOSITES = {"natural": NATURAL, **({"swir": SWIR} if WILDFIRE else {})}
+# Narrow near infrared and short-wave infrared at 1.6 µm, both 20 m, for the NDMI.
+NDMI_BANDS = ("B8A", "B11")
+RAW_BANDS = ("B03", "B08", "SCL", *(NDMI_BANDS if WILDFIRE else ()))
+# Scene classification: 0 no data, 1 saturated, 3 cloud shadow, 6 water, 8-9 cloud, 10 thin cirrus.
 SCL_NO_DATA = (0, 1)
 SCL_CLOUDY = (3, 8, 9, 10)
+SCL_WATER = 6
 WATER_RGBA = (30, 120, 220, 210)
 NOTICE = (f"Contains modified Copernicus Sentinel data {scenario.PERIOD_START.year}, processed by Techseed "
           "(Planetary Computer, sentinel-2-l2a)")
@@ -129,6 +136,27 @@ def water_image(out: Path, scene: str, baseline: str, size: tuple[int, int] = SI
     return share(has_data), share(cloudy[rows, cols] & has_data), share(water[rows, cols])
 
 
+def ndmi_image(out: Path, scene: str, baseline: str, size: tuple[int, int] = SIZE) -> None:
+    """Write the NDMI PNG in Landsat's NDMI colours; clouds, cloud shadows, water and gaps transparent."""
+    import numpy as np
+    from PIL import Image
+
+    width, height = size
+    read = lambda band, kind: np.fromfile(out / f"{scene}-{band}.bil", dtype=kind).reshape(height, width)  # noqa: E731
+    nir, swir, scl = read("B8A", "<u2").astype("f4"), read("B11", "<u2").astype("f4"), read("SCL", "u1")
+    offset = dn_for(0.0, baseline)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ndmi = ((nir - offset) - (swir - offset)) / ((nir - offset) + (swir - offset))
+    valid = (~np.isin(scl, (*SCL_NO_DATA, *SCL_CLOUDY, SCL_WATER)) & (nir > offset) & (swir > offset)
+             & np.isfinite(ndmi))
+    rgba = np.zeros((height, width, 4), dtype="u1")
+    stops = np.array([stop for stop, _ in NDMI_COLOURS], dtype="f4")
+    for channel in range(3):
+        rgba[..., channel] = np.interp(np.nan_to_num(ndmi), stops, [rgb[channel] for _, rgb in NDMI_COLOURS]).round().astype("u1")
+    rgba[..., 3] = np.where(valid, 230, 0)
+    Image.fromarray(rgba, "RGBA").save(out / f"{scene}-ndmi.png", optimize=True)
+
+
 def process(prefix: str, token: str, out: Path) -> dict:
     """Cut one datatake into its PNGs and return its record for SOURCE.json."""
     items = datatake_items(prefix)
@@ -139,6 +167,8 @@ def process(prefix: str, token: str, out: Path) -> dict:
     if run.returncode != 0:
         raise RuntimeError(f"GDAL failed for {prefix}:\n{without_token(run.stderr, token)[-2000:]}")
     coverage, cloud, water = water_image(out, prefix, baseline)
+    if WILDFIRE:
+        ndmi_image(out, prefix, baseline)
     for band in RAW_BANDS:
         for suffix in (".bil", ".hdr", ".prj", ".bil.aux.xml"):
             (out / f"{prefix}-{band}{suffix}").unlink(missing_ok=True)
@@ -154,6 +184,8 @@ def process(prefix: str, token: str, out: Path) -> dict:
             **{name: {"file": f"{prefix}-{name}.png", "bands": "-".join(composite["bands"]), "reflectance": list(composite["reflectance"])}
                for name, composite in COMPOSITES.items()},
             "water": {"file": f"{prefix}-water.png", "bands": "(B03-B08)/(B03+B08) > 0", "masked": "SCL 0, 1, 3, 8, 9, 10"},
+            **({"ndmi": {"file": f"{prefix}-ndmi.png", "bands": "(B8A-B11)/(B8A+B11)", "index": [stop for stop, _ in NDMI_COLOURS],
+                         "masked": "SCL 0, 1, 3, 6, 8, 9, 10"}} if WILDFIRE else {}),
         },
     }
 
@@ -182,7 +214,9 @@ def main(argv: list[str] | None = None) -> int:
         "bounds_west_south_east_north": [west, south, east, north],
         "size_px": list(SIZE),
         "processed_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "processing": "gdalwarp to EPSG:4326 (bilinear; SCL nearest), a linear stretch to 8 bit; NDWI with numpy",
+        "processing": "gdalwarp to EPSG:4326 (bilinear; SCL nearest), a linear stretch to 8 bit; NDWI"
+                      + (" and NDMI" if WILDFIRE else "") + " with numpy",
+        **({"ndmi_colours": [[stop, list(rgb)] for stop, rgb in NDMI_COLOURS]} if WILDFIRE else {}),
         "notice": NOTICE,
         "licence": LICENCE,
     }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

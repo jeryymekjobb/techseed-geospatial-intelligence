@@ -62,3 +62,25 @@ def test_water_is_blue_where_ndwi_is_positive_and_clouds_and_gaps_are_transparen
     area = (rows.stop - rows.start) * (cols.stop - cols.start)
     assert coverage == 100.0 and cloud == pytest.approx(100 / area, abs=0.1)
     assert water == pytest.approx(100 * 10 / area, abs=0.1)
+
+
+@pytest.mark.skipif(not HAS_NUMPY, reason="needs numpy and Pillow (the .venv)")
+def test_the_moisture_index_has_landsat_s_colours_and_hides_clouds_water_and_gaps(tmp_path: Path) -> None:
+    import numpy as np
+    from PIL import Image
+
+    size = (60, 33)
+    nir = np.full((33, 60), s2.dn_for(0.30, "05.11"), dtype="<u2")
+    swir = np.full((33, 60), s2.dn_for(0.10, "05.11"), dtype="<u2")  # NDMI 0.5: moist
+    scl = np.full((33, 60), 4, dtype="u1")
+    swir[5, :10] = s2.dn_for(0.30, "05.11")                            # NDMI 0: dry
+    scl[10, 10], scl[11, 11], scl[12, 12] = 9, 6, 0                     # cloud, water, no data
+    for band, data in {"B8A": nir, "B11": swir, "SCL": scl}.items():
+        data.tofile(tmp_path / f"S-{band}.bil")
+    s2.ndmi_image(tmp_path, "S", "05.11", size)
+    image = np.asarray(Image.open(tmp_path / "S-ndmi.png"))
+    assert tuple(image[20, 40]) == (60, 154, 146, 230)    # a third of the way from the 0.45 to the 0.6 colour
+    assert tuple(image[5, 5]) == (216, 179, 101, 230)     # the 0.0 colour
+    assert image[10, 10, 3] == image[11, 11, 3] == image[12, 12, 3] == 0
+    if s2.WILDFIRE:
+        assert set(s2.NDMI_BANDS) <= set(s2.RAW_BANDS)

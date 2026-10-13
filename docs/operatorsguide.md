@@ -926,8 +926,11 @@ Välj **Skogsbranden vid Kårböle 2018** i menyn (avsnitt 7). Skillnader mot V�
 - Skärmarna börjar 17 juli kl. 11:15 svensk tid, strax före NOAA-20 kl. 11:34; **SATELLITE
   DETECTION** tar nästa verkliga passage efter klockan.
 - **Satellitbilder från Sentinel-2**: före (4 juli), under (27 juli) och efter (2 september, en
-  jämförelse), med falska färger i kortvågig IR där bränd skog är rödbrun och aktiv brand orange.
-  Landsat är för molnig över branden de veckorna och är inte med.
+  jämförelse), med falska färger i kortvågig IR där bränd skog är rödbrun och aktiv brand orange,
+  och med **fukt i vegetationen (NDMI)** ur Sentinel-2:s band B8A och B11, i samma färger som
+  Västmanlands Landsat-bilder: brunt är torrt, blått är fuktigt. Moln, molnskuggor och vatten är
+  genomskinliga. NDMI visar fukten i växterna, inte i marken. Landsat är för molnig över branden
+  de veckorna och är inte med.
 - **Brandområdet enligt Copernicus EMS** (aktivering EMSR298, området Enskogen) som en lila
   streckad linje, kartlagt ur SPOT-6/7- och Sentinel-2-bilder: från 2 125 hektar på bilden 17
   juli till 17 936 hektar 7 augusti. Varje karta visas från slutet av bildens dag, eftersom

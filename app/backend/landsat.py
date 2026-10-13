@@ -3,7 +3,8 @@
 tools/fetch_landsat_scene.py cuts the scenario's Landsat scenes - for Västmanland 10 June,
 4 August and 14 September 2014 - into PNGs in its unversioned Landsat directory
 (data/landsat/): natural colour, short-wave infrared false colour and the moisture index
-NDMI; tools/fetch_sentinel2_scene.py adds Sentinel-2 natural colour and NDWI water, and
+NDMI; tools/fetch_sentinel2_scene.py adds Sentinel-2 natural colour and NDWI water (and for a
+wildfire short-wave infrared and NDMI), and
 tools/fetch_sentinel1_scene.py Sentinel-1 radar and its computed water, for the scenarios
 that have them. All are in WGS 84 over the map area. The backend serves them at
 /landsat/<file>, /sentinel2/<file> and /sentinel1/<file> and describes them in /api/config. The
@@ -26,7 +27,7 @@ SENTINEL1_DIR = scenario.SENTINEL1_DIR
 NAMES = {
     "swir": "falska färger, kortvågig IR (Landsat band 7-5-4, Sentinel-2 B12-B8A-B04)",
     "natural": "naturliga färger",
-    "ndmi": "fukt i vegetationen, NDMI (band 5 och 6)",
+    "ndmi": "fukt i vegetationen, NDMI (Landsat band 5 och 6, Sentinel-2 B8A och B11)",
     "water": "vatten, NDWI (Sentinel-2; moln bortmaskade)",
     "radar": "radar (Sentinel-1, VV; ser genom moln, ej terrängkorrigerad)",
     "radarwater": "beräknat vatten i radarbilden utanför sjöar och hav (röd mask, enkel tröskel)",
@@ -88,7 +89,8 @@ def layer() -> dict[str, Any] | None:
         "scenes": sorted(scenes, key=lambda item: item["acquired_utc"]),
         "bounds": [[south, west], [north, east]],
         "names": {name: text for name, text in NAMES.items() if name in shown},
-        "ndmi_colours": landsat_source.get("ndmi_colours") if landsat_scenes else None,
+        "ndmi_colours": (landsat_source.get("ndmi_colours") if landsat_scenes else None)
+                        or (sentinel_source.get("ndmi_colours") if sentinel_scenes else None),
         "attribution": attribution,
     }
 

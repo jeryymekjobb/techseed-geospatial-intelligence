@@ -114,6 +114,16 @@ def test_the_layer_lists_the_scenes_in_time_order_with_their_images(tmp_path: Pa
     assert layer["bounds"] == [[59.75, 15.85], [60.08, 16.45]] and layer["ndmi_colours"][0][0] == -0.2
 
 
+
+def test_sentinel_2_scenes_alone_bring_their_ndmi_colours(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(landsat, "LANDSAT_DIR", tmp_path / "landsat")
+    monkeypatch.setattr(landsat, "SENTINEL1_DIR", tmp_path / "sentinel1")
+    monkeypatch.setattr(landsat, "SENTINEL2_DIR", tmp_path / "sentinel2")
+    write_scenes(tmp_path / "sentinel2", {"during": ROLES["during"]}, ["ndmi"])
+    layer = landsat.layer()
+    assert layer["ndmi_colours"][0][0] == -0.2 and "Sentinel-2 B8A och B11" in layer["names"]["ndmi"]
+
+
 def test_image_urls_change_when_the_source_is_regenerated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     directory = tmp_path / "landsat"
     monkeypatch.setattr(landsat, "LANDSAT_DIR", directory)
