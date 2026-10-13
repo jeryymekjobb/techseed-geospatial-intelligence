@@ -1166,8 +1166,8 @@ function followPlaybackWindow(scenarioState) {
 }
 
 // The threatened buildings on the map, from the clock as in the satellite monitor's log
-// (satlog.js): every threat since the demo's start as a small icon, and one that has just come in
-// while the clock plays, as it is read aloud, large with its name for THREAT_HIGHLIGHT_MS.
+// (satlog.js): only a threat that has just come in while the clock plays, as it is read aloud, large
+// with its name for THREAT_HIGHLIGHT_MS; then it goes from the map and stays in the log.
 function showThreats(scenarioState) {
   if (!state.threatData) return;
   state.threatState = scenarioState;

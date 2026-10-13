@@ -195,20 +195,16 @@ const THREAT_ICON_SVG = '<svg viewBox="0 0 64 58"><path d="M32 3 L61 55 H3 Z" fi
 const THREAT_HIGHLIGHT_MS = 8000;
 
 // The threatened places on the main screen's maps (map2d.js, map3d.js): those of the log's threat
-// lines (as satelliteLog gives them), each place once, { name, latitude, longitude, latest }.
-// `latest` marks the places of the lines in `highlighted` (a Set of satlogKey), drawn large with
-// their name; they come last, so the maps draw them on top of the others (a small icon each).
+// lines (as satelliteLog gives them) in `highlighted` (a Set of satlogKey), each place once,
+// { name, latitude, longitude, latest }, drawn large with their name. A threat that is no longer
+// highlighted is not drawn at all; it stays in the log.
 function threatMarks(lines, highlighted = new Set()) {
   const marks = new Map();
   for (const line of lines) {
-    if (line.kind !== "threat" || !line.marks?.length) continue;
-    const latest = highlighted.has(satlogKey(line));
-    for (const mark of line.marks) {
-      const key = `${mark.name}|${mark.latitude}|${mark.longitude}`;
-      if (!marks.has(key) || latest) marks.set(key, { ...mark, latest: latest || marks.get(key)?.latest || false });
-    }
+    if (line.kind !== "threat" || !line.marks?.length || !highlighted.has(satlogKey(line))) continue;
+    for (const mark of line.marks) marks.set(`${mark.name}|${mark.latitude}|${mark.longitude}`, { ...mark, latest: true });
   }
-  return [...marks.values()].sort((a, b) => a.latest - b.latest);
+  return [...marks.values()];
 }
 
 // Which threat lines to highlight: { highlights, seen } from the earlier `highlights` (a Map of
