@@ -564,15 +564,21 @@ for (const button of document.querySelectorAll("[data-command]")) {
   });
 }
 for (const button of document.querySelectorAll("[data-image]")) button.addEventListener("click", () => chooseImage(button.dataset.image));
-// BYT DEMO: the backend stops and tools/start_demo.py shows its menu here in mission control.
-$("switch-demo").addEventListener("click", async () => {
-  if (!window.confirm("Avsluta demon och visa menyn med demos här i mission control?")) return;
+// BYT SCENARIO: the backend stops and tools/start_demo.py shows its menu here in mission control.
+// STARTA OM DEMO: the backend stops, start_demo closes every screen and starts the same scenario again.
+async function demoExit(path, label, question, done) {
+  if (!window.confirm(question)) return;
   const headers = token ? { "X-Control-Token": token } : {};
-  const response = await fetch("/api/demo/menu", { method: "POST", headers }).catch(() => null);
+  const response = await fetch(path, { method: "POST", headers }).catch(() => null);
   const error = response && !response.ok ? await response.json().catch(() => ({})) : null;
-  $("command-status").textContent = !response ? "BYT DEMO: backend svarar inte."
-    : error ? `BYT DEMO gick inte: ${error.detail || error.error}` : "Demon avslutas – menyn visas strax här.";
-});
+  $("command-status").textContent = !response ? `${label}: backend svarar inte.`
+    : error ? `${label} gick inte: ${error.detail || error.error}` : done;
+}
+$("switch-demo").addEventListener("click", () => demoExit("/api/demo/menu", "BYT SCENARIO",
+  "Avsluta scenariot och visa menyn med scenarier här i mission control?", "Scenariot avslutas – menyn visas strax här."));
+$("restart-demo").addEventListener("click", () => demoExit("/api/demo/restart", "STARTA OM DEMO",
+  "Starta om demon? Alla skärmar stängs, servern startas om och skärmarna öppnas igen.",
+  "Demon startas om – skärmarna stängs och öppnas igen om en stund."));
 $("image-pick").addEventListener("change", (event) => {
   pendingPick = event.target.value;
   showImages(clockShown);

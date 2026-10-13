@@ -250,8 +250,11 @@ knapp per demo. Klicka på **Skogsbranden i Västmanland 2014**. Kommandot skriv
 4/4 och sedan "Demon går", och då öppnas alla tre skärmarna i demon. Med demons namn,
 `.venv/bin/python -m tools.start_demo vastmanland2014`, hoppar det över menyn.
 
-Låt terminalen stå öppen hela dagen. **BYT DEMO** överst i mission control avslutar demon,
-stänger satellitmonitorn och huvudskärmen och visar menyn i mission control igen; Ctrl+C i terminalen stoppar backend och sensorerna. Står det att något redan
+Låt terminalen stå öppen hela dagen. **BYT SCENARIO** längst ned i mission controls vänstra kolumn
+avslutar demon, stänger satellitmonitorn och huvudskärmen och visar menyn i mission control igen.
+**STARTA OM DEMO** bredvid den stänger alla skärmarna, startar om backend och sensorerna och öppnar
+skärmarna igen med samma scenario från dess sparade start, till exempel om något har hängt sig.
+Båda frågar först. Ctrl+C i terminalen stoppar backend och sensorerna. Står det att något redan
 svarar på port 8765 går en backend redan; stoppa den först. Sensorernas rader hamnar i
 `data/node-sim.log`. Skärmarna öppnas på 4 augusti 2014 kl. 11:30 svensk tid; avsnitt 8 beskriver
 dem.
@@ -469,7 +472,7 @@ SCENARIO_CONTROL_TOKEN=din-token .venv/bin/python -m app.backend.server --host 0
 ```
 
 Öppna sedan `http://<datorns-ip-adress>:8765/control.html?token=din-token` på
-surfplattan. **BYT DEMO** fungerar bara när demon är startad med `tools.start_demo`; med
+surfplattan. **BYT SCENARIO** och **STARTA OM DEMO** fungerar bara när demon är startad med `tools.start_demo`; med
 backend startad så här svarar den att det inte går. Datorns IP-adress visas med kommandot `hostname -I`. Även huvudskärmens adress
 behöver `&token=din-token` i slutet.
 
@@ -730,7 +733,7 @@ Den kör översvämningens nio steg och ska sluta med `RESULTAT: GODKÄND`.
 
 ## 16. Byta mellan demona
 
-**Enklast:** tryck **BYT DEMO** överst i mission control och bekräfta. Demon avslutas,
+**Enklast:** tryck **BYT SCENARIO** längst ned i mission controls vänstra kolumn och bekräfta. Demon avslutas,
 satellitmonitorn och huvudskärmen stängs, och menyn visas i mission control. Klicka på **Översvämning i Sundsvall 2026 – scenario**, eller
 på branden för att byta tillbaka. Är demon startad med ett namn går det likadant; utan
 `tools.start_demo` stoppar du med Ctrl+C och kör `.venv/bin/python -m tools.start_demo`.

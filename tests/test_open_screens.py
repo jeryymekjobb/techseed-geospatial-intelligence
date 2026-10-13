@@ -39,6 +39,7 @@ def test_each_screen_is_a_chrome_app_with_its_own_profile_and_place() -> None:
 def test_the_old_screen_is_closed_with_its_own_profile_as_the_pattern() -> None:
     window = screens.Window("main", "/3d.html", 0, 0, 1, 1)
     assert screens.close_command(window) == ["pkill", "-f", "--", f"--user-data-dir={screens.PROFILES / 'main'}"]
+    assert screens.close_all_command() == ["pkill", "-f", "--", f"--user-data-dir={screens.PROFILES}/"]  # STARTA OM DEMO: only the demo's Chromes
 
 
 def test_the_window_is_found_by_its_process_and_moved_into_place() -> None:

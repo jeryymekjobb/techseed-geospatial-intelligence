@@ -9,9 +9,10 @@ the menu "Techseed Geospatial Intelligence Demos" served here on the backend's p
 other screens open once a demo is chosen. A click on a demo starts it, in order: the docker-compose.yml services with the scenario's map
 tiles (it waits until the tiles service serves them), the backend for the scenario,
 the simulated booth nodes (their lines go to data/node-sim.log) and the screens in
-their places, at the scenario's starting time (or --at, with a name). BYT DEMO in
-mission control stops the backend with MENU_EXIT and the menu comes back. Ctrl+C
-stops the backend and the nodes; the screens and the services stay.
+their places, at the scenario's starting time (or --at, with a name). BYT SCENARIO in
+mission control stops the backend with MENU_EXIT and the menu comes back. STARTA OM DEMO
+stops it with RESTART_EXIT: the screens close and the same scenario starts again from its
+saved start. Ctrl+C stops the backend and the nodes; the screens and the services stay.
 
 It stops at once when something already answers on the backend's port, such as a
 backend left running, rather than start a second one.
@@ -44,7 +45,8 @@ PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
 NODE_LOG = REPO_ROOT / "data" / "node-sim.log"
 FRONTEND = REPO_ROOT / "app" / "frontend"
 PORT = 8765
-MENU_EXIT = 3  # the backend's exit code for BYT DEMO (TECHSEED_DEMO_MENU_EXIT)
+MENU_EXIT = 3  # the backend's exit code for BYT SCENARIO (TECHSEED_DEMO_MENU_EXIT)
+RESTART_EXIT = 4  # the backend's exit code for STARTA OM DEMO (TECHSEED_DEMO_RESTART_EXIT)
 MENU_TITLE = "Techseed Geospatial Intelligence Demos"
 
 
@@ -167,7 +169,7 @@ def answers(url: str) -> bool:
 
 
 def run_demo(name: str, at: str | None) -> int:
-    """Start a demo and run it until the backend stops; its exit code (MENU_EXIT for BYT DEMO), 0 after Ctrl+C."""
+    """Start a demo and run it until the backend stops; its exit code (MENU_EXIT for BYT SCENARIO, RESTART_EXIT for STARTA OM DEMO), 0 after Ctrl+C."""
     tiles, start = scenario_settings(name)
     base_url = f"http://127.0.0.1:{PORT}"
     print(f"1/4 Tjänsterna, med kartan {tiles} …", flush=True)
@@ -175,7 +177,8 @@ def run_demo(name: str, at: str | None) -> int:
     wait_until(lambda: served_tiles_file(offline_tiles.url_template()) == tiles, 90, f"the tiles service did not serve {tiles}")
 
     print(f"2/4 Backend för {name} …", flush=True)
-    env = {**os.environ, "TECHSEED_SCENARIO": name, "TECHSEED_DEMO_MENU_EXIT": str(MENU_EXIT)}
+    env = {**os.environ, "TECHSEED_SCENARIO": name, "TECHSEED_DEMO_MENU_EXIT": str(MENU_EXIT),
+           "TECHSEED_DEMO_RESTART_EXIT": str(RESTART_EXIT)}
     backend = subprocess.Popen([str(PYTHON), "-m", "app.backend.server", "--scenario", name, "--port", str(PORT)],
                                cwd=REPO_ROOT, env=env)
     nodes = None
@@ -193,11 +196,14 @@ def run_demo(name: str, at: str | None) -> int:
         print("4/4 Skärmarna …", flush=True)
         subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--base-url", base_url, "--at", at or start],
                        cwd=REPO_ROOT, check=False)
-        print(f"Demon går: {name} på {base_url}. BYT DEMO i mission control ger menyn; Ctrl+C stoppar.", flush=True)
+        print(f"Demon går: {name} på {base_url}. BYT SCENARIO i mission control ger menyn, STARTA OM DEMO startar om; Ctrl+C stoppar.", flush=True)
         backend.wait()
         if backend.returncode == MENU_EXIT:
-            print("BYT DEMO: tillbaka till menyn …", flush=True)
+            print("BYT SCENARIO: tillbaka till menyn …", flush=True)
             return MENU_EXIT
+        if backend.returncode == RESTART_EXIT:
+            print("STARTA OM DEMO: skärmarna stängs och demon startar om …", flush=True)
+            return RESTART_EXIT
         print(f"start_demo: the backend stopped (exit {backend.returncode})")
         return backend.returncode or 1
     except KeyboardInterrupt:
@@ -226,6 +232,11 @@ def main(argv: list[str] | None = None) -> int:
             if name is None:
                 name, at = choose_demo(), None
             code = run_demo(name, at)
+            if code == RESTART_EXIT:
+                # The same scenario again from its saved start, once its screens are closed.
+                subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--close"], cwd=REPO_ROOT, check=False)
+                at = None
+                continue
             if code != MENU_EXIT:
                 return code
             name = None

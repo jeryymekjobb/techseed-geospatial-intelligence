@@ -14,7 +14,8 @@ its monitor - so it fits the monitor's work area exactly. The thirds are of the 
   screen on the rest; mission control fills the next;
 - one: the satellite monitor, the main screen and mission control side by side.
 
-A screen already open with this tool is closed first, so it opens in its place again.
+A screen already open with this tool is closed first, so it opens in its place again; --close
+only closes them all (STARTA OM DEMO in tools/start_demo.py).
 Chrome's own messages go nowhere. Press F11 in the main screen for full screen.
 
     .venv/bin/python -m tools.open_screens
@@ -131,6 +132,11 @@ def no_translation(profile: Path) -> None:
     preferences.write_text(json.dumps(settings), encoding="utf-8")
 
 
+def close_all_command() -> list[str]:
+    """Closes every screen this tool opened (their Chromes' profiles are under PROFILES), not the user's own Chrome."""
+    return ["pkill", "-f", "--", f"--user-data-dir={PROFILES}/"]
+
+
 def close_command(window: Window) -> list[str]:
     """Stop the screen's own Chrome, if this tool opened it before; `--` since the pattern starts with dashes."""
     return ["pkill", "-f", "--", f"--user-data-dir={PROFILES / window.screen}"]
@@ -171,8 +177,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--at", help="start the main screen at this UTC time, for example 2026-08-16T05:00:00Z")
     parser.add_argument("--menu", action="store_true",
                         help="only mission control, with the menu of demos (tools/start_demo.py); the other screens close")
+    parser.add_argument("--close", action="store_true", help="only close every screen this tool opened")
     parser.add_argument("--dry-run", action="store_true", help="print the commands without running them")
     args = parser.parse_args(argv)
+    if args.close:
+        print("Stänger demons skärmar")
+        if not args.dry_run:
+            subprocess.run(close_all_command(), check=False)
+        return 0
     chrome = shutil.which("google-chrome") or shutil.which("google-chrome-stable") or shutil.which("chromium")
     if not chrome:
         parser.exit(1, "open_screens: Google Chrome is not installed\n")

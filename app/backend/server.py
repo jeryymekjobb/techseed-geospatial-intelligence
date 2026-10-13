@@ -731,14 +731,14 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/api/speak", "/api/speak/stop"):
             self.speak(path)
             return
-        if path not in ("/api/scenario/command", "/api/demo/menu"):
+        if path not in ("/api/scenario/command", "/api/demo/menu", "/api/demo/restart"):
             self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
             return
         if self.control_token and self.headers.get("X-Control-Token") != self.control_token:
             self.send_json({"error": "control_token_required"}, HTTPStatus.FORBIDDEN)
             return
-        if path == "/api/demo/menu":
-            self.demo_menu()
+        if path in ("/api/demo/menu", "/api/demo/restart"):
+            self.demo_exit(path.rsplit("/", 1)[1])
             return
         length = int(self.headers.get("Content-Length") or 0)
         if not 0 < length <= 4096:
@@ -826,14 +826,15 @@ class Handler(BaseHTTPRequestHandler):
         self.speaker.say([(line["text"], line["voice"]) for line in lines], keep=keep)
         self.send_json({"queued": len(lines)})
 
-    def demo_menu(self) -> None:
-        """BYT DEMO in mission control: stop, so that tools/start_demo.py shows its menu again.
-        It sets TECHSEED_DEMO_MENU_EXIT to the exit code it takes for that; without it there is no menu."""
-        code = os.environ.get("TECHSEED_DEMO_MENU_EXIT")
+    def demo_exit(self, action: str) -> None:
+        """Mission control's BYT SCENARIO ("menu") and STARTA OM DEMO ("restart"): stop with the exit code
+        tools/start_demo.py set in TECHSEED_DEMO_MENU_EXIT or TECHSEED_DEMO_RESTART_EXIT, so that it shows
+        its menu again or closes the screens and starts the same scenario again; without it, neither."""
+        code = os.environ.get(f"TECHSEED_DEMO_{action.upper()}_EXIT")
         if not code:
-            self.send_json({"error": "no_demo_menu", "detail": "backend är inte startad med tools.start_demo"}, HTTPStatus.CONFLICT)
+            self.send_json({"error": f"no_demo_{action}", "detail": "backend är inte startad med tools.start_demo"}, HTTPStatus.CONFLICT)
             return
-        self.send_json({"menu": True}, HTTPStatus.ACCEPTED)
+        self.send_json({action: True}, HTTPStatus.ACCEPTED)
         self.server.exit_code = int(code)
         threading.Thread(target=self.server.shutdown, daemon=True).start()
 
@@ -1070,7 +1071,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
     finally:
         server.server_close()
-    return getattr(server, "exit_code", 0)  # BYT DEMO's code for tools/start_demo.py
+    return getattr(server, "exit_code", 0)  # BYT SCENARIO's or STARTA OM DEMO's code for tools/start_demo.py
 
 
 if __name__ == "__main__":

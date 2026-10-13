@@ -425,6 +425,15 @@ def test_byt_demo_needs_the_token_and_start_demo(base_url: str, monkeypatch: pyt
     assert post(f"{base_url}/api/demo/menu", {}) == (202, {"menu": True})  # the backend then stops with exit code 3
 
 
+def test_starta_om_demo_stops_with_its_own_code(base_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    assert post(f"{base_url}/api/demo/restart", {}, token=None)[0] == 403
+    monkeypatch.delenv("TECHSEED_DEMO_RESTART_EXIT", raising=False)
+    status, body = post(f"{base_url}/api/demo/restart", {})
+    assert status == 409 and body["error"] == "no_demo_restart"
+    monkeypatch.setenv("TECHSEED_DEMO_RESTART_EXIT", "4")
+    assert post(f"{base_url}/api/demo/restart", {}) == (202, {"restart": True})  # the backend then stops with exit code 4
+
+
 def test_the_ticked_base_maps_are_shared_and_reset() -> None:
     scenario, _ = engine()
     assert scenario.snapshot()["status"]["base_maps"] is None  # the screens' default

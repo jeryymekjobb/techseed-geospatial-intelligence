@@ -92,6 +92,15 @@ def test_byt_demo_goes_back_to_the_menu_and_ctrl_c_ends(monkeypatch: pytest.Monk
     assert start_demo.main([]) == 0
     assert started == [("sundsvall2026", None), ("vastmanland2014", None)]
 
+    # STARTA OM DEMO: the screens close and the same scenario starts again, from its saved start.
+    started.clear()
+    closed = []
+    monkeypatch.setattr(start_demo.subprocess, "run", lambda command, **kwargs: closed.append(command[2:]))
+    codes = iter([start_demo.RESTART_EXIT, 0])
+    assert start_demo.main(["sundsvall2026", "--at", "2026-08-16T06:00:00Z"]) == 0
+    assert started == [("sundsvall2026", "2026-08-16T06:00:00Z"), ("sundsvall2026", None)]
+    assert closed == [["tools.open_screens", "--close"]]
+
     started.clear()
     codes = iter([0])
     assert start_demo.main(["sundsvall2026", "--at", "2026-08-16T06:00:00Z"]) == 0  # a name skips the menu
