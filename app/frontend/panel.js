@@ -120,6 +120,10 @@ async function getJson(path) {
   return response.json();
 }
 
+// The time charts' height in their viewBox, 300 wide; compact, so the rain and the flows both fit
+// under the playback.
+const CHART_HEIGHT = 80;
+
 function drawTimeline(daily, clock) {
   const svg = $("timeline");
   const totals = new Map();
@@ -128,7 +132,7 @@ function drawTimeline(daily, clock) {
   const end = new Date(state.config.playback.end_utc);
   const days = Math.round(hoursBetween(end, start) / 24);
   const width = 300;
-  const height = 100;
+  const height = CHART_HEIGHT;
   const barWidth = width / days;
   const max = Math.max(1, ...totals.values());
   const parts = [];
@@ -206,8 +210,13 @@ function showRain(clock) {
     ["Senaste timmen", `${decimal(sums.hour)} mm`],
     ["Senaste dygnet", `${decimal(sums.day)} mm`],
     ["Sedan start", `${decimal(sums.total)} mm`],
-  ].map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
+  ].map(chartValue).join("");
   drawRain(station, clock);
+}
+
+// A label and its value in a time chart's list, kept together on one line.
+function chartValue([label, value]) {
+  return `<div><dt>${label}</dt><dd>${value}</dd></div>`;
 }
 
 function decimal(value) {
@@ -219,7 +228,7 @@ function drawRain(station, clock) {
   const end = Date.parse(state.config.playback.end_utc);
   const values = hourlyRain(station.observations, start, end);
   const width = 300;
-  const height = 100;
+  const height = CHART_HEIGHT;
   const step = width / values.length;
   const max = Math.max(5, ...values);
   const parts = values.map((value, index) => {
@@ -295,8 +304,9 @@ function setupHydro(config) {
   const section = document.createElement("section");
   section.id = "hydro-section";
   section.dataset.incident = "flood";
-  section.innerHTML = "<h2>Vattenföring och vattenstånd (SMHI)</h2>"
-    + '<label>Station <select id="hydro-station"></select></label>'
+  section.className = "chart-section";
+  section.innerHTML = '<div class="chart-head"><h2>Vattenföring och vattenstånd (SMHI)</h2>'
+    + '<label>Station <select id="hydro-station"></select></label></div>'
     + '<svg id="hydro-chart" class="timeline" role="img" aria-label="Vattenföring eller vattenstånd vid stationen"></svg>'
     + '<dl id="hydro-values" class="forecast-values"></dl><div id="hydro-note" class="status"></div>';
   $("rain-station").closest("section").after(section);
@@ -333,7 +343,7 @@ function showHydro(clock) {
     ["Nu", latest ? `${hydroText(station.kind, latest.value)} (${hydroWhen(station.kind, latest.time_utc, formatLocal)})` : "inga värden ännu"],
     ["Högst i perioden", highest ? `${hydroText(station.kind, highest.value)} (${hydroWhen(station.kind, highest.time_utc, formatLocal)})` : "–"],
     ["Tidigare högsta", earlier ? `${hydroText(station.kind, earlier.value)} (${earlier.time_utc.slice(0, 4)}, mätt sedan ${station.measured_since.slice(0, 4)})` : "–"],
-  ].map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
+  ].map(chartValue).join("");
   $("hydro-note").textContent = (hydroRecord(station, highest) ? "Högre än allt som mätts här tidigare. " : "")
     + (station.kind === "level" ? "Vattenstånd per dygn i stationens höjdsystem. " : "Vattenföring, timmedelvärden. ")
     + (station.unchecked ? "SMHI har ännu inte kvalitetsgranskat alla värden." : "Kvalitetsgranskade värden från SMHI.");
@@ -344,7 +354,7 @@ function drawHydro(station, clock) {
   const start = Date.parse(state.config.playback.start_utc);
   const end = Date.parse(state.config.playback.end_utc);
   const width = 300;
-  const height = 100;
+  const height = CHART_HEIGHT;
   const values = station.observations.map((item) => item.value);
   const top = Math.max(...values, station.earlier_max?.value ?? -Infinity);
   const bottom = Math.min(...values);
@@ -625,7 +635,6 @@ async function setupSatellites(config) {
     const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
     state.monitor = createSatelliteMonitor($("map"), config.fire_centre, (time) => hourMinute.format(time), MONITOR_SIZE, config.incident_place,
       config.playback.start_utc.slice(0, 4));
-    document.body.dataset.monitor = "corner";  // the time charts move up out of its corner
   }
   precomputePasses();
 }
@@ -767,7 +776,9 @@ function setupScenarioView() {
   const section = document.createElement("section");
   section.innerHTML = '<h2>Läge</h2><ul id="scenario-status" class="scenario-status"></ul><div id="satcom-queue" class="satcom-queue"></div>'
     + '<ul id="satcom-sync" class="scenario-status"></ul><div id="iot-confirms" class="iot-confirms"></div>';
-  document.querySelector(".panel section").after(section);
+  // After the playback and its time charts.
+  const charts = document.querySelectorAll(".panel .chart-section");
+  (charts[charts.length - 1] || document.querySelector(".panel section")).after(section);
   const assessmentSection = document.createElement("section");
   assessmentSection.innerHTML = '<h2>AI ASSESSMENT</h2><div id="assessment-outcome" class="assessment-outcome">–</div>'
     + '<div id="assessment-score" class="status"></div><h3>Evidence</h3><ul id="assessment-evidence" class="evidence"></ul>'
@@ -1415,7 +1426,7 @@ async function startApp(createMap) {
   state.map.finish();
   setupScenarioView();
   // The flood's rain classes and maps right after the status, where the fire has its forecast; its
-  // rain and flows are charts over the map (#map-charts).
+  // rain and flows are charts under the playback.
   if (!wildfire) $("scenario-status").closest("section").after($("rain-legend").closest("section"), $("flood-legend").closest("section"));
   await setupQuestions();
   await setupSatellites(config);

@@ -353,10 +353,11 @@ markeras; när sidan laddas, vid **RESET** och vid hopp i tiden visas inga trian
 loggen och syns även när uppläsningen är av. Lagret heter **Hotad bebyggelse** och kan släckas i mission control.
 Huvudskärmen hämtar hoten när den laddas; ladda om den om PostGIS startade senare.
 
-**Diagrammen på kartan.** Tidsdiagrammen med scenarioklockan ligger i en ruta i kartans nedre
-vänstra hörn, i 2D och 3D: **Detektioner per dygn (UTC)** vid branden, **Regn (SMHI)** vid
-översvämningen och i Skåne också **Vattenföring och vattenstånd (SMHI)**. Med `?monitor=1`, där
-satellitbevakningen ligger i samma hörn, flyttar rutan upp under zoomknapparna.
+**Diagrammen under Uppspelning.** Tidsdiagrammen med scenarioklockan ligger i panelen direkt
+under **Uppspelning**, i 2D och 3D: **Detektioner per dygn (UTC)** vid branden, **Regn (SMHI)** vid
+översvämningen och i Skåne också **Vattenföring och vattenstånd (SMHI)**. De är kompakta, med
+mätaren eller stationen på rubrikens rad, så att båda översvämningsdiagrammen syns utan att panelen
+behöver rullas.
 
 **Sammanfattning vid start.** När scenariot står vid sin start, alltså när skärmarna laddas
 och efter **RESET**, visar huvudskärmen ett kort med vad demon visar och vad som är verkligt,
@@ -638,7 +639,7 @@ regn augusti 2026 – inte en återgiven händelse". Säg det också till besök
 
 Demon använder samma skärmar och knappar som branddemon. I stället för brandens delar visar den:
 
-- **Regn (SMHI)** i en ruta i kartans nedre vänstra hörn: timmar och dygn vid den mätare du väljer,
+- **Regn (SMHI)** i panelen under Uppspelning: timmar och dygn vid den mätare du väljer,
   och ett stapeldiagram med en röd linje för scenarioklockan. Klasserna står i panelen under **Regn
   på kartan (SMHI)**. Varje mätare på kartan visar regnet den senaste timmen, och
   markeringens storlek och färg följer SMHI:s klasser för regn: lätt (högst 0,5 mm på en timme),
@@ -841,11 +842,11 @@ det högsta sedan mätningarna började 1974.
 
 Välj **Översvämningarna i Skåne 2024** i menyn (avsnitt 7). Demon visar:
 
-- **Vattenföring och vattenstånd (SMHI)** i kartans nedre vänstra hörn, under regnet: vattenföringen vid Heåkra, Ellinge,
+- **Vattenföring och vattenstånd (SMHI)** i panelen under regnet: vattenföringen vid Heåkra, Ellinge,
   Högsmölla och Eggelstad och vattenståndet i Ringsjöarna och Vombsjön, med ett diagram över
   perioden, en streckad linje för det tidigare högsta värdet och "rekord" vid stationen på
   kartan när värdet är högre än allt som mätts där tidigare. Ett par stationer är ännu inte
-  kvalitetsgranskade av SMHI; det står i rutan.
+  kvalitetsgranskade av SMHI; det står i panelen.
 - **Regn (SMHI)** vid Hörby A och VA-huvudmännens mätare, **SMHI:s väderradar**, **vind
   (ERA5-Land)** och **MCF:s översvämningskartering** av Kävlingeån.
 - **Satellitbilder**: åtta Sentinel-1-radarbilder som täcker Ringsjöarna, från 20 januari till

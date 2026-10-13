@@ -94,12 +94,14 @@ def test_radarwater_appears_above_wms_without_raising_other_satellite_images() -
     assert 'shownLandsatKey?.endsWith("|radarwater")' in map3d
 
 
-def test_the_time_charts_are_over_the_map_and_not_in_the_panel() -> None:
+def test_the_time_charts_are_right_under_the_playback() -> None:
     for name in ["index.html", "3d.html"]:
         page = (FRONTEND / name).read_text(encoding="utf-8")
-        charts = page[page.index('<div id="map-charts"'):page.index('<aside class="panel">')]
+        panel = page[page.index('<aside class="panel">'):]
+        playback, after = panel.index("<h2>Uppspelning</h2>"), panel.index('class="forecast-section"')
         for chart in ['id="rain-chart"', 'id="timeline"', 'id="rain-station"', 'id="rain-values"']:
-            assert chart in charts, (name, chart)
-        assert 'id="rain-legend"' in page[page.index('<aside class="panel">'):]
+            assert playback < panel.index(chart) < after, (name, chart)
+        assert "map-charts" not in page
     panel = (FRONTEND / "panel.js").read_text(encoding="utf-8")
     assert '$("rain-station").closest("section").after(section);' in panel  # the flows' chart follows the rain's
+    assert 'const charts = document.querySelectorAll(".panel .chart-section");' in panel  # the status comes after them

@@ -8,15 +8,17 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .view-caption { font-size: 1rem; font-weight: 600; color: #fff; }
 .view-switch { margin-left: auto; color: #ffd54a; font-weight: 600; text-decoration: none; }
 .view-switch:hover { text-decoration: underline; }
-.layout { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: minmax(0, 1fr); height: calc(100% - 44px); }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: minmax(0, 1fr); height: calc(100% - 44px); }
 .map { position: relative; height: 100%; }
-/* The time charts with the scenario clock over the map's lower left corner, above its attribution. */
-.map-charts { position: absolute; left: 10px; bottom: 64px; z-index: 900; display: grid; gap: 8px; width: 340px; max-height: calc(100% - 140px); overflow-y: auto; }
-body[data-monitor="corner"] .map-charts { top: 84px; bottom: auto; }
-.map-charts section { padding: 8px 12px; border-radius: 6px; background: #fbfaf6e6; box-shadow: 0 1px 6px #0004; }
-.map-charts section h2 { margin-top: 0; }
+/* The time charts under the playback, compact so the rain and the flows both fit: the station's
+   choice on the title's line and each label with its value, as many to a row as fit. */
+.chart-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; }
+.chart-head label { font-size: 0.85rem; }
+.chart-section .timeline { height: 80px; }
+.chart-section .forecast-values { display: flex; flex-wrap: wrap; gap: 0 14px; margin: 2px 0; font-size: 0.8rem; }
+.chart-section .forecast-values div { display: flex; gap: 5px; white-space: nowrap; }
 .panel { overflow-y: auto; padding: 12px 16px; background: var(--panel); border-left: 1px solid #d8d4ca; }
-.panel h2, .map-charts h2 { margin: 14px 0 6px; font-size: 0.95rem; }
+.panel h2 { margin: 14px 0 6px; font-size: 0.95rem; }
 .sim-time { font-size: 1.15rem; font-weight: 600; }
 .controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
 .controls button { padding: 4px 10px; }
@@ -111,7 +113,7 @@ body.menu-page { background: #141414; color: #f2f2f2; display: grid; place-items
    lists read as text, since mission control sets them all; ?controls=1 brings them back. The map's
    own zoom and right click stay. */
 .display-only .panel button, .display-only .view-switch, .display-only #questions { display: none; }
-.display-only .panel select, .display-only .map-charts select {
+.display-only .panel select {
   appearance: none; -webkit-appearance: none; pointer-events: none;
   border: none; background: transparent; padding: 0; color: inherit; font: inherit; font-weight: 600;
 }
@@ -239,7 +241,7 @@ body.monitor-page { display: flex; flex-direction: column; height: 100%; backgro
 .answer pre { max-height: 220px; overflow: auto; font-size: 0.75rem; white-space: pre-wrap; }
 .answer button { margin-top: 6px; }
 .event-log { margin: 0; padding-left: 1.4em; font-size: 0.85rem; color: #d0d0d0; }
-@media (max-width: 760px) { .event-banner { left: 50%; } .scenario-summary { left: 50%; width: calc(100% - 32px); } .layout { grid-template-columns: 1fr; grid-template-rows: 60vh auto; height: auto; } .panel { border-left: 0; } .map-charts { position: static; width: auto; max-height: none; padding: 8px 16px; } }
+@media (max-width: 760px) { .event-banner { left: 50%; } .scenario-summary { left: 50%; width: calc(100% - 32px); } .layout { grid-template-columns: 1fr; grid-template-rows: 60vh auto; height: auto; } .panel { border-left: 0; } }
 /* A scenario shows only the parts of its kind of incident (config.incident on <body>). */
 body[data-incident="flood"] [data-incident="wildfire"], body[data-incident="wildfire"] [data-incident="flood"] { display: none; }
 .rain-bar { fill: #1f5fa8; }
