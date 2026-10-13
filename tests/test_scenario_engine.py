@@ -489,3 +489,15 @@ def test_a_question_is_put_to_every_screen_counted_and_cleared() -> None:
     with pytest.raises(CommandError):
         scenario.command("ask", target="Why?")
     assert scenario.snapshot()["events"] == []
+
+
+def test_the_playback_s_length_counts_the_slow_windows() -> None:
+    scenario, _ = engine()
+    state = scenario.snapshot()
+    start, end = (datetime.fromisoformat(state[key].replace("Z", "+00:00")) for key in ("start_utc", "end_utc"))
+    plain = (end - start).total_seconds() / state["speed"]
+    assert state["playback_seconds"] >= round(plain)
+    scenario.set_slow_windows([(start + timedelta(hours=1), start + timedelta(hours=2))])
+    slowed = scenario.snapshot()["playback_seconds"]
+    expected = plain - 3600 / state["speed"] + 3600 / min(state["speed"], 60.0)
+    assert slowed == round(expected) or state["speed"] <= 60

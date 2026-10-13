@@ -371,7 +371,9 @@ behöver rullas.
 
 **Sammanfattning vid start.** När scenariot står vid sin start, alltså när skärmarna laddas
 och efter **RESET**, visar huvudskärmen ett kort med vad demon visar och vad som är verkligt,
-beräknat och simulerat, till exempel att Landsat är för molnig över Kårböle och inte är med.
+beräknat och simulerat, till exempel att Landsat är för molnig över Kårböle och inte är med. Sista raden säger hur lång tid uppspelningen tar med vald hastighet
+och demons start och stopp, med inbromsningen vid satellitpassager inräknad, till exempel "Uppspelningen
+tar cirka 21 minuter med 3 timmar per sekund"; den följer en ändrad hastighet.
 Kortet ligger kvar tills du trycker **PLAY** i mission control eller knappen **▶ STARTA
 SCENARIOT** längst ned i kortet, som startar uppspelningen på samma sätt. Med uppläsningen på läser
 satellitbevakningen upp kortet, en rad i taget med rösterna omväxlande. Texten står i

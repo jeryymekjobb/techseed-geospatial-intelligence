@@ -1316,11 +1316,14 @@ function showThreats(scenarioState) {
 // The scenario's summary when it comes to its start (satlog.js summaryState), until PLAY, with a
 // button that starts the scenario; the satellite monitor reads it aloud.
 function showSummary(scenarioState) {
-  const lines = state.config.summary || [];
+  const duration = summaryDuration(scenarioState);
+  const lines = [...(state.config.summary || []), ...(duration ? [duration] : [])];
   const summary = summaryState(state.summarySince ?? null, scenarioState, Date.now());
   state.summarySince = summary.since;
   const element = $("scenario-summary");
-  if (summary.shown && lines.length && element.hidden) {
+  // Drawn again when it comes or its lines change (the playback's length follows the speed).
+  if (summary.shown && lines.length && (element.hidden || element.dataset.lines !== lines.join("\n"))) {
+    element.dataset.lines = lines.join("\n");
     element.innerHTML = "";
     const title = document.createElement("h2");
     title.textContent = `${state.config.title} – det här visas`;

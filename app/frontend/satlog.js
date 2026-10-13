@@ -329,6 +329,24 @@ function summaryMessages(title, lines) {
   return [`${title}. Det här visas.`, ...(lines || [])].map((text) => ({ text: satlogSaid(text) }));
 }
 
+// The summary's last line: how long the playback takes at the chosen speed, from the scenario
+// state's playback_seconds (slower round satellite passes) and speed (scenario seconds a second).
+function summaryDuration(scenarioState) {
+  const seconds = scenarioState.playback_seconds;
+  const speed = scenarioState.speed;
+  if (!seconds || !speed) return null;
+  const minutes = Math.round(seconds / 60);
+  const length = seconds < 90 ? `${Math.round(seconds)} sekunder`
+    : minutes < 90 ? `${minutes} ${minutes === 1 ? "minut" : "minuter"}`
+    : `${Math.floor(minutes / 60)} timmar och ${minutes % 60} minuter`;
+  const hours = speed / 3600;
+  const pace = Number.isInteger(hours) ? `${hours} ${hours === 1 ? "timme" : "timmar"} per sekund`
+    : `${Math.round(speed / 60)} ${Math.round(speed / 60) === 1 ? "minut" : "minuter"} per sekund`;
+  const plain = (Date.parse(scenarioState.end_utc) - Date.parse(scenarioState.start_utc)) / 1000 / speed;
+  const slowed = seconds > plain + 1 ? ", med inbromsning vid satellitpassager" : "";
+  return `Uppspelningen tar cirka ${length} med ${pace}${slowed}.`;
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, satlogDecimal, satlogWhole, satlogSaid, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, SATLOG_SOURCES };
+  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, satlogDecimal, satlogWhole, satlogSaid, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, summaryDuration, SATLOG_SOURCES };
 }

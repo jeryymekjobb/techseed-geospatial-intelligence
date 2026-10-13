@@ -117,7 +117,8 @@ async function start() {
     summarySince = summary.since;
     if (scenarioState.status?.speech) {
       if (summary.entered && config.summary?.length) {
-        const voiced = alternateVoices(summaryMessages(config.title, config.summary), nextVoice);
+        const duration = summaryDuration(scenarioState);
+        const voiced = alternateVoices(summaryMessages(config.title, [...config.summary, ...(duration ? [duration] : [])]), nextVoice);
         nextVoice = voiced.next;
         speak(voiced.lines, true);
       }

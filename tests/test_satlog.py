@@ -309,3 +309,17 @@ def test_the_voice_leaves_out_abbreviations_in_brackets() -> None:
     # Dates and words in brackets are kept.
     assert node("satlogSaid('före (4 juli) och efter (2 september, som jämförelse)')") == "före (4 juli) och efter (2 september, som jämförelse)"
     assert node("summaryMessages('T', ['Satelliter: Aqua (MODIS).'])[1].text") == "Satelliter: Aqua."
+
+
+def test_the_summary_says_how_long_the_playback_takes_at_the_speed() -> None:
+    state = {"start_utc": "2018-07-12T00:00:00Z", "end_utc": "2018-08-09T00:00:00Z", "speed": 10800}
+    plain = 28 * 24 * 3600 / 10800  # 224 s without slowing down
+    assert node(f"summaryDuration({json.dumps({**state, 'playback_seconds': plain})})") == \
+        "Uppspelningen tar cirka 4 minuter med 3 timmar per sekund."
+    assert node(f"summaryDuration({json.dumps({**state, 'playback_seconds': 1500})})") == \
+        "Uppspelningen tar cirka 25 minuter med 3 timmar per sekund, med inbromsning vid satellitpassager."
+    assert node(f"summaryDuration({json.dumps({**state, 'speed': 600, 'playback_seconds': 4032})})") == \
+        "Uppspelningen tar cirka 67 minuter med 10 minuter per sekund."
+    assert node(f"summaryDuration({json.dumps({**state, 'speed': 60, 'playback_seconds': 40320})})") == \
+        "Uppspelningen tar cirka 11 timmar och 12 minuter med 1 minut per sekund."
+    assert node("summaryDuration({})") is None

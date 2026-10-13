@@ -186,6 +186,22 @@ class ScenarioEngine:
     def _speed_at(self, moment: datetime) -> float:
         return min(self.speed, SLOW_SPEED) if self._window_at(moment) else self.speed
 
+    def _playback_seconds(self) -> float:
+        """Real seconds from the demo's start to its stop at the chosen speed, slower in the slow
+        windows (for the scenario's summary); the detection sequence's pauses are not counted."""
+        seconds, clock = 0.0, self._first
+        while clock < self._last:
+            window = self._window_at(clock)
+            if window:
+                boundary = window[1]
+            else:
+                later = bisect.bisect_right(self._slow, (clock, datetime.max.replace(tzinfo=clock.tzinfo)))
+                boundary = self._slow[later][0] if later < len(self._slow) else self._last
+            boundary = min(boundary, self._last)
+            seconds += (boundary - clock).total_seconds() / self._speed_at(clock)
+            clock = boundary
+        return seconds
+
     def _advance(self) -> None:
         """Move the stored clock to now, window by window; stop at the end."""
         now = self.monotonic()
@@ -221,6 +237,7 @@ class ScenarioEngine:
                 "playing": self._playing,
                 "finished": self._clock >= self._last,
                 "speed": self.speed,
+                "playback_seconds": round(self._playback_seconds()),
                 "effective_speed": self._speed_at(self._clock),
                 "slowed": self._speed_at(self._clock) < self.speed,
                 "start_utc": utc_text(self._first),
