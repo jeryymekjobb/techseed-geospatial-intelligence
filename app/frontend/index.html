@@ -17,6 +17,19 @@
   </header>
   <main class="layout">
     <div id="map" class="map" aria-label="Karta över händelseområdet"></div>
+    <!-- The time charts with the scenario clock, over the map's lower left corner (panel.js fills them). -->
+    <div id="map-charts" class="map-charts">
+      <section data-incident="flood">
+        <h2>Regn (SMHI)</h2>
+        <label>Mätare <select id="rain-station"></select></label>
+        <svg id="rain-chart" class="timeline" role="img" aria-label="Regn per timme vid mätaren"></svg>
+        <dl id="rain-values" class="forecast-values"></dl>
+      </section>
+      <section data-incident="wildfire">
+        <h2>Detektioner per dygn (UTC)</h2>
+        <svg id="timeline" class="timeline" role="img" aria-label="Antal detektioner per dygn"></svg>
+      </section>
+    </div>
     <aside class="panel">
       <section>
         <h2>Uppspelning</h2>
@@ -63,10 +76,7 @@
         <div id="forecast-places" class="status"></div>
       </section>
       <section data-incident="flood">
-        <h2>Regn (SMHI)</h2>
-        <label>Mätare <select id="rain-station"></select></label>
-        <svg id="rain-chart" class="timeline" role="img" aria-label="Regn per timme vid mätaren"></svg>
-        <dl id="rain-values" class="forecast-values"></dl>
+        <h2>Regn på kartan (SMHI)</h2>
         <ul id="rain-legend" class="legend"></ul>
         <div id="rain-note" class="status"></div>
       </section>
@@ -91,10 +101,6 @@
           <dl id="weather-values"></dl>
         </div>
         <div id="weather-note" class="status"></div>
-      </section>
-      <section data-incident="wildfire">
-        <h2>Detektioner per dygn (UTC)</h2>
-        <svg id="timeline" class="timeline" role="img" aria-label="Antal detektioner per dygn"></svg>
       </section>
       <section>
         <h2>Vind (ERA5-Land, modell)</h2>

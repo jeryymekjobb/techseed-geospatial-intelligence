@@ -625,6 +625,7 @@ async function setupSatellites(config) {
     const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
     state.monitor = createSatelliteMonitor($("map"), config.fire_centre, (time) => hourMinute.format(time), MONITOR_SIZE, config.incident_place,
       config.playback.start_utc.slice(0, 4));
+    document.body.dataset.monitor = "corner";  // the time charts move up out of its corner
   }
   precomputePasses();
 }
@@ -1407,11 +1408,9 @@ async function startApp(createMap) {
 
   state.map.finish();
   setupScenarioView();
-  // The flood's rain and maps right after the status, where the fire has its forecast.
-  if (!wildfire) {
-    $("scenario-status").closest("section").after($("rain-station").closest("section"),
-      ...($("hydro-section") ? [$("hydro-section")] : []), $("flood-legend").closest("section"));
-  }
+  // The flood's rain classes and maps right after the status, where the fire has its forecast; its
+  // rain and flows are charts over the map (#map-charts).
+  if (!wildfire) $("scenario-status").closest("section").after($("rain-legend").closest("section"), $("flood-legend").closest("section"));
   await setupQuestions();
   await setupSatellites(config);
   await setupLandsat(config);
