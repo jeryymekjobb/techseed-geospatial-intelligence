@@ -98,7 +98,8 @@ async function start() {
       passes: Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat(),
     }));
     const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [], sensorEvents, threats,
-      forecastIssues: config.layers.met_forecast?.issues || [] }, clock.getTime(),
+      forecastIssues: config.layers.met_forecast?.issues || [], lightningEvents: config.layers.lightning?.events || [],
+      lightningKm: config.layers.lightning?.near_km || 30 }, clock.getTime(),
       clock.getTime() - startMs + 1, Infinity, place);
     if (scenarioState.jump !== heardJump) {
       heardJump = scenarioState.jump;

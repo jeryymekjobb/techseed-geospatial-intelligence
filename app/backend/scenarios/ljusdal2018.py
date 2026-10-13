@@ -58,6 +58,8 @@ EMS_AREA = {"activation": "EMSR298", "area": "01ENSKOGEN"}
 EMS_DIR = DATA / "ems"
 # MET Norway's archived MEPS weather forecasts, as issued (tools/fetch_met_forecasts.py).
 MET_FORECAST_DIR = DATA / "met-forecast"
+# SMHI's observed lightning (tools/fetch_smhi_lightning.py).
+LIGHTNING_DIR = DATA / "lightning"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2018.json"
 

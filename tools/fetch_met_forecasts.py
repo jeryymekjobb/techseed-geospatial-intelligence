@@ -219,7 +219,7 @@ def fetch_isobars(run: datetime, area: dict[str, Any]) -> list[dict[str, Any]]:
                 "valid_utc": times[index].strftime("%Y-%m-%dT%H:%M:%SZ"), **chart,
                 "rain_png": weather_chart.rain_png(rain, area["xs"], area["ys"], ISOBAR_AREA),
                 "rain_bounds": [[ISOBAR_AREA[1], ISOBAR_AREA[0]], [ISOBAR_AREA[3], ISOBAR_AREA[2]]],
-                "thunder": None if thunder is None else weather_chart.thunder_marks(
+                "thunder": None if thunder is None or weather_chart.THUNDER_THRESHOLDS[thunder_variable] is None else weather_chart.thunder_marks(
                     np.nanmax(thunder[max(0, index - 2):index + 1], axis=0), area["latitudes"], area["longitudes"],
                     weather_chart.THUNDER_THRESHOLDS[thunder_variable]),
             })

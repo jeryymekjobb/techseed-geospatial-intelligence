@@ -40,3 +40,10 @@ function windBarbSvg(speed) {
 }
 
 if (typeof module !== "undefined") module.exports = { windBarbCounts, windBarbSvg };
+
+// SMHI's observed lightning on both maps: yellow in its first ten minutes, orange after half an hour.
+function lightningColour(ageMinutes) {
+  return ageMinutes < 10 ? "#ffe600" : ageMinutes < 30 ? "#ffb300" : "#ff7a00";
+}
+
+if (typeof module !== "undefined") module.exports = { ...(module.exports || {}), lightningColour };

@@ -975,6 +975,13 @@ Välj **Skogsbranden vid Kårböle 2018** i menyn (avsnitt 7). Skillnader mot V�
   Risk för åska om 7 timmar, nya bränder kan tändas". Kryssa **Prognosvind (MET Norway)** i
   mission controls lagerlista för orange vindpilar sex timmar framåt; de blå pilarna är vinden
   just nu (ERA5-Land).
+- **Blixtar (SMHI, observerade):** blixtnedslagen den senaste timmen före scenarioklockan, ur SMHI:s
+  öppna blixtarkiv, gula när de är nya och orange när de är äldre; lagret är påslaget från början i alla
+  scenarier. Överst på kartan står hur många det var och hur många inom 30 km, och i
+  satellitbevakningens logg och uppläsning sägs varje timme med nedslag nära händelsen, till exempel
+  "29 blixtnedslag inom 30 kilometer från branden den senaste timmen". Det är observationer, inte
+  prognoser. I Kårböle syns blixtarna som tände branden den 14 juli. MEPS blixtindex från 2024–2026
+  används inte i Skåne och Sundsvall, eftersom dess skala inte är känd.
 - **Väderkarta:** kryssa **Väderkarta (MET Norway)** i mission controls lagerlista (kolumnen
   Kartan, under Väder). Kartan blir platt och visar Skandinavien med lufttrycket som isobarer var
   hPa (var fjärde kraftigare och med sitt värde) med H och L, regnet de tre timmarna fram till kartans tid (blått till lila: från 0,3, 1, 3
@@ -1013,5 +1020,6 @@ export TECHSEED_SCENARIO=ljusdal2018
 .venv/bin/python -m tools.fetch_sentinel2_scene
 .venv/bin/python -m tools.fetch_ems_perimeters
 .venv/bin/python -m tools.fetch_met_forecasts   # MET Norways väderprognoser som de utfärdades, ca 20 min
+.venv/bin/python -m tools.fetch_smhi_lightning  # SMHI:s observerade blixtar
 .venv/bin/python -m tools.load_postgis    # databasen ljusdal2018, för frågorna
 ```

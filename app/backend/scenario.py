@@ -101,6 +101,8 @@ EMS_AREA = getattr(_module, "EMS_AREA", None)
 EMS_DIR = getattr(_module, "EMS_DIR", None)
 # MET Norway's archived weather forecasts for the fire (met_forecast.py); only Kårböle 2018 so far.
 MET_FORECAST_DIR = getattr(_module, "MET_FORECAST_DIR", None)
+# SMHI's observed lightning over the weather chart's area (tools/fetch_smhi_lightning.py, lightning.py).
+LIGHTNING_DIR = getattr(_module, "LIGHTNING_DIR", None)
 # The fire's forecast weather station, for the screens' texts.
 FORECAST_STATION = getattr(_module, "FORECAST_STATION", "")
 SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})

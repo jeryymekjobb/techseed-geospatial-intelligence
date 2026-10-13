@@ -151,6 +151,7 @@ async function createCesiumMap(config) {
   forecastWindLayer.show = false;
   const isobarLayer = group("isobars");  // MET Norway's weather chart (met_forecast.py isobars)
   isobarLayer.show = false;
+  const lightningPoints = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection());  // SMHI's observed lightning
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
@@ -174,6 +175,7 @@ async function createCesiumMap(config) {
   let windVisible = true;
   let forecastWindVisible = false;
   let isobarVisible = false;
+  let lightningVisible = true;
   let viewBeforeChart = null;  // the scene mode and camera to come back to when the weather chart is unticked
   const layers = [];  // [name, show(visible), shown()] for the layer panel
   const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
@@ -424,6 +426,23 @@ async function createCesiumMap(config) {
       }
     },
 
+    // SMHI's observed lightning: the flashes to the ground of the last hour, yellow fading to orange.
+    setupLightning() {
+      layers.push(["Blixtar (SMHI, observerade)", (visible) => {
+        lightningVisible = visible;
+        lightningPoints.show = visible && weatherCategoryVisible;
+      }, () => lightningVisible && weatherCategoryVisible]);
+    },
+
+    drawLightning(strikes) {
+      lightningPoints.removeAll();
+      for (const strike of strikes || []) {
+        lightningPoints.add({ position: Cesium.Cartesian3.fromDegrees(strike.longitude, strike.latitude), pixelSize: 7,
+                              color: cesiumColor(lightningColour(strike.age_min), Math.max(0.25, 1 - strike.age_min / 80)),
+                              outlineColor: cesiumColor("#3a2a00"), outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY });
+      }
+    },
+
     setupForecast() {
       layers.push(["Prognos (modell)", (visible) => { forecastLayer.show = visible; }, () => forecastLayer.show]);
     },
@@ -594,6 +613,7 @@ async function createCesiumMap(config) {
         windLayer.show = visible && windVisible;
         forecastWindLayer.show = visible && forecastWindVisible;
         isobarLayer.show = visible && isobarVisible;
+        lightningPoints.show = visible && lightningVisible;
         stationLayer.show = visible;
         if (radarLayer) radarLayer.show = visible && radarVisible;
         for (const [box, shown] of layerBoxes) box.checked = shown();

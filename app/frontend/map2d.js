@@ -96,6 +96,9 @@ function createLeafletMap(config) {
   let forecastWindVisible = false;
   let isobarLayer = null;  // MET Norway's weather chart: isobars every 2 hPa, highs and lows, rain and lightning
   let viewBeforeChart = null;  // the view to come back to when the weather chart is unticked
+  let lightningLayer = null;  // SMHI's observed flashes to the ground in the last hour
+  let lightningVisible = true;
+  const lightningRenderer = L.canvas({ padding: 0.2 });
   let isobarVisible = false;
 
   function setMapLayerVisible(layer, visible) {
@@ -342,6 +345,24 @@ function createLeafletMap(config) {
       }
     },
 
+    // SMHI's observed lightning (lightning.py): the flashes to the ground of the last hour, yellow when
+    // fresh and fading to orange with age.
+    setupLightning() {
+      lightningLayer = L.layerGroup();
+      overlays["Blixtar (SMHI, observerade)"] = lightningLayer;
+    },
+
+    drawLightning(strikes) {
+      if (!lightningLayer) return;
+      lightningLayer.clearLayers();
+      for (const strike of strikes || []) {
+        L.circleMarker([strike.latitude, strike.longitude], {
+          renderer: lightningRenderer, radius: 4, weight: 1, color: "#3a2a00", interactive: false,
+          fillColor: lightningColour(strike.age_min), fillOpacity: Math.max(0.25, 1 - strike.age_min / 80),
+        }).addTo(lightningLayer);
+      }
+    },
+
     setupForecast() {
       forecastLayer = L.layerGroup().addTo(map);
       overlays["Prognos (modell)"] = forecastLayer;
@@ -383,6 +404,9 @@ function createLeafletMap(config) {
         effectiveVisible = visible && weatherCategoryVisible;
       } else if (name === "Prognosvind (MET Norway)") {
         forecastWindVisible = visible;
+        effectiveVisible = visible && weatherCategoryVisible;
+      } else if (name === "Blixtar (SMHI, observerade)") {
+        lightningVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
       } else if (name === "Väderkarta (MET Norway)") {
         isobarVisible = visible;
@@ -444,6 +468,7 @@ function createLeafletMap(config) {
         setMapLayerVisible(radarOverlay, visible && radarVisible);
         setMapLayerVisible(forecastWindLayer, visible && forecastWindVisible);
         setMapLayerVisible(isobarLayer, visible && isobarVisible);
+        setMapLayerVisible(lightningLayer, visible && lightningVisible);
         return;
       }
       const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer] };

@@ -20,8 +20,8 @@ CENTRAL_MERIDIAN = 15.0
 RAIN_CLASSES = [(0.3, (155, 211, 255, 150)), (1.0, (79, 163, 224, 175)), (3.0, (31, 95, 168, 195)), (10.0, (123, 47, 191, 210))]
 PIXELS_PER_DEGREE = (10, 20)  # longitude, latitude: about 5 km each way at 62° N
 # A symbol where the model's thunder variable reaches this: MEPS's combined thunderstorm index (2018)
-# and its lightning index (from 2024); AROME-MetCoOp (2014) has none.
-THUNDER_THRESHOLDS = {"thunderstorm_index_combined": 0.6, "lightning_index": 0.6}
+# (the lightning index from 2024 is not used, its scale being unknown); AROME-MetCoOp (2014) has none.
+THUNDER_THRESHOLDS = {"thunderstorm_index_combined": 0.6, "lightning_index": None}  # the latter's scale is unknown
 THUNDER = THUNDER_THRESHOLDS["thunderstorm_index_combined"]
 THUNDER_SPACING_KM = 100.0
 

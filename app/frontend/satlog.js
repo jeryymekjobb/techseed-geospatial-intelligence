@@ -14,6 +14,7 @@ const SATLOG_LIMIT = 50;
 const SATLOG_SOURCES = {
   computed: "beräknat", firms: "FIRMS", landsat: "satellitbild", synthetic: "syntetiskt", model: "modell", postgis: "PostGIS", simulated: "simulerat",
   metno: "MET Norway",
+  lightning: "SMHI, observerat",
 };
 // How many of a pass's newly threatened places the line names; the rest are counted.
 const SATLOG_PLACES_NAMED = 4;
@@ -107,7 +108,7 @@ function satlogWhole(value) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30 }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -185,6 +186,11 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     if (issue.news?.length) {
       lines.push({ atMs: Date.parse(issue.available_utc), text: `Ny väderprognos: ${issue.news.join(". ")}`, source: "metno", kind: "met_forecast" });
     }
+  }
+  // SMHI's observed flashes to the ground near the incident, at the end of each hour with any (lightning.py events).
+  for (const item of lightningEvents) {
+    lines.push({ atMs: Date.parse(item.at_utc), text: `${item.count} blixtnedslag inom ${lightningKm} kilometer från ${place} den senaste timmen`,
+                 source: "lightning", kind: "lightning" });
   }
   for (const pass of threats.places || []) {
     const named = pass.places.slice(0, SATLOG_PLACES_NAMED).map((place) => `${place.name} ${satlogSpan(place.span)}`).join(", ");

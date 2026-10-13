@@ -41,6 +41,8 @@ TERRAIN_DIR = REPO_ROOT / "data" / "terrain"
 LANDSAT_DIR = REPO_ROOT / "data" / "landsat"
 # MET Norway's archived weather forecasts, as issued (tools/fetch_met_forecasts.py, met_forecast.py).
 MET_FORECAST_DIR = REPO_ROOT / "data" / "vastmanland2014" / "met-forecast"
+# SMHI's observed lightning (tools/fetch_smhi_lightning.py).
+LIGHTNING_DIR = REPO_ROOT / "data" / "vastmanland2014" / "lightning"
 TLE_DIR = REPO_ROOT / "data" / "tle"
 TLE_FILE_NAME = "tle-2014.json"
 

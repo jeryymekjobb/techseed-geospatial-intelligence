@@ -368,17 +368,41 @@ function showForecastCaption() {
   if (!caption) return;
   const forecast = state.metForecastShown;
   const lines = [];
+  const notes = [];
   if (forecast && state.layersApplied["Väderkarta (MET Norway)"] && forecast.isobars) {
     lines.push(`<strong>Väderkarta ${zulu(forecast.isobars.valid_utc)}</strong> (${formatLocal(forecast.isobars.valid_utc)})`);
   }
   if (forecast && state.layersApplied["Prognosvind (MET Norway)"]) {
     lines.push(`<strong>Prognosvind ${zulu(forecast.wind_grid_valid_utc)}</strong> (${formatLocal(forecast.wind_grid_valid_utc)})`);
   }
+  if (lines.length) {
+    const details = state.layersApplied["Väderkarta (MET Norway)"]
+      ? ` · isobarer var 1 hPa, regn senaste 3 timmar${forecast.has_thunder ? ", ⚡ åska" : ""}` : "";
+    notes.push(`Prognos från MET Norway utfärdad ${zulu(forecast.issued_utc)}${details} – inte live`);
+  }
+  // SMHI's observed lightning, when the layer is ticked and any struck in the hour.
+  const flashes = state.lightningShown;
+  if (flashes?.strikes.length && state.layersApplied["Blixtar (SMHI, observerade)"]) {
+    lines.push(`<strong>Blixtnedslag senaste timmen:</strong> ${flashes.strikes.length}, varav ${flashes.near} inom ${flashes.near_km} km`);
+    notes.push("Blixtar observerade av SMHI – gula är nyast");
+  }
   caption.hidden = !lines.length;
-  if (!lines.length) return;
-  const details = state.layersApplied["Väderkarta (MET Norway)"]
-    ? ` · isobarer var 1 hPa, regn senaste 3 timmar${forecast.has_thunder ? ", ⚡ åska" : " (modellen har inget åskindex)"}` : "";
-  caption.innerHTML = `${lines.join("<br>")}<small>Prognos från MET Norway utfärdad ${zulu(forecast.issued_utc)}${details} – inte live</small>`;
+  if (lines.length) caption.innerHTML = `${lines.join("<br>")}<small>${notes.join(" · ")}</small>`;
+}
+
+// SMHI's observed lightning in the hour before the clock (/api/lightning, lightning.py), fetched
+// again when the clock has moved five minutes.
+async function showLightning(clock) {
+  if (!state.config.layers.lightning || !clock) return;
+  const step = Math.floor(clock.getTime() / 300000);
+  if (step === state.lightningStep) return;
+  state.lightningStep = step;
+  const at = new Date(step * 300000).toISOString().replace(".000Z", "Z");
+  const data = await fetch(`/api/lightning?at=${encodeURIComponent(at)}`).then((response) => (response.ok ? response.json() : null)).catch(() => null);
+  if (step !== state.lightningStep) return;
+  state.lightningShown = data;
+  state.map.drawLightning(data?.strikes || []);
+  showForecastCaption();
 }
 
 // Copernicus EMS's perimeter of the fire (/api/ems, ems.js), with a line in the forecast's legend.
@@ -617,6 +641,7 @@ function setClock(clock) {
     showWeather(clock);
   }
   showMetForecast(clock);
+  showLightning(clock);
   showRain(clock);
   showHydro(clock);
   showEms(clock);
@@ -1544,6 +1569,17 @@ async function startApp(createMap) {
   }
 
   if (config.layers.met_forecast) setupMetForecast(config);
+  if (config.layers.lightning) {
+    state.map.setupLightning();
+    state.map.addAttribution(config.layers.lightning.attribution);
+    if (!$("forecast-caption")) {
+      const caption = document.createElement("div");
+      caption.id = "forecast-caption";
+      caption.className = "forecast-caption";
+      caption.hidden = true;
+      $("map").append(caption);
+    }
+  }
   state.map.finish();
   setupScenarioView();
   // The flood's rain classes and maps right after the status, where the fire has its forecast; its

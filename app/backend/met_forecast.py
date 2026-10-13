@@ -48,8 +48,9 @@ RAIN_MM = 2.0
 DRY_MM = 0.2
 LOW_HUMIDITY = 30.0
 # The thunder notice by the run's thunder variable (fetch_met_forecasts.archive_for); AROME-MetCoOp
-# (2014) has none, so no thunder is said there.
-THUNDER_BY_VARIABLE = {"thunderstorm_index_combined": 0.3, "lightning_index": 0.3}
+# (2014) has none, and MEPS's lightning index of 2024-2026 is not used: its scale is not known (it
+# reached 23 in Skåne in a January without lightning), so the screens show SMHI's observed lightning.
+THUNDER_BY_VARIABLE = {"thunderstorm_index_combined": 0.3, "lightning_index": None}
 THUNDER = THUNDER_BY_VARIABLE["thunderstorm_index_combined"]
 # The floods: a notice for heavy rain (SMHI's class "kraftigt regn": more than 4 mm in an hour) and
 # for snow (the precipitation that falls at or below SNOW_C).
@@ -143,11 +144,14 @@ def when(hours: int) -> str:
     return "nu" if hours == 0 else f"om {hours_word(hours)}"
 
 
-def thunder_threshold(run: dict[str, Any]) -> float:
-    return THUNDER_BY_VARIABLE.get(run.get("thunder_variable") or "thunderstorm_index_combined", THUNDER)
+def thunder_threshold(run: dict[str, Any]) -> float | None:
+    """The thunder notice's threshold for the run, or None when its thunder variable is not used."""
+    if "thunder_variable" in run and not run["thunder_variable"]:
+        return None
+    return THUNDER_BY_VARIABLE.get(run.get("thunder_variable") or "thunderstorm_index_combined")
 
 
-def notices(ahead: list[dict[str, Any]], incident: str = scenario.INCIDENT, thunder_at: float = THUNDER) -> list[dict[str, str]]:
+def notices(ahead: list[dict[str, Any]], incident: str = scenario.INCIDENT, thunder_at: float | None = THUNDER) -> list[dict[str, str]]:
     """What the next 24 hours of the run mean for the rescue service: { kind, text } with a short
     Swedish line. A fire: wind_shift, gust, rain, dry, humidity and thunder; a flood: heavy_rain,
     rain, dry, gust, snow and thunder."""
@@ -176,12 +180,12 @@ def notices(ahead: list[dict[str, Any]], incident: str = scenario.INCIDENT, thun
     if driest["humidity_pct"] <= LOW_HUMIDITY:
         found.append({"kind": "humidity", "text": f"Låg luftfuktighet, ned till {round(driest['humidity_pct'])} procent"})
     thunder = max(day, key=lambda item: item["thunderstorm_index"] or 0.0)
-    if (thunder["thunderstorm_index"] or 0.0) >= thunder_at:
+    if thunder_at is not None and (thunder["thunderstorm_index"] or 0.0) >= thunder_at:
         found.append({"kind": "thunder", "text": f"Risk för åska {when(day.index(thunder))}, nya bränder kan tändas"})
     return found
 
 
-def flood_notices(day: list[dict[str, Any]], thunder_at: float) -> list[dict[str, str]]:
+def flood_notices(day: list[dict[str, Any]], thunder_at: float | None) -> list[dict[str, str]]:
     """The flood's notices: the rain that matters for the rivers and the drains first."""
     found = []
     heaviest = max(day, key=lambda item: item["precipitation_mm"] or 0.0)
@@ -200,7 +204,7 @@ def flood_notices(day: list[dict[str, Any]], thunder_at: float) -> list[dict[str
     if gust["gust_ms"] >= GUST_MS:
         found.append({"kind": "gust", "text": f"Byvind upp till {round(gust['gust_ms'])} meter per sekund {when(day.index(gust))}"})
     thunder = max(day, key=lambda item: item["thunderstorm_index"] or 0.0)
-    if (thunder["thunderstorm_index"] or 0.0) >= thunder_at:
+    if thunder_at is not None and (thunder["thunderstorm_index"] or 0.0) >= thunder_at:
         found.append({"kind": "thunder", "text": f"Risk för åska och skyfall {when(day.index(thunder))}"})
     return found
 
@@ -260,7 +264,10 @@ def isobars_at(run: dict[str, Any], clock: datetime) -> dict[str, Any] | None:
     """The run's weather chart at the next synoptic hour after the clock (its last when the clock is
     past them all, as after a run missing from the archive), or None without charts."""
     charts = run.get("isobars", [])
-    return next((chart for chart in charts if parse(chart["valid_utc"]) > clock), charts[-1] if charts else None)
+    chart = next((chart for chart in charts if parse(chart["valid_utc"]) > clock), charts[-1] if charts else None)
+    if chart is not None and thunder_threshold(run) is None:
+        chart = {**chart, "thunder": None}  # an index not used: no symbols either
+    return chart
 
 
 def at(clock: datetime) -> dict[str, Any] | None:
@@ -279,7 +286,7 @@ def at(clock: datetime) -> dict[str, Any] | None:
         "notices": notices(ahead, thunder_at=thunder_threshold(run)),
         "fwi": fire_weather_index(run, hours) if scenario.INCIDENT == "wildfire" else [],
         "model": run.get("model", "MEPS"),
-        "has_thunder": bool(run.get("thunder_variable", "thunderstorm_index_combined")) and run["point"].get(
+        "has_thunder": thunder_threshold(run) is not None and run["point"].get(
             "thunder_index", run["point"].get("thunderstorm_index")) is not None,
         "wind_grid": wind_grid(run, clock),
         "wind_grid_hours_ahead": WIND_AHEAD_H,

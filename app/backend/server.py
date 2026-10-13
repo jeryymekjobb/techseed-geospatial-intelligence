@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, met_forecast, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, speech, wms
+from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -430,6 +430,7 @@ LAYER_CATEGORIES = {
     "Nederbörd (SMHI radar)": "weather",
     "Prognosvind (MET Norway)": "weather",
     "Väderkarta (MET Norway)": "weather",
+    "Blixtar (SMHI, observerade)": "weather",
 }
 
 
@@ -456,6 +457,8 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
     if met_forecast.runs():
         items.append(item("Prognosvind (MET Norway)", False, False))
         items.append(item("Väderkarta (MET Norway)", False, False))
+    if lightning.flashes():
+        items.append(item("Blixtar (SMHI, observerade)", True, True))
     for source in wms.sources() or []:
         for name, title in source["layers"].items():
             shown = name in (source.get("visible") or [])
@@ -552,6 +555,9 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             # MET Norway's archived weather forecasts at /api/met-forecast (met_forecast.py), with their credit.
             "met_forecast": {"label": met_forecast.LABEL, "attribution": met_forecast.ATTRIBUTION,
                              "issues": met_forecast.issues()} if met_forecast.runs() else None,
+            # SMHI's observed lightning at /api/lightning (lightning.py), with the log's hours near the incident.
+            "lightning": {"label": lightning.LABEL, "attribution": lightning.ATTRIBUTION, "near_km": lightning.NEAR_KM,
+                          "events": lightning.events()} if lightning.flashes() else None,
             "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "base_maps": base_maps(settings),
@@ -646,6 +652,16 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"error": "not_in_scenario"}, HTTPStatus.NOT_FOUND)
             else:
                 self.send_json(data or {"error": "none_published_yet"}, HTTPStatus.OK if data else HTTPStatus.NOT_FOUND)
+        elif path == "/api/lightning":
+            # SMHI's flashes to the ground in the hour before the clock (`at`, UTC), or the shared clock.
+            try:
+                clock = parse_utc(query["at"]) if query.get("at") else parse_utc(self.engine.snapshot()["clock_utc"])
+                clock = clock if clock.tzinfo else clock.replace(tzinfo=timezone.utc)
+            except ValueError:
+                self.send_json({"error": "invalid_at"}, HTTPStatus.BAD_REQUEST)
+                return
+            self.send_json(lightning.at(clock) if lightning.flashes() else {"error": "not_in_scenario"},
+                           HTTPStatus.OK if lightning.flashes() else HTTPStatus.NOT_FOUND)
         elif path == "/api/hydro":
             data = hydro.stations()
             self.send_json(data if data else {"error": "not_in_scenario"}, HTTPStatus.OK if data else HTTPStatus.NOT_FOUND)
