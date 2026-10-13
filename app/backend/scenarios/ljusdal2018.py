@@ -56,6 +56,8 @@ SENTINEL2_DIR = DATA / "sentinel2"
 # area 01 Enskogen, which is Kårböle-Ängra.
 EMS_AREA = {"activation": "EMSR298", "area": "01ENSKOGEN"}
 EMS_DIR = DATA / "ems"
+# MET Norway's archived MEPS weather forecasts, as issued (tools/fetch_met_forecasts.py).
+MET_FORECAST_DIR = DATA / "met-forecast"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2018.json"
 
