@@ -241,8 +241,9 @@ function threatHighlights(highlights, seen, lines, nowMs, playing, jumped) {
 // not read, only when it sends data to the ground: FIRMS detections and satellite images.
 // `heard` gets every line. alternateVoices gives them their voices.
 const SATLOG_SPOKEN_MAX = 3;
-// The Piper voices (speech.py) take turns, one message each.
-const SATLOG_VOICES = ["nst", "alma"];
+// The Piper voices (speech.py) that read the log, taking turns, one message each: only alma, which
+// the user found much clearer than nst.
+const SATLOG_VOICES = ["alma"];
 
 function satlogKey(line) {
   return `${line.atMs}|${line.text}`;

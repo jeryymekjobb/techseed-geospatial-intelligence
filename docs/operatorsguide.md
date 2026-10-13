@@ -376,8 +376,7 @@ scenariots fil (`SUMMARY` i `app/backend/scenarios/`).
 
 **Uppläsning.** Med **UPPLÄSNING** i mission control (under FLYG TILL och ÖVERSIKT) läser
 satellitbevakningen upp nya rader i loggen på svenska genom datorns högtalare, så fort
-scenarioklockan når dem. De två rösterna turas om, en för varje meddelande, så att det hörs
-när ett nytt meddelande börjar. Av satelliterna läses bara det upp när en satellit
+scenarioklockan når dem, med rösten alma. Av satelliterna läses bara det upp när en satellit
 skickar data till marken, alltså FIRMS-detektioner och satellitbilder; att en satellit går in
 över eller lämnar området syns i loggen men läses inte upp.
 Inga loggrader läses upp när sidan laddas, vid **RESET** eller vid ett hopp i tiden. I Skåne läses
@@ -387,7 +386,7 @@ det högsta flöde eller den högsta nivå som uppmätts tidigare vid dess SMHI-
 Givare med SENSOR FAILURE eller när IoT är avstängt räknas inte med. Kommer fler än tre rader på en gång läses de tre senaste upp och sedan hur många fler det
 var. Uppläsningen är på i alla scenarier om du inte stänger av den; sparar du den avstängd med
 **SPARA PROFIL FÖR SCENARIOT** startar demon tyst. Backend läser upp med Piper, en svensk talsyntes som fungerar utan
-nät, med rösterna nst och alma, som turas om, så ljudet kommer ur den dator som kör
+nät, med rösten alma, så ljudet kommer ur den dator som kör
 backend. Rösterna installeras en gång med `.venv/bin/pip install -r app/requirements-speech.txt`
 och `.venv/bin/python -m tools.fetch_piper_voices`; saknas de läser datorns enklare röst
 (espeak-ng) i stället. Källan till rösterna står längst ned i satellitbevakningen, som licensen

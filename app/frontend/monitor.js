@@ -56,7 +56,7 @@ async function start() {
   const heard = new Set();
   let heardJump = null;
   let speaking = false;
-  let nextVoice = 0;  // the voices take turns, one message each (alternateVoices)
+  let nextVoice = 0;  // the voices take turns, one message each (alternateVoices); now alma alone
   let summarySince = null;  // when the scenario came to its start (summaryState), to read its summary once
   const post = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
     .catch(() => null);

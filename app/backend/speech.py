@@ -2,7 +2,7 @@
 
 The satellite monitor (monitor.js) chooses the lines and their voices and sends them to
 POST /api/speak; this module speaks them one at a time in Swedish with Piper, a neural speech
-synthesis that runs offline, the voices "nst" and "alma" taking turns, one message each
+synthesis that runs offline, with the voice "alma" (the monitor no longer uses "nst")
 (VOICES, fetched to data/voices/ by tools/fetch_piper_voices.py). Each line is synthesised to a
 WAV file and played with pw-play. Without Piper or a voice's model the line is read with
 speech-dispatcher's Swedish espeak-ng voice instead (`spd-say -l sv`). The browser's own speech
@@ -44,7 +44,7 @@ VOICE_DIR = REPO_ROOT / "data" / "voices"
 # Språkbanken at the National Library of Norway: nst under CC0, alma under CC BY 4.0, which needs
 # the credit below wherever the voice is used.
 VOICES = {"nst": "sv_SE-nst-medium", "alma": "sv_SE-alma-medium"}
-CREDIT = ("Uppläsning: Piper, rösterna nst (CC0) och alma (CC BY 4.0), tränade på NST:s svenska "
+CREDIT = ("Uppläsning: Piper, rösten alma (CC BY 4.0), tränad på NST:s svenska "
           "taldata från Språkbanken vid Nasjonalbiblioteket")
 # Slower than Piper's 1.0, so the numbers come through.
 LENGTH_SCALE = 1.12

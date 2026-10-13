@@ -210,15 +210,15 @@ def test_only_new_lines_are_read_aloud_and_many_are_cut_short() -> None:
         {"text": "SATCOM nere – satellitdata köas"},
         {"text": "Sentinel-1C tar bild över Sundsvall"},
     ]
-    # The voices take turns, one message each, also from one reading to the next.
+    # Alma reads every message (the user found her much clearer than nst).
     turns = node("(() => { const first = alternateVoices([{ text: 'a' }, { text: 'b' }, { text: 'c' }]);"
                  " const second = alternateVoices([{ text: 'd' }], first.next); const third = alternateVoices([{ text: 'e' }, { text: 'f' }], second.next);"
                  " return [first, second, third, alternateVoices([], 1)]; })()")
     assert turns == [
-        {"lines": [{"text": "a", "voice": "nst"}, {"text": "b", "voice": "alma"}, {"text": "c", "voice": "nst"}], "next": 1},
+        {"lines": [{"text": "a", "voice": "alma"}, {"text": "b", "voice": "alma"}, {"text": "c", "voice": "alma"}], "next": 0},
         {"lines": [{"text": "d", "voice": "alma"}], "next": 0},
-        {"lines": [{"text": "e", "voice": "nst"}, {"text": "f", "voice": "alma"}], "next": 0},
-        {"lines": [], "next": 1},
+        {"lines": [{"text": "e", "voice": "alma"}, {"text": "f", "voice": "alma"}], "next": 0},
+        {"lines": [], "next": 0},
     ]
     monitor = (SCRIPT.parent / "monitor.js").read_text(encoding="utf-8")
     assert "if (scenarioState.jump !== heardJump) {" in monitor and 'post("/api/speak", keep ? { lines, keep } : { lines });' in monitor
