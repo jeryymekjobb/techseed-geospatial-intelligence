@@ -151,7 +151,7 @@ async function createCesiumMap(config) {
   forecastWindLayer.show = false;
   const isobarLayer = group("isobars");  // MET Norway's weather chart (met_forecast.py isobars)
   isobarLayer.show = false;
-  const lightningPoints = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection());  // SMHI's observed lightning
+  const lightningLayer = group("lightning");  // SMHI's observed lightning
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
@@ -430,16 +430,24 @@ async function createCesiumMap(config) {
     setupLightning() {
       layers.push(["Blixtar (SMHI, observerade)", (visible) => {
         lightningVisible = visible;
-        lightningPoints.show = visible && weatherCategoryVisible;
+        lightningLayer.show = visible && weatherCategoryVisible;
       }, () => lightningVisible && weatherCategoryVisible]);
     },
 
-    drawLightning(strikes) {
-      lightningPoints.removeAll();
+    // `history`: the flashes near the incident since the start, red, with their time when clicked.
+    drawLightning(strikes, history) {
+      const entities = lightningLayer.entities;
+      entities.removeAll();
+      const image = (colour, size) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(lightningSvg(colour, size))}`;
+      for (const strike of history || []) {
+        entities.add({ name: "Blixtnedslag (SMHI, observerat)", description: `${formatLightningTime(strike.utc)}, ${strike.ka} kA`,
+                       position: Cesium.Cartesian3.fromDegrees(strike.longitude, strike.latitude),
+                       billboard: { image: image(LIGHTNING_NEAR_COLOUR, 22), ...ON_GROUND } });
+      }
       for (const strike of strikes || []) {
-        lightningPoints.add({ position: Cesium.Cartesian3.fromDegrees(strike.longitude, strike.latitude), pixelSize: 7,
-                              color: cesiumColor(lightningColour(strike.age_min), Math.max(0.25, 1 - strike.age_min / 80)),
-                              outlineColor: cesiumColor("#3a2a00"), outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY });
+        entities.add({ position: Cesium.Cartesian3.fromDegrees(strike.longitude, strike.latitude),
+                       billboard: { image: image(lightningColour(strike.age_min), 16), color: Cesium.Color.WHITE.withAlpha(Math.max(0.35, 1 - strike.age_min / 80)),
+                                    ...ON_GROUND } });
       }
     },
 
@@ -613,7 +621,7 @@ async function createCesiumMap(config) {
         windLayer.show = visible && windVisible;
         forecastWindLayer.show = visible && forecastWindVisible;
         isobarLayer.show = visible && isobarVisible;
-        lightningPoints.show = visible && lightningVisible;
+        lightningLayer.show = visible && lightningVisible;
         stationLayer.show = visible;
         if (radarLayer) radarLayer.show = visible && radarVisible;
         for (const [box, shown] of layerBoxes) box.checked = shown();

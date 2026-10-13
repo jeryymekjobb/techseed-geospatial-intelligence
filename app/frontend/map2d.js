@@ -98,7 +98,6 @@ function createLeafletMap(config) {
   let viewBeforeChart = null;  // the view to come back to when the weather chart is unticked
   let lightningLayer = null;  // SMHI's observed flashes to the ground in the last hour
   let lightningVisible = true;
-  const lightningRenderer = L.canvas({ padding: 0.2 });
   let isobarVisible = false;
 
   function setMapLayerVisible(layer, visible) {
@@ -352,14 +351,20 @@ function createLeafletMap(config) {
       overlays["Blixtar (SMHI, observerade)"] = lightningLayer;
     },
 
-    drawLightning(strikes) {
+    // `history`: the flashes near the incident since the start, red, with their time on hover.
+    drawLightning(strikes, history) {
       if (!lightningLayer) return;
       lightningLayer.clearLayers();
+      const bolt = (size, colour, opacity) => L.divIcon({ className: "lightning-bolt", iconSize: [size, size * 4 / 3], iconAnchor: [size / 2, size * 2 / 3],
+        html: `<div style="opacity:${opacity}">${lightningSvg(colour, size)}</div>` });
+      for (const strike of history || []) {
+        L.marker([strike.latitude, strike.longitude], { icon: bolt(18, LIGHTNING_NEAR_COLOUR, 1), keyboard: false })
+          .bindTooltip(`Blixtnedslag ${formatLightningTime(strike.utc)} (SMHI, observerat), ${strike.ka} kA`, { direction: "top" })
+          .addTo(lightningLayer);
+      }
       for (const strike of strikes || []) {
-        L.circleMarker([strike.latitude, strike.longitude], {
-          renderer: lightningRenderer, radius: 4, weight: 1, color: "#3a2a00", interactive: false,
-          fillColor: lightningColour(strike.age_min), fillOpacity: Math.max(0.25, 1 - strike.age_min / 80),
-        }).addTo(lightningLayer);
+        L.marker([strike.latitude, strike.longitude], { icon: bolt(14, lightningColour(strike.age_min), Math.max(0.35, 1 - strike.age_min / 80)),
+          interactive: false, keyboard: false }).addTo(lightningLayer);
       }
     },
 

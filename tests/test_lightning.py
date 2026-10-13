@@ -34,6 +34,8 @@ def test_the_screens_get_the_last_hour_s_flashes_and_the_log_the_hours_near_the_
     flashes = ((start + 60, lat0 + 0.05, lon0, -20), (start + 1800, lat0 + 2.0, lon0, 15), (start + 3700, lat0, lon0 + 0.1, -9))
     shown = lightning.at(datetime(2018, 7, 14, 15, 0, tzinfo=timezone.utc), flashes)
     assert [strike["age_min"] for strike in shown["strikes"]] == [59, 30] and shown["near"] == 1 and shown["near_km"] == 30.0
+    # The flashes near the incident stay, with their time; the far one and the later one are not there.
+    assert shown["near_history"] == [{"latitude": lat0 + 0.05, "longitude": lon0, "utc": "2018-07-14T14:01:00Z", "ka": -20}]
     assert lightning.events(flashes) == [{"at_utc": "2018-07-14T15:00:00Z", "count": 1}, {"at_utc": "2018-07-14T16:00:00Z", "count": 1}]
 
 

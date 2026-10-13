@@ -41,9 +41,22 @@ function windBarbSvg(speed) {
 
 if (typeof module !== "undefined") module.exports = { windBarbCounts, windBarbSvg };
 
+// A lightning bolt as SVG, filled with `colour`, edged dark, for SMHI's observed lightning on both maps.
+function lightningSvg(colour, size) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 32" width="${size}" height="${Math.round(size * 4 / 3)}">`
+    + `<path d="M14 1 L3 18 H11 L8 31 L21 12 H13 Z" fill="${colour}" stroke="#3a2a00" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+}
+// A flash's time on the maps, in Swedish time.
+const lightningTimes = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+function formatLightningTime(utc) {
+  return `${lightningTimes.format(new Date(utc))} svensk tid`;
+}
+// The flashes near the incident that stay on the map.
+const LIGHTNING_NEAR_COLOUR = "#e0301e";
+
 // SMHI's observed lightning on both maps: yellow in its first ten minutes, orange after half an hour.
 function lightningColour(ageMinutes) {
   return ageMinutes < 10 ? "#ffe600" : ageMinutes < 30 ? "#ffb300" : "#ff7a00";
 }
 
-if (typeof module !== "undefined") module.exports = { ...(module.exports || {}), lightningColour };
+if (typeof module !== "undefined") module.exports = { ...(module.exports || {}), lightningColour, lightningSvg };

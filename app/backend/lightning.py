@@ -1,7 +1,9 @@
 """SMHI's observed lightning at the scenario clock (tools/fetch_smhi_lightning.py).
 
 The screens show the flashes to the ground of the last WINDOW before the clock, over the weather
-chart's area, each with its age, and the satellite monitor's log says, at most once an hour, how
+chart's area, each with its age, and every flash within NEAR_KM of the incident since the data's
+first day up to the clock, which stays on the map (where lightning struck near the fire, as on
+14 July 2018 at Kårböle). The satellite monitor's log says, at most once an hour, how
 many struck within NEAR_KM of the incident in the hour before. Cloud flashes are left out: the
 screens speak of "blixtnedslag". Observations, not forecasts; the screens say so.
 """
@@ -20,6 +22,7 @@ from app.backend import scenario
 DIRECTORY = scenario.LIGHTNING_DIR
 WINDOW = timedelta(minutes=60)
 NEAR_KM = 30.0
+NEAR_HISTORY_MAX = 1000  # the newest, should a scenario have more near the incident
 LABEL = "Observerade blixtnedslag (SMHI) – senaste timmen före scenariotiden"
 ATTRIBUTION = "Blixtdata: SMHI öppna data (CC BY 4.0)"
 
@@ -41,6 +44,13 @@ def flashes() -> tuple[tuple[int, float, float, int], ...]:
     return tuple(sorted(found))
 
 
+@lru_cache(maxsize=1)
+def near_flashes(all_flashes: tuple[tuple[int, float, float, int], ...] | None = None) -> tuple[tuple[int, float, float, int], ...]:
+    """The flashes to the ground within NEAR_KM of the incident, in time order (worked out once)."""
+    lat0, lon0 = scenario.FIRE_CENTRE
+    return tuple(item for item in (flashes() if all_flashes is None else all_flashes) if distance_km(item[1], item[2], lat0, lon0) <= NEAR_KM)
+
+
 def at(clock: datetime, all_flashes: tuple[tuple[int, float, float, int], ...] | None = None) -> dict[str, Any]:
     """The flashes of the last WINDOW before `clock`, each with its age in minutes, and how many were near the incident."""
     every = flashes() if all_flashes is None else all_flashes
@@ -49,8 +59,11 @@ def at(clock: datetime, all_flashes: tuple[tuple[int, float, float, int], ...] |
     times = [item[0] for item in every]
     recent = every[bisect.bisect_right(times, start):bisect.bisect_right(times, end)]
     lat0, lon0 = scenario.FIRE_CENTRE
+    near = [item for item in (near_flashes() if all_flashes is None else near_flashes.__wrapped__(all_flashes)) if item[0] <= end]
     return {
         "label": LABEL,
+        "near_history": [{"latitude": lat, "longitude": lon, "utc": datetime.fromtimestamp(t, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                          "ka": ka} for t, lat, lon, ka in near[-NEAR_HISTORY_MAX:]],
         "window_minutes": int(WINDOW.total_seconds() // 60),
         "strikes": [{"latitude": lat, "longitude": lon, "age_min": round((end - t) / 60), "ka": ka} for t, lat, lon, ka in recent],
         "near": sum(1 for _, lat, lon, _ in recent if distance_km(lat, lon, lat0, lon0) <= NEAR_KM),

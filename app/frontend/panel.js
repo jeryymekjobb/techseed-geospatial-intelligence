@@ -401,7 +401,7 @@ async function showLightning(clock) {
   const data = await fetch(`/api/lightning?at=${encodeURIComponent(at)}`).then((response) => (response.ok ? response.json() : null)).catch(() => null);
   if (step !== state.lightningStep) return;
   state.lightningShown = data;
-  state.map.drawLightning(data?.strikes || []);
+  state.map.drawLightning(data?.strikes || [], data?.near_history || []);
   showForecastCaption();
 }
 

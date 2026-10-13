@@ -66,6 +66,7 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .isobar-centre small { font-size: 11px; font-weight: 600; }
 .isobar-centre.high { color: #1f3a7a; }
 .isobar-centre.low { color: #b3261e; }
+.lightning-bolt svg { display: block; filter: drop-shadow(0 0 1px #fff); }
 .chart-lightning { font-size: 22px; line-height: 1; transform: translate(-50%, -50%); text-shadow: 0 0 2px #3a2a00; }
 /* Which forecast the map shows, while a forecast layer is ticked (panel.js showForecastCaption). */
 .forecast-caption { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 950; padding: 6px 14px; border-radius: 6px;
