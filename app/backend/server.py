@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, speech, wms
+from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -385,8 +385,12 @@ def map_data() -> dict[str, str] | None:
 
 def base_maps(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
     """The base maps mission control can tick (basemaps.js), in the order a map prefers them:
-    Lantmäteriet's topowebb when enabled (2D only), the offline OSM map when it runs, OSM online."""
-    items = [{"id": "topowebb", "label": "Lantmäteriet topowebb", "only_2d": True}] if settings.topowebb_enabled else []
+    the municipality's map when fetched (municipal_basemap.py), Lantmäteriet's topowebb when enabled
+    (2D only), the offline OSM map when it runs, OSM online."""
+    municipal = municipal_basemap.layer()
+    items = [{"id": municipal["id"], "label": municipal["label"], "only_2d": False}] if municipal else []
+    if settings.topowebb_enabled:
+        items.append({"id": "topowebb", "label": "Lantmäteriet topowebb", "only_2d": True})
     if offline_tiles.available():
         items.append({"id": "offline", "label": "Offline-karta (OSM, lokal)", "only_2d": False})
     items.append({"id": "online", "label": "OpenStreetMap online (kräver internet)", "only_2d": False})
@@ -545,6 +549,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
         "layers": {
             "terrain": "/api/layers/terrain",
             "offline_tiles": offline_tiles.available(),
+            # The municipality's map, kept locally, at /basemap/kommun/ (municipal_basemap.py).
+            "municipal_basemap": municipal_basemap.layer(),
             "map_data": map_data(),
             "terrain3d": (TERRAIN_DIR / "layer.json").is_file(),
             "satellites": satellites.satellites()["available"],
@@ -699,6 +705,8 @@ class Handler(BaseHTTPRequestHandler):
             self.lantmateriet(path, query)
         elif path.startswith("/tiles/"):
             self.offline_tile(path)
+        elif path.startswith(f"/basemap/{municipal_basemap.ID}/"):
+            self.municipal_tile(path)
         elif path.startswith("/terrain/"):
             self.terrain(path)
         elif path.startswith("/wms/"):
@@ -984,6 +992,19 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error": "offline_tiles_unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
             return
         self.send_bytes(body, content_type, "max-age=86400")
+
+    def municipal_tile(self, path: str) -> None:
+        parts = path.strip("/").split("/")
+        body = None
+        if len(parts) == 5 and parts[4].endswith(".png"):
+            try:
+                body = municipal_basemap.tile(int(parts[2]), int(parts[3]), int(parts[4].removesuffix(".png")))
+            except ValueError:
+                body = None
+        if body is None:
+            self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        self.send_bytes(body, "image/png", "max-age=86400")
 
     def terrain(self, path: str) -> None:
         target = (TERRAIN_DIR / path.removeprefix("/terrain/")).resolve()

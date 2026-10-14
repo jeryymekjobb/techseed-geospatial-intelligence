@@ -200,6 +200,18 @@ MUNICIPAL_WMS = {
     "visible": ["SundsvallsKommun:100-ar_maxvattendjup"],
 }
 
+# The municipality's own map, the layer group Kartan of the same geoserver, as a base map kept
+# locally (tools/fetch_municipal_basemap.py, municipal_basemap.py). Besides the municipality's
+# layers it draws Lantmäteriet's and Trafikverket's; the user confirmed on 2026-10-14 that the
+# demo may show it and keep it locally. Outside the municipality it is white with place names.
+MUNICIPAL_BASEMAP = {
+    "url": "https://karta.sundsvall.se/geoserver/wms",
+    "layer": "Kartan",
+    "label": "Sundsvalls kommun (Kartan)",
+    "attribution": "Karta © Sundsvalls kommun, Lantmäteriet, Trafikverket",
+}
+MUNICIPAL_BASEMAP_DIR = DATA / "municipal-basemap"
+
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""
 FORECAST_REPORT = ""

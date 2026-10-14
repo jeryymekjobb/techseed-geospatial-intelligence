@@ -110,5 +110,8 @@ SENTINEL2_SIZE = getattr(_module, "SENTINEL2_SIZE", None)
 FLOOD_HAZARD_WMS = getattr(_module, "FLOOD_HAZARD_WMS", None)
 MUNICIPAL_WMS = getattr(_module, "MUNICIPAL_WMS", None)
 MUNICIPAL_DIR = getattr(_module, "MUNICIPAL_DIR", None)
+# The municipality's map as a locally kept base map (municipal_basemap.py); only Sundsvall 2026.
+MUNICIPAL_BASEMAP = getattr(_module, "MUNICIPAL_BASEMAP", None)
+MUNICIPAL_BASEMAP_DIR = getattr(_module, "MUNICIPAL_BASEMAP_DIR", None)
 MCF_DIR = getattr(_module, "MCF_DIR", None)
 SENTINEL1_ACQUISITIONS = getattr(_module, "SENTINEL1_ACQUISITIONS", [])

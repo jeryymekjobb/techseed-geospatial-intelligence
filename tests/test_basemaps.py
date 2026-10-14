@@ -45,6 +45,7 @@ def test_the_caption_names_the_base_map_shown() -> None:
     assert caption("offline") == "Visas: Karta – OpenStreetMap, data från 2026-10-02"
     assert caption("online") == "Visas: Karta – OpenStreetMap online"
     assert caption("topowebb") == "Visas: Karta – Lantmäteriet topowebb"
+    assert caption("kommun") == "Visas: Karta – Sundsvalls kommun"
     assert caption(None) == "Visas: Karta – ingen baskarta vald i mission control (i 3D Natural Earth II)"
 
 

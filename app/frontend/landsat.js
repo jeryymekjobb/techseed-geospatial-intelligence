@@ -80,7 +80,7 @@ const IMAGE_KINDS = {
 // FIRMS pass (instrument, pass_utc): the caption names the detections, then what lies under them.
 // `baseMap`, when given, is the base map shown (basemaps.js baseMapFor; null for none).
 const BASE_MAP_TEXTS = {
-  online: "Karta – OpenStreetMap online", topowebb: "Karta – Lantmäteriet topowebb",
+  online: "Karta – OpenStreetMap online", topowebb: "Karta – Lantmäteriet topowebb", kommun: "Karta – Sundsvalls kommun",
 };
 
 function mapText(baseMap, mapData, offlineTiles, formatDate) {

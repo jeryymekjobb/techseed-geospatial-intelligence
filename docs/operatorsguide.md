@@ -487,8 +487,11 @@ satelliter som tog bilder.
   Varje rad visar hur många bilder av typen som är tagna, till exempel "radar 5 av 8 tagna".
   Listan **Bild** visar bara de ikryssade typerna. Utan ikryssad typ visas kartan.
 - **Baskartorna** är offline-kartan (OSM), OpenStreetMap online (kräver internet) och
-  Lantmäteriets topowebb när den är aktiverad (bara 2D). Varje karta visar den första
-  ikryssade som den har; utan ikryssad baskarta visar 3D-globen bara Natural Earth II.
+  Lantmäteriets topowebb när den är aktiverad (bara 2D). I översvämningen i Sundsvall finns
+  också **Sundsvalls kommun (Kartan)**, kommunens egen karta sparad på datorn, när den är
+  hämtad (avsnitt 15). Den fungerar utan internet och är vit med ortnamn utanför kommunen,
+  till exempel i Timrå. Varje karta visar den första ikryssade som den har; utan ikryssad
+  baskarta visar 3D-globen bara Natural Earth II.
 - **SPARA PROFIL FÖR SCENARIOT**, längst ned i vänstra kolumnen, sparar kryssen, demons
   start och stopp och hastigheten (avsnitt 10) för den demo som körs. Knappen är röd så länge
   kryssen, tiderna eller hastigheten skiljer sig från profilen som demon startar med, och blir
@@ -761,6 +764,10 @@ export TECHSEED_SCENARIO=sundsvall2026
 .venv/bin/python -m tools.fetch_municipal_features
 .venv/bin/python -m tools.fetch_mcf_flood_maps
 .venv/bin/python -m tools.fetch_sentinel1_scene
+
+# 15.5a Kommunens karta (Kartan) som baskarta, sparad på datorn: cirka 41 000 kartbitar,
+# 1,1 GB och två till tre timmar; avbryts den, kör samma kommando igen
+.venv/bin/python -m tools.fetch_municipal_basemap
 
 # 15.5b MET Norways väderprognoser som de utfärdades, och SMHI:s observerade blixtar
 .venv/bin/python -m tools.fetch_met_forecasts

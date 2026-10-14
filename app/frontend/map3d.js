@@ -125,6 +125,17 @@ async function createCesiumMap(config) {
   } else {
     addNote(`Offline-kartan är inte igång; 3D-globen visar bara Natural Earth II över ${config.incident_area}.`);
   }
+  const municipal = config.layers.municipal_basemap;
+  if (municipal) {
+    // The municipality's map, kept locally (municipal_basemap.py), over its fetched area and zooms.
+    const [[municipalSouth, municipalWest], [municipalNorth, municipalEast]] = municipal.bounds;
+    baseById[municipal.id] = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+      url: municipal.url, minimumLevel: municipal.min_zoom, maximumLevel: municipal.max_zoom,
+      rectangle: Cesium.Rectangle.fromDegrees(municipalWest, municipalSouth, municipalEast, municipalNorth),
+      credit: new Cesium.Credit(municipal.attribution, true),
+    }));
+    baseById[municipal.id].show = false;
+  }
   if (terrainProvider) {
     addCredit(config.attribution.copernicus_dem);
   } else {
@@ -212,9 +223,9 @@ async function createCesiumMap(config) {
     wantsLabels: () => true,
 
     // Mission control's base map (basemaps.js baseMapFor): its id, or null for Natural Earth II only.
-    // OSM online has its own names, so the drawn place names are hidden over it.
+    // OSM online and the municipality's map have their own names, so the drawn place names are hidden over them.
     setBaseMap(id) {
-      labelLayer.show = id !== "online";
+      labelLayer.show = id !== "online" && id !== municipal?.id;
       if (id === "online" && !baseById.online) {
         baseById.online = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
           url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", maximumLevel: 19,

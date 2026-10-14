@@ -35,6 +35,15 @@ function createLeafletMap(config) {
   } else {
     baseLayers["OpenStreetMap (online)"] = osm.addTo(map);
   }
+  const municipal = config.layers.municipal_basemap;
+  if (municipal) {
+    // The municipality's map, kept locally (municipal_basemap.py), enlarged beyond its highest fetched zoom.
+    baseById[municipal.id] = L.tileLayer(municipal.url, {
+      minZoom: municipal.min_zoom, maxZoom: 18, maxNativeZoom: municipal.max_zoom, bounds: municipal.bounds,
+      attribution: municipal.attribution,
+    });
+    baseLayers[municipal.label] = baseById[municipal.id];
+  }
   const overlays = {};
   if (config.layers.lantmateriet_topowebb) {
     baseLayers["Lantmäteriet topowebb"] = L.tileLayer("/lm/topowebb/{z}/{x}/{y}.png", {
