@@ -284,3 +284,40 @@ def test_the_buttons_that_apply_a_choice_are_red_while_it_is_not_applied() -> No
         assert f'$("{button}").disabled' not in source  # only through markPending
     css = (FRONTEND / "styles.css").read_text(encoding="utf-8")
     assert ".control button.unsaved { border-color: #ff8a80; background: var(--accent); }" in css
+
+
+def test_the_top_bar_names_the_branch_the_backend_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    html = (FRONTEND / "control.html").read_text(encoding="utf-8")
+    assert '<span id="code-branch" class="code-branch" hidden></span>' in html
+    assert html.index('id="control-label"') < html.index('id="code-branch"') < html.index("</header>")
+    control = (FRONTEND / "control.js").read_text(encoding="utf-8")
+    assert '`Branch: ${config.code_branch}`' in control and '$("code-branch").hidden = !config.code_branch;' in control
+    answers = {("rev-parse", "--abbrev-ref", "HEAD"): "sundsvall-flooding-2026\n"}
+
+    def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+        if tuple(command[1:]) not in answers:
+            raise subprocess.CalledProcessError(128, command)
+        return subprocess.CompletedProcess(command, 0, answers[tuple(command[1:])], "")
+    monkeypatch.setattr(server.subprocess, "run", run)
+    server.code_branch.cache_clear()
+    try:
+        assert server.code_branch() == "sundsvall-flooding-2026"
+        server.code_branch.cache_clear()
+        answers.update({("rev-parse", "--abbrev-ref", "HEAD"): "HEAD\n", ("rev-parse", "--short", "HEAD"): "67830e7\n"})
+        assert server.code_branch() == "67830e7"  # on no branch: the commit
+        server.code_branch.cache_clear()
+        answers.clear()
+        assert server.code_branch() is None
+        server.code_branch.cache_clear()
+
+        def missing(command: list[str], **kwargs: object) -> None:
+            raise FileNotFoundError("git")
+        monkeypatch.setattr(server.subprocess, "run", missing)
+        assert server.code_branch() is None
+    finally:
+        server.code_branch.cache_clear()
+
+
+def test_the_config_carries_the_branch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(server, "code_branch", lambda: "sundsvall-flooding-2026")
+    assert server.config(lantmateriet.Settings(None, None, None, None))["code_branch"] == "sundsvall-flooding-2026"

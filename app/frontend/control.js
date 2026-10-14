@@ -616,6 +616,9 @@ fetch("/api/config").then((response) => response.json()).then((loaded) => {
   showProfile(config.layers.display_profile);
   setupWindow();
   $("control-label").textContent = config.control_label;
+  // The branch of the code the backend runs, when known.
+  $("code-branch").textContent = config.code_branch ? `Branch: ${config.code_branch}` : "";
+  $("code-branch").hidden = !config.code_branch;
   place = config.incident_place;
   if (clockShown) showImages(clockShown);
   showBaseMaps();

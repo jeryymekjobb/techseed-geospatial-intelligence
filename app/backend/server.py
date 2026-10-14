@@ -23,6 +23,7 @@ import json
 import math
 import mimetypes
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -40,7 +41,8 @@ from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
-TILES_DIR = Path(__file__).resolve().parents[2] / "data" / "tiles"
+REPO_DIR = Path(__file__).resolve().parents[2]
+TILES_DIR = REPO_DIR / "data" / "tiles"
 # Cesium terrain built by tools/build_terrain.py (not versioned).
 TERRAIN_DIR = scenario.TERRAIN_DIR
 TICK_SECONDS = 0.25
@@ -505,6 +507,19 @@ def scenario_profile() -> dict[str, Any] | None:
     return profiles.load(scenario.NAME, incident=scenario.INCIDENT)
 
 
+@lru_cache(maxsize=1)
+def code_branch() -> str | None:
+    """The repository's branch the backend runs, or its short commit when it is on none, for mission
+    control; read once, when the backend starts (main), so a later switch does not change it."""
+    def git(*arguments: str) -> str:
+        return subprocess.run(["git", *arguments], cwd=REPO_DIR, capture_output=True, text=True, timeout=5, check=True).stdout.strip()
+    try:
+        name = git("rev-parse", "--abbrev-ref", "HEAD")
+        return (git("rev-parse", "--short", "HEAD") if name == "HEAD" else name) or None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
 def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None) -> dict[str, Any]:
     min_lat, max_lat, min_lon, max_lon = scenario.VIEW_BBOX
     # The demo's start and stop: the saved profile's at the start, or those set since (playback_window).
@@ -526,6 +541,7 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
         "title": scenario.TITLE,
         "data_label": scenario.DATA_LABEL,
         "control_label": scenario.CONTROL_LABEL,
+        "code_branch": code_branch(),  # shown in mission control's top bar
         "summary": scenario.SUMMARY,
         "camera_route": scenario.CAMERA_ROUTE,
         # The area of the offline map, the DEM and the Landsat images.
@@ -1075,6 +1091,7 @@ def main(argv: list[str] | None = None) -> int:
         os.environ["TECHSEED_SCENARIO"] = args.scenario
         os.execv(sys.executable, [sys.executable, "-m", "app.backend.server", *(argv if argv is not None else sys.argv[1:])])
     reset_scenario_for_startup()
+    code_branch()  # the code being run, before anyone switches the branch
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.daemon_threads = True
     settings = Handler.settings

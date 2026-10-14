@@ -4,6 +4,8 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .topbar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; padding: 8px 16px; background: #202020; color: #fff; }
 .topbar h1 { margin: 0; font-size: 1.2rem; }
 .data-label { padding: 2px 8px; border-radius: 4px; background: #ffd54a; color: #202020; font-weight: 600; font-size: 0.85rem; }
+/* Mission control: the branch of the code the backend runs (control.js). */
+.code-branch { padding: 2px 8px; border-radius: 4px; background: #3a3a3a; color: #e0e0e0; font-size: 0.85rem; }
 /* What the main screen shows, dated (panel.js showViewCaption). */
 .view-caption { font-size: 1rem; font-weight: 600; color: #fff; }
 .view-switch { margin-left: auto; color: #ffd54a; font-weight: 600; text-decoration: none; }
