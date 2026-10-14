@@ -21,6 +21,8 @@ const DETECTION_VIEW = { latOffset: -12, height: 2_500_000, pitch: -60, seconds:
 const SATELLITE_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7", SAR: "#b388ff", MSI: "#69f0ae" };
 // The flood maps (WMS) over the offline map, partly transparent.
 const WMS_ALPHA = 0.7;
+// The municipality's map is drawn from this zoom on (its coarser tiles carry huge place names).
+const MUNICIPAL_MIN_LEVEL = 11;
 
 function cesiumColor(hex, alpha = 1) {
   return Cesium.Color.fromCssColorString(hex).withAlpha(alpha);
@@ -127,10 +129,12 @@ async function createCesiumMap(config) {
   }
   const municipal = config.layers.municipal_basemap;
   if (municipal) {
-    // The municipality's map, kept locally (municipal_basemap.py), over its fetched area and zooms.
+    // The municipality's map, kept locally (municipal_basemap.py), over its fetched area and zooms. Its
+    // place names are drawn into the tiles, so from MUNICIPAL_MIN_LEVEL only: a tilted camera would
+    // otherwise show the coarse tiles' names huge on the ground far off.
     const [[municipalSouth, municipalWest], [municipalNorth, municipalEast]] = municipal.bounds;
     baseById[municipal.id] = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
-      url: municipal.url, minimumLevel: municipal.min_zoom, maximumLevel: municipal.max_zoom,
+      url: municipal.url, minimumLevel: Math.max(municipal.min_zoom, MUNICIPAL_MIN_LEVEL), maximumLevel: municipal.max_zoom,
       rectangle: Cesium.Rectangle.fromDegrees(municipalWest, municipalSouth, municipalEast, municipalNorth),
       credit: new Cesium.Credit(municipal.attribution, true),
     }));
