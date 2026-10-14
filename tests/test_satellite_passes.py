@@ -47,6 +47,29 @@ def test_without_fetched_elements_there_are_no_satellites(tmp_path: Path, monkey
         satellites.satellites.cache_clear()
 
 
+def test_only_the_satellites_that_send_the_scenario_data_are_given(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    element = {"epoch_utc": "2014-07-31T00:00:00Z", "line1": "1" * 69, "line2": "2" * 69}
+    (tmp_path / "tle-2014.json").write_text(json.dumps({"satellites": {
+        "37849": {"name": "Suomi NPP", "elements": [element]},  # FIRMS
+        "39084": {"name": "Landsat 8", "elements": [element]},  # one of the images
+        "25544": {"name": "ISS", "elements": [element]},  # sends nothing
+    }}), encoding="utf-8")
+    monkeypatch.setattr(satellites, "TLE_FILE", tmp_path / "tle-2014.json")
+    monkeypatch.setattr(satellites, "SOURCE_FILE", tmp_path / "SOURCE.json")
+    monkeypatch.setattr(satellites.landsat, "layer", lambda: {"scenes": [{"satellite": "Landsat 8"}]})
+    satellites.satellites.cache_clear()
+    try:
+        assert [item["name"] for item in satellites.satellites()["satellites"]] == ["Suomi NPP", "Landsat 8"]
+        monkeypatch.setattr(satellites.landsat, "layer", lambda: None)
+        satellites.satellites.cache_clear()
+        assert [item["name"] for item in satellites.satellites()["satellites"]] == ["Suomi NPP"]
+    finally:
+        satellites.satellites.cache_clear()
+    # Known acquisitions count as data too (Sentinel-1).
+    assert satellites.contributes({"name": "Sentinel-1C", "acquisitions": ["2026-08-17T05:14:00Z"]}, set())
+    assert not satellites.contributes({"name": "ISS", "firms": None}, {"Landsat 8"})
+
+
 def test_the_endpoint_gives_the_elements_with_their_role_and_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, base_url: str) -> None:
     element = {"epoch_utc": "2014-07-31T00:00:00Z", "line1": "1" * 69, "line2": "2" * 69}
     (tmp_path / "tle-2014.json").write_text(json.dumps({"satellites": {
