@@ -147,18 +147,52 @@ cd ~/techseed-geospatial-intelligence
 
 ## 4. Installera demons Python-delar
 
-Demon behöver två tillägg till Python: ett för sensorerna och ett för
-generalrepetitionen. De installeras i en egen mapp, `.venv`, så att resten av datorn inte
-påverkas:
+Demon behöver några tillägg till Python: för sensorerna, satelliternas banor,
+uppläsningen och generalrepetitionen. De installeras i en egen mapp, `.venv`, så att resten
+av datorn inte påverkas:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt -r tools/requirements-record.txt
+.venv/bin/pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt \
+  -r app/requirements-speech.txt -r tools/requirements-record.txt
 ```
 
 Det tar någon minut. Sista raden ska börja med `Successfully installed`.
 
 ## 5. Hämta och bygga data
+
+### Kopiera data från en dator där demon redan fungerar
+
+Datan ligger i mappen `data/` (cirka 2 GB) och i webbiblioteken under `app/frontend/vendor/`.
+Ingen av dem finns i repot. Finns demon redan på en annan dator går det snabbare att kopiera
+dem därifrån än att hämta allt igen, och då kommer de sparade visningsprofilerna
+(`data/display-profiles.json`) och rösterna för uppläsningen med. Kör på den dator där demon
+fungerar, från repots mapp, och byt `mässdatorn` mot den nya datorns namn eller IP-adress:
+
+```bash
+rsync -a --info=progress2 --exclude osm/sweden-latest.osm.pbf --exclude '*.log' \
+  data/ mässdatorn:techseed-geospatial-intelligence/data/
+rsync -a app/frontend/vendor/ mässdatorn:techseed-geospatial-intelligence/app/frontend/vendor/
+```
+
+Kartutdraget för Sverige behövs bara för att bygga kartorna och lämnas därför utanför. Med ett
+USB-minne går det lika bra: kopiera de två mapparna till samma platser i repot på den nya
+datorn.
+
+Databasen följer inte med, eftersom den ligger i Docker. Starta tjänsterna och fyll databasen
+för varje demo på den nya datorn:
+
+```bash
+docker compose up -d tiles postgis mosquitto
+for s in vastmanland2014 sundsvall2026 skane2024 ljusdal2018; do
+  TECHSEED_SCENARIO=$s .venv/bin/python -m tools.load_postgis
+done
+```
+
+Gå sedan direkt till avsnitt 6. Resten av avsnitt 5, och avsnitt 15, 21 och 23, behövs bara
+om datan ska hämtas från början.
+
+### Hämta datan från början
 
 Kör stegen i tur och ordning. Vissa tar några minuter. Varje steg skriver ut vad det gör,
 och om något går fel visas ett felmeddelande. Läs det och se avsnitt 13, eller be om hjälp
@@ -188,6 +222,13 @@ python3 -m tools.fetch_tle_history
 
 # 5.7 Landsat-bilderna före, under och efter branden (10 juni, 4 augusti och 14 september 2014)
 .venv/bin/python -m tools.fetch_landsat_scene
+
+# 5.8 MET Norways väderprognoser som de utfärdades, och SMHI:s observerade blixtar
+TECHSEED_SCENARIO=vastmanland2014 .venv/bin/python -m tools.fetch_met_forecasts
+TECHSEED_SCENARIO=vastmanland2014 .venv/bin/python -m tools.fetch_smhi_lightning
+
+# 5.9 Rösterna för uppläsningen (alla demona använder dem)
+.venv/bin/python -m tools.fetch_piper_voices
 ```
 
 Första gången du kör 5.4 hämtar Docker tjänsterna, cirka 2,5 GB. Det sker bara en gång.
@@ -721,6 +762,10 @@ export TECHSEED_SCENARIO=sundsvall2026
 .venv/bin/python -m tools.fetch_mcf_flood_maps
 .venv/bin/python -m tools.fetch_sentinel1_scene
 
+# 15.5b MET Norways väderprognoser som de utfärdades, och SMHI:s observerade blixtar
+.venv/bin/python -m tools.fetch_met_forecasts
+.venv/bin/python -m tools.fetch_smhi_lightning
+
 # 15.6 Databasen sundsvall2026 (skapas bredvid branddemons databas, som inte påverkas)
 .venv/bin/python -m tools.load_postgis
 ```
@@ -906,6 +951,8 @@ export TECHSEED_SCENARIO=skane2024
 .venv/bin/python -m tools.fetch_smhi_radar --start 2024-01-20 --end 2024-02-25 --step 30 --out data/skane2024/radar
 .venv/bin/python -m tools.fetch_osm_terrain --bbox 55.6,13.0,55.98,13.9 --out data/skane2024/osm/terrain-skane.geojson
 .venv/bin/python -m tools.fetch_osm_targets --bbox 55.6,13.0,55.98,13.9 --out data/skane2024/osm/targets-skane.geojson
+.venv/bin/python -m tools.fetch_met_forecasts   # MET Norways väderprognoser som de utfärdades
+.venv/bin/python -m tools.fetch_smhi_lightning  # SMHI:s observerade blixtar
 ```
 
 Radarbilderna tas var 30:e minut, eftersom perioden är fem veckor lång. Satellitbilderna:
