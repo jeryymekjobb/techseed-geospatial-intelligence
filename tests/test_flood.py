@@ -200,8 +200,11 @@ if scenario.WIND_FILE.exists():
     lines = run_flood(code).splitlines()
     assert lines[0] == "True"
     if lines[1] == "True":  # data/ is not in the repository; fetched with tools/fetch_era5_land.py and fetch_era5_sea.py
-        # 39 ERA5-Land points on land; with the sea file also the 11 at sea from ERA5
-        assert lines[2] in ("39 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39", "50 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39")
+        # 39 ERA5-Land points on land; with the sea file also the 11 at sea from ERA5. Over the map
+        # area grown to Härnösand and Kramfors (2026-10-15): 130 on land, 346 with the sea.
+        assert lines[2] in ("39 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39", "50 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39",
+                            "130 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 130",
+                            "346 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 130")
 
 
 def test_the_flood_s_words_come_from_the_scenario() -> None:
