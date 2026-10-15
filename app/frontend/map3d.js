@@ -167,6 +167,8 @@ async function createCesiumMap(config) {
   const isobarLayer = group("isobars");  // MET Norway's weather chart (met_forecast.py isobars)
   isobarLayer.show = false;
   const lightningLayer = group("lightning");  // SMHI's observed lightning
+  const dailyRainLayer = group("daily-rain");  // SMHI's rain by the day (daily_rain.py)
+  let dailyRainVisible = true;
   const routeExposureLayer = group("route-exposure");  // roads and railways under heavy rain, computed (routes.py)
   const routeImpactLayer = group("route-impacts");  // roads and railways the incident damaged, documented
   const forecastLayer = group("forecast");
@@ -477,6 +479,28 @@ async function createCesiumMap(config) {
       layers.push([info.impact_label, (visible) => { routeImpactLayer.show = visible; }, () => routeImpactLayer.show]);
     },
 
+    // SMHI's rain by the day: a dark blue point with the station's latest ended day.
+    setupDailyRain(info) {
+      layers.push([info.label, (visible) => {
+        dailyRainVisible = visible;
+        dailyRainLayer.show = visible && weatherCategoryVisible;
+      }, () => dailyRainVisible && weatherCategoryVisible]);
+    },
+
+    drawDailyRain(items) {
+      dailyRainLayer.entities.removeAll();
+      for (const item of items) {
+        dailyRainLayer.entities.add({
+          name: item.text, description: item.detail,
+          position: Cesium.Cartesian3.fromDegrees(item.longitude, item.latitude),
+          point: { pixelSize: 12, color: cesiumColor("#123f8c"), outlineColor: cesiumColor("#ffffff"), outlineWidth: 2, ...ON_GROUND },
+          label: { text: item.text, font: "bold 14px system-ui, sans-serif", fillColor: cesiumColor("#ffffff"), outlineColor: cesiumColor("#123f8c"),
+                   outlineWidth: 4, style: Cesium.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cesium.Cartesian2(10, 0),
+                   horizontalOrigin: Cesium.HorizontalOrigin.LEFT, ...ON_GROUND },
+        });
+      }
+    },
+
     drawRoutes(impacts, pieces) {
       routeExposureLayer.entities.removeAll();
       for (const piece of pieces) {
@@ -674,6 +698,7 @@ async function createCesiumMap(config) {
         forecastWindLayer.show = visible && forecastWindVisible;
         isobarLayer.show = visible && isobarVisible;
         lightningLayer.show = visible && lightningVisible;
+        dailyRainLayer.show = visible && dailyRainVisible;
         stationLayer.show = visible;
         if (radarLayer) radarLayer.show = visible && radarVisible;
         for (const [box, shown] of layerBoxes) box.checked = shown();

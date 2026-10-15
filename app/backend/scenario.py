@@ -122,3 +122,8 @@ SENTINEL1_ACQUISITIONS = getattr(_module, "SENTINEL1_ACQUISITIONS", [])
 ROUTE_IMPACTS = getattr(_module, "ROUTE_IMPACTS", [])
 ROUTE_REPORT = getattr(_module, "ROUTE_REPORT", "")
 ROUTE_EXPOSURE_FILE = getattr(_module, "ROUTE_EXPOSURE_FILE", None)
+# The level sensors' alarm as a rise over the flow at the playback's start, instead of above the
+# station's record (level_sensors.py); and SMHI's stations that report the rain by the day (daily_rain.py).
+LEVEL_ALARM_RISE = getattr(_module, "LEVEL_ALARM_RISE", None)
+DAILY_RAIN_STATIONS = getattr(_module, "DAILY_RAIN_STATIONS", {})
+DAILY_RAIN_DIR = getattr(_module, "DAILY_RAIN_DIR", None)

@@ -78,6 +78,14 @@ PLAYBACK_START = datetime(2025, 9, 6, 12, 0, tzinfo=timezone.utc)
 PLAYBACK_END = datetime(2025, 9, 8, 12, 0, tzinfo=timezone.utc)
 # Sentinel-1 passes at 05:21 UTC on 7 September, in the middle of the rain.
 CHECK_START_UTC = "2025-09-07T05:00:00Z"
+# The demo check: at 09 UTC all six level sensors alarm (Stugusjön's flow passed five times its
+# flow at the start at 05 UTC, Risnäs's at 08 UTC) and the day to 06 UTC gave Myckelgensjö
+# 140 mm; its SATCOM outage starts in the evening, before the radar acquisition at 05:14 UTC on
+# 8 September.
+CHECK_PEAK_UTC = "2025-09-07T09:00:00Z"
+CHECK_SENSORS = "6/6"
+CHECK_OUTCOME = "Flood probable"
+CHECK_SATCOM_UTC = "2025-09-07T21:00:00Z"
 
 DATABASE = "vasternorrland2025"
 TILES_FILE = "vasternorrland.mbtiles"
@@ -95,6 +103,14 @@ RAIN_GAUGES = "SMHI:s mätare"
 # The rain gauges with hourly sums in SMHI's open data (parameter 7) in the area, checked
 # 2026-10-15. They all lie outside the rain's core; Söråker (22228110) gives implausible values.
 RAIN_STATIONS = {"128390": "Lungö A", "138070": "Västmarkum A", "138390": "Hemling A"}
+# SMHI's stations that report the rain by the day (parameter 5, 06-06 UTC) in the rain's core,
+# checked 2026-10-15 (tools/fetch_smhi_daily.py, daily_rain.py): Kramfors had 123.5 mm and
+# Myckelgensjö 140.0 mm in the day to 7 September 06 UTC. Bollstabruk has no days in the period.
+DAILY_RAIN_STATIONS = {
+    "137350": "Myckelgensjö", "127560": "Kramfors", "127480": "Gåltjärn", "137220": "Aspeå", "127380": "Härnösand",
+    "137090": "Multrå D", "137100": "Sollefteå", "127570": "Åkroken D", "128500": "Nora-Östanö D",
+}
+DAILY_RAIN_DIR = DATA / "smhi-daily"
 # SMHI's hydrological stations with the flow every 15 minutes (parameter 2) in the area, checked
 # 2026-10-15; none measures the level. Stugusjön lies by the derailment on Stambanan.
 HYDRO_STATIONS = {
@@ -160,19 +176,19 @@ ROUTE_REPORT = ("Länsstyrelsen Västernorrland, Utredning av konsekvenser av kr
 ROUTE_IMPACTS = [
     {"time_utc": "2025-09-07T02:41:00Z", "kind": "alert", "approximate_time": False,
      "text": "Första larmet till Länsstyrelsen om skador på vägar och järnväg"},
-    {"time_utc": "2025-09-07T05:00:00Z", "kind": "road", "approximate_time": False, "latitude": 62.80321, "longitude": 17.85806,
+    {"time_utc": "2025-09-07T05:00:00Z", "kind": "road", "approximate_time": False, "site": "Väg 738 Judeby", "latitude": 62.80321, "longitude": 17.85806,
      "text": "Väg 738 vid Judeby bortspolad vid en vägtrumma – en person omkom"},
-    {"time_utc": "2025-09-07T05:50:00Z", "kind": "rail", "approximate_time": True, "latitude": 63.38113, "longitude": 17.7737,
+    {"time_utc": "2025-09-07T05:50:00Z", "kind": "rail", "approximate_time": True, "site": "Stambanan Stugusjön", "latitude": 63.38113, "longitude": 17.7737,
      "text": "Godståg spårar ur på Stambanan genom övre Norrland vid Stugusjön, väster om Skorped"},
-    {"time_utc": "2025-09-07T06:00:00Z", "kind": "road", "approximate_time": True, "latitude": 63.05743, "longitude": 17.6088,
+    {"time_utc": "2025-09-07T06:00:00Z", "kind": "road", "approximate_time": True, "site": "Riksväg 90 Kyrkdal", "latitude": 63.05743, "longitude": 17.6088,
      "text": "Riksväg 90 avspolad vid Kyrkdal, avstängd mellan Hållsätter och Kärr"},
-    {"time_utc": "2025-09-07T06:00:00Z", "kind": "road", "approximate_time": True, "latitude": 63.56755, "longitude": 17.80761,
+    {"time_utc": "2025-09-07T06:00:00Z", "kind": "road", "approximate_time": True, "site": "Väg 1036 Seltjärn", "latitude": 63.56755, "longitude": 17.80761,
      "text": "Väg 1036 skadad mellan Remmarbäcken och Seltjärn"},
-    {"time_utc": "2025-09-07T06:00:00Z", "kind": "road", "approximate_time": True, "latitude": 63.17686, "longitude": 17.56248,
+    {"time_utc": "2025-09-07T06:00:00Z", "kind": "road", "approximate_time": True, "site": "Väg 335 Sånga", "latitude": 63.17686, "longitude": 17.56248,
      "text": "Väg 335 avstängd vid Sånga kyrka"},
     {"time_utc": "2025-09-07T07:45:00Z", "kind": "alert", "approximate_time": True,
      "text": "VMA: farligt att färdas på vägar i de fyra drabbade kommunerna"},
-    {"time_utc": "2025-09-07T08:30:00Z", "kind": "rail", "approximate_time": True, "latitude": 63.09583, "longitude": 17.7471,
+    {"time_utc": "2025-09-07T08:30:00Z", "kind": "rail", "approximate_time": True, "site": "Ådalsbanan Prästmon", "latitude": 63.09583, "longitude": 17.7471,
      "text": "Timmertåg spårar ur på övre Ådalsbanan norr om Prästmon"},
     {"time_utc": "2025-09-07T09:38:00Z", "kind": "alert", "approximate_time": False,
      "text": "SMHI:s första varning för höga flöden i små vattendrag"},
@@ -196,6 +212,14 @@ MCF_LAYERS = {
     "bhf": (5, "Beräknat högsta flöde", "MCF"),
 }
 FLOOD_MODELS = "MCF:s modeller"
+# Synthetic level sensors at the documented road and railway damage (ROUTE_IMPACTS with a "site";
+# tools/derive_impact_sensor_points.py), each following its nearest SMHI flow station. No SMHI
+# station passed its record, so they alarm when the station's flow has risen LEVEL_ALARM_RISE
+# times above its flow at the playback's start (level_sensors.py): Stugusjön did so at 05 UTC
+# on 7 September, Risnäs at 08 UTC.
+LEVEL_SENSOR_FILE = DATA / "sensors" / "level-points.geojson"
+LEVEL_ALARM_RISE = 5.0
+SENSOR_WORDS = {"sensors": "nivågivare", "the_sensors": "nivågivarna", "alarming": "larmande"}
 
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""

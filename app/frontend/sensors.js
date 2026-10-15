@@ -49,7 +49,9 @@ function levelSensorText(sensor, kind) {
   if (sensor.status === "failed") return `${sensor.name}: SENSOR FAILURE (${kind})`;
   const state = sensor.confirms ? "LARMAR" : "inget larm";
   let value = `inga värden från ${sensor.station} ännu`;
-  if (sensor.value !== null && sensor.station_kind === "flow") value = `${sensor.station} ${sensor.percent} % av tidigare högsta flöde`;
+  if (sensor.value !== null && sensor.rise_rule) {
+    value = `${sensor.station} ${String(sensor.rise).replace(".", ",")} gånger flödet vid start (larm vid ${String(sensor.rise_rule).replace(".", ",")} gånger)`;
+  } else if (sensor.value !== null && sensor.station_kind === "flow") value = `${sensor.station} ${sensor.percent} % av tidigare högsta flöde`;
   if (sensor.value !== null && sensor.station_kind === "level") {
     value = `${sensor.station} ${Math.abs(sensor.from_record_cm)} cm ${sensor.from_record_cm > 0 ? "över" : "under"} tidigare högsta nivå`;
   }

@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, sensor_sim, spatial, speech, wms
+from app.backend import assessment, daily_rain, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, sensor_sim, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -161,7 +161,8 @@ def synthetic_sensors() -> sensor_sim.SyntheticSensors | flood_sensors.FloodSens
     """The incident's synthetic sensors: heat and smoke round the fire, overflow at the flood's stormwater points,
     or levels where roads cross a river flood's mapped area."""
     if not scenario.WILDFIRE and scenario.LEVEL_SENSOR_FILE:
-        return level_sensors.LevelSensors(scenario.LEVEL_SENSOR_FILE, (hydro.stations() or {}).get("stations", ()))
+        return level_sensors.LevelSensors(scenario.LEVEL_SENSOR_FILE, (hydro.stations() or {}).get("stations", ()),
+                                          rise=scenario.LEVEL_ALARM_RISE, start=scenario.PLAYBACK_START)
     if not scenario.WILDFIRE:
         # The municipality's stormwater points, where the scenario has them; none otherwise.
         points = scenario.MUNICIPAL_DIR / "critical-stormwater.geojson" if scenario.MUNICIPAL_DIR else None
@@ -191,7 +192,8 @@ def synthetic_sensor_events() -> dict[str, Any]:
                 continue
             confirming[item["id"]] = item["confirms"]
             events.append({"clock_utc": utc_text(moment), "sensor": item["id"], "name": item["name"],
-                           "kind": item.get("kind", "fire"), "confirms": item["confirms"]})
+                           # A level sensor that alarms on a rise says so in the log (satlog.js).
+                           "kind": "level_rise" if item.get("rise_rule") else item.get("kind", "fire"), "confirms": item["confirms"]})
         moment += SENSOR_EVENT_STEP
     return {"step_minutes": SENSOR_EVENT_STEP.total_seconds() / 60, "events": events}
 
@@ -254,7 +256,8 @@ def _assessor() -> assessment.Assessor | flood_assessment.FloodAssessor:
         return flood_assessment.FloodAssessor(weather()["stations"], scenario.SENTINEL1_ACQUISITIONS,
                                               images["scenes"] if images else [], scenario.FIRE_CENTRE,
                                               place_name=scenario.INCIDENT_PLACE, focus_land=scenario.FOCUS_LAND,
-                                              gauges=scenario.RAIN_GAUGES, hydro=(hydro.stations() or {}).get("stations", ()))
+                                              gauges=scenario.RAIN_GAUGES, hydro=(hydro.stations() or {}).get("stations", ()),
+                                              daily=daily_rain.stations())
     return assessment.Assessor(detections(), wind_field(), forecast.forecasts()["states"], scenario.FIRE_CENTRE)
 
 
@@ -437,6 +440,7 @@ LAYER_CATEGORIES = {
     "Prognosvind (MET Norway)": "weather",
     "Väderkarta (MET Norway)": "weather",
     "Blixtar (SMHI, observerade)": "weather",
+    daily_rain.LABEL: "weather",
     routes.IMPACT_LABEL: "infrastructure",
     routes.EXPOSURE_LABEL: "infrastructure",
 }
@@ -467,6 +471,8 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
         items.append(item("Väderkarta (MET Norway)", False, False))
     if lightning.flashes():
         items.append(item("Blixtar (SMHI, observerade)", True, True))
+    if daily_rain.stations():
+        items.append(item(daily_rain.LABEL, True, True))
     if routes.impacts():
         items.append(item(routes.IMPACT_LABEL, True, True))
     if routes.exposure() is not None:
@@ -588,6 +594,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
                           "events": lightning.events()} if lightning.flashes() else None,
             # Roads and railways the incident damaged (documented) and those under heavy rain (computed; routes.py).
             "routes": routes.layer(),
+            # SMHI's rain by the day at the stations that report so (daily_rain.py).
+            "daily_rain": daily_rain.layer(),
             "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "base_maps": base_maps(settings),

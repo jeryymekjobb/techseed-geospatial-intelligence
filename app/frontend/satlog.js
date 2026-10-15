@@ -24,8 +24,9 @@ const SATLOG_SENSOR_TEXTS = {
   fire: ["känner rök eller värme", "slutar känna rök eller värme"],
   sewer: ["bräddar", "slutar brädda"],
   level: ["över tidigare högsta nivå", "under tidigare högsta nivå"],
+  level_rise: ["larmar, kraftigt stigande flöde", "slutar larma"],
 };
-const SATLOG_SENSOR_NAMES = { fire: "", sewer: "Bräddgivare ", level: "Nivåsensor " };
+const SATLOG_SENSOR_NAMES = { fire: "", sewer: "Bräddgivare ", level: "Nivåsensor ", level_rise: "Nivåsensor " };
 const SATLOG_FIRMS_NAMES = { Aqua: "Aqua", Terra: "Terra", SNPP: "Suomi NPP", N20: "NOAA-20" };
 // FIRMS detections of one satellite this close in time come from the same pass.
 const SATLOG_PASS_GAP_MS = 15 * 60000;
@@ -304,9 +305,9 @@ function levelReport(sensors) {
   if (!alarming.length) return null;
   const stations = new Map();
   for (const item of alarming) {
-    const value = item.station_kind === "level"
-      ? `${item.from_record_cm} centimeter över tidigare högsta nivå`
-      : `${item.percent} procent av tidigare högsta flöde`;
+    const value = item.rise_rule ? `flödet ${String(item.rise).replace(".", ",")} gånger så stort som vid start`
+      : item.station_kind === "level" ? `${item.from_record_cm} centimeter över tidigare högsta nivå`
+        : `${item.percent} procent av tidigare högsta flöde`;
     stations.set(item.station, value);
   }
   const count = alarming.length === 1 ? "1 nivågivare" : `${alarming.length} nivågivare`;

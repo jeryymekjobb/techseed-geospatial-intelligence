@@ -58,4 +58,24 @@ function rainClass(millimetres) {
   return RAIN_CLASSES.find((item) => millimetres < item.below);
 }
 
-if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainClass, radarFrameAt, RAIN_CLASSES, HOUR_MS };
+// SMHI's stations that report the rain by the day (daily_rain.py): each station's latest day that
+// has ended at the clock, as { id, name, latitude, longitude, mm, from_utc, to_utc }; none before
+// its first day has ended.
+function dailyRainAt(stations, clockMs) {
+  const items = [];
+  for (const station of stations || []) {
+    const ended = station.days.filter((day) => Date.parse(day.to_utc) <= clockMs);
+    if (!ended.length) continue;
+    const day = ended[ended.length - 1];
+    items.push({ id: station.id, name: station.name, latitude: station.latitude, longitude: station.longitude,
+                 mm: day.mm, from_utc: day.from_utc, to_utc: day.to_utc });
+  }
+  return items;
+}
+
+// A day's sum on the maps: "123,5 mm".
+function dailyRainText(mm) {
+  return `${String(Math.round(mm * 10) / 10).replace(".", ",")} mm`;
+}
+
+if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainClass, radarFrameAt, dailyRainAt, dailyRainText, RAIN_CLASSES, HOUR_MS };

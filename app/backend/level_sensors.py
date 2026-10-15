@@ -4,7 +4,9 @@ There were no TechSeed sensors along Skåne's rivers in 2024. To show how ground
 confirm a flood, the points of tools/derive_level_sensor_points.py are given a synthetic level
 sensor driven by the real measurements of its SMHI station (hydro.py): it alarms when the
 station's latest flow or lake level is above the highest measured there before, and shows that
-value as a share of it. A sensor the operator places takes the nearest station.
+value as a share of it. A scenario whose stations stayed below their records (Västernorrland
+2025) sets a rise instead: the sensor alarms when its station's flow is at least that many times
+its flow at the playback's start. A sensor the operator places takes the nearest station.
 
 The sensors are shaped as the overflow sensors (flood_sensors.py), so failures, IOT ON/OFF and
 placed sensors work the same, and the screens mark every value synthetic.
@@ -39,7 +41,9 @@ def latest(station: dict[str, Any], clock: datetime) -> float | None:
 
 
 class LevelSensors:
-    def __init__(self, points_file: Path | None, stations: Sequence[dict[str, Any]]) -> None:
+    def __init__(self, points_file: Path | None, stations: Sequence[dict[str, Any]], *, rise: float | None = None,
+                 start: datetime | None = None) -> None:
+        self.rise, self.start = rise, start
         features = json.loads(points_file.read_text(encoding="utf-8"))["features"] if points_file and points_file.is_file() else []
         self.stations = {station["id"]: station for station in stations if station.get("earlier_max")}
         self.nodes = []
@@ -68,6 +72,12 @@ class LevelSensors:
                 continue
             value = latest(station, clock)
             record = station["earlier_max"]["value"]
+            if self.rise:
+                baseline = latest(station, self.start) if self.start else None
+                factor = round(value / baseline, 1) if value is not None and baseline else None
+                sensors.append({**item, "status": "ok", "value": value, "earlier_max": record, "percent": None, "from_record_cm": None,
+                                "rise": factor, "rise_rule": self.rise, "confirms": factor is not None and factor >= self.rise})
+                continue
             # A flow as a share of its record; a level in centimetres from it, as its share of the
             # height above the station's zero says little.
             percent = round_half_up(100 * value / record) if value is not None and station["kind"] == "flow" else None

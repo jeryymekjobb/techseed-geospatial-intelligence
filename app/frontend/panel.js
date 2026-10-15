@@ -414,6 +414,18 @@ async function setupRoutes(info) {
   state.map.addAttribution(info.attribution);
 }
 
+// SMHI's rain by the day (daily_rain.py): each station's latest ended day, redrawn when one ends.
+function showDailyRain(clock) {
+  const info = state.config.layers.daily_rain;
+  if (!info || !clock) return;
+  const items = dailyRainAt(info.stations, clock.getTime());
+  const key = items.map((item) => item.to_utc).join("|");
+  if (key === state.dailyRainKey) return;
+  state.dailyRainKey = key;
+  state.map.drawDailyRain(items.map((item) => ({ ...item, text: `${item.name}: ${dailyRainText(item.mm)}`,
+    detail: `Dygnet ${formatLocal(item.from_utc)} – ${formatLocal(item.to_utc)} (SMHI, dygnsvärde)` })));
+}
+
 // Redrawn when a damage is reached or the computed rain passes into a new hour.
 function showRoutes(clock) {
   if (!state.routes || !clock) return;
@@ -664,6 +676,7 @@ function setClock(clock) {
   showMetForecast(clock);
   showLightning(clock);
   showRoutes(clock);
+  showDailyRain(clock);
   showRain(clock);
   showHydro(clock);
   showEms(clock);
@@ -1603,6 +1616,10 @@ async function startApp(createMap) {
     }
   }
   if (config.layers.routes) await setupRoutes(config.layers.routes);
+  if (config.layers.daily_rain) {
+    state.map.setupDailyRain(config.layers.daily_rain);
+    state.map.addAttribution(config.layers.daily_rain.attribution);
+  }
   state.map.finish();
   setupScenarioView();
   // The flood's rain classes and maps right after the status, where the fire has its forecast; its

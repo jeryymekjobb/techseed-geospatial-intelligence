@@ -114,6 +114,8 @@ function createLeafletMap(config) {
   let lightningLayer = null;  // SMHI's observed flashes to the ground in the last hour
   let lightningVisible = true;
   let routeImpactLayer = null;  // roads and railways the incident damaged (routes.py)
+  let dailyRainLayer = null;  // SMHI's rain by the day (daily_rain.py)
+  let dailyRainVisible = true;
   let routeExposureLayer = null;  // roads and railways under heavy rain, computed from the radar
   let isobarVisible = false;
 
@@ -396,6 +398,22 @@ function createLeafletMap(config) {
       overlays[info.impact_label] = routeImpactLayer;
     },
 
+    // SMHI's rain by the day: a marker in the rain's class with the station's latest ended day.
+    setupDailyRain(info) {
+      dailyRainLayer = L.layerGroup().addTo(map);
+      overlays[info.label] = dailyRainLayer;
+    },
+
+    drawDailyRain(items) {
+      dailyRainLayer.clearLayers();
+      for (const item of items) {
+        L.circleMarker([item.latitude, item.longitude], { radius: 7, color: "#ffffff", weight: 2, fillColor: "#123f8c", fillOpacity: 0.95 })
+          .bindTooltip(item.text, { direction: "right", permanent: true, className: "daily-rain-label" })
+          .bindPopup(`${item.text}<br><small>${item.detail}</small>`)
+          .addTo(dailyRainLayer);
+      }
+    },
+
     drawRoutes(impacts, pieces) {
       if (routeExposureLayer) {
         routeExposureLayer.clearLayers();
@@ -461,6 +479,9 @@ function createLeafletMap(config) {
       } else if (name === "Prognosvind (MET Norway)") {
         forecastWindVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
+      } else if (layer === dailyRainLayer) {
+        dailyRainVisible = visible;
+        effectiveVisible = visible && weatherCategoryVisible;
       } else if (name === "Blixtar (SMHI, observerade)") {
         lightningVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
@@ -525,6 +546,7 @@ function createLeafletMap(config) {
         setMapLayerVisible(forecastWindLayer, visible && forecastWindVisible);
         setMapLayerVisible(isobarLayer, visible && isobarVisible);
         setMapLayerVisible(lightningLayer, visible && lightningVisible);
+        setMapLayerVisible(dailyRainLayer, visible && dailyRainVisible);
         return;
       }
       const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer, routeImpactLayer, routeExposureLayer] };

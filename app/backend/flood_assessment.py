@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from typing import Any, Sequence
 
 from app.backend.assessment import SCORE_LABEL, line, place, sv
+from app.backend.daily_rain import sum_since
 
 WEIGHTS = {"rain_hour": 0.30, "rain_day": 0.25, "iot": 0.25, "rain_days": 0.25, "flow": 0.30, "level": 0.30}
 OUTCOMES = ((0.75, "Flood probable"), (0.40, "Possible flood"), (0.0, "No flood indicated"))
@@ -59,6 +60,8 @@ def level_text(sensor: dict[str, Any]) -> str:
     state = "larmar" if sensor["confirms"] else "inget larm"
     if sensor["value"] is None:
         return f"{state}, inga värden från {sensor['station']} ännu"
+    if sensor.get("rise_rule"):
+        return f"{state}, {sensor['station']} {sv(sensor['rise'])} gånger flödet vid start (regel ≥ {sv(sensor['rise_rule'])})"
     if sensor["station_kind"] == "flow":
         return f"{state}, {sensor['station']} {sensor['percent']} % av tidigare högsta flöde"
     return f"{state}, {sensor['station']} {abs(sensor['from_record_cm'])} cm {'över' if sensor['from_record_cm'] > 0 else 'under'} tidigare högsta nivå"
@@ -83,7 +86,7 @@ class FloodAssessor:
     def __init__(self, stations: Sequence[dict[str, Any]], acquisitions: Sequence[dict[str, str]],
                  scenes: Sequence[dict[str, Any]], centre: tuple[float, float], *, place_name: str = "Sundsvall",
                  focus_land: str = "stans land", gauges: str = "kommunens mätare",
-                 hydro: Sequence[dict[str, Any]] = ()) -> None:
+                 hydro: Sequence[dict[str, Any]] = (), daily: Sequence[dict[str, Any]] = ()) -> None:
         # The scenario's words: its place, the land the radar's water is counted on and its rain gauges.
         self.place_name, self.focus_land, self.gauges = place_name, focus_land, gauges
         self.stations = list(stations)
@@ -93,6 +96,8 @@ class FloodAssessor:
         self.centre = centre
         # SMHI's flows and levels (hydro.py): with them the rules are the river flood's.
         self.hydro = [station for station in hydro if station.get("earlier_max")]
+        # SMHI's stations that report the rain by the day (daily_rain.py): a day counts once it has ended.
+        self.daily = list(daily)
 
     def _wettest(self, clock: datetime, day: bool) -> tuple[float, dict[str, Any] | None]:
         best = (0.0, None)
@@ -108,11 +113,16 @@ class FloodAssessor:
             value = rain_since(station["observations"], clock, RAIN_DAYS * 24 * HOUR)
             if value > best[0]:
                 best = (value, station)
+        for station in self.daily:
+            value = sum_since(station, clock, RAIN_DAYS * 24 * HOUR)
+            if value > best[0]:
+                best = (value, {**station, "by_day": True})
         return best
 
     def _rain_days_text(self, value: float, station: dict[str, Any] | None, span: str = f"de senaste {RAIN_DAYS} dygnen") -> str:
+        gauges = "dygnsvärden 06–06 UTC" if station and station.get("by_day") else self.gauges
         return (f"{sv(value)} mm regn {span}" + (f" vid {station['name']}" if station else "")
-                + f" (SMHI, {self.gauges}; regel ≥ {sv(RAIN_DAYS_MM)} mm)")
+                + f" (SMHI, {gauges}; regel ≥ {sv(RAIN_DAYS_MM)} mm)")
 
     def _above(self, kind: str, clock: datetime) -> tuple[list[tuple[dict[str, Any], float]], dict[str, Any] | None]:
         """The stations of the kind whose latest value is above their highest measured before, with it,
@@ -252,13 +262,21 @@ class FloodAssessor:
         return {"category": CATEGORY, "holds": holds, "ref": summary["centre"],
                 "text": f"Radarbilden: {self.radar_text(scene)}; regeln kräver minst {sv(RADAR_WATER_PCT)} %"}
 
-    def _river_rules(self, summary: dict[str, Any]) -> list[dict[str, Any]]:
-        """The river flood's rules at the acquisition: the rain of the days before it and SMHI's flows and levels."""
+    def _river_rules(self, summary: dict[str, Any], synthetic: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        """The river flood's rules at the acquisition: the rain of the days before it and SMHI's flows and levels.
+        Without a station that measures the level, the synthetic level sensors take that rule's place."""
         moment = parse_utc(summary["pass_utc"])
         value, station = self._wettest_since(moment)
         rules = [{"category": CATEGORY, "holds": value >= RAIN_DAYS_MM, "ref": place(station["latitude"], station["longitude"]) if station else None,
                   "text": self._rain_days_text(value, station, f"de {RAIN_DAYS} dygnen före bilden")}]
         for kind in ("flow", "level"):
+            if kind == "level" and synthetic and not any(item["kind"] == "level" for item in self.hydro):
+                levels = [sensor for sensor in synthetic["sensors"] if sensor.get("kind") == "level"]
+                alarming = [sensor for sensor in levels if sensor["status"] == "ok" and sensor["confirms"]]
+                rules.append({"category": CATEGORY, "holds": bool(alarming),
+                              "ref": place(alarming[0]["latitude"], alarming[0]["longitude"]) if alarming else None,
+                              "text": f"{len(alarming)} av {len(levels)} nivågivare larmar (syntetiska)"})
+                continue
             holds, text, where = self._hydro_line(kind, moment)
             rules.append({"category": CATEGORY, "holds": holds, "ref": where, "text": text})
         return rules
@@ -267,7 +285,7 @@ class FloodAssessor:
         """Rules for a flood at the acquisition: the rain before it, the synthetic sensors and the model;
         for a river flood the rain of the days before, SMHI's flows and levels and the radar image."""
         if self.hydro:
-            rules = [*self._river_rules(summary), self._radar_rule(summary)]
+            rules = [*self._river_rules(summary, synthetic), self._radar_rule(summary)]
             count = sum(rule["holds"] for rule in rules)
             return {"outcome": "Översvämning trolig" if count >= 2 else "Okänd", "rules": rules, "counts": {CATEGORY: count},
                     "label": "Regelbaserad klassificering ur regn, SMHI:s uppmätta flöden och nivåer och radarbilden – ingen sannolikhet"}
