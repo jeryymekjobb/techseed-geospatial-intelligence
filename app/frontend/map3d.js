@@ -167,6 +167,8 @@ async function createCesiumMap(config) {
   const isobarLayer = group("isobars");  // MET Norway's weather chart (met_forecast.py isobars)
   isobarLayer.show = false;
   const lightningLayer = group("lightning");  // SMHI's observed lightning
+  const routeExposureLayer = group("route-exposure");  // roads and railways under heavy rain, computed (routes.py)
+  const routeImpactLayer = group("route-impacts");  // roads and railways the incident damaged, documented
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
@@ -466,6 +468,41 @@ async function createCesiumMap(config) {
       }
     },
 
+    // Roads and railways (routes.py): the computed pieces under heavy rain as coloured lines on the
+    // ground, and the documented damage as markers with the report's text when clicked.
+    setupRoutes(info, hasExposure) {
+      if (hasExposure) {
+        layers.push([info.exposure_label, (visible) => { routeExposureLayer.show = visible; }, () => routeExposureLayer.show]);
+      }
+      layers.push([info.impact_label, (visible) => { routeImpactLayer.show = visible; }, () => routeImpactLayer.show]);
+    },
+
+    drawRoutes(impacts, pieces) {
+      routeExposureLayer.entities.removeAll();
+      for (const piece of pieces) {
+        routeExposureLayer.entities.add({
+          name: piece.ref || piece.name || (piece.kind === "rail" ? "Järnväg" : "Väg"),
+          description: `${Math.round(piece.rain)} mm regn sedan start (beräknat ur radar – inte observerade skador)`,
+          polyline: { positions: Cesium.Cartesian3.fromDegreesArray(piece.coords.flatMap(([lat, lon]) => [lon, lat])),
+                      width: piece.kind === "rail" ? 5 : 4, material: cesiumColor(ROUTE_EXPOSURE_COLOURS[piece.level], 0.9), clampToGround: true },
+        });
+      }
+      routeImpactLayer.entities.removeAll();
+      for (const item of impacts) {
+        const colour = ROUTE_IMPACT_COLOURS[item.kind] || "#d62828";
+        const shape = item.kind === "rail" ? '<rect x="3" y="3" width="26" height="26" rx="4"' : '<circle cx="16" cy="16" r="13"';
+        const image = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">${shape} `
+          + `fill="${colour}" stroke="#ffffff" stroke-width="3"/><text x="16" y="22" font-family="system-ui" font-weight="bold" `
+          + 'font-size="18" fill="#ffffff" text-anchor="middle">!</text></svg>')}`;
+        routeImpactLayer.entities.add({
+          name: item.text,
+          description: `${formatLocal(item.time_utc)}${item.approximate_time ? " (tid ungefärlig)" : ""}; plats ungefärlig. Länsstyrelsen, utredning 2026.`,
+          position: Cesium.Cartesian3.fromDegrees(item.longitude, item.latitude),
+          billboard: { image, width: 26, height: 26, ...ON_GROUND },
+        });
+      }
+    },
+
     setupForecast() {
       layers.push(["Prognos (modell)", (visible) => { forecastLayer.show = visible; }, () => forecastLayer.show]);
     },
@@ -642,7 +679,7 @@ async function createCesiumMap(config) {
         for (const [box, shown] of layerBoxes) box.checked = shown();
         return;
       }
-      const groups = { space: [points, satelliteLayer], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer] };
+      const groups = { space: [points, satelliteLayer], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer, routeImpactLayer, routeExposureLayer] };
       for (const layer of groups[category] || []) layer.show = visible;
       for (const [box, shown] of layerBoxes) box.checked = shown();
     },

@@ -117,3 +117,8 @@ MUNICIPAL_BASEMAP_DIR = getattr(_module, "MUNICIPAL_BASEMAP_DIR", None)
 MUNICIPAL_BASEMAP_BBOX = getattr(_module, "MUNICIPAL_BASEMAP_BBOX", None) or MAP_BBOX
 MCF_DIR = getattr(_module, "MCF_DIR", None)
 SENTINEL1_ACQUISITIONS = getattr(_module, "SENTINEL1_ACQUISITIONS", [])
+# Roads and railways the incident damaged, as a report tells it, and those under heavy rain
+# computed from SMHI's radar (routes.py, tools/derive_route_exposure.py); only Västernorrland 2025.
+ROUTE_IMPACTS = getattr(_module, "ROUTE_IMPACTS", [])
+ROUTE_REPORT = getattr(_module, "ROUTE_REPORT", "")
+ROUTE_EXPOSURE_FILE = getattr(_module, "ROUTE_EXPOSURE_FILE", None)

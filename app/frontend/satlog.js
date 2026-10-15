@@ -15,6 +15,7 @@ const SATLOG_SOURCES = {
   computed: "beräknat", firms: "FIRMS", landsat: "satellitbild", synthetic: "syntetiskt", model: "modell", postgis: "PostGIS", simulated: "simulerat",
   metno: "MET Norway",
   lightning: "SMHI, observerat",
+  report: "Länsstyrelsen, utredning",
 };
 // How many of a pass's newly threatened places the line names; the rest are counted.
 const SATLOG_PLACES_NAMED = 4;
@@ -108,7 +109,7 @@ function satlogWhole(value) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30 }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -191,6 +192,12 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
   for (const item of lightningEvents) {
     lines.push({ atMs: Date.parse(item.at_utc), text: `${item.count} blixtnedslag inom ${lightningKm} kilometer från ${place} den senaste timmen`,
                  source: "lightning", kind: "lightning" });
+  }
+  // Roads and railways a report says were damaged (routes.py impacts), at the time it gives; an
+  // approximated time says so on the screen, not aloud.
+  for (const item of routeImpacts) {
+    lines.push({ atMs: Date.parse(item.time_utc), text: `${item.text}${item.approximate_time ? " (tid ungefärlig)" : ""}`,
+                 spoken: item.text, source: "report", kind: "route_impact" });
   }
   for (const pass of threats.places || []) {
     const named = pass.places.slice(0, SATLOG_PLACES_NAMED).map((place) => `${place.name} ${satlogSpan(place.span)}`).join(", ");

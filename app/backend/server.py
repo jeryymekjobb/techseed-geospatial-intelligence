@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, satellites, scenario, sensor_sim, spatial, speech, wms
+from app.backend import assessment, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, sensor_sim, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -437,6 +437,8 @@ LAYER_CATEGORIES = {
     "Prognosvind (MET Norway)": "weather",
     "Väderkarta (MET Norway)": "weather",
     "Blixtar (SMHI, observerade)": "weather",
+    routes.IMPACT_LABEL: "infrastructure",
+    routes.EXPOSURE_LABEL: "infrastructure",
 }
 
 
@@ -465,6 +467,10 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
         items.append(item("Väderkarta (MET Norway)", False, False))
     if lightning.flashes():
         items.append(item("Blixtar (SMHI, observerade)", True, True))
+    if routes.impacts():
+        items.append(item(routes.IMPACT_LABEL, True, True))
+    if routes.exposure() is not None:
+        items.append(item(routes.EXPOSURE_LABEL, True, True))
     for source in wms.sources() or []:
         for name, title in source["layers"].items():
             shown = name in (source.get("visible") or [])
@@ -580,6 +586,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             # SMHI's observed lightning at /api/lightning (lightning.py), with the log's hours near the incident.
             "lightning": {"label": lightning.LABEL, "attribution": lightning.ATTRIBUTION, "near_km": lightning.NEAR_KM,
                           "events": lightning.events()} if lightning.flashes() else None,
+            # Roads and railways the incident damaged (documented) and those under heavy rain (computed; routes.py).
+            "routes": routes.layer(),
             "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "base_maps": base_maps(settings),
@@ -674,6 +682,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"error": "not_in_scenario"}, HTTPStatus.NOT_FOUND)
             else:
                 self.send_json(data or {"error": "none_published_yet"}, HTTPStatus.OK if data else HTTPStatus.NOT_FOUND)
+        elif path == "/api/routes/exposure":
+            # The OSM roads and railways with the radar's rain since the playback's start (routes.py).
+            computed = routes.exposure()
+            self.send_json(computed if computed is not None else {"error": "not_in_scenario"},
+                           HTTPStatus.OK if computed is not None else HTTPStatus.NOT_FOUND)
         elif path == "/api/lightning":
             # SMHI's flashes to the ground in the hour before the clock (`at`, UTC), or the shared clock.
             try:

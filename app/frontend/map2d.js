@@ -113,6 +113,8 @@ function createLeafletMap(config) {
   let viewBeforeChart = null;  // the view to come back to when the weather chart is unticked
   let lightningLayer = null;  // SMHI's observed flashes to the ground in the last hour
   let lightningVisible = true;
+  let routeImpactLayer = null;  // roads and railways the incident damaged (routes.py)
+  let routeExposureLayer = null;  // roads and railways under heavy rain, computed from the radar
   let isobarVisible = false;
 
   function setMapLayerVisible(layer, visible) {
@@ -383,6 +385,40 @@ function createLeafletMap(config) {
       }
     },
 
+    // Roads and railways (routes.py): the computed pieces under heavy rain as coloured lines, and
+    // the documented damage as markers with the report's text, both on from the start.
+    setupRoutes(info, hasExposure) {
+      if (hasExposure) {
+        routeExposureLayer = L.layerGroup().addTo(map);
+        overlays[info.exposure_label] = routeExposureLayer;
+      }
+      routeImpactLayer = L.layerGroup().addTo(map);
+      overlays[info.impact_label] = routeImpactLayer;
+    },
+
+    drawRoutes(impacts, pieces) {
+      if (routeExposureLayer) {
+        routeExposureLayer.clearLayers();
+        for (const piece of pieces) {
+          L.polyline(piece.coords, { color: ROUTE_EXPOSURE_COLOURS[piece.level], weight: piece.kind === "rail" ? 5 : 4, opacity: 0.9 })
+            .bindTooltip(`${piece.ref || piece.name || (piece.kind === "rail" ? "Järnväg" : "Väg")}: ${Math.round(piece.rain)} mm regn sedan start `
+              + "(beräknat ur radar – inte observerade skador)", { sticky: true })
+            .addTo(routeExposureLayer);
+        }
+      }
+      routeImpactLayer.clearLayers();
+      for (const item of impacts) {
+        const colour = ROUTE_IMPACT_COLOURS[item.kind] || "#d62828";
+        L.marker([item.latitude, item.longitude], {
+          icon: L.divIcon({ className: "route-impact", iconSize: [22, 22], iconAnchor: [11, 11],
+            html: `<div style="width:18px;height:18px;border-radius:${item.kind === "rail" ? "3px" : "50%"};background:${colour};`
+              + 'border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.6);color:#fff;font:bold 13px system-ui;text-align:center;line-height:18px">!</div>' }),
+          keyboard: false,
+        }).bindTooltip(`${item.text}<br><small>${formatLocal(item.time_utc)}${item.approximate_time ? " (tid ungefärlig)" : ""} · `
+          + "plats ungefärlig · Länsstyrelsen, utredning 2026</small>", { direction: "top" }).addTo(routeImpactLayer);
+      }
+    },
+
     setupForecast() {
       forecastLayer = L.layerGroup().addTo(map);
       overlays["Prognos (modell)"] = forecastLayer;
@@ -491,7 +527,7 @@ function createLeafletMap(config) {
         setMapLayerVisible(lightningLayer, visible && lightningVisible);
         return;
       }
-      const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer] };
+      const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer, routeImpactLayer, routeExposureLayer] };
       for (const layer of groups[category] || []) {
         if (!layer) continue;
         if (visible) layer.addTo(map);

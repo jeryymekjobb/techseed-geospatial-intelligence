@@ -135,6 +135,38 @@ SENTINEL2_SCENES = {
 # About 20 m over MAP_BBOX.
 SENTINEL2_SIZE = (4281, 6672)
 
+# Roads and railways the rain damaged, as Länsstyrelsen Västernorrland's investigation tells it
+# ("Utredning av konsekvenser av kraftig nederbörd 6-7 september 2025", 2026:12, pages 11-12, 16,
+# 41 and 51-56). The places are approximate: the report names them in words, and the points are
+# the nearest OSM way to the place it names (checked 2026-10-15). Times the report gives to the
+# minute are exact; "strax innan 8-tiden" and "förmiddagen" are approximated and marked so, and
+# the roads without a time are put at the morning of 7 September, also marked. No causes of the
+# derailments are stated: the Swedish Accident Investigation Authority (SHK O-7/25) has not reported.
+ROUTE_REPORT = ("Länsstyrelsen Västernorrland, Utredning av konsekvenser av kraftig nederbörd 6–7 september 2025 "
+                "(2026:12)")
+ROUTE_IMPACTS = [
+    {"time_utc": "2025-09-07T02:41:00Z", "kind": "alert", "approximate_time": False,
+     "text": "Första larmet till Länsstyrelsen om skador på vägar och järnväg"},
+    {"time_utc": "2025-09-07T05:00:00Z", "kind": "road", "approximate_time": False, "latitude": 62.80321, "longitude": 17.85806,
+     "text": "Väg 738 vid Judeby bortspolad vid en vägtrumma – en person omkom"},
+    {"time_utc": "2025-09-07T05:50:00Z", "kind": "rail", "approximate_time": True, "latitude": 63.38113, "longitude": 17.7737,
+     "text": "Godståg spårar ur på Stambanan genom övre Norrland vid Stugusjön, väster om Skorped"},
+    {"time_utc": "2025-09-07T06:00:00Z", "kind": "road", "approximate_time": True, "latitude": 63.05743, "longitude": 17.6088,
+     "text": "Riksväg 90 avspolad vid Kyrkdal, avstängd mellan Hållsätter och Kärr"},
+    {"time_utc": "2025-09-07T06:00:00Z", "kind": "road", "approximate_time": True, "latitude": 63.56755, "longitude": 17.80761,
+     "text": "Väg 1036 skadad mellan Remmarbäcken och Seltjärn"},
+    {"time_utc": "2025-09-07T06:00:00Z", "kind": "road", "approximate_time": True, "latitude": 63.17686, "longitude": 17.56248,
+     "text": "Väg 335 avstängd vid Sånga kyrka"},
+    {"time_utc": "2025-09-07T07:45:00Z", "kind": "alert", "approximate_time": True,
+     "text": "VMA: farligt att färdas på vägar i de fyra drabbade kommunerna"},
+    {"time_utc": "2025-09-07T08:30:00Z", "kind": "rail", "approximate_time": True, "latitude": 63.09583, "longitude": 17.7471,
+     "text": "Timmertåg spårar ur på övre Ådalsbanan norr om Prästmon"},
+    {"time_utc": "2025-09-07T09:38:00Z", "kind": "alert", "approximate_time": False,
+     "text": "SMHI:s första varning för höga flöden i små vattendrag"},
+]
+# The OSM roads and railways under heavy rain, computed from SMHI's radar (tools/derive_route_exposure.py).
+ROUTE_EXPOSURE_FILE = DATA / "routes" / "exposure.json"
+
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""
 FORECAST_REPORT = ""

@@ -405,6 +405,27 @@ async function showLightning(clock) {
   showForecastCaption();
 }
 
+// Roads and railways the incident damaged (documented) and those under heavy rain (computed from
+// the radar; routes.py, routes.js): both maps' layers and the computed pieces, fetched once.
+async function setupRoutes(info) {
+  state.routes = info;
+  state.routeExposure = info.exposure_url ? await loadOptional(info.exposure_url, () => {}) : null;
+  state.map.setupRoutes(info, Boolean(state.routeExposure));
+  state.map.addAttribution(info.attribution);
+}
+
+// Redrawn when a damage is reached or the computed rain passes into a new hour.
+function showRoutes(clock) {
+  if (!state.routes || !clock) return;
+  const clockMs = clock.getTime();
+  const impacts = routeImpactsAt(state.routes.impacts, clockMs);
+  const hour = state.routeExposure ? Math.floor((clockMs - Date.parse(state.routeExposure.start_utc)) / 3600000) : 0;
+  const key = `${impacts.length}|${hour}`;
+  if (key === state.routesKey) return;
+  state.routesKey = key;
+  state.map.drawRoutes(impacts, routeExposureAt(state.routeExposure, clockMs));
+}
+
 // Copernicus EMS's perimeter of the fire (/api/ems, ems.js), with a line in the forecast's legend.
 function setupEms(config) {
   state.map.setupEms();
@@ -642,6 +663,7 @@ function setClock(clock) {
   }
   showMetForecast(clock);
   showLightning(clock);
+  showRoutes(clock);
   showRain(clock);
   showHydro(clock);
   showEms(clock);
@@ -1580,6 +1602,7 @@ async function startApp(createMap) {
       $("map").append(caption);
     }
   }
+  if (config.layers.routes) await setupRoutes(config.layers.routes);
   state.map.finish();
   setupScenarioView();
   // The flood's rain classes and maps right after the status, where the fire has its forecast; its
