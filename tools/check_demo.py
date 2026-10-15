@@ -369,7 +369,10 @@ def flood_space_view(demo: Demo) -> str:
     demo.button("SPACE VIEW").click()
     demo.command({"command": "speed", "speed": 60})
     demo.button("PLAY").click()
-    demo.main.wait_for_function(f"document.getElementById('satellite-list').children.length >= {len(scenario.TLE_SATELLITES)}",
+    # The demo lists only the satellites that send the scenario data, not every element set.
+    with urlopen(f"{demo.base_url}/api/satellites", timeout=10) as response:
+        shown = len(json.loads(response.read())["satellites"])
+    demo.main.wait_for_function(f"document.getElementById('satellite-list').children.length >= {shown}",
                                 timeout=WAIT_MS, polling=POLL_MS)
     demo.main.wait_for_function("document.getElementById('satellite-section').classList.contains('space-view')", timeout=WAIT_MS, polling=POLL_MS)
     demo.shot("2-space-view")
