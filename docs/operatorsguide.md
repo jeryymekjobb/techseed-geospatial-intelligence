@@ -1078,3 +1078,107 @@ export TECHSEED_SCENARIO=ljusdal2018
 .venv/bin/python -m tools.fetch_smhi_lightning  # SMHI:s observerade blixtar
 .venv/bin/python -m tools.load_postgis    # databasen ljusdal2018, för frågorna
 ```
+
+---
+
+# Del 8 – Regnet i Västernorrland 2025
+
+## 24. Vad demon visar
+
+Demon återger det kraftiga regnet i Västernorrland 6–7 september 2025 med verkliga data, inte i
+realtid. Ett regnband drog in strax söder om Härnösand på lördagskvällen och flyttade sig norrut
+under natten. Kramfors fick 123,5 mm och Myckelgensjö 140 mm på ett dygn. Vägar spolades bort,
+en person omkom när väg 738 vid Judeby spolats bort, och två tåg spårade ur på söndagsmorgonen:
+ett godståg på Stambanan vid Stugusjön väster om Skorped och ett timmertåg på Ådalsbanan norr om
+Prästmon. Uppspelningen går från 6 september kl. 14 till 8 september kl. 14 svensk tid.
+
+Källan för skadorna är Länsstyrelsen Västernorrlands utredning *Utredning av konsekvenser av
+kraftig nederbörd 6–7 september 2025* (2026:12). Statens haverikommissions utredning av
+urspårningarna är inte klar. Säg därför inget om orsakerna.
+
+Utöver flodens delar (avsnitt 14 och 20) visar demon:
+
+- **Skadade vägar och järnvägar (Länsstyrelsen)**: när scenarioklockan når en händelse ur
+  utredningen visas en röd rund markering (väg) eller en svart fyrkantig (järnväg) på kartan.
+  Händelsen blir också en rad i satellitmonitorns logg som läses upp. Platserna är ungefärliga,
+  eftersom utredningen beskriver dem i text. Tider som utredningen bara anger som "strax innan
+  8-tiden" eller "förmiddagen" är märkta "tid ungefärlig".
+- **Vägar och järnvägar i kraftigt regn (beräknat ur radar)**: OSM:s större vägar och
+  järnvägarna i bitar om cirka 1 km. En bit blir gul när radarns regn sedan uppspelningens start
+  passerar 50 mm, och röd över 80 mm. Det är beräknat regn, inte observerade skador. De röda
+  sträckorna sammanfaller ändå med flera av de dokumenterade skadorna.
+- **Dygnsregn (SMHI)**: SMHI mäter regnets kärna bara per dygn, kl. 06–06 UTC. Varje station
+  visar sitt senaste avslutade dygn, till exempel "Kramfors: 123,5 mm" från kl. 08 svensk tid den
+  7 september. Klicka för dygnets tider.
+- **Nivågivarna NG1–NG6** står vid de dokumenterade skadorna och är syntetiska. Varje givare följer
+  närmaste SMHI-station för vattenföring: Risnäs för Judeby, Stugusjön för de övriga. Ingen
+  station gick över sitt tidigare högsta flöde. Givarna larmar i stället när flödet har
+  femdubblats sedan uppspelningens start, vid Stugusjön kl. 07 och vid Risnäs kl. 10 svensk tid.
+
+| Del | Riktigt, beräknat eller syntetiskt |
+|---|---|
+| Regn per timme och dygn, väderradar, vattenföring, blixtar (SMHI) | Riktigt, observerat |
+| Sentinel-1 (2, 7 och 8 september), Sentinel-2 och Landsat 8 | Riktigt. Vattnet i radarbilden är beräknat. |
+| Skador på vägar och järnvägar, tider och VMA | Ur Länsstyrelsens utredning, platser ungefärliga |
+| Regn längs vägar och järnvägar | Beräknat ur radarn |
+| MET Norways prognoser, ERA5-vind | Modell |
+| MCF:s karteringar (Ångermanälven, Indalsälven, Moälven, Nätraån) | Modell. De små vattendrag som gjorde skadorna är inte karterade. |
+| Nivågivarna NG1–NG6 | Syntetiska |
+
+Bildfrekvensen i 3D är låg i den här demon (cirka 9 bilder per sekund vid generalrepetitionen).
+Slå av lagret med beräknat regn längs vägar om kameran rycker.
+
+## 25. Förbered demon
+
+Gör Del 1 först. Kommandona körs från repots mapp och skriver till `data/vasternorrland2025/`.
+
+```bash
+export TECHSEED_SCENARIO=vasternorrland2025
+.venv/bin/python -m tools.fetch_copernicus_dem && .venv/bin/python -m tools.build_terrain
+.venv/bin/python -m tools.build_offline_tiles
+.venv/bin/python -m tools.fetch_tle_history
+.venv/bin/python -m tools.fetch_smhi_weather 128390 138070 138390 --period corrected-archive \
+  --parameters 7 --start 2025-09-04 --end 2025-09-10 --out data/vasternorrland2025/smhi
+.venv/bin/python -m tools.fetch_smhi_daily       # dygnsregnet i kärnan
+.venv/bin/python -m tools.fetch_smhi_hydro --start 2025-09-04 --end 2025-09-10
+.venv/bin/python -m tools.fetch_smhi_radar --start 2025-09-04 --end 2025-09-10 --out data/vasternorrland2025/radar
+.venv/bin/python -m tools.fetch_smhi_lightning
+.venv/bin/python tools/fetch_era5_land.py --area 63.7,17.2,62.5,18.9 --start 2025-09-04 --end 2025-09-10 \
+  --raw-dir /tmp/era5-land-vn --out data/vasternorrland2025/era5-land/era5-land-vasternorrland-2025.csv
+.venv/bin/python -m tools.fetch_era5_sea --area 63.7,17.2,62.5,18.9 --start 2025-09-04 --end 2025-09-10 \
+  --land data/vasternorrland2025/era5-land/era5-land-vasternorrland-2025.csv --raw-dir /tmp/era5-sea-vn \
+  --out data/vasternorrland2025/era5-land/era5-sea-vasternorrland-2025.csv
+.venv/bin/python -m tools.fetch_osm_targets --bbox 62.5,17.2,63.7,18.9 --out data/vasternorrland2025/osm/targets-vasternorrland.geojson
+.venv/bin/python -m tools.fetch_osm_terrain --bbox 62.5,17.2,63.7,18.9 --out data/vasternorrland2025/osm/terrain-vasternorrland.geojson
+.venv/bin/python -m tools.fetch_met_forecasts    # ca 30 min
+```
+
+Overpass svarade 502 på terrängfrågan för hela området den 15 oktober 2026. Den hämtades då i fyra
+delar som slogs ihop och konverterades med `fetch_osm_terrain --from-raw`. Upprepa kommandot
+om det misslyckas.
+
+Satellitbilderna. Sentinel-2 tar längst tid. Om nedladdningen står still i över tio minuter,
+stoppa GDAL-containern (`docker ps`, sedan `docker kill <namn>`) och kör igen:
+
+```bash
+.venv/bin/python -m tools.fetch_landsat_scene
+.venv/bin/python -m tools.fetch_sentinel2_scene
+.venv/bin/python -m tools.fetch_sentinel1_scene   # behöver OSM-terrängen för sjöarna
+```
+
+MCF:s kartor och databasen, regnet längs vägarna och nivågivarnas punkter, i den ordningen:
+
+```bash
+.venv/bin/python -m tools.fetch_mcf_flood_maps
+.venv/bin/python -m tools.load_postgis
+.venv/bin/python -m tools.derive_route_exposure        # radarns regn längs vägar och järnvägar
+.venv/bin/python -m tools.derive_impact_sensor_points  # givarna vid skadorna, efter fetch_smhi_hydro
+```
+
+Generalrepetitionen, med kartjänsten på Västernorrlands karta. Kl. 11 svensk tid den 7 september
+larmar 6 av 6 givare och bedömningen blir "Flood probable":
+
+```bash
+TILES_FILE=vasternorrland.mbtiles docker compose up -d tiles
+.venv/bin/python -m tools.check_demo --headed --out ~/demo-check-vasternorrland-$(hostname)
+```
