@@ -2,7 +2,7 @@
 """Fetch the municipality's map as base map tiles kept locally, for the Sundsvall scenario.
 
 The scenario's MUNICIPAL_BASEMAP (the layer group Kartan of Sundsvall's geoserver) is fetched
-by WMS GetMap in Web Mercator (EPSG:3857) over the scenario's MAP_BBOX and cut into 256 px
+by WMS GetMap in Web Mercator (EPSG:3857) over MUNICIPAL_BASEMAP_BBOX and cut into 256 px
 PNG tiles in MUNICIPAL_BASEMAP_DIR/{z}/{x}/{y}.png, which the backend serves without
 internet (app/backend/municipal_basemap.py). Each request covers 4 x 4 tiles with a margin
 of MARGIN_PX, so place names are cut at fewer tile edges and the service gets a sixteenth of
@@ -127,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     if not scenario.MUNICIPAL_BASEMAP or args.out is None:
         parser.exit(1, f"fetch_municipal_basemap: the scenario {scenario.NAME} has no municipal map\n")
     service, layer = scenario.MUNICIPAL_BASEMAP["url"], scenario.MUNICIPAL_BASEMAP["layer"]
-    bbox = scenario.MAP_BBOX
+    bbox = scenario.MUNICIPAL_BASEMAP_BBOX
     failed = 0
     for z in range(args.min_zoom, args.max_zoom + 1):
         wanted = tile_range(bbox, z)

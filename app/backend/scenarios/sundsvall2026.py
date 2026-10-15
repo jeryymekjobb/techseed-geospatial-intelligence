@@ -70,8 +70,9 @@ FIRE_BBOX = (62.28, 62.47, 17.0, 17.55)  # min_lat, max_lat, min_lon, max_lon
 # Map view: the town, the Selånger valley and the municipality's rain gauges around it.
 VIEW_BBOX = (62.28, 62.47, 17.0, 17.55)
 # The area of the offline map, the DEM and the satellite images (lon/lat, west, south, east,
-# north), with every gauge used, from Bällsta in the west to Brämön A in the sea.
-MAP_BBOX = (16.9, 62.15, 17.8, 62.62)
+# north): every gauge used, from Bällsta in the west to Brämön A in the sea, and since
+# 2026-10-15 also Härnösand and Kramfors municipality up to the High Coast, as the user asked.
+MAP_BBOX = (16.9, 62.15, 18.6, 63.25)
 PERIOD_START = date(2026, 8, 14)
 PERIOD_END = date(2026, 8, 22)
 PLAYBACK_START = datetime(2026, 8, 14, 0, 0, tzinfo=timezone.utc)
@@ -140,8 +141,8 @@ LANDSAT_SCENES = {
 LANDSAT_ROLES = {"before": "Före regnet", "during": "Under regnet", "after": "Efter regnet"}
 # The town and the lower Selånger valley, for the coverage and cloud of each scene.
 LANDSAT_FOCUS_AREA = (17.15, 62.33, 17.45, 62.45)
-# About 30 m over MAP_BBOX: 0.9 degrees of longitude and 0.47 of latitude at 62.4 N.
-LANDSAT_SIZE = (1546, 1742)
+# About 30 m over MAP_BBOX: 1.7 degrees of longitude and 1.1 of latitude at 62.7 N.
+LANDSAT_SIZE = (2893, 4077)
 # Sentinel-1 radar acquisitions over the town in the playback (Planetary Computer catalogue,
 # sentinel-1-grd, checked 2026-10-06/07; the start of the first product of each pass). Only
 # passes whose images cover at least 90 % of the town (LANDSAT_FOCUS_AREA): the evening
@@ -163,7 +164,7 @@ SENTINEL2_SCENES = {
     "after": "S2A_MSIL2A_20260820T101701_R065",
 }
 # About 20 m over MAP_BBOX.
-SENTINEL2_SIZE = (2320, 2613)
+SENTINEL2_SIZE = (4340, 6116)
 
 # MCF's (formerly MSB's) overview flood maps: the 100-year and the highest calculated flow
 # for Ljungan and Indalsälven; the Selånger river is not mapped there. No limitations on
@@ -211,6 +212,9 @@ MUNICIPAL_BASEMAP = {
     "attribution": "Karta © Sundsvalls kommun, Lantmäteriet, Trafikverket",
 }
 MUNICIPAL_BASEMAP_DIR = DATA / "municipal-basemap"
+# The area the municipal map is fetched over: the map area before it grew north on 2026-10-15,
+# since the map is white outside the municipality and a larger area would only add white tiles.
+MUNICIPAL_BASEMAP_BBOX = (16.9, 62.15, 17.8, 62.62)
 
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""

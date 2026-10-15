@@ -113,5 +113,6 @@ MUNICIPAL_DIR = getattr(_module, "MUNICIPAL_DIR", None)
 # The municipality's map as a locally kept base map (municipal_basemap.py); only Sundsvall 2026.
 MUNICIPAL_BASEMAP = getattr(_module, "MUNICIPAL_BASEMAP", None)
 MUNICIPAL_BASEMAP_DIR = getattr(_module, "MUNICIPAL_BASEMAP_DIR", None)
+MUNICIPAL_BASEMAP_BBOX = getattr(_module, "MUNICIPAL_BASEMAP_BBOX", None) or MAP_BBOX
 MCF_DIR = getattr(_module, "MCF_DIR", None)
 SENTINEL1_ACQUISITIONS = getattr(_module, "SENTINEL1_ACQUISITIONS", [])

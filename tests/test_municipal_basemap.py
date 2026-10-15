@@ -47,7 +47,7 @@ def test_a_block_is_asked_with_its_margin_and_cut_into_tiles() -> None:
 
 def test_the_fetch_writes_the_tiles_and_its_source_and_a_second_run_asks_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP", BASEMAP)
-    monkeypatch.setattr(fetch.scenario, "MAP_BBOX", BBOX)
+    monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP_BBOX", BBOX)
     monkeypatch.setattr(fetch.time, "sleep", lambda seconds: None)
     side = fetch.META * fetch.TILE_PX + 2 * fetch.MARGIN_PX
     asked: list[str] = []
@@ -63,7 +63,7 @@ def test_the_fetch_writes_the_tiles_and_its_source_and_a_second_run_asks_nothing
 
 def test_a_failed_request_leaves_no_source_so_the_map_is_not_shown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP", BASEMAP)
-    monkeypatch.setattr(fetch.scenario, "MAP_BBOX", BBOX)
+    monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP_BBOX", BBOX)
 
     def refused(url: str) -> Image.Image:
         raise OSError("refused")

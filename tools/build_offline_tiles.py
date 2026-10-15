@@ -61,6 +61,9 @@ def tilemaker_command(area: Path, output: Path, bbox: str) -> list[str]:
         "docker", "run", "--rm", "-u", user(), "-v", f"{DATA}:/data", TILEMAKER_IMAGE,
         "--input", f"/data/{area.relative_to(DATA)}", "--output", f"/data/{output.relative_to(DATA)}",
         "--bbox", bbox, "--config", "resources/config-openmaptiles.json", "--process", "resources/process-openmaptiles.lua",
+        # Skip ways whose nodes are missing instead of crashing: Sundsvall's area grown north to
+        # Kramfors (2026-10-15) holds a way whose node is missing in the country extract.
+        "--skip-integrity",
     ]
 
 
