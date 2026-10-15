@@ -165,6 +165,10 @@ SENTINEL2_SCENES = {
 }
 # About 20 m over MAP_BBOX.
 SENTINEL2_SIZE = (4340, 6116)
+# The area the radar's water threshold and its separability are computed over
+# (tools/fetch_sentinel1_scene.py): the map area before it grew north on 2026-10-15, so the
+# town's result stays as verified instead of following the land and lakes round Kramfors.
+RADAR_ANALYSIS_BBOX = (16.9, 62.15, 17.8, 62.62)
 
 # MCF's (formerly MSB's) overview flood maps: the 100-year and the highest calculated flow
 # for Ljungan and Indalsälven; the Selånger river is not mapped there. No limitations on

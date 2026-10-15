@@ -47,6 +47,7 @@ ACQUISITIONS = scenario.SENTINEL1_ACQUISITIONS
 BBOX = scenario.MAP_BBOX
 SIZE = scenario.SENTINEL2_SIZE  # about 20 m, as the Sentinel-2 images
 FOCUS_AREA = scenario.LANDSAT_FOCUS_AREA
+ANALYSIS_AREA = scenario.RADAR_ANALYSIS_BBOX  # where the threshold and the separability are computed
 SEA_LEVEL_M = 0.5  # the DEM's sea, as known water
 LAND_PERCENTILE = 5.0
 NEIGHBOURS = 5  # of the 3 x 3 pixels round a pixel, at least this many dark
@@ -148,8 +149,12 @@ def water_polygons(terrain_file: Path) -> list[list[list[float]]]:
 
 
 def radar_images(out: Path, key: str, water: Any, size: tuple[int, int] = SIZE,
-                 bbox: tuple[float, ...] = BBOX, focus: tuple[float, ...] = FOCUS_AREA) -> dict[str, Any]:
-    """Write the grey radar image and the water mask; return the threshold and the focus area's shares."""
+                 bbox: tuple[float, ...] = BBOX, focus: tuple[float, ...] = FOCUS_AREA,
+                 analysis: tuple[float, ...] = ANALYSIS_AREA) -> dict[str, Any]:
+    """Write the grey radar image and the water mask; return the threshold and the focus area's shares.
+
+    The threshold and the separability come from the analysis area only, so a larger map area
+    does not change the result over the town; the mask covers the whole image."""
     import numpy as np
     from PIL import Image
 
@@ -165,8 +170,10 @@ def radar_images(out: Path, key: str, water: Any, size: tuple[int, int] = SIZE,
     rgba[..., 3] = np.where(valid, 255, 0)
     Image.fromarray(rgba, "RGBA").save(out / f"{key}-radar.png", optimize=True)
 
-    over_water = valid & water
-    over_land = valid & ~water
+    window = np.zeros((height, width), dtype=bool)
+    window[focus_rows_cols(size, bbox, analysis)] = True
+    over_water = valid & water & window
+    over_land = valid & ~water & window
     threshold = float(np.nanmedian(decibels[over_water])) if over_water.any() else float(low)
     # Wind on the water or rain on the ground: the darkest land is as dark as the water, so dark is not water.
     separable = bool(over_land.any()) and float(np.nanpercentile(decibels[over_land], LAND_PERCENTILE)) >= threshold

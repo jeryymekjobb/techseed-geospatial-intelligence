@@ -45,7 +45,7 @@ def test_dark_land_as_dark_as_open_water_is_marked_and_a_scene_without_contrast_
     amplitude[20:23, 30:33] = 20                             # a 3 x 3 pool on land inside the focus area
     amplitude[5, 5] = 20                                     # one dark pixel of speckle
     amplitude.tofile(tmp_path / "K-vv.bil")
-    stats = s1.radar_images(tmp_path, "K", water, SIZE, BBOX, FOCUS)
+    stats = s1.radar_images(tmp_path, "K", water, SIZE, BBOX, FOCUS, BBOX)
     mask = np.asarray(Image.open(tmp_path / "K-radarwater.png"))
     assert s1.WATER_RGBA == (255, 0, 0, 220)
     assert tuple(mask[21, 31]) == s1.WATER_RGBA and mask[5, 5, 3] == 0 and mask[20, 75, 3] == 0  # not speckle, not the sea
@@ -57,4 +57,19 @@ def test_dark_land_as_dark_as_open_water_is_marked_and_a_scene_without_contrast_
 
     amplitude[~water] = 25                                   # land as dark as the water: wind or rain
     amplitude.tofile(tmp_path / "K-vv.bil")
-    assert not s1.radar_images(tmp_path, "K", water, SIZE, BBOX, FOCUS)["separable"]
+    assert not s1.radar_images(tmp_path, "K", water, SIZE, BBOX, FOCUS, BBOX)["separable"]
+
+
+@pytest.mark.skipif(not HAS_NUMPY, reason="needs numpy and Pillow (the .venv)")
+def test_the_threshold_comes_from_the_analysis_area_only(tmp_path: Path) -> None:
+    import numpy as np
+
+    water = np.zeros((47, 90), dtype=bool)
+    water[:, 70:] = True                                     # the sea in the east
+    amplitude = np.full((47, 90), 1000, dtype="<u2")         # land: 60 dB
+    amplitude[water] = 30                                    # water: about 29,5 dB
+    amplitude[:, :20] = 25                                   # dark land in the west, outside the analysis area
+    amplitude.tofile(tmp_path / "K-vv.bil")
+    assert not s1.radar_images(tmp_path, "K", water, SIZE, BBOX, FOCUS, BBOX)["separable"]
+    # Columns 20-89 only (from 17.1 E): the dark land in the west no longer counts.
+    assert s1.radar_images(tmp_path, "K", water, SIZE, BBOX, FOCUS, (17.1, 62.15, 17.8, 62.62))["separable"]

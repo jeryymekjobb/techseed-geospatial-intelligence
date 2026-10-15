@@ -107,6 +107,7 @@ LIGHTNING_DIR = getattr(_module, "LIGHTNING_DIR", None)
 FORECAST_STATION = getattr(_module, "FORECAST_STATION", "")
 SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})
 SENTINEL2_SIZE = getattr(_module, "SENTINEL2_SIZE", None)
+RADAR_ANALYSIS_BBOX = getattr(_module, "RADAR_ANALYSIS_BBOX", None) or MAP_BBOX
 FLOOD_HAZARD_WMS = getattr(_module, "FLOOD_HAZARD_WMS", None)
 MUNICIPAL_WMS = getattr(_module, "MUNICIPAL_WMS", None)
 MUNICIPAL_DIR = getattr(_module, "MUNICIPAL_DIR", None)
