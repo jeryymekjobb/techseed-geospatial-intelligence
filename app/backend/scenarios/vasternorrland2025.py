@@ -36,6 +36,7 @@ SUMMARY = [
     "Det kraftiga regnet i Västernorrland 6–7 september 2025. Det återges med verkliga data, inte i realtid.",
     "Ett regnband drog norrut från Härnösand under kvällen och natten. Kramfors fick 123,5 millimeter på ett dygn.",
     "SMHI:s väderradar visar var regnet föll. SMHI:s egna mätare låg utanför regnets kärna.",
+    "Radarbilder från Sentinel-1 före, mitt i och efter regnet, och bilder från Sentinel-2 och Landsat 8 före och efter, som är delvis molniga.",
     "Vägar spolades bort och två tåg spårade ur på morgonen den 7 september, enligt Länsstyrelsens utredning.",
 ]
 
@@ -109,12 +110,30 @@ SATELLITE_ROLES = {
 }
 SATELLITE_LABEL = "Position 2025, beräknad ur banelement (SGP4) – inte en observation"
 
-# The satellite images come in the next stage of the scenario.
-LANDSAT_SCENES: dict = {}
+# Landsat 8 after the rain (tools/fetch_landsat_scene.py), 58 % cloud in the catalogue; no
+# usable scene before it (checked 2026-10-15).
+LANDSAT_SCENES = {"after": "LC08_L2SP_195016_20250910_02_T1"}
 LANDSAT_ROLES = {"before": "Före regnet", "during": "Under regnet", "after": "Efter regnet"}
 LANDSAT_FOCUS_AREA = (17.6, 62.85, 17.95, 63.0)  # Kramfors and the Ångermanälven by it
 # About 30 m over MAP_BBOX: 1.7 degrees of longitude and 1.2 of latitude at 63.1 N.
-LANDSAT_SIZE = (2860, 4448)
+LANDSAT_SIZE = (2854, 4448)
+# Sentinel-1 radar acquisitions (Planetary Computer catalogue, sentinel-1-grd, checked 2026-10-15;
+# the start of the pass's first product): before the rain, in the middle of it and the morning
+# after. Each covers Härnösand, Kramfors, Prästmon and Stugusjön whole.
+SENTINEL1_ACQUISITIONS = [
+    {"time_utc": "2025-09-02T05:13:19Z", "satellite": "Sentinel-1C", "norad": "62261"},
+    {"time_utc": "2025-09-07T05:21:30Z", "satellite": "Sentinel-1C", "norad": "62261"},
+    {"time_utc": "2025-09-08T05:14:39Z", "satellite": "Sentinel-1A", "norad": "39634"},
+]
+# Sentinel-2 (tools/fetch_sentinel2_scene.py): the clearest datatakes before and after, by product
+# name up to the relative orbit; 7 September is 99-100 % cloud. Catalogue tile cloud 9-15 % on
+# 31 August and 39-53 % on 10 September; the tool measures the focus area's own.
+SENTINEL2_SCENES = {
+    "before": "S2B_MSIL2A_20250831T102559_R108",
+    "after": "S2B_MSIL2A_20250910T102559_R108",
+}
+# About 20 m over MAP_BBOX.
+SENTINEL2_SIZE = (4281, 6672)
 
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""
