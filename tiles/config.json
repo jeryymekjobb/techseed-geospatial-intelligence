@@ -1,0 +1,16 @@
+{
+  "options": {
+    "paths": {
+      "root": "/usr/src/app/node_modules/tileserver-gl-styles",
+      "fonts": "fonts",
+      "styles": "/config/styles",
+      "mbtiles": "/data"
+    }
+  },
+  "styles": {
+    "techseed": {"style": "techseed.json"}
+  },
+  "data": {
+    "v3": {"mbtiles": "__TILES_FILE__"}
+  }
+}

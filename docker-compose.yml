@@ -28,12 +28,14 @@ services:
 
   tiles:
     image: maptiler/tileserver-gl:latest
-    # The preview style renders without text here; the GUI draws place and lake names itself.
-    command: ["--file", "/data/${TILES_FILE:-vastmanland.mbtiles}", "--port", "8080"]
+    # The style tiles/styles/techseed.json draws roads, railways and water clearly and no text;
+    # the GUI draws place and lake names itself. The config names the scenario's TILES_FILE.
+    entrypoint: ["/bin/bash", "-c", "sed 's/__TILES_FILE__/${TILES_FILE:-vastmanland.mbtiles}/' /config/config.json > /tmp/config.json && exec /usr/src/app/docker-entrypoint.sh --config /tmp/config.json --port 8080"]
     ports:
       - "127.0.0.1:8081:8080"
     volumes:
       - ./data/tiles:/data:ro
+      - ./tiles:/config:ro
 
   mosquitto:
     image: eclipse-mosquitto:2

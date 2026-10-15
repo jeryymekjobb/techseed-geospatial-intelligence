@@ -12,7 +12,7 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
-DEFAULT_URL = "http://127.0.0.1:8081/styles/basic-preview/256/{z}/{x}/{y}.png"
+DEFAULT_URL = "http://127.0.0.1:8081/styles/techseed/256/{z}/{x}/{y}.png"  # tiles/styles/techseed.json
 _PROBE_SECONDS = 30.0
 _probe: dict[str, float | bool] = {"at": -1e9, "ok": False}
 
