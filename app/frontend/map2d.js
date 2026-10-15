@@ -15,9 +15,15 @@ const GOD_VIEW_BOUNDS = [[36, -10], [71, 40]];
 // The weather chart's view ("Väderkarta (MET Norway)"): Scandinavia, where MEPS draws the isobars.
 const WEATHER_CHART_BOUNDS = [[55, 4], [70, 31]];
 
+// How far the map can be panned: the incident's view with a margin, grown to the whole map area
+// (Sundsvall's reaches Härnösand and Kramfors).
+function panBounds(config) {
+  return L.latLngBounds(config.view_bounds).pad(0.5).extend(L.latLngBounds(config.map_bounds));
+}
+
 function createLeafletMap(config) {
   const map = L.map("map", {
-    preferCanvas: true, zoomSnap: 0.25, maxBounds: L.latLngBounds(config.view_bounds).pad(0.5),
+    preferCanvas: true, zoomSnap: 0.25, maxBounds: panBounds(config),
   });
   map.fitBounds(config.view_bounds);
   const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
@@ -565,7 +571,7 @@ function createLeafletMap(config) {
         map.flyToBounds(GOD_VIEW_BOUNDS, { duration: 3 });
       } else {
         map.flyToBounds(config.view_bounds, { duration: 3 });
-        map.once("moveend", () => map.setMaxBounds(L.latLngBounds(config.view_bounds).pad(0.5)));
+        map.once("moveend", () => map.setMaxBounds(panBounds(config)));
       }
     },
   };
