@@ -722,11 +722,6 @@ Demon använder samma skärmar och knappar som branddemon. I stället för brand
   kan också visas som **vatten i radarbilden utanför sjöar och hav**, en beräknad mask i rött;
   panelen förklarar då färgen under **Satellitbild**.
 
-Kartan, satellitbilderna, radarn och vinden täcker också Härnösand och Kramfors upp till Höga
-kusten, men regnmätarna, bräddgivarna och skyfallsmodellerna finns bara i Sundsvall. Kommunens
-karta (Kartan) täcker bara Sundsvalls kommun och är grå längre norrut. Välj
-**Offline-karta (OSM, lokal)** i mission control för att visa Härnösand och Kramfors.
-
 Kommunens och MCF:s kartor hämtas från deras karttjänster medan demon körs. Datorn behöver
 därför internet för dem. Allt annat fungerar utan.
 
@@ -749,10 +744,10 @@ export TECHSEED_SCENARIO=sundsvall2026
   --period latest-months --parameters 7 --start 2026-08-14 --end 2026-08-22 --out data/sundsvall2026/smhi
 
 # 15.3b Vinden för pilarna (ERA5-Land; behöver ett konto hos Copernicus CDS med nyckeln i ~/.cdsapirc)
-.venv/bin/python tools/fetch_era5_land.py --area 63.25,16.9,62.15,18.6 --start 2026-08-14 --end 2026-08-22 \
+.venv/bin/python tools/fetch_era5_land.py --area 62.6,16.9,62.2,17.8 --start 2026-08-14 --end 2026-08-22 \
   --raw-dir /tmp/era5-land-sundsvall --out data/sundsvall2026/era5-land/era5-land-sundsvall-2026.csv
 # och vinden över havet, där ERA5-Land saknar värden (ERA5, samma CDS-konto)
-.venv/bin/python -m tools.fetch_era5_sea --area 63.25,16.9,62.15,18.6 --start 2026-08-14 --end 2026-08-22 \
+.venv/bin/python -m tools.fetch_era5_sea --area 62.6,16.9,62.2,17.8 --start 2026-08-14 --end 2026-08-22 \
   --land data/sundsvall2026/era5-land/era5-land-sundsvall-2026.csv --raw-dir /tmp/era5-sea \
   --out data/sundsvall2026/era5-land/era5-sea-sundsvall-2026.csv
 
@@ -760,8 +755,8 @@ export TECHSEED_SCENARIO=sundsvall2026
 .venv/bin/python -m tools.fetch_smhi_radar --start 2026-08-14 --end 2026-08-22 --out data/sundsvall2026/radar
 
 # 15.4 Kartdata från OpenStreetMap
-.venv/bin/python -m tools.fetch_osm_terrain --bbox 62.15,16.9,63.25,18.6 --out data/sundsvall2026/osm/terrain-sundsvall.geojson
-.venv/bin/python -m tools.fetch_osm_targets --bbox 62.15,16.9,63.25,18.6 --out data/sundsvall2026/osm/targets-sundsvall.geojson
+.venv/bin/python -m tools.fetch_osm_terrain --bbox 62.15,16.9,62.62,17.8 --out data/sundsvall2026/osm/terrain-sundsvall.geojson
+.venv/bin/python -m tools.fetch_osm_targets --bbox 62.15,16.9,62.62,17.8 --out data/sundsvall2026/osm/targets-sundsvall.geojson
 
 # 15.5 Satellitbilderna, kommunens dagvattenpunkter och flödesytor, och MCF:s flödesytor
 .venv/bin/python -m tools.fetch_landsat_scene
