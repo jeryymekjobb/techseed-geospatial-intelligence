@@ -45,6 +45,10 @@ TERRAIN_FILE = DATA / "osm" / "terrain-vasternorrland.geojson"
 TARGETS_FILE = DATA / "osm" / "targets-vasternorrland.geojson"
 WEATHER_DIR = DATA / "smhi"
 WIND_FILE = DATA / "era5-land" / "era5-land-vasternorrland-2025.csv"
+# ERA5's wind at sea, where ERA5-Land has no values (tools/fetch_era5_sea.py).
+WIND_SEA_FILE = DATA / "era5-land" / "era5-sea-vasternorrland-2025.csv"
+# SMHI's measured flows (tools/fetch_smhi_hydro.py).
+HYDRO_DIR = DATA / "hydro"
 RADAR_DIR = DATA / "radar"
 DEM_DIR = DATA / "dem"
 TERRAIN_DIR = DATA / "terrain"
@@ -55,6 +59,7 @@ MET_FORECAST_DIR = DATA / "met-forecast"
 LIGHTNING_DIR = DATA / "lightning"
 SENTINEL2_DIR = DATA / "sentinel2"
 SENTINEL1_DIR = DATA / "sentinel1"
+MCF_DIR = DATA / "mcf"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2025.json"
 
@@ -90,6 +95,14 @@ RAIN_GAUGES = "SMHI:s mätare"
 # The rain gauges with hourly sums in SMHI's open data (parameter 7) in the area, checked
 # 2026-10-15. They all lie outside the rain's core; Söråker (22228110) gives implausible values.
 RAIN_STATIONS = {"128390": "Lungö A", "138070": "Västmarkum A", "138390": "Hemling A"}
+# SMHI's hydrological stations with the flow every 15 minutes (parameter 2) in the area, checked
+# 2026-10-15; none measures the level. Stugusjön lies by the derailment on Stambanan.
+HYDRO_STATIONS = {
+    "2604:2": "Stugusjön",   # Nätraån's catchment, by the railway west of Skorped
+    "1583:2": "Västersel",   # Moälven, which flooded Kubbe
+    "2376:2": "Björna",      # Gideälven
+    "2398:2": "Risnäs",      # by Härnösand
+}
 
 # The satellites that imaged the area in the period (Planetary Computer catalogue, checked
 # 2026-10-15) and the ISS, by NORAD number.
@@ -167,17 +180,35 @@ ROUTE_IMPACTS = [
 # The OSM roads and railways under heavy rain, computed from SMHI's radar (tools/derive_route_exposure.py).
 ROUTE_EXPOSURE_FILE = DATA / "routes" / "exposure.json"
 
+# MCF's (formerly MSB's) overview flood maps (checked 2026-10-15): today's 100-year flow for
+# Ångermanälven and Indalsälven, the climate-adapted one for Moälven and Nätraån, and the highest
+# calculated flow for all four. The small watercourses that did the damage are not mapped.
+FLOOD_HAZARD_WMS = {
+    "url": "https://gis-tjanster.mcf.se/arcgis/services/Oversvamningskarteringar/karteringar/MapServer/WMSServer",
+    # The WMS numbers its layers otherwise than the service's REST interface (2, 3 and 5 there).
+    "layers": {"13": "100-årsflöde", "12": "100-årsflöde, klimatanpassat (slutet av seklet)", "9": "Beräknat högsta flöde"},
+    "attribution": "Översvämningskartering © MCF (tidigare MSB)",
+    "visible": [],
+}
+# The same for PostGIS (tools/fetch_mcf_flood_maps.py): REST id, title and label.
+MCF_LAYERS = {
+    "100ar": (2, "100-årsflöde", "MCF"),
+    "bhf": (5, "Beräknat högsta flöde", "MCF"),
+}
+FLOOD_MODELS = "MCF:s modeller"
+
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""
 FORECAST_REPORT = ""
-SPATIAL_SOURCE = "PostGIS (lokal databas): OSM-mål © OpenStreetMap contributors"
+SPATIAL_SOURCE = "PostGIS (lokal databas): OSM-mål © OpenStreetMap contributors, 100-årsflöden © MCF (tidigare MSB)"
 
 ATTRIBUTION = {
     "osm": "© OpenStreetMap contributors (ODbL)",
     "lantmateriet": "© Lantmäteriet",
-    "smhi": "SMHI öppna data (CC BY 4.0 SE): nederbörd vid Lungö A, Västmarkum A och Hemling A, väderradar",
+    "smhi": "SMHI öppna data (CC BY 4.0 SE): nederbörd vid Lungö A, Västmarkum A och Hemling A, väderradar, vattenföring",
     "sentinel": "Innehåller bearbetade Copernicus Sentinel-data 2025",
     "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land), CC BY 4.0",
+    "mcf": "Översvämningskartering © MCF (tidigare MSB)",
     "copernicus_dem": (
         "produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 "
         "provided under COPERNICUS by the European Union and ESA; all rights reserved"
