@@ -50,6 +50,14 @@ def test_a_scenario_without_a_profile_uses_the_older_one_of_its_kind_of_incident
     assert profiles.load("skane2024", path, incident="flood")["image_types"] == ["radarwater"]  # the older one is kept
 
 
+def test_the_osm_land_cover_is_not_taken_from_the_older_profile_but_from_the_scenario_s_own(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.json"
+    path.write_text(json.dumps({"flood": {"map_layers": {"Terräng (OSM)": True, "Ortnamn": False}}}), encoding="utf-8")
+    assert profiles.load("vasternorrland2025", path, incident="flood")["map_layers"] == {"Ortnamn": False}
+    profiles.save("vasternorrland2025", None, None, path, map_layers={"Terräng (OSM)": True})
+    assert profiles.load("vasternorrland2025", path, incident="flood")["map_layers"] == {"Terräng (OSM)": True}
+
+
 def test_the_speed_is_saved_and_one_outside_the_limits_is_not_kept(tmp_path: Path) -> None:
     path = tmp_path / "profiles.json"
     assert profiles.save("sundsvall2026", None, None, path, speed=1800)["speed"] == 1800.0

@@ -26,6 +26,10 @@ from app.backend.scenarios import REPO_ROOT
 
 PROFILE_FILE = Path(os.environ.get("TECHSEED_PROFILE_FILE") or REPO_ROOT / "data" / "display-profiles.json")
 LIST_KEYS = ("image_types", "base_maps")
+# Layers a scenario does not take from its kind of incident's older profile: the OSM land cover
+# draped on the 3D terrain cost a large area most of its frame rate (Västernorrland 2025: 13 frames
+# per second against 76 without it), so it follows the map's own default unless the scenario saves it.
+NOT_INHERITED_LAYERS = ("Terräng (OSM)",)
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -73,7 +77,8 @@ def load(scenario: str, path: Path | None = None, *, incident: str | None = None
     """The scenario's saved profile, else its kind of incident's older one, else None.
 
     A value it lacks is None, the default; `source` tells whether it is the scenario's own
-    ("scenario") or the older one of the kind of incident ("incident")."""
+    ("scenario") or the older one of the kind of incident ("incident"), which leaves out
+    NOT_INHERITED_LAYERS."""
     data = _read(path or PROFILE_FILE)
     profile, source = data.get(scenario), "scenario"
     if not isinstance(profile, dict) and incident:
@@ -81,7 +86,10 @@ def load(scenario: str, path: Path | None = None, *, incident: str | None = None
     if not isinstance(profile, dict):
         return None
     clean = {key: [str(item) for item in profile[key]] if isinstance(profile.get(key), list) else None for key in LIST_KEYS}
-    return {**clean, "map_layers": _layers(profile.get("map_layers")), "playback": _playback(profile.get("playback")),
+    layers = _layers(profile.get("map_layers"))
+    if source == "incident" and layers is not None:
+        layers = {name: visible for name, visible in layers.items() if name not in NOT_INHERITED_LAYERS}
+    return {**clean, "map_layers": layers, "playback": _playback(profile.get("playback")),
             "speed": _speed(profile.get("speed")), "speech": profile.get("speech") is not False, "saved_utc": profile.get("saved_utc"), "source": source}
 
 
