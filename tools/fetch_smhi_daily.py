@@ -2,7 +2,8 @@
 """Fetch SMHI's daily rain (06-06 UTC) for the scenario's DAILY_RAIN_STATIONS.
 
 Many of SMHI's stations report the rain once a day, at 06 UTC, for the 24 hours before
-(parameter 5). This tool reads each station's quality-controlled archive, keeps the days that
+(parameter 5). This tool reads each station's quality-controlled archive (or, with --period
+latest-months, the last four months, not yet controlled), keeps the days that
 end within the scenario's period and writes them with the station's place to
 DAILY_RAIN_DIR/stations.json for app/backend/daily_rain.py.
 
@@ -27,8 +28,11 @@ USER_AGENT = "techseed-geospatial-intelligence/0.1 (exhibition demonstrator)"
 ATTRIBUTION = "SMHI öppna data (CC BY 4.0 SE): nederbörd per dygn 06–06 UTC"
 
 
-def archive_url(station: str) -> str:
-    return f"{API}/parameter/5/station/{station}/period/corrected-archive/data.csv"
+PERIODS = ("corrected-archive", "latest-months")
+
+
+def archive_url(station: str, period: str = "corrected-archive") -> str:
+    return f"{API}/parameter/5/station/{station}/period/{period}/data.csv"
 
 
 def utc(text: str) -> datetime:
@@ -60,6 +64,8 @@ def parse(text: str) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("--out", type=Path, default=scenario.DAILY_RAIN_DIR, help=argparse.SUPPRESS)
+    parser.add_argument("--period", choices=PERIODS, default="corrected-archive",
+                        help="SMHI period: the quality-controlled archive or the last four months (not yet controlled)")
     args = parser.parse_args(argv)
     if not scenario.DAILY_RAIN_STATIONS or args.out is None:
         parser.exit(1, f"fetch_smhi_daily: the scenario {scenario.NAME} has no DAILY_RAIN_STATIONS\n")
@@ -67,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
     last = datetime.combine(scenario.PERIOD_END, datetime.min.time(), tzinfo=timezone.utc) + timedelta(days=2)
     stations = []
     for key, name in scenario.DAILY_RAIN_STATIONS.items():
-        with urlopen(Request(archive_url(key), headers={"User-Agent": USER_AGENT}), timeout=120) as response:
+        with urlopen(Request(archive_url(key, args.period), headers={"User-Agent": USER_AGENT}), timeout=120) as response:
             parsed = parse(response.read().decode("utf-8"))
         days = [{**day, "from_utc": day["from_utc"].strftime("%Y-%m-%dT%H:%M:%SZ"), "to_utc": day["to_utc"].strftime("%Y-%m-%dT%H:%M:%SZ")}
                 for day in parsed["days"] if first < day["to_utc"] <= last]
@@ -75,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{name}: {len(days)} days, most {max((day['mm'] for day in days), default=0)} mm")
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "stations.json").write_text(json.dumps({
-        "source": API, "parameter": 5, "attribution": ATTRIBUTION,
+        "source": API, "parameter": 5, "period": args.period, "attribution": ATTRIBUTION,
         "fetched_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "stations": stations,
     }, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     return 0

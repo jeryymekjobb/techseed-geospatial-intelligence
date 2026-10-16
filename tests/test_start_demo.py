@@ -51,6 +51,7 @@ def test_the_menu_lists_the_demos_with_their_titles_and_labels() -> None:
         ("skane2024", "Översvämningarna i Skåne 2024"),
         ("ljusdal2018", "Skogsbranden vid Kårböle 2018"),
         ("vasternorrland2025", "Regnet i Västernorrland 2025"),
+        ("kramfors2026", "Skyfallet i Kramfors 2026"),
     ]
     assert all(demo["label"] for demo in start_demo.demos())
 

@@ -12,4 +12,4 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT = "vastmanland2014"
-AVAILABLE = ("vastmanland2014", "sundsvall2026", "skane2024", "ljusdal2018", "vasternorrland2025")
+AVAILABLE = ("vastmanland2014", "sundsvall2026", "skane2024", "ljusdal2018", "vasternorrland2025", "kramfors2026")
