@@ -1125,8 +1125,9 @@ Utöver flodens delar (avsnitt 14 och 20) visar demon:
 | MCF:s karteringar (Ångermanälven, Indalsälven, Moälven, Nätraån) | Modell. De små vattendrag som gjorde skadorna är inte karterade. |
 | Nivågivarna NG1–NG6 | Syntetiska |
 
-Bildfrekvensen i 3D är låg i den här demon (cirka 9 bilder per sekund vid generalrepetitionen).
-Slå av lagret med beräknat regn längs vägar om kameran rycker.
+Ha **Terräng (OSM)** avslaget i 3D. Ytorna draperade på terrängen gav cirka 13 bilder per sekund
+i stället för drygt 70. Scenariots sparade profil har lagret avslaget. Spara om profilen i mission
+control om du ändrar något.
 
 ## 25. Förbered demon
 

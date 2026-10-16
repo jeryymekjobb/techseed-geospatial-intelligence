@@ -81,7 +81,7 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 - A real 1 h forecast horizon for +60 MIN (the forecast has 3, 6, 12 and 24 h).
 - GOD VIEW in 2D needs a wider offline base map; the 3D globe works.
 - Check Space-Track's user agreement for showing positions computed from its element sets in public at the exhibition.
-- Västernorrland 2025's 3D frame rate (9.3 per second in the demo check, Sundsvall 124): probably the about 2 300 computed road and railway pieces clamped to the terrain, the large satellite images and the dense wind arrows (2026-10-15).
+- 3D should not inherit `Terräng (OSM)` from the older `flood` profile: Västernorrland 2025, without a profile of its own, took it and drew the OSM land cover draped on the 3D terrain, 13 frames per second against 76 without it (measured 2026-10-16; not the road pieces, labels, images or playback). A scenario profile with the layer off (unversioned `data/display-profiles.json`) gave 70.9 in the demo check. Skåne's and Kårböle's profiles also have it on.
 - Thin out the wind arrows at low zoom: the ERA5 grids of Västernorrland 2025 (234 points) cover the map like a carpet (2026-10-15).
 - Skåne's demo check fails on a 404 from `/api/met-forecast` at the playback's first moment, before any forecast is issued; all its steps pass (2026-10-15).
 - Check whether Sundsvall's municipal rain gauges are stamped in local time: on 29 June 2026 they peaked about two hours after the radar and Brämön A, which would also shift the August scenario's rain (2026-10-15).
