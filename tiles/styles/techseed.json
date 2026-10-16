@@ -217,16 +217,17 @@
       "zoom"
      ],
      6,
-     0.8,
+     0.6,
      12,
-     1.6,
+     1.2,
      16,
-     2.5
+     2
     ],
     "line-dasharray": [
      4,
      2
-    ]
+    ],
+    "line-opacity": 0.6
    }
   },
   {
@@ -234,7 +235,7 @@
    "type": "line",
    "source": "openmaptiles",
    "source-layer": "transportation",
-   "minzoom": 11,
+   "minzoom": 10,
    "filter": [
     "all",
     [
@@ -282,8 +283,8 @@
      [
       "zoom"
      ],
-     11,
-     1.2,
+     10,
+     1.4,
      14,
      4,
      18,
@@ -296,7 +297,7 @@
    "type": "line",
    "source": "openmaptiles",
    "source-layer": "transportation",
-   "minzoom": 11,
+   "minzoom": 10,
    "filter": [
     "all",
     [
@@ -344,8 +345,8 @@
      [
       "zoom"
      ],
-     11,
-     0.6,
+     10,
+     0.8,
      14,
      2.6,
      18,
@@ -358,7 +359,7 @@
    "type": "line",
    "source": "openmaptiles",
    "source-layer": "transportation",
-   "minzoom": 8,
+   "minzoom": 7,
    "filter": [
     "all",
     [
@@ -405,10 +406,12 @@
      [
       "zoom"
      ],
-     8,
-     1.4,
-     12,
+     7,
+     2.2,
+     10,
      3.6,
+     12,
+     4.6,
      16,
      10,
      18,
@@ -421,7 +424,7 @@
    "type": "line",
    "source": "openmaptiles",
    "source-layer": "transportation",
-   "minzoom": 8,
+   "minzoom": 7,
    "filter": [
     "all",
     [
@@ -468,10 +471,12 @@
      [
       "zoom"
      ],
-     8,
-     0.8,
-     12,
+     7,
+     1.4,
+     10,
      2.4,
+     12,
+     3.2,
      16,
      8,
      18,
@@ -531,9 +536,9 @@
       "zoom"
      ],
      6,
-     1.4,
-     10,
      3.2,
+     10,
+     4.6,
      14,
      8,
      18,
@@ -593,9 +598,9 @@
       "zoom"
      ],
      6,
-     0.8,
-     10,
      2.2,
+     10,
+     3.2,
      14,
      6.4,
      18,
@@ -654,9 +659,9 @@
       "zoom"
      ],
      5,
-     1.6,
+     3.4,
      10,
-     4,
+     5.2,
      14,
      10,
      18,
@@ -715,14 +720,66 @@
       "zoom"
      ],
      5,
-     1,
+     2.4,
      10,
-     2.8,
+     3.8,
      14,
      8,
      18,
      23
     ]
+   }
+  },
+  {
+   "id": "railway-casing",
+   "type": "line",
+   "source": "openmaptiles",
+   "source-layer": "transportation",
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "rail",
+      "transit"
+     ],
+     true,
+     false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "brunnel"
+     ],
+     "tunnel"
+    ]
+   ],
+   "paint": {
+    "line-color": "#ffffff",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     6,
+     5,
+     10,
+     6.5,
+     14,
+     7.5,
+     18,
+     9
+    ],
+    "line-opacity": 0.9
    }
   },
   {
@@ -755,7 +812,7 @@
     ]
    ],
    "paint": {
-    "line-color": "#2b2b2b",
+    "line-color": "#000000",
     "line-width": [
      "interpolate",
      [
@@ -766,11 +823,13 @@
       "zoom"
      ],
      6,
-     1,
-     12,
-     2,
-     16,
-     3
+     2.5,
+     10,
+     3.5,
+     14,
+     4,
+     18,
+     5
     ]
    }
   },
@@ -779,7 +838,7 @@
    "type": "line",
    "source": "openmaptiles",
    "source-layer": "transportation",
-   "minzoom": 10,
+   "minzoom": 9,
    "filter": [
     "all",
     [
@@ -805,7 +864,7 @@
     ]
    ],
    "paint": {
-    "line-color": "#2b2b2b",
+    "line-color": "#000000",
     "line-width": [
      "interpolate",
      [
@@ -815,12 +874,12 @@
      [
       "zoom"
      ],
-     10,
-     4,
+     9,
+     6,
      14,
-     7,
+     9,
      18,
-     10
+     12
     ],
     "line-dasharray": [
      0.25,
