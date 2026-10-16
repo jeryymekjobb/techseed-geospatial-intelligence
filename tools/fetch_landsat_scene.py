@@ -167,10 +167,16 @@ def user() -> str:
     return f"{os.getuid()}:{os.getgid()}"
 
 
+# A read from Planetary Computer that stalls is given up after GDAL_HTTP_TIMEOUT seconds and tried
+# again: twice a Sentinel-2 download stood still for over ten minutes without these.
+GDAL_HTTP = {"GDAL_HTTP_TIMEOUT": "60", "GDAL_HTTP_MAX_RETRY": "5", "GDAL_HTTP_RETRY_DELAY": "10"}
+
+
 def docker_command(script: str, out: Path) -> list[str]:
     # The image has no CA certificates; the host's are mounted read-only so TLS is still verified.
+    environment = [item for name, value in GDAL_HTTP.items() for item in ("-e", f"{name}={value}")]
     return ["docker", "run", "--rm", "-u", user(), "-v", f"{out.resolve()}:/data", "-v", f"{HOST_CA_BUNDLE}:/etc/ssl/host-ca.crt:ro",
-            "-e", "CURL_CA_BUNDLE=/etc/ssl/host-ca.crt", GDAL_IMAGE, "sh", "-c", script]
+            "-e", "CURL_CA_BUNDLE=/etc/ssl/host-ca.crt", *environment, GDAL_IMAGE, "sh", "-c", script]
 
 
 def without_token(text: str, token: str) -> str:

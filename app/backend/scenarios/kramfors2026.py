@@ -37,6 +37,8 @@ SUMMARY = [
     "SMHI varnade för skyfallsliknande regn. Det mesta föll på lördagskvällen i ett smalt stråk över Kramfors.",
     "SMHI:s station i Kramfors fick 77 millimeter på ett dygn, Härnösand mindre än en millimeter.",
     "SMHI:s väderradar visar var regnet föll. Regnet är verkligt; SMHI:s data från augusti är ännu inte kvalitetsgranskade.",
+    "Radarbilder från Sentinel-1 före och efter skyfallet, och bilder från Sentinel-2 och Landsat före och efter.",
+    "Översvämmade vägar, en vattenfylld källare och ett tågstopp, enligt lokala medier. Platserna är ungefärliga.",
 ]
 
 FIRMS_FILES: list = []
@@ -48,6 +50,8 @@ RADAR_DIR = DATA / "radar"
 DEM_DIR = DATA / "dem"
 TERRAIN_DIR = DATA / "terrain"
 LANDSAT_DIR = DATA / "landsat"
+SENTINEL2_DIR = DATA / "sentinel2"
+SENTINEL1_DIR = DATA / "sentinel1"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2026.json"
 
@@ -90,8 +94,7 @@ DAILY_RAIN_STATIONS = {
 }
 DAILY_RAIN_DIR = DATA / "smhi-daily"
 
-# The satellites over the area in the period and the ISS, by NORAD number; their images come in
-# a later stage of the scenario.
+# The satellites over the area in the period and the ISS, by NORAD number.
 TLE_SATELLITES = {
     "62261": "Sentinel-1C", "66315": "Sentinel-1D", "40697": "Sentinel-2A", "42063": "Sentinel-2B",
     "60989": "Sentinel-2C", "39084": "Landsat 8", "49260": "Landsat 9", "25544": "ISS",
@@ -109,11 +112,58 @@ SATELLITE_ROLES = {
 }
 SATELLITE_LABEL = "Position 2026, beräknad ur banelement (SGP4) – inte en observation"
 
-LANDSAT_SCENES: dict = {}
+# Landsat 8 before and after (tools/fetch_landsat_scene.py; catalogue cloud 50 % and 17 %, checked 2026-10-16).
+LANDSAT_SCENES = {"before": "LC08_L2SP_195016_20260812_02_T1", "after": "LC08_L2SP_194016_20260821_02_T1"}
 LANDSAT_ROLES = {"before": "Före skyfallet", "during": "Under skyfallet", "after": "Efter skyfallet"}
 LANDSAT_FOCUS_AREA = (17.7, 62.9, 17.85, 62.97)  # Kramfors town
 # About 30 m over MAP_BBOX: 1.1 degrees of longitude and 0.6 of latitude at 62.9 N.
 LANDSAT_SIZE = (1859, 2224)
+# Sentinel-1 acquisitions over the town (Planetary Computer catalogue, sentinel-1-grd, checked
+# 2026-10-16): 10 August on the same descending track as 16 August, about ten hours after the rain,
+# and the next day's two passes.
+SENTINEL1_ACQUISITIONS = [
+    {"time_utc": "2026-08-10T05:21:45Z", "satellite": "Sentinel-1D", "norad": "66315"},
+    {"time_utc": "2026-08-16T05:21:32Z", "satellite": "Sentinel-1C", "norad": "62261"},
+    {"time_utc": "2026-08-17T05:13:33Z", "satellite": "Sentinel-1D", "norad": "66315"},
+    {"time_utc": "2026-08-17T16:29:45Z", "satellite": "Sentinel-1D", "norad": "66315"},
+]
+# Sentinel-2 before and after (catalogue tile cloud 17-19 % and 12-15 %); 16 August is 99 % cloud.
+SENTINEL2_SCENES = {
+    "before": "S2C_MSIL2A_20260808T101601_R065",
+    "after": "S2A_MSIL2A_20260820T101701_R065",
+}
+# About 20 m over MAP_BBOX.
+SENTINEL2_SIZE = (2789, 3336)
+
+# The damage local media reported (routes.py): times and places approximate. Tidningen Ångermanland
+# is partly behind a paywall, so its details are only partly checked. The track fault on 17 August
+# has no place in the reports and shows in the log only.
+ROUTE_REPORT = "Lokala medier: Tidningen Ångermanland, Sveriges Radio P4 Västernorrland, SVT Västernorrland"
+ROUTE_IMPACT_LABEL = "Översvämmade vägar och järnväg (rapporterat)"
+ROUTE_SOURCE_LABEL = "lokala medier"
+ROUTE_ATTRIBUTION = "Tidningen Ångermanland, Sveriges Radio P4 Västernorrland, SVT"
+ROUTE_IMPACTS = [
+    {"time_utc": "2026-08-15T16:00:00Z", "kind": "alert", "approximate_time": False, "source_label": "SMHI, via SVT",
+     "text": "SMHI:s gula varning för skyfallsliknande regn gäller från klockan 18"},
+    {"time_utc": "2026-08-16T06:00:00Z", "kind": "road", "approximate_time": True, "site": "Väg 855",
+     "latitude": 62.96353, "longitude": 17.86098, "source_label": "Tidningen Ångermanland",
+     "text": "Väg 855 avstängd av Trafikverket efter skyfallet"},
+    {"time_utc": "2026-08-16T06:00:00Z", "kind": "road", "approximate_time": True, "site": "Väg 856 Butjärn",
+     "latitude": 62.96765, "longitude": 17.93559, "source_label": "Tidningen Ångermanland",
+     "text": "Väg 856 mellan Strinne och Finnkåtorna med mycket vatten på vägen"},
+    {"time_utc": "2026-08-16T06:00:00Z", "kind": "road", "approximate_time": True, "site": "Ådalshallen",
+     "latitude": 62.93042, "longitude": 17.78364, "source_label": "Tidningen Ångermanland",
+     "text": "Vatten i Ådalshallens källare, räddningstjänsten länspumpar"},
+    {"time_utc": "2026-08-16T06:00:00Z", "kind": "road", "approximate_time": True, "site": "Väg vid Saltsjön",
+     "latitude": 62.99684, "longitude": 17.9873, "source_label": "Tidningen Ångermanland",
+     "text": "En enskild väg vid Saltsjön raseras"},
+    {"time_utc": "2026-08-17T05:00:00Z", "kind": "rail", "approximate_time": True, "source_label": "Sveriges Radio P4",
+     "text": "Spårfel efter översvämning på banvallen stoppar tågen mellan Sundsvall och Umeå"},
+    {"time_utc": "2026-08-17T22:00:00Z", "kind": "rail", "approximate_time": True, "source_label": "Sveriges Radio P4",
+     "text": "Tågtrafiken mellan Sundsvall och Umeå i gång igen"},
+]
+# The OSM roads and railways under heavy rain, computed from SMHI's radar (tools/derive_route_exposure.py).
+ROUTE_EXPOSURE_FILE = DATA / "routes" / "exposure.json"
 
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""

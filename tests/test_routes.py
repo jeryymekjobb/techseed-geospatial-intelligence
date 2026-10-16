@@ -89,3 +89,13 @@ def test_a_line_is_cut_into_pieces_that_join_and_the_rain_adds_up_by_the_hour() 
     assert tool.wanted({"kind": "road", "type": "unclassified"}) is None
     assert tool.wanted({"kind": "road", "type": "unclassified", "ref": "Y 738"}) == "road"
     assert tool.wanted({"kind": "railway", "type": "rail", "name": "Gådeåtunneln"}) is None
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_a_damage_names_its_own_source_on_the_screens() -> None:
+    out = json.loads(run_scenario("import json; from app.backend import routes; print(json.dumps(routes.impacts()))", "kramfors2026"))
+    assert {item["source_label"] for item in out} >= {"Tidningen Ångermanland", "Sveriges Radio P4"}
+    assert all(item["source"].startswith("Lokala medier") for item in out)
+    impacts = [{"time_utc": "2026-08-16T06:00:00Z", "kind": "road", "text": "Väg 855 avstängd", "source_label": "Tidningen Ångermanland"}]
+    lines = node("satlog.js", f"satelliteLog({{ routeImpacts: {json.dumps(impacts)} }}, Date.parse('2026-08-16T07:00:00Z'))")
+    assert lines[0]["sourceText"] == "Tidningen Ångermanland"

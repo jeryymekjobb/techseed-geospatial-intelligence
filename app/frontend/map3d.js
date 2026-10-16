@@ -520,7 +520,7 @@ async function createCesiumMap(config) {
           + 'font-size="18" fill="#ffffff" text-anchor="middle">!</text></svg>')}`;
         routeImpactLayer.entities.add({
           name: item.text,
-          description: `${formatLocal(item.time_utc)}${item.approximate_time ? " (tid ungefärlig)" : ""}; plats ungefärlig. Länsstyrelsen, utredning 2026.`,
+          description: `${formatLocal(item.time_utc)}${item.approximate_time ? " (tid ungefärlig)" : ""}; plats ungefärlig. ${item.source_label || "Länsstyrelsen, utredning 2026"}.`,
           position: Cesium.Cartesian3.fromDegrees(item.longitude, item.latitude),
           billboard: { image, width: 26, height: 26, ...ON_GROUND },
         });

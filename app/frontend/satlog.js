@@ -198,7 +198,7 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
   // approximated time says so on the screen, not aloud.
   for (const item of routeImpacts) {
     lines.push({ atMs: Date.parse(item.time_utc), text: `${item.text}${item.approximate_time ? " (tid ungefärlig)" : ""}`,
-                 spoken: item.text, source: "report", kind: "route_impact" });
+                 spoken: item.text, source: "report", kind: "route_impact", ...(item.source_label ? { sourceText: item.source_label } : {}) });
   }
   for (const pass of threats.places || []) {
     const named = pass.places.slice(0, SATLOG_PLACES_NAMED).map((place) => `${place.name} ${satlogSpan(place.span)}`).join(", ");

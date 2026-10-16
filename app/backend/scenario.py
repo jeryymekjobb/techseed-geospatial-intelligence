@@ -121,6 +121,10 @@ SENTINEL1_ACQUISITIONS = getattr(_module, "SENTINEL1_ACQUISITIONS", [])
 # computed from SMHI's radar (routes.py, tools/derive_route_exposure.py); only Västernorrland 2025.
 ROUTE_IMPACTS = getattr(_module, "ROUTE_IMPACTS", [])
 ROUTE_REPORT = getattr(_module, "ROUTE_REPORT", "")
+# The damage layer's name, the short source label the screens show and the map's attribution.
+ROUTE_IMPACT_LABEL = getattr(_module, "ROUTE_IMPACT_LABEL", None)
+ROUTE_SOURCE_LABEL = getattr(_module, "ROUTE_SOURCE_LABEL", "Länsstyrelsen, utredning 2026")
+ROUTE_ATTRIBUTION = getattr(_module, "ROUTE_ATTRIBUTION", "Länsstyrelsen Västernorrland, utredning 2026")
 ROUTE_EXPOSURE_FILE = getattr(_module, "ROUTE_EXPOSURE_FILE", None)
 # The level sensors' alarm as a rise over the flow at the playback's start, instead of above the
 # station's record (level_sensors.py); and SMHI's stations that report the rain by the day (daily_rain.py).

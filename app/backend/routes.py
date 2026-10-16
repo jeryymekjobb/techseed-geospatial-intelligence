@@ -17,15 +17,17 @@ from typing import Any
 
 from app.backend import scenario
 
-IMPACT_LABEL = "Skadade vägar och järnvägar (Länsstyrelsen)"
+IMPACT_LABEL = scenario.ROUTE_IMPACT_LABEL or "Skadade vägar och järnvägar (Länsstyrelsen)"
 EXPOSURE_LABEL = "Vägar och järnvägar i kraftigt regn (beräknat ur radar)"
 # Rain since the playback's start that colours a piece: heavy, then very heavy.
 EXPOSURE_THRESHOLDS_MM = (50.0, 80.0)
 
 
 def impacts() -> list[dict[str, Any]]:
-    """The documented damage, oldest first, each with the report as its source."""
-    return sorted(({**item, "source": scenario.ROUTE_REPORT} for item in scenario.ROUTE_IMPACTS),
+    """The documented damage, oldest first, each with its source and the short label the screens show
+    (the item's own, else the scenario's report)."""
+    return sorted(({**item, "source": item.get("source") or scenario.ROUTE_REPORT,
+                    "source_label": item.get("source_label") or scenario.ROUTE_SOURCE_LABEL} for item in scenario.ROUTE_IMPACTS),
                   key=lambda item: item["time_utc"])
 
 
@@ -49,7 +51,7 @@ def layer() -> dict[str, Any] | None:
         "exposure_label": EXPOSURE_LABEL if computed is not None else None,
         "exposure_url": "/api/routes/exposure" if computed is not None else None,
         "thresholds_mm": list(EXPOSURE_THRESHOLDS_MM),
-        "attribution": "Skador: Länsstyrelsen Västernorrland, utredning 2026; vägar och järnvägar © OpenStreetMap contributors",
+        "attribution": f"Skador: {scenario.ROUTE_ATTRIBUTION}; vägar och järnvägar © OpenStreetMap contributors",
     }
 
 

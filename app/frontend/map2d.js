@@ -433,7 +433,7 @@ function createLeafletMap(config) {
               + 'border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.6);color:#fff;font:bold 13px system-ui;text-align:center;line-height:18px">!</div>' }),
           keyboard: false,
         }).bindTooltip(`${item.text}<br><small>${formatLocal(item.time_utc)}${item.approximate_time ? " (tid ungefärlig)" : ""} · `
-          + "plats ungefärlig · Länsstyrelsen, utredning 2026</small>", { direction: "top" }).addTo(routeImpactLayer);
+          + `plats ungefärlig · ${item.source_label || "Länsstyrelsen, utredning 2026"}</small>`, { direction: "top" }).addTo(routeImpactLayer);
       }
     },
 
