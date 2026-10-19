@@ -211,9 +211,6 @@ MUNICIPAL_BASEMAP = {
     "attribution": "Karta © Sundsvalls kommun, Lantmäteriet, Trafikverket",
 }
 MUNICIPAL_BASEMAP_DIR = DATA / "municipal-basemap"
-# The municipality's map has no road numbers and leaves out the railway tunnels: the offline map's,
-# from OpenStreetMap, are a layer of their own over it (offline_tiles.py), as the user asked on 2026-10-19.
-ROAD_OVERLAY = True
 
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""

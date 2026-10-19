@@ -64,6 +64,8 @@ def test_the_map_layers_mission_control_lists_are_the_names_both_maps_give_them(
     for item in server.map_layers(lantmateriet.Settings(None, None, None, None)):
         if "(modell)" in item["name"] and item["name"] not in ("Prognos (modell)",) or item["name"].startswith("Satelliter ("):
             continue  # WMS titles and the year are filled in at run time
+        if item["name"] == offline_tiles.OVERLAY_LABEL:
+            continue  # both maps take the road overlay's name from config.layers.road_overlay
         for dimension in ("2d", "3d"):
             if item[f"default_{dimension}"] is not None:
                 assert f'"{item["name"]}"' in sources[dimension], (item["name"], dimension)

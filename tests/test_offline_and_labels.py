@@ -43,7 +43,7 @@ def test_the_road_overlay_is_the_same_tiles_in_the_overlay_style(monkeypatch: py
     assert "techseed-overlay" in json.loads((tiles / "config.json").read_text(encoding="utf-8"))["styles"]
 
 
-def test_only_sundsvall_has_the_road_overlay_layer() -> None:
+def test_every_scenario_has_the_road_overlay_layer() -> None:
     import os
     import subprocess
     import sys
@@ -54,7 +54,7 @@ def test_only_sundsvall_has_the_road_overlay_layer() -> None:
             "names = [item['name'] for item in server.map_layers(lantmateriet.Settings(None, None, None, None))]\n"
             "print(scenario.ROAD_OVERLAY, offline_tiles.OVERLAY_LABEL in names)")
     root = Path(offline_tiles.__file__).resolve().parents[2]
-    for name, expected in (("sundsvall2026", "True True"), ("kramfors2026", "False False")):
+    for name, expected in (("sundsvall2026", "True True"), ("kramfors2026", "True True")):
         out = subprocess.run([sys.executable, "-c", code], cwd=root, env={**os.environ, "TECHSEED_SCENARIO": name},
                              capture_output=True, text=True, check=True).stdout.strip()
         assert out == expected, (name, out)

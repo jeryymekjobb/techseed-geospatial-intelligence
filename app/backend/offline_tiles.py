@@ -4,9 +4,10 @@ The backend serves them at /tiles/{z}/{x}/{y}.png, so every screen on the networ
 gets them from the backend and not from 127.0.0.1. `OFFLINE_TILES_URL` overrides
 the tile URL template (default: the docker-compose.yml service on port 8081).
 
-A scenario with ROAD_OVERLAY also gets /tiles-overlay/{z}/{x}/{y}.png: the same data in the
-style tiles/styles/techseed-overlay.json, the railway tunnels (dashed) and the road numbers on a
-transparent background, to lay over another base map such as the municipality's (Sundsvall).
+A scenario with ROAD_OVERLAY (every scenario by default) also gets /tiles-overlay/{z}/{x}/{y}.png:
+the same data in the style tiles/styles/techseed-overlay.json, the railway tunnels (dashed) and the
+road numbers on a transparent background, laid over the base map (such as the municipality's in
+Sundsvall, which lacks them), the images and the flood maps.
 """
 
 from __future__ import annotations
