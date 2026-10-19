@@ -2,7 +2,7 @@
  "version": 8,
  "name": "Techseed – tydlig offline-karta",
  "metadata": {
-  "note": "Roads, railways and water clearly drawn; no text, as the screens draw the place names."
+  "note": "Roads, railways and water clearly drawn; the only text is the larger roads' numbers, as the screens draw the place names."
  },
  "sources": {
   "openmaptiles": {
@@ -731,6 +731,62 @@
    }
   },
   {
+   "id": "railway-tunnel",
+   "type": "line",
+   "source": "openmaptiles",
+   "source-layer": "transportation",
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "rail",
+      "transit"
+     ],
+     true,
+     false
+    ],
+    [
+     "==",
+     [
+      "get",
+      "brunnel"
+     ],
+     "tunnel"
+    ]
+   ],
+   "paint": {
+    "line-color": "#000000",
+    "line-opacity": 0.6,
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     6,
+     1.2,
+     10,
+     1.6,
+     14,
+     2.5,
+     18,
+     3
+    ],
+    "line-dasharray": [
+     2,
+     1.5
+    ]
+   }
+  },
+  {
    "id": "railway-casing",
    "type": "line",
    "source": "openmaptiles",
@@ -886,6 +942,126 @@
      4
     ]
    }
+  },
+  {
+   "id": "road-ref-major",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "transportation_name",
+   "minzoom": 9,
+   "filter": [
+    "all",
+    [
+     "has",
+     "ref"
+    ],
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "motorway",
+      "trunk",
+      "primary"
+     ],
+     true,
+     false
+    ]
+   ],
+   "layout": {
+    "symbol-placement": "line",
+    "symbol-spacing": 350,
+    "text-field": [
+     "get",
+     "ref"
+    ],
+    "text-font": [
+     "Noto Sans Regular"
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     9,
+     11,
+     14,
+     14
+    ],
+    "text-rotation-alignment": "viewport",
+    "text-pitch-alignment": "viewport",
+    "text-padding": 4
+   },
+   "paint": {
+    "text-color": "#1a1a1a",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 2
+   }
+  },
+  {
+   "id": "road-ref-minor",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "transportation_name",
+   "minzoom": 11,
+   "filter": [
+    "all",
+    [
+     "has",
+     "ref"
+    ],
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "secondary",
+      "tertiary"
+     ],
+     true,
+     false
+    ]
+   ],
+   "layout": {
+    "symbol-placement": "line",
+    "symbol-spacing": 350,
+    "text-field": [
+     "get",
+     "ref"
+    ],
+    "text-font": [
+     "Noto Sans Regular"
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     11,
+     10,
+     14,
+     12
+    ],
+    "text-rotation-alignment": "viewport",
+    "text-pitch-alignment": "viewport",
+    "text-padding": 4
+   },
+   "paint": {
+    "text-color": "#1a1a1a",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 2
+   }
   }
- ]
+ ],
+ "glyphs": "{fontstack}/{range}.pbf"
 }

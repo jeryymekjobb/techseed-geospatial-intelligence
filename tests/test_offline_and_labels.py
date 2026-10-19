@@ -47,3 +47,7 @@ def test_offline_tile_build_commands() -> None:
     tilemaker = build.tilemaker_command(area, build.DATA / "tiles" / "vastmanland.mbtiles", "15.5,59.55,16.8,60.3")
     assert tilemaker[tilemaker.index("--input") + 1] == "/data/osm/firemap-area.osm.pbf"
     assert tilemaker[tilemaker.index("--output") + 1] == "/data/tiles/vastmanland.mbtiles"
+    assert tilemaker[tilemaker.index("--process") + 1] == "/techseed/process-techseed.lua"
+    assert f"{build.REPO_ROOT / 'tiles'}:/techseed:ro" in tilemaker
+    lua = (build.REPO_ROOT / "tiles" / "process-techseed.lua").read_text(encoding="utf-8")
+    assert 'dofile("resources/process-openmaptiles.lua")' in lua and "RAILWAY_MINZOOM = 8" in lua
