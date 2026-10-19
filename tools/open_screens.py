@@ -116,7 +116,10 @@ def chrome_command(chrome: str, base_url: str, window: Window) -> list[str]:
     return [chrome, f"--app={base_url}{window.path}", f"--user-data-dir={PROFILES / window.screen}",
             f"--window-position={window.x},{window.y}", f"--window-size={window.width},{window.height}",
             # The screens are in Swedish: no offer to translate them over the demo.
-            "--no-first-run", "--no-default-browser-check", "--disable-features=Translate", "--lang=sv"]
+            "--no-first-run", "--no-default-browser-check", "--disable-features=Translate", "--lang=sv",
+            # With automatic login the desktop's keyring stays locked, and Chrome would ask for its
+            # password over the screens; the demo's profiles keep no passwords anyway.
+            "--password-store=basic"]
 
 
 def no_translation(profile: Path) -> None:

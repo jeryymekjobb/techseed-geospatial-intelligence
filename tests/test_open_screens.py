@@ -34,6 +34,7 @@ def test_each_screen_is_a_chrome_app_with_its_own_profile_and_place() -> None:
     assert command[1:5] == ["--app=http://127.0.0.1:8765/control.html", f"--user-data-dir={screens.PROFILES / 'control'}",
                             "--window-position=3440,0", "--window-size=2560,1600"]
     assert "--disable-features=Translate" in command
+    assert "--password-store=basic" in command  # no prompt for the locked keyring after automatic login
 
 
 def test_the_old_screen_is_closed_with_its_own_profile_as_the_pattern() -> None:
