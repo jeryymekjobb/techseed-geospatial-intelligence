@@ -52,6 +52,7 @@ TERRAIN_DIR = DATA / "terrain"
 LANDSAT_DIR = DATA / "landsat"
 SENTINEL2_DIR = DATA / "sentinel2"
 SENTINEL1_DIR = DATA / "sentinel1"
+MCF_DIR = DATA / "mcf"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2026.json"
 
@@ -70,6 +71,14 @@ PLAYBACK_START = datetime(2026, 8, 15, 12, 0, tzinfo=timezone.utc)
 PLAYBACK_END = datetime(2026, 8, 18, 0, 0, tzinfo=timezone.utc)
 # Sentinel-1C passes at 05:21 UTC on 16 August, about ten hours after the rain.
 CHECK_START_UTC = "2026-08-16T05:00:00Z"
+# The demo check: at 17 UTC on 15 August DV1 Väg 855 and DV3 Ådalshallen overflow, filled by the
+# radar's rain. Both of SMHI's hourly gauges lie outside the cell, so the rule-based assessment
+# reaches only "Possible flood" (the user chose on 2026-10-19 to keep its rules). Its SATCOM outage
+# starts in the evening of 16 August, before the radar acquisition at 05:13 UTC on 17 August.
+CHECK_PEAK_UTC = "2026-08-15T17:00:00Z"
+CHECK_SENSORS = "2/4"
+CHECK_OUTCOME = "Possible flood"
+CHECK_SATCOM_UTC = "2026-08-16T21:00:00Z"
 
 DATABASE = "kramfors2026"
 TILES_FILE = "kramfors.mbtiles"
@@ -169,10 +178,27 @@ ROUTE_EXPOSURE_FILE = DATA / "routes" / "exposure.json"
 # hourly gauges lie outside the cell.
 RADAR_SENSOR_FILE = DATA / "sensors" / "radar-points.geojson"
 
+# MCF's (formerly MSB's) overview flood maps of Ångermanälven by Kramfors (checked 2026-10-19): today's
+# 100-year flow and the highest calculated flow, as in vasternorrland2025. They map the river, not the
+# cloudburst on the roads and cellars.
+FLOOD_HAZARD_WMS = {
+    "url": "https://gis-tjanster.mcf.se/arcgis/services/Oversvamningskarteringar/karteringar/MapServer/WMSServer",
+    # The WMS numbers its layers otherwise than the service's REST interface (2 and 5 there).
+    "layers": {"13": "100-årsflöde", "9": "Beräknat högsta flöde"},
+    "attribution": "Översvämningskartering © MCF (tidigare MSB)",
+    "visible": [],
+}
+# The same for PostGIS (tools/fetch_mcf_flood_maps.py): REST id, title and label.
+MCF_LAYERS = {
+    "100ar": (2, "100-årsflöde", "MCF"),
+    "bhf": (5, "Beräknat högsta flöde", "MCF"),
+}
+FLOOD_MODELS = "MCF:s modeller"
+
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""
 FORECAST_REPORT = ""
-SPATIAL_SOURCE = "PostGIS (lokal databas): OSM-mål © OpenStreetMap contributors"
+SPATIAL_SOURCE = "PostGIS (lokal databas): OSM-mål © OpenStreetMap contributors, 100-årsflöden © MCF (tidigare MSB)"
 
 ATTRIBUTION = {
     "osm": "© OpenStreetMap contributors (ODbL)",
@@ -180,6 +206,7 @@ ATTRIBUTION = {
     "smhi": "SMHI öppna data (CC BY 4.0 SE): nederbörd per timme och dygn, väderradar; senaste månaderna, ej kvalitetsgranskade",
     "sentinel": "Innehåller bearbetade Copernicus Sentinel-data 2026",
     "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land), CC BY 4.0",
+    "mcf": "Översvämningskartering © MCF (tidigare MSB)",
     "copernicus_dem": (
         "produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 "
         "provided under COPERNICUS by the European Union and ESA; all rights reserved"
