@@ -166,8 +166,8 @@ def synthetic_sensors() -> sensor_sim.SyntheticSensors | flood_sensors.FloodSens
     if not scenario.WILDFIRE:
         # The municipality's stormwater points, where the scenario has them; none otherwise.
         points = scenario.MUNICIPAL_DIR / "critical-stormwater.geojson" if scenario.MUNICIPAL_DIR else None
-        return flood_sensors.FloodSensors(points, weather()["stations"],
-                                          scenario.PLAYBACK_START, scenario.PLAYBACK_END)
+        return flood_sensors.FloodSensors(points, weather()["stations"], scenario.PLAYBACK_START, scenario.PLAYBACK_END,
+                                          rain_points=scenario.RADAR_SENSOR_FILE)
     items = [(parse_utc(item["acq_datetime_utc"]), item["latitude"], item["longitude"]) for item in detections()]
     return sensor_sim.SyntheticSensors(items, wind_field(), scenario.FIRE_CENTRE)
 
@@ -239,7 +239,8 @@ def synthetic_at(state: dict[str, Any]) -> dict[str, Any]:
     """The synthetic sensors at the scenario clock, with mission control's sensor failures;
     none when mission control has switched IoT off."""
     if not state["status"]["iot"]:
-        label = sensor_sim.LABEL if scenario.WILDFIRE else level_sensors.LABEL if scenario.LEVEL_SENSOR_FILE else flood_sensors.LABEL
+        label = (sensor_sim.LABEL if scenario.WILDFIRE else level_sensors.LABEL if scenario.LEVEL_SENSOR_FILE
+                 else flood_sensors.RADAR_LABEL if scenario.RADAR_SENSOR_FILE else flood_sensors.LABEL)
         return {"label": label, "sensors": [], "confirms": 0, "operating": 0, "disabled": True}
     status = state["status"]
     return synthetic_sensors().at(parse_utc(state["clock_utc"]), status["failed_sensors"], status["placed_sensors"])

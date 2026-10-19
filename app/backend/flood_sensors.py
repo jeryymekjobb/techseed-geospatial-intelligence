@@ -21,6 +21,8 @@ from pathlib import Path
 from typing import Any, Sequence
 
 LABEL = "Syntetiska bräddgivare – beräknade ur verkligt regn och kommunens skyfallsmodell, inte mätningar"
+RADAR_LABEL = "Syntetiska bräddgivare – beräknade ur SMHI:s radarregn vid rapporterade skador, inte mätningar"
+RADAR_GAUGE = "SMHI:s väderradar"
 MAX_NODES = 8
 MIN_MODEL_DEPTH_M = 0.1      # points where the 100-year model gives less water are not used
 CAPACITY_MM = 15.0           # the reservoir, in millimetres of rain on its catchment
@@ -71,7 +73,10 @@ def reservoir(rain_mm: Sequence[float], inflow_factor: float) -> list[tuple[floa
 
 
 class FloodSensors:
-    def __init__(self, points_file: Path | None, stations: Sequence[dict[str, Any]], start: datetime, end: datetime) -> None:
+    def __init__(self, points_file: Path | None, stations: Sequence[dict[str, Any]], start: datetime, end: datetime,
+                 *, rain_points: Path | None = None) -> None:
+        """`rain_points` (tools/derive_radar_sensor_points.py) are sensors with the radar's rain of their own
+        place, used where the gauges miss the rain; they have no model depth."""
         features = json.loads(points_file.read_text(encoding="utf-8"))["features"] if points_file and points_file.is_file() else []
         self.start = start
         self.hours = [start + HOUR * (index + 1) for index in range(int((end - start) / HOUR))]
@@ -82,21 +87,31 @@ class FloodSensors:
             longitude, latitude = feature["geometry"]["coordinates"][:2]
             self.nodes.append(self._node(f"dv-{index:02d}", f"DV{index} {props.get('omrade') or ''}".strip(), latitude, longitude,
                                          props.get("model_depth_100y_m"), props))
+        radar = json.loads(rain_points.read_text(encoding="utf-8")) if rain_points and rain_points.is_file() else {"features": []}
+        for feature in radar["features"]:
+            props = feature["properties"]
+            longitude, latitude = feature["geometry"]["coordinates"][:2]
+            first = parse_utc(radar["start_utc"]) + HOUR
+            by_hour = {format_utc(first + HOUR * index): value for index, value in enumerate(props["rain_mm"])}
+            self.nodes.append(self._node(props["id"], props["name"], latitude, longitude, None, rain=by_hour, gauge=RADAR_GAUGE))
+        self.label = RADAR_LABEL if radar["features"] and not features else LABEL
 
-    def _rain(self, station: dict[str, Any]) -> list[float]:
+    def _rain(self, by_hour: dict[str, float]) -> list[float]:
         # The municipality's gauges list only hours with rain: a missing hour is dry.
-        by_hour = {observation["time_utc"]: observation.get("precip_mm") or 0.0 for observation in station["observations"]}
         return [by_hour.get(format_utc(moment), 0.0) for moment in self.hours]
 
     def _node(self, node_id: str, name: str, latitude: float, longitude: float, depth: float | None,
-              props: dict[str, Any] | None = None) -> dict[str, Any]:
-        station = min(self.stations, key=lambda item: distance_km(latitude, longitude, item["latitude"], item["longitude"]))
+              props: dict[str, Any] | None = None, *, rain: dict[str, float] | None = None, gauge: str | None = None) -> dict[str, Any]:
+        if rain is None:
+            station = min(self.stations, key=lambda item: distance_km(latitude, longitude, item["latitude"], item["longitude"]))
+            rain = {observation["time_utc"]: observation.get("precip_mm") or 0.0 for observation in station["observations"]}
+            gauge = station["name"]
         factor = 1.0 + DEPTH_GAIN * (depth or 0.0)
         props = props or {}
         return {
             "id": node_id, "name": name, "latitude": latitude, "longitude": longitude, "model_depth_m": depth,
             "object": props.get("objekttyp"), "location": props.get("lokalisering"), "problem": props.get("problem"),
-            "gauge": station["name"], "states": reservoir(self._rain(station), factor),
+            "gauge": gauge, "states": reservoir(self._rain(rain), factor),
         }
 
     def at(self, clock: datetime, failed: Sequence[str | None] = (), placed: Sequence[dict[str, Any]] = ()) -> dict[str, Any]:
@@ -133,7 +148,7 @@ class FloodSensors:
             })
         operating = [item for item in sensors if item["status"] == "ok"]
         return {
-            "label": LABEL,
+            "label": self.label,
             "sensors": sensors,
             "confirms": sum(1 for item in operating if item["confirms"]),
             "operating": len(operating),

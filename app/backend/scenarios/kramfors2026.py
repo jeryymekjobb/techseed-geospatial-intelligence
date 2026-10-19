@@ -164,6 +164,10 @@ ROUTE_IMPACTS = [
 ]
 # The OSM roads and railways under heavy rain, computed from SMHI's radar (tools/derive_route_exposure.py).
 ROUTE_EXPOSURE_FILE = DATA / "routes" / "exposure.json"
+# Synthetic overflow sensors at the reported damage with a place (ROUTE_IMPACTS with a "site"), each
+# filled by the rain SMHI's radar estimates there (tools/derive_radar_sensor_points.py), since both
+# hourly gauges lie outside the cell.
+RADAR_SENSOR_FILE = DATA / "sensors" / "radar-points.geojson"
 
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""

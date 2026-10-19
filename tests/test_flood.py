@@ -67,6 +67,26 @@ def test_the_sensors_are_shaped_like_diwise_sewers_with_overflow_times(tmp_path:
     assert failed["sensors"][0]["status"] == "failed" and failed["operating"] == 0
 
 
+def test_radar_points_fill_their_own_reservoir_with_the_radar_s_rain(tmp_path: Path) -> None:
+    import numpy as np
+
+    from tools import derive_radar_sensor_points as tool
+    impacts = [{"time_utc": "2026-08-16T06:00:00Z", "kind": "alert", "text": "Varning"},
+               {"time_utc": "2026-08-16T06:00:00Z", "kind": "road", "site": "Väg 855", "latitude": 62.96, "longitude": 17.86, "text": "Väg 855"}]
+    rain = np.array([[0.0], [25.0], [0.0]])  # synthetic: 25 mm in the hour to 02:00
+    path = tmp_path / "radar.geojson"
+    path.write_text(json.dumps(tool.points(impacts, rain, START)), encoding="utf-8")
+    flood = fsen.FloodSensors(None, [STATION], START, END, rain_points=path)
+    peak = flood.at(at("2026-08-16T02:30:00Z"))
+    sewer = peak["sensors"][0]
+    assert (sewer["id"], sewer["name"], sewer["gauge"], sewer["model_depth_m"]) == ("dv-01", "DV1 Väg 855", "SMHI:s väderradar", None)
+    assert sewer["confirms"] and sewer["overflow_observed_at"] == "2026-08-16T01:00:00Z"  # 25 - 6 > 15 mm
+    assert peak["label"] == fsen.RADAR_LABEL and not flood.at(at("2026-08-16T01:30:00Z"))["confirms"]
+    # A sensor the operator places still takes the nearest gauge.
+    placed = flood.at(at("2026-08-16T08:30:00Z"), placed=[{"id": "p-01", "name": "P1", "latitude": 62.39, "longitude": 17.31}])
+    assert placed["sensors"][1]["gauge"] == "Mätaren"
+
+
 def test_the_assessment_weighs_rain_and_overflow_and_keeps_the_model_and_images_as_context(tmp_path: Path) -> None:
     flood = sensors(tmp_path, [point(1, "Haga", 0.75)])
     acquisitions = [{"time_utc": "2026-08-16T05:21:32Z", "satellite": "Sentinel-1C", "norad": "62261"}]

@@ -106,6 +106,24 @@ def hourly_sums(frames: list[tuple[datetime, np.ndarray]], start: datetime, hour
     return np.cumsum(per_hour, axis=0)
 
 
+def radar_frames(lat: np.ndarray, lon: np.ndarray, start: datetime, end: datetime) -> list[tuple[datetime, np.ndarray]]:
+    """The rain rate at the points in every radar image from `start` to `end`, fetched a day at a time."""
+    northing, easting = sweref99tm(lat, lon)
+    frames = []
+    day = start.date()
+    while day <= (end - timedelta(seconds=1)).date():
+        with urlopen(Request(day_url(day), headers={"User-Agent": USER_AGENT}), timeout=300) as response:
+            archive = zipfile.ZipFile(io.BytesIO(response.read()))
+        for name in sorted(archive.namelist()):
+            moment = moment_of(name)
+            if moment is None or not start <= moment < end:
+                continue
+            frames.append((moment, sample(archive.read(name), northing, easting)))
+        print(f"{day}: {sum(1 for moment, _ in frames if moment.date() == day)} radar images", flush=True)
+        day += timedelta(days=1)
+    return frames
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("--out", type=Path, default=scenario.ROUTE_EXPOSURE_FILE, help=argparse.SUPPRESS)
@@ -126,21 +144,9 @@ def main(argv: list[str] | None = None) -> int:
             items.append({"kind": kind, "name": props.get("name"), "ref": props.get("ref"), "coords": piece, "middle": middle(piece)})
     lat = np.array([item["middle"][1] for item in items])
     lon = np.array([item["middle"][0] for item in items])
-    northing, easting = sweref99tm(lat, lon)
     start, end = scenario.PLAYBACK_START, scenario.PLAYBACK_END
     hours = int((end - start).total_seconds() // 3600)
-    frames = []
-    day = start.date()
-    while day <= (end - timedelta(seconds=1)).date():
-        with urlopen(Request(day_url(day), headers={"User-Agent": USER_AGENT}), timeout=300) as response:
-            archive = zipfile.ZipFile(io.BytesIO(response.read()))
-        for name in sorted(archive.namelist()):
-            moment = moment_of(name)
-            if moment is None or not start <= moment < end:
-                continue
-            frames.append((moment, sample(archive.read(name), northing, easting)))
-        print(f"{day}: {sum(1 for moment, _ in frames if moment.date() == day)} radar images", flush=True)
-        day += timedelta(days=1)
+    frames = radar_frames(lat, lon, start, end)
     sums = hourly_sums(frames, start, hours)
     lowest = routes.EXPOSURE_THRESHOLDS_MM[0]
     kept = []
