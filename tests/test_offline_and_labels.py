@@ -25,6 +25,41 @@ def test_availability_is_probed_at_most_every_30_seconds(monkeypatch: pytest.Mon
     assert len(calls) == 1
 
 
+def test_the_road_overlay_is_the_same_tiles_in_the_overlay_style(monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+    from pathlib import Path
+
+    monkeypatch.delenv("OFFLINE_TILES_URL", raising=False)
+    assert offline_tiles.url_template(overlay=True) == "http://127.0.0.1:8081/styles/techseed-overlay/256/{z}/{x}/{y}.png"
+    monkeypatch.setattr(offline_tiles, "available", lambda: True)
+    assert offline_tiles.overlay_layer(False) is None
+    assert offline_tiles.overlay_layer(True)["label"] == "Vägnummer och järnvägstunnlar (OSM)"
+    # The overlay draws only the main style's railway tunnels and road numbers, on a transparent background.
+    tiles = Path(offline_tiles.__file__).resolve().parents[2] / "tiles"
+    overlay = json.loads((tiles / "styles" / "techseed-overlay.json").read_text(encoding="utf-8"))
+    main = {layer["id"]: layer for layer in json.loads((tiles / "styles" / "techseed.json").read_text(encoding="utf-8"))["layers"]}
+    assert [layer["id"] for layer in overlay["layers"]] == ["railway-tunnel", "road-ref-major", "road-ref-minor"]
+    assert all(layer == main[layer["id"]] for layer in overlay["layers"])
+    assert "techseed-overlay" in json.loads((tiles / "config.json").read_text(encoding="utf-8"))["styles"]
+
+
+def test_only_sundsvall_has_the_road_overlay_layer() -> None:
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    code = ("from app.backend import offline_tiles, scenario, server, lantmateriet\n"
+            "offline_tiles.available = lambda: True\n"
+            "names = [item['name'] for item in server.map_layers(lantmateriet.Settings(None, None, None, None))]\n"
+            "print(scenario.ROAD_OVERLAY, offline_tiles.OVERLAY_LABEL in names)")
+    root = Path(offline_tiles.__file__).resolve().parents[2]
+    for name, expected in (("sundsvall2026", "True True"), ("kramfors2026", "False False")):
+        out = subprocess.run([sys.executable, "-c", code], cwd=root, env={**os.environ, "TECHSEED_SCENARIO": name},
+                             capture_output=True, text=True, check=True).stdout.strip()
+        assert out == expected, (name, out)
+
+
 def test_labels_hold_places_and_lakes_with_zoom_limits() -> None:
     features = server.labels()["features"]
     by_name = {feature["properties"]["name"]: feature["properties"] for feature in features}

@@ -444,6 +444,7 @@ LAYER_CATEGORIES = {
     daily_rain.LABEL: "weather",
     routes.IMPACT_LABEL: "infrastructure",
     routes.EXPOSURE_LABEL: "infrastructure",
+    offline_tiles.OVERLAY_LABEL: "infrastructure",
 }
 
 
@@ -478,6 +479,8 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
         items.append(item(routes.IMPACT_LABEL, True, True))
     if routes.exposure() is not None:
         items.append(item(routes.EXPOSURE_LABEL, True, True))
+    if offline_tiles.overlay_layer(scenario.ROAD_OVERLAY):
+        items.append(item(offline_tiles.OVERLAY_LABEL, True, True))
     for source in wms.sources() or []:
         for name, title in source["layers"].items():
             shown = name in (source.get("visible") or [])
@@ -580,6 +583,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "offline_tiles": offline_tiles.available(),
             # The municipality's map, kept locally, at /basemap/kommun/ (municipal_basemap.py).
             "municipal_basemap": municipal_basemap.layer(),
+            # The offline map's road numbers and railway tunnels over any base map (offline_tiles.py).
+            "road_overlay": offline_tiles.overlay_layer(scenario.ROAD_OVERLAY),
             "map_data": map_data(),
             "terrain3d": (TERRAIN_DIR / "layer.json").is_file(),
             "satellites": satellites.satellites()["available"],
@@ -743,6 +748,8 @@ class Handler(BaseHTTPRequestHandler):
             self.lantmateriet(path, query)
         elif path.startswith("/tiles/"):
             self.offline_tile(path)
+        elif path.startswith("/tiles-overlay/") and scenario.ROAD_OVERLAY:
+            self.offline_tile(path, overlay=True)
         elif path.startswith(f"/basemap/{municipal_basemap.ID}/"):
             self.municipal_tile(path)
         elif path.startswith("/terrain/"):
@@ -1017,12 +1024,12 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.send_bytes(body, content_type, "max-age=3600")
 
-    def offline_tile(self, path: str) -> None:
+    def offline_tile(self, path: str, overlay: bool = False) -> None:
         parts = path.strip("/").split("/")
         try:
             if len(parts) != 4:
                 raise ValueError("bad tile path")
-            body, content_type = offline_tiles.tile(int(parts[1]), int(parts[2]), int(parts[3].split(".")[0]))
+            body, content_type = offline_tiles.tile(int(parts[1]), int(parts[2]), int(parts[3].split(".")[0]), overlay=overlay)
         except ValueError:
             self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
             return

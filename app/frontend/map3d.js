@@ -140,6 +140,22 @@ async function createCesiumMap(config) {
     }));
     baseById[municipal.id].show = false;
   }
+  // The offline map's road numbers and railway tunnels over any base map (offline_tiles.py), kept above
+  // every imagery layer added or raised later (images, flood maps, radar).
+  let roadOverlayLayer = null;
+  if (config.layers.road_overlay) {
+    const [[overlaySouth, overlayWest], [overlayNorth, overlayEast]] = config.map_bounds;
+    roadOverlayLayer = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+      url: config.layers.road_overlay.url, maximumLevel: 18,
+      rectangle: Cesium.Rectangle.fromDegrees(overlayWest, overlaySouth, overlayEast, overlayNorth),
+      credit: new Cesium.Credit(config.layers.road_overlay.attribution, true),
+    }));
+    const keepOnTop = (layer) => {
+      if (layer !== roadOverlayLayer) viewer.imageryLayers.raiseToTop(roadOverlayLayer);
+    };
+    viewer.imageryLayers.layerAdded.addEventListener(keepOnTop);
+    viewer.imageryLayers.layerMoved.addEventListener(keepOnTop);
+  }
   if (terrainProvider) {
     addCredit(config.attribution.copernicus_dem);
   } else {
@@ -197,6 +213,9 @@ async function createCesiumMap(config) {
   let lightningVisible = true;
   let viewBeforeChart = null;  // the scene mode and camera to come back to when the weather chart is unticked
   const layers = [];  // [name, show(visible), shown()] for the layer panel
+  if (roadOverlayLayer) {
+    layers.push([config.layers.road_overlay.label, (visible) => { roadOverlayLayer.show = visible; }, () => roadOverlayLayer.show]);
+  }
   const layerBoxes = [];  // [checkbox, shown()], kept in step when mission control filters
   let terrainLayer = null;
   let windEntities = [];

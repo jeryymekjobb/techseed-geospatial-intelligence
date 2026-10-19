@@ -8,7 +8,8 @@
     }
   },
   "styles": {
-    "techseed": {"style": "techseed.json"}
+    "techseed": {"style": "techseed.json"},
+    "techseed-overlay": {"style": "techseed-overlay.json"}
   },
   "data": {
     "v3": {"mbtiles": "__TILES_FILE__"}

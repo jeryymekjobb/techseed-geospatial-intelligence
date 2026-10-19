@@ -94,6 +94,16 @@ function createLeafletMap(config) {
   map.createPane("radar").style.zIndex = 370;
   // The transparent Sentinel-1 water mask must be visible above the flood maps and weather radar.
   map.createPane("radarwater").style.zIndex = 420;
+  // The offline map's road numbers and railway tunnels over any base map (offline_tiles.py), above
+  // the images and flood maps, below the markers.
+  const roadOverlay = config.layers.road_overlay;
+  if (roadOverlay) {
+    map.createPane("roadoverlay").style.zIndex = 430;
+    map.getPane("roadoverlay").style.pointerEvents = "none";
+    overlays[roadOverlay.label] = L.tileLayer(roadOverlay.url, {
+      pane: "roadoverlay", maxZoom: 18, attribution: roadOverlay.attribution,
+    }).addTo(map);
+  }
   let radarOverlay = null;
   let emsLayer = null;
   const landsatOverlays = {};

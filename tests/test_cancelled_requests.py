@@ -25,7 +25,7 @@ class RecordingServer(ThreadingHTTPServer):
 @pytest.fixture()
 def address(monkeypatch: pytest.MonkeyPatch):
     # A tile far larger than the socket buffers, so the write is still going when the client leaves.
-    monkeypatch.setattr(offline_tiles, "tile", lambda z, x, y: (b"\0" * (32 << 20), "image/png"))
+    monkeypatch.setattr(offline_tiles, "tile", lambda z, x, y, overlay=False: (b"\0" * (32 << 20), "image/png"))
     RecordingServer.errors = []
     handler = type("TestHandler", (server.Handler,), {"settings": lantmateriet.Settings(None, None, None, None)})
     httpd = RecordingServer(("127.0.0.1", 0), handler)

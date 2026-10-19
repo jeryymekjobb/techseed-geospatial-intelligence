@@ -116,6 +116,9 @@ MUNICIPAL_WMS = getattr(_module, "MUNICIPAL_WMS", None)
 MUNICIPAL_DIR = getattr(_module, "MUNICIPAL_DIR", None)
 # The municipality's map as a locally kept base map (municipal_basemap.py); only Sundsvall 2026.
 MUNICIPAL_BASEMAP = getattr(_module, "MUNICIPAL_BASEMAP", None)
+# The offline map's road numbers and dashed railway tunnels as a layer of their own over any base map
+# (offline_tiles.py), for a scenario whose base map lacks them.
+ROAD_OVERLAY = getattr(_module, "ROAD_OVERLAY", False)
 MUNICIPAL_BASEMAP_DIR = getattr(_module, "MUNICIPAL_BASEMAP_DIR", None)
 MUNICIPAL_BASEMAP_BBOX = getattr(_module, "MUNICIPAL_BASEMAP_BBOX", None) or MAP_BBOX
 MCF_DIR = getattr(_module, "MCF_DIR", None)
