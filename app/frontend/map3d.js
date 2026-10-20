@@ -191,6 +191,9 @@ async function createCesiumMap(config) {
   const frmLayer = group("fire-risk");  // LSA SAF's fire risk (meteosat_frm.py), off until ticked
   frmLayer.show = false;
   let frmVisible = false;
+  const cthLayer = group("cloud-tops");  // Meteosat's cloud top height (meteosat_cth.py), off until ticked
+  cthLayer.show = false;
+  let cthVisible = false;
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
@@ -547,6 +550,26 @@ async function createCesiumMap(config) {
       }
     },
 
+    // Meteosat's cloud tops: each cell of the quarter in its height's colour on the ground.
+    setupMeteosatCth(label) {
+      layers.push([label, (visible) => {
+        cthVisible = visible;
+        cthLayer.show = visible && weatherCategoryVisible;
+      }, () => cthVisible && weatherCategoryVisible]);
+    },
+
+    drawMeteosatCth(cells) {
+      cthLayer.entities.removeAll();
+      for (const cell of cells) {
+        cthLayer.entities.add({
+          name: "Molntopp (Meteosat)",
+          description: cell.text,
+          polygon: { hierarchy: Cesium.Cartesian3.fromDegreesArray(cell.corners.flatMap(([lat, lon]) => [lon, lat])),
+                     material: cesiumColor(cthColour(cell.km), CTH_OPACITY), classificationType: Cesium.ClassificationType.BOTH },
+        });
+      }
+    },
+
     // SMHI's rain by the day: a dark blue point with the station's latest ended day.
     setupDailyRain(info) {
       layers.push([info.label, (visible) => {
@@ -768,6 +791,7 @@ async function createCesiumMap(config) {
         lightningLayer.show = visible && lightningVisible;
         dailyRainLayer.show = visible && dailyRainVisible;
         frmLayer.show = visible && frmVisible;
+        cthLayer.show = visible && cthVisible;
         stationLayer.show = visible;
         if (radarLayer) radarLayer.show = visible && radarVisible;
         for (const [box, shown] of layerBoxes) box.checked = shown();

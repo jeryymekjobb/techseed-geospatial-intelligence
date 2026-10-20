@@ -88,12 +88,13 @@ Det mesta som demon använder är öppet och kräver inget konto. Två saker kr�
 | **GitHub-repot** `jeryymekjobb/techseed-geospatial-intelligence` | För att hämta koden. | Åtkomst till repot och en SSH-nyckel på GitHub. Fråga ägaren av repot om åtkomst. |
 | **Space-Track** (space-track.org) | För satelliternas banor 2014. | Ett eget, gratis konto. Registrera dig på space-track.org och godkänn villkoren. Använd ett eget konto i stället för att dela någon annans inloggning. |
 
-Tre konton behövs bara i särskilda fall och kan hoppas över för demon:
+Fyra konton behövs bara i särskilda fall och kan hoppas över för demon:
 
 | Vad | När det behövs |
 |---|---|
 | Copernicus CDS | Bara om vinddatan från ERA5-Land ska hämtas om. Den finns redan i repot. |
 | LSA SAF (EUMETSAT) | Bara för att hämta Meteosats brandpixlar och brandrisken (avsnitt 5, steg 5.10). Ett gratis konto på mokey.lsasvcs.ipma.pt, sparat i `~/.netrc` som `machine datalsasaf.lsasvcs.ipma.pt login … password …`, aldrig i repot. |
+| EUMETSAT Data Store | Bara för att hämta Meteosats molntoppar (Del 9). Ett gratis konto på user.eumetsat.int; API-nyckeln från api.eumetsat.int/api-key sparas med `eumdac set-credentials` i `~/.eumdac/credentials`, aldrig i repot. |
 | Lantmäteriet Geotorget | Bara för Lantmäteriets kartor och fastighetsgränser. De är avstängda i demon. |
 
 Det här behöver **inget konto**: Landsat-bilden (Microsoft Planetary Computer), höjddata
@@ -1203,4 +1204,28 @@ larmar 6 av 6 givare och bedömningen blir "Flood probable":
 ```bash
 TILES_FILE=vasternorrland.mbtiles docker compose up -d tiles
 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-vasternorrland-$(hostname)
+```
+
+---
+
+# Del 9 – Skyfallet i Kramfors 2026: Meteosats molntoppar
+
+Kramfors 2026 visar, utöver SMHI:s radar och de syntetiska bräddgivarna, hur högt molntopparna
+nådde enligt Meteosat var 15:e minut. Stigande toppar visar åskmoln som växer, ofta innan regnet
+når marken: den 15 augusti steg medelhöjden över kartområdet från cirka 5–6 km till 9 km mellan
+17:00 och 18:00 svensk tid, före bräddgivarnas larm.
+
+- **Panelen:** **Molntoppar (Meteosat)** under regnet, en kurva över medelhöjden med 8 och 10 km
+  streckade och raden **Nu** med höjd och molnandel.
+- **Loggen:** en rad som läses upp när topparna når 8 och 10 km och när de sjunker under 8 km igen,
+  till exempel "Molntopparna över Kramfors når 8 kilometer enligt Meteosat – åskmolnen växer".
+- **Kartan:** kryssa **Molntoppar (Meteosat)** i mission control (väder) för rutor färgade efter
+  höjd, ljust för låga toppar och mörklila över 10 km. Rutorna är grova så här långt norrut, cirka
+  tio över kartområdet, så de visar ovädret i stort, inte enskilda celler.
+
+Det är Meteosats produkt, inte en prognos. Data hämtas med EUMETSAT-kontot (avsnitt 2):
+
+```bash
+.venv/bin/pip install -r tools/requirements-meteosat.txt
+TECHSEED_SCENARIO=kramfors2026 .venv/bin/python -m tools.fetch_meteosat_cth
 ```

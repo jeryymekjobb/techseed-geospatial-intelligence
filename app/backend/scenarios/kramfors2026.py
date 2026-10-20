@@ -54,6 +54,8 @@ SENTINEL2_DIR = DATA / "sentinel2"
 SENTINEL1_DIR = DATA / "sentinel1"
 MCF_DIR = DATA / "mcf"
 TLE_DIR = DATA / "tle"
+# Meteosat's cloud top height every 15 minutes (tools/fetch_meteosat_cth.py): the storm building on 15 August.
+METEOSAT_CTH_FILE = DATA / "meteosat-cth" / "cth.json"
 TLE_FILE_NAME = "tle-2026.json"
 
 # Kramfors, where SMHI measured 77.0 mm in the day to 16 August 06 UTC.

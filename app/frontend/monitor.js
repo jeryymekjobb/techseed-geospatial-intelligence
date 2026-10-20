@@ -100,7 +100,8 @@ async function start() {
     const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [], sensorEvents, threats,
       forecastIssues: config.layers.met_forecast?.issues || [], lightningEvents: config.layers.lightning?.events || [],
       lightningKm: config.layers.lightning?.near_km || 30, routeImpacts: config.layers.routes?.impacts || [],
-      meteosatQuarters: config.layers.meteosat?.quarters || [], fireRiskChanges: config.layers.meteosat_frm?.changes || [] }, clock.getTime(),
+      meteosatQuarters: config.layers.meteosat?.quarters || [], fireRiskChanges: config.layers.meteosat_frm?.changes || [],
+      cloudTopEvents: config.layers.meteosat_cth?.events || [] }, clock.getTime(),
       clock.getTime() - startMs + 1, Infinity, place);
     if (scenarioState.jump !== heardJump) {
       heardJump = scenarioState.jump;

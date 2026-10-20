@@ -464,6 +464,70 @@ function showMeteosatFrm(clock) {
     text: `Brandrisk ${info.risk_names[cell.risk]}${cell.fwi === null ? "" : `, FWI ${Math.round(cell.fwi)}`} (LSA SAF, gäller ${when}; Meteosat och ERA5)` })));
 }
 
+// Meteosat's cloud top height (meteosat_cth.py, meteosat_cth.js): a chart of the mean over the map
+// area after the rain and flows, with the log's thresholds, and the maps' cells of the quarter.
+function setupMeteosatCth(info) {
+  const section = document.createElement("section");
+  section.id = "cth-section";
+  section.className = "chart-section";
+  section.innerHTML = "<h2>Molntoppar (Meteosat)</h2>"
+    + '<svg id="cth-chart" class="timeline" role="img" aria-label="Molntopparnas medelhöjd över kartområdet"></svg>'
+    + '<dl id="cth-values" class="forecast-values"></dl>'
+    + '<div class="status">Medelhöjd över kartområdet, var 15:e minut. Stigande toppar visar åskmoln som växer, '
+    + "ofta innan regnet når marken. Grova rutor så här långt norrut.</div>";
+  const after = $("hydro-section") || $("rain-station")?.closest("section");
+  if (after) after.after(section);
+  else document.querySelector(".panel")?.append(section);
+  state.map.setupMeteosatCth(info.label);
+  state.map.addAttribution(info.attribution);
+}
+
+function showMeteosatCth(clock) {
+  const info = state.config.layers.meteosat_cth;
+  if (!info || !clock) return;
+  const index = cthQuarterAt(info.quarters, clock.getTime());
+  const key = `${index}|${state.config.playback.start_utc}|${state.config.playback.end_utc}`;
+  if (key === state.cthKey) return;
+  state.cthKey = key;
+  const item = info.quarters[index];
+  const when = item ? formatLocal(item.time_utc) : "";
+  const decimal = (km) => String(km).replace(".", ",");
+  $("cth-values").innerHTML = [
+    ["Nu", item && item.mean_km !== null ? `${decimal(item.mean_km)} km, ${item.cloud_pct} % moln (kvarten från ${when})` : "ingen produkt ännu"],
+  ].map(chartValue).join("");
+  drawMeteosatCth(info, clock);
+  state.map.drawMeteosatCth(item ? info.cells.flatMap((cell, position) => {
+    const km = item.heights_km[position];
+    return km === null ? [] : [{ corners: cell.corners, km, text: `Molntopp ${decimal(km)} km (Meteosat, kvarten från ${when})` }];
+  }) : []);
+}
+
+function drawMeteosatCth(info, clock) {
+  const start = Date.parse(state.config.playback.start_utc);
+  const end = Date.parse(state.config.playback.end_utc);
+  const width = 300;
+  const height = CHART_HEIGHT;
+  const top = 12;
+  const xOf = (ms) => ((ms - start) / (end - start)) * width;
+  const yOf = (km) => 6 + (1 - Math.min(km, top) / top) * (height - 26);
+  const points = info.quarters.filter((item) => item.mean_km !== null);
+  const path = points.map((item, index) => `${index ? "L" : "M"}${xOf(Date.parse(item.time_utc)).toFixed(1)},${yOf(item.mean_km).toFixed(1)}`).join(" ");
+  const parts = [`<path class="cth-line" d="${path}"></path>`];
+  for (const km of info.thresholds_km) {
+    const y = yOf(km);
+    parts.push(`<line class="hydro-record" x1="0" x2="${width}" y1="${y}" y2="${y}"></line>`, `<text x="2" y="${y - 2}">${km} km</text>`);
+  }
+  const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
+  for (let day = start; day < end; day += every * 86400000) {
+    parts.push(`<text x="${xOf(day) + 1}" y="${height - 3}">${new Date(day).toISOString().slice(5, 10)}</text>`);
+  }
+  const x = xOf(clock.getTime());
+  parts.push(`<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`);
+  const svg = $("cth-chart");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = parts.join("");
+}
+
 // Redrawn when a damage is reached or the computed rain passes into a new hour.
 function showRoutes(clock) {
   if (!state.routes || !clock) return;
@@ -715,6 +779,7 @@ function setClock(clock) {
   showLightning(clock);
   showMeteosat(clock);
   showMeteosatFrm(clock);
+  showMeteosatCth(clock);
   showRoutes(clock);
   showDailyRain(clock);
   showRain(clock);
@@ -1656,6 +1721,7 @@ async function startApp(createMap) {
     }
   }
   if (config.layers.meteosat_frm) setupMeteosatFrm(config.layers.meteosat_frm);
+  if (config.layers.meteosat_cth) setupMeteosatCth(config.layers.meteosat_cth);
   if (config.layers.meteosat) {
     state.map.setupMeteosat(config.layers.meteosat.label);
     state.map.addAttribution(config.layers.meteosat.attribution);

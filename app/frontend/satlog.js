@@ -111,7 +111,7 @@ function satlogWhole(value) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -208,6 +208,13 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     const verb = change.direction === "up" ? `stiger till ${change.name}` : change.direction === "down" ? `sjunker till ${change.name}` : `är ${change.name}`;
     lines.push({ atMs: Date.parse(change.valid_utc), text: `Brandrisken vid ${place} ${verb} enligt LSA SAF${fwi}`,
                  source: "meteosat", kind: "fire_risk", sourceText: `LSA SAF ${change.valid_utc.slice(0, 4)}` });
+  }
+  // Meteosat's cloud tops over the incident (meteosat_cth.py events): rising past a threshold, falling below the lowest.
+  for (const event of cloudTopEvents) {
+    const km = Math.round(event.km);
+    lines.push({ atMs: Date.parse(event.time_utc), source: "meteosat", kind: "cloud_tops", sourceText: `Meteosat ${event.time_utc.slice(0, 4)}`,
+                 text: event.kind === "up" ? `Molntopparna över ${place} når ${km} kilometer enligt Meteosat – åskmolnen växer`
+                   : `Molntopparna över ${place} sjunker under ${km} kilometer enligt Meteosat` });
   }
   // SMHI's observed flashes to the ground near the incident, at the end of each hour with any (lightning.py events).
   for (const item of lightningEvents) {

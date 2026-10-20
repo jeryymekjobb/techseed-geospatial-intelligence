@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, daily_rain, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_frm, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, sensor_sim, spatial, speech, wms
+from app.backend import assessment, daily_rain, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_cth, meteosat_frm, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, sensor_sim, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -435,6 +435,7 @@ LAYER_CATEGORIES = {
     "Hotspots": "space",
     meteosat.LABEL: "space",
     meteosat_frm.LABEL: "weather",
+    meteosat_cth.LABEL: "weather",
     "Syntetiska sensorer": "iot",
     "Svar på fråga": "infrastructure",
     "Hotad bebyggelse": "infrastructure",
@@ -479,6 +480,8 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
         items.append(item(meteosat.LABEL, True, True))
     if meteosat_frm.grid() is not None:
         items.append(item(meteosat_frm.LABEL, False, False))
+    if meteosat_cth.data() is not None:
+        items.append(item(meteosat_cth.LABEL, False, False))
     if daily_rain.stations():
         items.append(item(daily_rain.LABEL, True, True))
     if routes.impacts():
@@ -608,6 +611,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "meteosat": meteosat.layer(),
             # LSA SAF's fire risk (meteosat_frm.py): the maps' grid, the panel's values at the fire and the log's changes.
             "meteosat_frm": meteosat_frm.layer(),
+            # Meteosat's cloud top height (meteosat_cth.py): the panel's chart, the maps' cells and the log's thresholds.
+            "meteosat_cth": meteosat_cth.layer(),
             # Roads and railways the incident damaged (documented) and those under heavy rain (computed; routes.py).
             "routes": routes.layer(),
             # SMHI's rain by the day at the stations that report so (daily_rain.py).

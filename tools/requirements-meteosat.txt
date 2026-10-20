@@ -1,3 +1,7 @@
-# Only for tools/fetch_meteosat_frp.py, which reads LSA SAF's HDF5 lists.
+# Only for tools/fetch_meteosat_frp.py, fetch_meteosat_frm.py and fetch_meteosat_cth.py: LSA SAF's
+# HDF5 lists and maps (h5py), and EUMETSAT's Data Store (eumdac) with its GRIB products (eccodes).
 # .venv/bin/pip install -r tools/requirements-meteosat.txt
 h5py==3.16.0
+eumdac==3.1.1
+eccodes==2.50.0
+eccodeslib==2.50.0.33

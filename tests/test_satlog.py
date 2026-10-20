@@ -350,3 +350,13 @@ def test_the_fire_risk_has_a_line_for_its_first_class_and_each_change() -> None:
         "Brandrisken vid branden är låg enligt LSA SAF (FWI 3)",
     ]
     assert {line["sourceText"] for line in lines} == {"LSA SAF 2014"}
+
+
+def test_the_cloud_tops_are_a_line_when_they_pass_a_threshold() -> None:
+    events = [{"time_utc": "2026-08-15T15:30:00Z", "kind": "up", "km": 8.0}, {"time_utc": "2026-08-16T01:00:00Z", "kind": "down", "km": 8.0}]
+    lines = node(f"satelliteLog({{ cloudTopEvents: {json.dumps(events)} }}, Date.parse('2026-08-16T02:00:00Z'), 86400000, Infinity, 'Kramfors')")
+    assert [line["text"] for line in lines] == [
+        "Molntopparna över Kramfors sjunker under 8 kilometer enligt Meteosat",
+        "Molntopparna över Kramfors når 8 kilometer enligt Meteosat – åskmolnen växer",
+    ]
+    assert lines[0]["sourceText"] == "Meteosat 2026"
