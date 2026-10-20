@@ -187,6 +187,7 @@ async function createCesiumMap(config) {
   let dailyRainVisible = true;
   const routeExposureLayer = group("route-exposure");  // roads and railways under heavy rain, computed (routes.py)
   const routeImpactLayer = group("route-impacts");  // roads and railways the incident damaged, documented
+  const meteosatLayer = group("meteosat");  // Meteosat's fire pixels (meteosat.py)
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
@@ -501,6 +502,28 @@ async function createCesiumMap(config) {
       layers.push([info.impact_label, (visible) => { routeImpactLayer.show = visible; }, () => routeImpactLayer.show]);
     },
 
+    // Meteosat's fire pixels: a purple rectangle of each pixel's area on the ground, with its edge.
+    setupMeteosat(label) {
+      layers.push([label, (visible) => { meteosatLayer.show = visible; }, () => meteosatLayer.show]);
+    },
+
+    drawMeteosat(items) {
+      meteosatLayer.entities.removeAll();
+      for (const item of items) {
+        const corners = item.footprint.flatMap(([lat, lon]) => [lon, lat]);
+        meteosatLayer.entities.add({
+          name: `${item.satellite} (geostationär)`,
+          description: item.text,
+          polygon: { hierarchy: Cesium.Cartesian3.fromDegreesArray(corners), material: cesiumColor(METEOSAT_COLOUR, meteosatOpacity(item.frp_mw)),
+                     classificationType: Cesium.ClassificationType.BOTH },
+        });
+        meteosatLayer.entities.add({
+          polyline: { positions: Cesium.Cartesian3.fromDegreesArray([...corners, corners[0], corners[1]]), width: 2,
+                      material: cesiumColor(METEOSAT_COLOUR, METEOSAT_EDGE_OPACITY), clampToGround: true },
+        });
+      }
+    },
+
     // SMHI's rain by the day: a dark blue point with the station's latest ended day.
     setupDailyRain(info) {
       layers.push([info.label, (visible) => {
@@ -726,7 +749,7 @@ async function createCesiumMap(config) {
         for (const [box, shown] of layerBoxes) box.checked = shown();
         return;
       }
-      const groups = { space: [points, satelliteLayer], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer, routeImpactLayer, routeExposureLayer] };
+      const groups = { space: [points, satelliteLayer, meteosatLayer], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer, routeImpactLayer, routeExposureLayer] };
       for (const layer of groups[category] || []) layer.show = visible;
       for (const [box, shown] of layerBoxes) box.checked = shown();
     },

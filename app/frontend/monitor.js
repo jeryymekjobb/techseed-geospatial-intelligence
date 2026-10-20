@@ -99,7 +99,8 @@ async function start() {
     }));
     const lines = satelliteLog({ satellites, firms, scenes, events: scenarioState.events || [], sensorEvents, threats,
       forecastIssues: config.layers.met_forecast?.issues || [], lightningEvents: config.layers.lightning?.events || [],
-      lightningKm: config.layers.lightning?.near_km || 30, routeImpacts: config.layers.routes?.impacts || [] }, clock.getTime(),
+      lightningKm: config.layers.lightning?.near_km || 30, routeImpacts: config.layers.routes?.impacts || [],
+      meteosatQuarters: config.layers.meteosat?.quarters || [] }, clock.getTime(),
       clock.getTime() - startMs + 1, Infinity, place);
     if (scenarioState.jump !== heardJump) {
       heardJump = scenarioState.jump;

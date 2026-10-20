@@ -426,6 +426,16 @@ function showDailyRain(clock) {
     detail: `Dygnet ${formatLocal(item.from_utc)} – ${formatLocal(item.to_utc)} (SMHI, dygnsvärde)` })));
 }
 
+// Meteosat's fire pixels (meteosat.py, meteosat.js), redrawn when the clock reaches a new one.
+function showMeteosat(clock) {
+  const info = state.config.layers.meteosat;
+  if (!info || !clock) return;
+  const pixels = meteosatPixelsAt(info.pixels, clock.getTime());
+  if (pixels.length === state.meteosatCount) return;
+  state.meteosatCount = pixels.length;
+  state.map.drawMeteosat(pixels.map((pixel) => ({ ...pixel, text: meteosatText(pixel, formatLocal(pixel.time_utc)) })));
+}
+
 // Redrawn when a damage is reached or the computed rain passes into a new hour.
 function showRoutes(clock) {
   if (!state.routes || !clock) return;
@@ -675,6 +685,7 @@ function setClock(clock) {
   }
   showMetForecast(clock);
   showLightning(clock);
+  showMeteosat(clock);
   showRoutes(clock);
   showDailyRain(clock);
   showRain(clock);
@@ -1614,6 +1625,10 @@ async function startApp(createMap) {
       caption.hidden = true;
       $("map").append(caption);
     }
+  }
+  if (config.layers.meteosat) {
+    state.map.setupMeteosat(config.layers.meteosat.label);
+    state.map.addAttribution(config.layers.meteosat.attribution);
   }
   if (config.layers.routes) await setupRoutes(config.layers.routes);
   if (config.layers.daily_rain) {

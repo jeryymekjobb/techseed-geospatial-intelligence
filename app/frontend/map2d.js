@@ -124,6 +124,7 @@ function createLeafletMap(config) {
   let lightningLayer = null;  // SMHI's observed flashes to the ground in the last hour
   let lightningVisible = true;
   let routeImpactLayer = null;  // roads and railways the incident damaged (routes.py)
+  let meteosatLayer = null;  // Meteosat's fire pixels (meteosat.py)
   let dailyRainLayer = null;  // SMHI's rain by the day (daily_rain.py)
   let dailyRainVisible = true;
   let routeExposureLayer = null;  // roads and railways under heavy rain, computed from the radar
@@ -423,6 +424,20 @@ function createLeafletMap(config) {
       overlays[info.impact_label] = routeImpactLayer;
     },
 
+    // Meteosat's fire pixels: a purple rectangle of each pixel's area, under FIRMS's points.
+    setupMeteosat(label) {
+      meteosatLayer = L.layerGroup().addTo(map);
+      overlays[label] = meteosatLayer;
+    },
+
+    drawMeteosat(items) {
+      meteosatLayer.clearLayers();
+      for (const item of items) {
+        L.polygon(item.footprint, { color: METEOSAT_COLOUR, opacity: METEOSAT_EDGE_OPACITY, weight: 2, fillColor: METEOSAT_COLOUR, fillOpacity: meteosatOpacity(item.frp_mw) })
+          .bindTooltip(item.text, { sticky: true }).addTo(meteosatLayer).bringToBack();
+      }
+    },
+
     // SMHI's rain by the day: a marker in the rain's class with the station's latest ended day.
     setupDailyRain(info) {
       dailyRainLayer = L.layerGroup().addTo(map);
@@ -574,7 +589,7 @@ function createLeafletMap(config) {
         setMapLayerVisible(dailyRainLayer, visible && dailyRainVisible);
         return;
       }
-      const groups = { space: [hotspots], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer, routeImpactLayer, routeExposureLayer] };
+      const groups = { space: [hotspots, meteosatLayer], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer, routeImpactLayer, routeExposureLayer] };
       for (const layer of groups[category] || []) {
         if (!layer) continue;
         if (visible) layer.addTo(map);

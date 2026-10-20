@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.backend import lantmateriet, offline_tiles, server
+from app.backend import lantmateriet, meteosat, offline_tiles, server
 
 FRONTEND = Path(__file__).resolve().parents[1] / "app" / "frontend"
 ALL = [{"id": "topowebb", "label": "t", "only_2d": True}, {"id": "offline", "label": "o", "only_2d": False},
@@ -66,6 +66,8 @@ def test_the_map_layers_mission_control_lists_are_the_names_both_maps_give_them(
             continue  # WMS titles and the year are filled in at run time
         if item["name"] == offline_tiles.OVERLAY_LABEL:
             continue  # both maps take the road overlay's name from config.layers.road_overlay
+        if item["name"] == meteosat.LABEL:
+            continue  # both maps take Meteosat's name from config.layers.meteosat
         for dimension in ("2d", "3d"):
             if item[f"default_{dimension}"] is not None:
                 assert f'"{item["name"]}"' in sources[dimension], (item["name"], dimension)

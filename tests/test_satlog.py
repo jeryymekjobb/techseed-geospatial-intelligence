@@ -323,3 +323,17 @@ def test_the_summary_says_how_long_the_playback_takes_at_the_speed() -> None:
     assert node(f"summaryDuration({json.dumps({**state, 'speed': 60, 'playback_seconds': 40320})})") == \
         "Uppspelningen tar cirka 11 timmar och 12 minuter med 1 minut per sekund."
     assert node("summaryDuration({})") is None
+
+
+def test_meteosat_has_a_line_for_each_quarter_with_pixels_and_no_passes() -> None:
+    quarters = [{"time_utc": "2014-08-04T12:00:00Z", "satellite": "Meteosat-10", "pixels": 1, "max_frp_mw": 2604.8},
+                {"time_utc": "2014-08-04T12:15:00Z", "satellite": "Meteosat-10", "pixels": 2, "max_frp_mw": 2592.4}]
+    lines = node(f"satelliteLog({{ meteosatQuarters: {json.dumps(quarters)} }}, Date.parse('2014-08-04T12:20:00Z'))")
+    assert [line["text"] for line in lines] == [
+        "Meteosat-10 (geostationär) ser branden: 2 pixlar, starkast 2592,4 megawatt",
+        "Meteosat-10 (geostationär) ser branden: 1 pixel, starkast 2604,8 megawatt",
+    ]
+    assert lines[0]["spoken"] == "Meteosat-10 (geostationär) ser branden: 2 pixlar, starkast 2592 megawatt"
+    assert {line["source"] for line in lines} == {"meteosat"} and lines[0]["sourceText"] == "Meteosat 2014"
+    # Not before its quarter.
+    assert node(f"satelliteLog({{ meteosatQuarters: {json.dumps(quarters)} }}, Date.parse('2014-08-04T11:59:00Z')).length") == 0

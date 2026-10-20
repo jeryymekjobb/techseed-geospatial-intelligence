@@ -1,0 +1,3 @@
+# Only for tools/fetch_meteosat_frp.py, which reads LSA SAF's HDF5 lists.
+# .venv/bin/pip install -r tools/requirements-meteosat.txt
+h5py==3.16.0

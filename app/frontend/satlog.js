@@ -15,6 +15,7 @@ const SATLOG_SOURCES = {
   computed: "beräknat", firms: "FIRMS", landsat: "satellitbild", synthetic: "syntetiskt", model: "modell", postgis: "PostGIS", simulated: "simulerat",
   metno: "MET Norway",
   lightning: "SMHI, observerat",
+  meteosat: "LSA SAF",
   report: "Länsstyrelsen, utredning",
 };
 // How many of a pass's newly threatened places the line names; the rest are counted.
@@ -110,7 +111,7 @@ function satlogWhole(value) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -188,6 +189,16 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     if (issue.news?.length) {
       lines.push({ atMs: Date.parse(issue.available_utc), text: `Ny väderprognos: ${issue.news.join(". ")}`, source: "metno", kind: "met_forecast" });
     }
+  }
+  // Meteosat's fire pixels over the incident, a line for each quarter with any (meteosat.py quarters):
+  // a geostationary satellite always sees the area, so it has no passes.
+  for (const quarter of meteosatQuarters) {
+    const count = quarter.pixels === 1 ? "1 pixel" : `${quarter.pixels} pixlar`;
+    const said = `${quarter.satellite} (geostationär) ser ${place}: ${count}, starkast`;
+    lines.push({
+      atMs: Date.parse(quarter.time_utc), text: `${said} ${satlogDecimal(quarter.max_frp_mw)} megawatt`, source: "meteosat", kind: "meteosat",
+      spoken: `${said} ${satlogWhole(quarter.max_frp_mw)} megawatt`, sourceText: `Meteosat ${quarter.time_utc.slice(0, 4)}`,
+    });
   }
   // SMHI's observed flashes to the ground near the incident, at the end of each hour with any (lightning.py events).
   for (const item of lightningEvents) {

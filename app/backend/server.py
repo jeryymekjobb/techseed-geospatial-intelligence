@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, daily_rain, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, sensor_sim, spatial, speech, wms
+from app.backend import assessment, daily_rain, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, sensor_sim, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -433,6 +433,7 @@ def panel_choices() -> dict[str, dict[str, Any]]:
 # filter hides it with the category (setCategoryVisible in map2d.js and map3d.js).
 LAYER_CATEGORIES = {
     "Hotspots": "space",
+    meteosat.LABEL: "space",
     "Syntetiska sensorer": "iot",
     "Svar på fråga": "infrastructure",
     "Hotad bebyggelse": "infrastructure",
@@ -473,6 +474,8 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
         items.append(item("Väderkarta (MET Norway)", False, False))
     if lightning.flashes():
         items.append(item("Blixtar (SMHI, observerade)", True, True))
+    if meteosat.pixels():
+        items.append(item(meteosat.LABEL, True, True))
     if daily_rain.stations():
         items.append(item(daily_rain.LABEL, True, True))
     if routes.impacts():
@@ -598,6 +601,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             # SMHI's observed lightning at /api/lightning (lightning.py), with the log's hours near the incident.
             "lightning": {"label": lightning.LABEL, "attribution": lightning.ATTRIBUTION, "near_km": lightning.NEAR_KM,
                           "events": lightning.events()} if lightning.flashes() else None,
+            # Meteosat's fire pixels from LSA SAF (meteosat.py): the maps' rectangles and the log's quarters.
+            "meteosat": meteosat.layer(),
             # Roads and railways the incident damaged (documented) and those under heavy rain (computed; routes.py).
             "routes": routes.layer(),
             # SMHI's rain by the day at the stations that report so (daily_rain.py).

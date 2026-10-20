@@ -106,6 +106,8 @@ EMS_DIR = getattr(_module, "EMS_DIR", None)
 MET_FORECAST_DIR = getattr(_module, "MET_FORECAST_DIR", None)
 # SMHI's observed lightning over the weather chart's area (tools/fetch_smhi_lightning.py, lightning.py).
 LIGHTNING_DIR = getattr(_module, "LIGHTNING_DIR", None)
+# Meteosat's fire pixels over the map area from LSA SAF (tools/fetch_meteosat_frp.py, meteosat.py).
+METEOSAT_FRP_FILE = getattr(_module, "METEOSAT_FRP_FILE", None)
 # The fire's forecast weather station, for the screens' texts.
 FORECAST_STATION = getattr(_module, "FORECAST_STATION", "")
 SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})

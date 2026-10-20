@@ -22,6 +22,7 @@ SUMMARY = [
     "Skogsbranden i Västmanland började den 31 juli 2014. Den återges med verkliga arkivdata, inte i realtid.",
     "Satelliternas upptäckter av värme från NASA FIRMS: Terra och Aqua (MODIS) och Suomi NPP (VIIRS).",
     "Bilder från Landsat 8 före (10 juni), under (4 augusti) och efter branden (14 september, som jämförelse): naturliga färger, falska färger i kortvågigt infrarött och fukten i växtligheten (NDMI).",
+    "Meteosat, en geostationär satellit, såg branden bara under två timmar den 4 augusti, med grova pixlar.",
     "En modellberäknad prognos för spridningen, med brandväder från SMHI Sala A och vind från ERA5-Land.",
     "Sensorerna på marken är simulerade.",
 ]
@@ -43,6 +44,8 @@ LANDSAT_DIR = REPO_ROOT / "data" / "landsat"
 MET_FORECAST_DIR = REPO_ROOT / "data" / "vastmanland2014" / "met-forecast"
 # SMHI's observed lightning (tools/fetch_smhi_lightning.py).
 LIGHTNING_DIR = REPO_ROOT / "data" / "vastmanland2014" / "lightning"
+# Meteosat's fire pixels from LSA SAF (tools/fetch_meteosat_frp.py): only on 4 August, 12:00-13:45 UTC.
+METEOSAT_FRP_FILE = REPO_ROOT / "data" / "vastmanland2014" / "meteosat-frp" / "frp-pixels.geojson"
 TLE_DIR = REPO_ROOT / "data" / "tle"
 TLE_FILE_NAME = "tle-2014.json"
 
