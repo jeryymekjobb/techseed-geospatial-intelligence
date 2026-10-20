@@ -21,17 +21,18 @@ Har Meteosat branddetektioner, som går att hämta i dag, för skogsbranden i V�
 Sökningar efter EUMETSAT:s och LSA SAF:s brandprodukter, genomgång av LSA SAF:s
 produktsida och listning av LSA SAF:s dataserver den 2026-10-20. Det som är
 **verifierat** har prövats mot servern. Det som bara bygger på dokumentation är
-markerat *(dok.)*. Inga datafiler har hämtats eller öppnats, eftersom nedladdning
-kräver ett konto.
+markerat *(dok.)*. Samma dag hämtades och lästes filerna med användarens LSA SAF-konto
+(se Resultat).
 
 ## Sammanfattning
 
-- **Ja, sannolikt för båda.** LSA SAF:s **MSG FRP-Pixel** finns för båda perioderna:
-  varje brandpixel som Meteosats SEVIRI ser, med läge, tid och strålningseffekt (FRP),
-  var 15:e minut över hela jordskivan. Om Västmanlands och Kårböles bränder faktiskt
-  finns i filerna är **inte kontrollerat**; det kräver att filerna öppnas.
-- Pixlarna är grova över Sverige, så bara stora och intensiva brandfaser kan väntas
-  synas.
+- LSA SAF:s **MSG FRP-Pixel** har varje brandpixel som Meteosats SEVIRI ser, med läge, tid
+  och strålningseffekt (FRP), var 15:e minut över hela jordskivan, för båda perioderna.
+- **Västmanland 2014: ja, men bara den 4 augusti.** Sex pixlar i fem kvartar 12:00–13:45
+  UTC, upp till 2 605 MW i en pixel.
+- **Kårböle 2018: nej.** Ingen pixel i kartområdet under hela perioden, men 98 pixlar vid
+  andra bränder cirka 50 km västerut 14–18 juli.
+- Pixlarna är grova över Sverige, cirka 26 km², så bara de intensivaste timmarna syns.
 - EUMETSAT:s egen produkt Active Fire Monitoring och nya Meteosat (MTG) täcker inte
   åren.
 
@@ -81,18 +82,55 @@ kräver ett konto.
 - **Satellit.** Vilken Meteosat som stod på 0° vid varje tillfälle följer av filernas
   metadata och är inte kontrollerat här.
 
+## Resultat (hämtat 2026-10-20)
+
+Alla FRP-Pixel-filer för 31 juli–14 augusti 2014 och 12 juli–8 augusti 2018 hämtades med
+användarens LSA SAF-konto: 4 117 av 4 128 kvartar. 11 kvartar fanns inte på servern även
+efter nya försök (7 under 2014 och 4 under 2018, bland annat 12 juli 2018 13:30–14:00
+UTC). Pixlarna inom varje scenarios kartområde (`MAP_BBOX`) sparades i ej versionerade
+`data/vastmanland2014/meteosat-frp/` och `data/ljusdal2018/meteosat-frp/` med
+`SOURCE.json`; satelliten var MSG3 (Meteosat-10) 2014. Produkten tar med pixlar upp till
+cirka 72° synvinkel (största värde i filerna 71,98°).
+
+**Västmanland 2014: 6 pixlar, bara den 4 augusti.** Meteosat såg branden i fem kvartar
+den 4 augusti 12:00–13:45 UTC, under den snabba spridningen, med upp till 2 605 MW i en
+pixel och 3 903 MW sammanlagt i en kvart. Pixlarnas yta anges till cirka 26 km² och
+synvinkeln till cirka 70°. Inga andra dagar gav någon pixel, fast FIRMS hade 85–820
+detektioner om dagen 1–5 augusti.
+
+| Datum 2014 | Meteosat-kvartar | Meteosat-pixlar | Max MW per pixel | FIRMS detektioner | FIRMS max MW |
+|---|---|---|---|---|---|
+| 31 juli | 0 | 0 | – | 19 | 156,9 |
+| 1 augusti | 0 | 0 | – | 85 | 137,8 |
+| 2 augusti | 0 | 0 | – | 186 | 314,0 |
+| 3 augusti | 0 | 0 | – | 132 | 63,5 |
+| 4 augusti | 5 | 6 | 2 604,8 | 560 | 450,9 |
+| 5 augusti | 0 | 0 | – | 820 | 78,1 |
+
+FIRMS-värdena är per detektion från MODIS och VIIRS, med betydligt mindre pixlar, och kan
+inte jämföras direkt med Meteosats per pixel.
+
+**Kårböle 2018: inga pixlar i kartområdet.** Meteosat såg ingen brand inom 14,9–15,8° E,
+61,75–62,2° N under hela perioden, fast FIRMS hade upp till 571 detektioner om dagen
+15–28 juli. Synvinkeln vid Kårböle är cirka 71°, inom produktens gräns. Däremot såg
+Meteosat 98 pixlar i Sverige 14–18 juli 2018, de flesta och starkaste kring 61,7–61,9° N,
+14,3–14,6° E, cirka 50 km väster om Kårböle (upp till 3 116 MW i en pixel den 16 juli
+17:45 UTC). Vilken brand det var har inte kontrollerats mot andra källor.
+
+Slutsatsen är att Meteosat bara fångar de mest intensiva timmarna så här långt norrut:
+en eftermiddag i Västmanland och ingen gång i Kårböle.
+
 ## Vad det skulle ge demon
 
-En kurva över brandeffekten var 15:e minut från en stillastående satellit, mellan
-polarsatelliternas passager, och grova pixlar på kartan. Båda ska märkas med Meteosat,
-pixelstorlek och att det är arkivdata, inte realtid. Inget av detta är byggt.
+I Västmanland kan Meteosats sex pixlar den 4 augusti visas som ett exempel på vad en
+geostationär satellit ser så här långt norrut: grova pixlar på cirka 26 km² under de
+intensivaste timmarna, mellan polarsatelliternas passager. Det ska märkas med Meteosat,
+pixelstorlek och att det är arkivdata, inte realtid. I Kårböle finns inget att visa.
+Inget av detta är byggt.
 
 ## Nästa steg
 
-1. Användaren registrerar ett konto hos LSA SAF.
-2. Hämta FRP-Pixel-filerna för perioderna, behåll bara pixlarna inom scenariernas
-   kartområden och jämför tider och FRP med FIRMS.
-3. Besluta därefter om och hur det ska visas i demon.
+Besluta om Västmanlands Meteosat-pixlar ska visas i demon, och i så fall hur.
 
 ## Källor
 
