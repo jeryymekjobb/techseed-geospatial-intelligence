@@ -187,7 +187,9 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
   // kinds the run before did not have, so "no rain" is not said every six hours).
   for (const issue of forecastIssues) {
     if (issue.news?.length) {
-      lines.push({ atMs: Date.parse(issue.available_utc), text: `Ny väderprognos: ${issue.news.join(". ")}`, source: "metno", kind: "met_forecast" });
+      // Below a metre per second the direction says nothing.
+      const wind = !issue.wind ? "" : issue.wind.ms < 1 ? "Nästan vindstilla. " : `Vind från ${issue.wind.from}, ${issue.wind.ms} meter per sekund. `;
+      lines.push({ atMs: Date.parse(issue.available_utc), text: `Ny väderprognos: ${wind}${issue.news.join(". ")}`, source: "metno", kind: "met_forecast" });
     }
   }
   // Meteosat's fire pixels over the incident, a line for each quarter with any (meteosat.py quarters):

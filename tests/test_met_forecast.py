@@ -48,7 +48,7 @@ def test_the_notices_tell_the_rescue_service_what_matters() -> None:
                   humidity=[45.0] * 10 + [27.0] + [45.0] * 14, thunder=[0.0] * 16 + [0.5] + [0.0] * 8)
     assert texts(turning) == [
         "Vindvridning från sydost till nordväst om cirka 9 timmar",  # from hour 9
-        "Byvind upp till 14 meter per sekund om 14 timmar",
+        "Byvind upp till 14 meter per sekund från nordväst om 14 timmar",
         "Regn, 3 millimeter de närmaste 24 timmarna",
         "Låg luftfuktighet, ned till 27 procent",
         "Risk för åska om 16 timmar, nya bränder kan tändas",
@@ -96,7 +96,7 @@ def test_a_flood_hears_of_heavy_rain_snow_and_thunder_not_of_fires() -> None:
     assert texts(rainy) == [
         "Kraftigt regn, upp till 6 millimeter på en timme om 5 timmar",
         "Nederbörd, 8 millimeter de närmaste 24 timmarna",
-        "Byvind upp till 12 meter per sekund om 20 timmar",
+        "Byvind upp till 12 meter per sekund från sydost om 20 timmar",
         "Risk för åska och skyfall om 8 timmar",
     ]
     cold = run(rain_acc=[0.0] + [float(hour) for hour in range(1, 25)])
@@ -108,3 +108,11 @@ def test_a_flood_hears_of_heavy_rain_snow_and_thunder_not_of_fires() -> None:
     silent = run()
     silent["point"]["thunderstorm_index"] = None
     assert all(item["thunderstorm_index"] is None for item in mf.hourly(silent))
+
+
+def test_the_log_line_starts_with_the_mean_wind_of_the_first_six_hours() -> None:
+    def hour(from_deg: float, ms: float) -> dict:
+        return {"wind_from_deg": from_deg, "wind_ms": ms}
+    # South-east and east-south-east average to south-east; a calm hour lowers the speed.
+    assert mf.wind_now([hour(135, 6.0)] * 3 + [hour(112, 6.0)] * 2 + [hour(135, 0.0)]) == {"from": "sydost", "ms": 5}
+    assert mf.wind_now([hour(270, 4.0)] * 5) is None  # a run shorter than six hours

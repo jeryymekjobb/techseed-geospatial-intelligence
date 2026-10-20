@@ -1044,7 +1044,9 @@ Välj **Skogsbranden vid Kårböle 2018** i menyn (avsnitt 7). Skillnader mot V�
   är **beräknad** av demon ur SMHI:s observationer fram till prognosen och prognosen därefter, inte
   MET Norways. En ny prognos kommer var sjätte timme (cirka tre timmar efter körningen); har den
   något nytt står det i satellitbevakningens logg och läses upp, till exempel "Ny väderprognos:
-  Risk för åska om 7 timmar, nya bränder kan tändas". Kryssa **Prognosvind (MET Norway)** i
+  Vind från sydost, 3 meter per sekund. Byvind upp till 12 meter per sekund från sydost om 8 timmar".
+  Raden börjar alltid med medelvinden de närmaste sex timmarna, eller "Nästan vindstilla" under
+  1 meter per sekund. Kryssa **Prognosvind (MET Norway)** i
   mission controls lagerlista för orange vindpilar sex timmar framåt; de blå pilarna är vinden
   just nu (ERA5-Land).
 - **Blixtar (SMHI, observerade):** blixtsymboler för nedslagen den senaste timmen före scenarioklockan,

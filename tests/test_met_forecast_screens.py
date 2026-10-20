@@ -33,11 +33,15 @@ def test_the_panel_draws_the_wind_gust_and_rain_with_the_clock() -> None:
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_a_new_forecast_with_news_is_a_log_line_read_aloud() -> None:
-    issues = [{"available_utc": "2018-07-17T09:00:00Z", "news": ["Risk för åska om 7 timmar, nya bränder kan tändas"]},
-              {"available_utc": "2018-07-17T15:00:00Z", "news": []}]
+    issues = [{"available_utc": "2018-07-17T09:00:00Z", "news": ["Risk för åska om 7 timmar, nya bränder kan tändas"],
+               "wind": {"from": "sydost", "ms": 5}},
+              {"available_utc": "2018-07-17T15:00:00Z", "news": []},
+              {"available_utc": "2018-07-17T21:00:00Z", "news": ["Låg luftfuktighet, ned till 26 procent"], "wind": {"from": "nordost", "ms": 0}}]
     code = (f"const m = require({json.dumps(str(FRONTEND / 'satlog.js'))});"
-            f"console.log(JSON.stringify(m.satelliteLog({{ forecastIssues: {json.dumps(issues)} }}, Date.parse('2018-07-17T16:00:00Z'))))")
+            f"console.log(JSON.stringify(m.satelliteLog({{ forecastIssues: {json.dumps(issues)} }}, Date.parse('2018-07-17T22:00:00Z'))))")
     lines = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
-    assert lines == [{"atMs": 1531818000000, "text": "Ny väderprognos: Risk för åska om 7 timmar, nya bränder kan tändas",
+    assert lines[0]["text"] == "Ny väderprognos: Nästan vindstilla. Låg luftfuktighet, ned till 26 procent"
+    lines = lines[1:]
+    assert lines == [{"atMs": 1531818000000, "text": "Ny väderprognos: Vind från sydost, 5 meter per sekund. Risk för åska om 7 timmar, nya bränder kan tändas",
                       "source": "metno", "kind": "met_forecast"}]
     assert (FRONTEND / "satlog.js").read_text(encoding="utf-8").count('metno: "MET Norway"') == 1

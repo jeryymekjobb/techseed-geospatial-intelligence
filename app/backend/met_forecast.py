@@ -170,7 +170,8 @@ def notices(ahead: list[dict[str, Any]], incident: str = scenario.INCIDENT, thun
             break
     gust = max(day, key=lambda item: item["gust_ms"])
     if gust["gust_ms"] >= GUST_MS:
-        found.append({"kind": "gust", "text": f"Byvind upp till {round(gust['gust_ms'])} meter per sekund {when(day.index(gust))}"})
+        found.append({"kind": "gust", "text": f"Byvind upp till {round(gust['gust_ms'])} meter per sekund "
+                                              f"från {COMPASS_WORDS[compass(gust['wind_from_deg'], 8)]} {when(day.index(gust))}"})
     rain = sum(item["precipitation_mm"] or 0.0 for item in day)
     if rain >= RAIN_MM:
         found.append({"kind": "rain", "text": f"Regn, {round(rain)} millimeter de närmaste 24 timmarna"})
@@ -202,7 +203,8 @@ def flood_notices(day: list[dict[str, Any]], thunder_at: float | None) -> list[d
         found.append({"kind": "snow", "text": "Nederbörden faller mest som snö"})
     gust = max(day, key=lambda item: item["gust_ms"])
     if gust["gust_ms"] >= GUST_MS:
-        found.append({"kind": "gust", "text": f"Byvind upp till {round(gust['gust_ms'])} meter per sekund {when(day.index(gust))}"})
+        found.append({"kind": "gust", "text": f"Byvind upp till {round(gust['gust_ms'])} meter per sekund "
+                                              f"från {COMPASS_WORDS[compass(gust['wind_from_deg'], 8)]} {when(day.index(gust))}"})
     thunder = max(day, key=lambda item: item["thunderstorm_index"] or 0.0)
     if thunder_at is not None and (thunder["thunderstorm_index"] or 0.0) >= thunder_at:
         found.append({"kind": "thunder", "text": f"Risk för åska och skyfall {when(day.index(thunder))}"})
@@ -295,15 +297,26 @@ def at(clock: datetime) -> dict[str, Any] | None:
     }
 
 
+def wind_now(ahead: list[dict[str, Any]], hours: int = 6) -> dict[str, Any] | None:
+    """The mean wind at the incident over the first `hours` of the run, for the log: the direction
+    it blows from in words and its speed, whole metres per second."""
+    if len(ahead) < hours:
+        return None
+    direction, speed = mean_direction(ahead[:hours])
+    return {"from": COMPASS_WORDS[compass(direction, 8)], "ms": round(speed)}
+
+
 def issues() -> list[dict[str, Any]]:
-    """Every run's publication for the log: its notices for the next 24 hours from then, and
-    `news`, those of a kind the run before did not have (so "no rain" is not said every run)."""
+    """Every run's publication for the log: its notices for the next 24 hours from then,
+    `news`, those of a kind the run before did not have (so "no rain" is not said every run),
+    and `wind`, the mean wind of its first six hours, which the log line starts with."""
     found, previous = [], set()
     for run in runs():
         available = parse(run["issued_utc"]) + AVAILABLE_AFTER
         ahead = [item for item in hourly(run) if parse(item["time_utc"]) >= available]
         said = notices(ahead, thunder_at=thunder_threshold(run))
         found.append({"available_utc": available.strftime("%Y-%m-%dT%H:%M:%SZ"), "issued_utc": run["issued_utc"],
-                      "notices": said, "news": [item["text"] for item in said if item["kind"] not in previous]})
+                      "notices": said, "news": [item["text"] for item in said if item["kind"] not in previous],
+                      "wind": wind_now(ahead)})
         previous = {item["kind"] for item in said}
     return found
