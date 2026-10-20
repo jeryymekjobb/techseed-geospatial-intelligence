@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import shutil
 import subprocess
@@ -36,3 +37,41 @@ def test_calm_is_a_ring_and_wind_is_an_arrow_with_strokes() -> None:
     assert "<circle" in calm and "path" not in calm
     assert "M0,15 L0,-15" in light and "L9," in light and "L4.5," in light
     assert 'class="pennant"' in strong
+
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_wind_arrows_thin_out_from_the_middle_of_the_grid() -> None:
+    # Points of ERA5-Land's 0.1° grid round a middle at 62.0 N, 17.0 E, with the CSV's floating-point noise.
+    zooms = node("[[62.0, 17.0], [62.8, 16.2], [62.4, 17.4], [61.8, 17.2], [62.1, 17.0], [61.7, 16.9]]"
+                 ".map(([lat, lon]) => barbs.windMinZoom(lat, lon, [620, 170]))")
+    assert zooms == [0, 0, 7, 8, 9, 9]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_about_a_quarter_of_the_arrows_stay_per_zoom_step_out() -> None:
+    counts = node("(() => { const points = []; for (let i = 0; i < 32; i += 1) for (let j = 0; j < 32; j += 1)"
+                  " points.push([60 + i / 10, 15 + j / 10]);"
+                  " const middle = barbs.windGridMiddle(points);"
+                  " const zooms = points.map(([lat, lon]) => barbs.windMinZoom(lat, lon, middle));"
+                  " return [middle, [9, 8, 7, 6].map((zoom) => zooms.filter((min) => zoom >= min).length)]; })()")
+    assert counts == [[616, 166], [1024, 256, 64, 16]]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_every_scenario_keeps_a_wind_arrow_at_every_zoom() -> None:
+    root = SCRIPT.parents[2]
+    # The scenarios' ERA5-Land grids, where they are fetched (unversioned data).
+    files = sorted(root.glob("data/*/era5-land/era5-land-*.csv")) + sorted(root.glob("weather_data/era5-land/era5-land-*.csv"))
+    if not files:
+        pytest.skip("no ERA5-Land files")
+    grids = {}
+    for path in files:
+        with path.open(encoding="utf-8", newline="") as stream:
+            grids[path.name] = sorted({(float(row["latitude"]), float(row["longitude"])) for row in csv.DictReader(stream)})
+    counts = node(f"Object.fromEntries(Object.entries({json.dumps(grids)}).map(([name, points]) => {{"
+                  " const middle = barbs.windGridMiddle(points);"
+                  " const zooms = points.map(([lat, lon]) => barbs.windMinZoom(lat, lon, middle));"
+                  " return [name, [9, 8, 7, 6, 3].map((zoom) => zooms.filter((min) => zoom >= min).length)]; }))")
+    for name, per_zoom in counts.items():
+        assert all(count >= 1 for count in per_zoom), (name, per_zoom)

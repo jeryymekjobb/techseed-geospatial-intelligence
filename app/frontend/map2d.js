@@ -129,6 +129,15 @@ function createLeafletMap(config) {
   let routeExposureLayer = null;  // roads and railways under heavy rain, computed from the radar
   let isobarVisible = false;
 
+  // Fewer wind arrows further out (windMinZoom in wind_barbs.js); `visibility` is the hour's.
+  function thinWind() {
+    const zoom = map.getZoom();
+    for (const marker of windMarkers) {
+      const element = marker.getElement();
+      if (element) element.style.display = zoom >= marker.minZoom ? "" : "none";
+    }
+  }
+
   function setMapLayerVisible(layer, visible) {
     if (!layer) return;
     if (visible && !map.hasLayer(layer)) layer.addTo(map);
@@ -297,12 +306,17 @@ function createLeafletMap(config) {
     setupWind(wind, onShow) {
       const layer = L.layerGroup();
       const icon = L.divIcon({ className: "barb-icon", iconSize: [100, 100], iconAnchor: [50, 50], html: "" });
-      windMarkers = wind.points.map(([lat, lon]) => L.marker([lat, lon], { icon, keyboard: false })
-        .bindTooltip("", { direction: "top" }).addTo(layer));
+      const middle = windGridMiddle(wind.points);
+      windMarkers = wind.points.map(([lat, lon]) => {
+        const marker = L.marker([lat, lon], { icon, keyboard: false }).bindTooltip("", { direction: "top" }).addTo(layer);
+        marker.minZoom = windMinZoom(lat, lon, middle);
+        return marker;
+      });
       overlays["Vind (ERA5-Land)"] = layer;
       windLayer = layer;
       setMapLayerVisible(layer, weatherCategoryVisible && windVisible);
       layer.on("add", onShow);
+      map.on("zoomend", thinWind);
     },
 
     showWind(hour, wind) {
@@ -319,6 +333,7 @@ function createLeafletMap(config) {
         element.firstChild.style.transform = `rotate(${(from + 180) % 360}deg)`;
         marker.setTooltipContent(windTooltip(position, hour));
       });
+      thinWind();
     },
 
     // MET Norway's forecast wind over the map some hours ahead (met_forecast.py), as orange barbs;

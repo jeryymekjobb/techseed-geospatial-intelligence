@@ -39,7 +39,29 @@ function windBarbSvg(speed) {
     + `<path d="${path}"></path></svg>`;
 }
 
-if (typeof module !== "undefined") module.exports = { windBarbCounts, windBarbSvg };
+// ERA5-Land's grid is 0.1°, about 36 px apart at zoom 9. Each zoom step out keeps every
+// second row and column of the step before, down to every eighth, counted from the middle
+// point of the scenario's grid, so that point always shows and the arrows kept spread over
+// the area; they stand where they are, with their own values.
+const WIND_GRID_DEG = 0.1;
+const WIND_FULL_ZOOM = 9;
+const WIND_THINNING = [[8, 0], [4, 7], [2, 8]];  // every nth point of the grid: shown from this zoom
+
+// The grid row and column of the middle point of `points` ([lat, lon]), to count from.
+function windGridMiddle(points) {
+  const middle = (values) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0;
+  return [middle(points.map(([lat]) => Math.round(lat / WIND_GRID_DEG))),
+          middle(points.map(([, lon]) => Math.round(lon / WIND_GRID_DEG)))];
+}
+
+function windMinZoom(lat, lon, [middleRow, middleColumn] = [0, 0]) {
+  const row = Math.round(lat / WIND_GRID_DEG) - middleRow;
+  const column = Math.round(lon / WIND_GRID_DEG) - middleColumn;
+  const step = WIND_THINNING.find(([every]) => row % every === 0 && column % every === 0);
+  return step ? step[1] : WIND_FULL_ZOOM;
+}
+
+if (typeof module !== "undefined") module.exports = { windBarbCounts, windBarbSvg, windGridMiddle, windMinZoom };
 
 // A lightning bolt as SVG, filled with `colour`, edged dark, for SMHI's observed lightning on both maps.
 function lightningSvg(colour, size) {

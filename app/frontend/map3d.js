@@ -381,10 +381,13 @@ async function createCesiumMap(config) {
     },
 
     setupWind(wind, onShow) {
+      const middle = windGridMiddle(wind.points);
       windEntities = wind.points.map(([lat, lon], index) => windLayer.entities.add({
         name: `Vind (${wind.sources?.[index] || "ERA5-Land"})`,
         position: Cesium.Cartesian3.fromDegrees(lon, lat),
-        billboard: { image: barbImage(0), alignedAxis: Cesium.Cartesian3.UNIT_Z, show: false, ...ON_GROUND },
+        billboard: { image: barbImage(0), alignedAxis: Cesium.Cartesian3.UNIT_Z, show: false, ...ON_GROUND,
+                     // Fewer arrows further out, as in 2D (windMinZoom in wind_barbs.js).
+                     distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, distanceForZoom(windMinZoom(lat, lon, middle))) },
       }));
       layers.push(["Vind (ERA5-Land)", (visible) => {
         windVisible = visible;
