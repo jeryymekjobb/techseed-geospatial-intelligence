@@ -96,6 +96,55 @@ SMHI Sala A. Demons egen FWI, beräknad ur MET Norways prognos, gav 30 för den 
 **I demon:** en karta eller en panelrad med brandrisken för dagen, som komplement till
 demons egen FWI. Den kan hämtas med det konto som redan finns.
 
+## Översvämningarna: molntoppar, molnmask, blixtar och FCI
+
+Undersökt 2026-10-20 på användarens fråga om hur Meteosat kan förbättra övervakningen i
+översvämningsscenarierna. Sökt i EUMETSAT:s katalog och produktsökning (utan konto) en
+tjugominutersperiod per scenario: Skåne 27 januari 2024 kl. 12, Västernorrland 6
+september 2025 kl. 12, Sundsvall 17 augusti 2026 kl. 12 och Kramfors 15 augusti 2026 kl.
+16 UTC. Inga produkter har hämtats eller öppnats.
+
+| Samling | Startar | Skåne 2024 | Västernorrland 2025 | Sundsvall 2026 | Kramfors 2026 | Storlek |
+|---|---|---|---|---|---|---|
+| Molnmask, MSG (`MSG:CLM`) | 2004 | ✓ | ✓ | ✓ | ✓ | ca 550 kB per kvart |
+| Molntoppens höjd, MSG (`MSG:CTH`) | 21 jun 2005 | ✓ | ✓ | ✓ | ✓ | ca 400 kB per kvart |
+| Molnmask, MTG (`0678`) | 27 jan 2025 | – | ✓ | ✓ | ✓ | ca 5–6 MB per tio minuter |
+| Molntoppens temperatur och höjd, MTG (`0681`) | 10 dec 2025 | – | – | ✓ | ✓ | ca 70 MB per tio minuter |
+| Instabilitetsindex, MTG (`0683`) | 27 jan 2025 | – | ✓ | ✓ | ✓ | ca 14 MB per tio minuter |
+| Lightning Imager, blixtar, MTG (`0691`) | 4 jul 2024 | – | ✓ | ✓ | ✓ | ca 0,2–0,5 MB per tio minuter |
+| FCI-bilder, MTG (`0662`) | 24 sep 2024 | – | ✓ | ✓ | ✓ | ca 0,9–1 GB per tio minuter |
+| Nederbörd FCI och mikrovåg, MTG (`1086`) | 14 aug 2025 | – | ingen kl. 12 | ✓ | ✓ | ca 3 MB |
+
+Alla är härledda produkter eller nivå 1-data och därmed Core enligt datapolicyn, utom
+FCI-bilder tätare än en i timmen (se Villkor).
+
+**1. Molntopparna och FCI-bilderna över Kramfors.** Molntoppens höjd finns för alla fyra
+översvämningarna från MSG, var 15:e minut och cirka 400 kB per produkt, så en serie över
+skyfallet den 15 augusti 2026 blir liten. MTG:s produkt med både temperatur och höjd
+finns först från 10 december 2025, så den täcker Sundsvall och Kramfors men inte
+Västernorrland. MTG:s instabilitetsindex (från 27 januari 2025) visar hur gynnsamt läget
+var för åska timmarna innan cellerna byggs, och täcker alla tre scenarier från 2025–2026.
+FCI-bilderna är cirka 1 GB per bild av hela jordskivan. Enligt EUMETSAT är de uppdelade
+i remsor som kan hämtas var för sig, och Data Tailor kan klippa ut ett område *(dok.,
+inte prövat utan konto)*; för en serie över Kramfors behövs bara de nordligaste remsorna.
+
+**2. Molnmasken.** Finns för alla fyra översvämningarna från MSG (cirka 550 kB per kvart)
+och för 2025–2026 också från MTG med högre upplösning (cirka 5–6 MB per tio minuter).
+
+**3. Lightning Imager.** Blixtprodukten (`LI Lightning Flashes`) finns från 4 juli 2024 i
+filer per tio minuter på cirka 0,2–0,5 MB och täcker alltså Västernorrland, Sundsvall och
+Kramfors. Katalogen anger ingen täckning för produkterna. ESA beskriver synfältet som
+Europa och Afrika, cirka 84 % av jordskivan, och anger att den norra kameran ser norra
+Skandinavien; enligt en studie från Finlands meteorologiska institut (2025) ligger Norden
+i kanten av synfältet med en starkt lutande synvinkel, men instrumentet presterar
+förvånansvärt bra även norr om 70° N *(dok.)*. Om den såg cellerna över Kramfors är inte
+kontrollerat; det kräver att filerna hämtas.
+
+**Bedömning för demon.** Mest nytta för minst data: molntoppens höjd från MSG över
+skyfallet i Kramfors, kompletterad med MTG:s instabilitetsindex och Lightning Imagers
+blixtar, som tillsammans kan visa att ovädret byggdes upp innan bräddgivarna larmade.
+FCI-bilderna ger den tydligaste bilden men är tyngst. Allt kräver ett EUMETSAT-konto.
+
 ## Villkor
 
 Kontrollerat 2026-10-20 i EUMETSAT:s datapolicy, senast ändrad 25 november 2025
@@ -137,7 +186,9 @@ product 2026 (LSA SAF MSG FRP-Pixel, CC BY 4.0)".
 ## Källor
 
 - LSA SAF, Fire Risk Map v3: https://datalsasaf.lsasvcs.ipma.pt/PRODUCTS/MSG/FRMv3/NETCDF/
+- ESA, MTG Lightning Imager, norra kamerans synfält: https://esa.int/esatv/Videos/2023/09/MTG_Lightning_Imager_animations_-_July_2023/North_camera_full_field_of_view
+- Finlands meteorologiska institut m.fl., ECSS2025-104: https://meetingorganizer.copernicus.org/ECSS2025/ECSS2025-104.html
 - EUMETSAT Data Policy (senast ändrad 25 november 2025): https://www-cdn.eumetsat.int/files/2026-01/45173%20-%20Data_Policy.pdf
 - EUMETSAT Data Store, katalog: https://api.eumetsat.int/data/browse/collections
 - EUMETSAT Data Store, produktsökning: https://api.eumetsat.int/data/search-products/1.0.0/os
-- Samlingar: `EO:EUM:DAT:MSG:CLM`, `EO:EUM:DAT:MSG:RSS-CLM`, `EO:EUM:DAT:0662`, `EO:EUM:DAT:0665`
+- Samlingar: `EO:EUM:DAT:MSG:CLM`, `EO:EUM:DAT:MSG:RSS-CLM`, `EO:EUM:DAT:MSG:CTH`, `EO:EUM:DAT:0662`, `EO:EUM:DAT:0665`, `EO:EUM:DAT:0678`, `EO:EUM:DAT:0681`, `EO:EUM:DAT:0683`, `EO:EUM:DAT:0691`, `EO:EUM:DAT:1086`
