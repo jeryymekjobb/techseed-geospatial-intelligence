@@ -188,6 +188,9 @@ async function createCesiumMap(config) {
   const routeExposureLayer = group("route-exposure");  // roads and railways under heavy rain, computed (routes.py)
   const routeImpactLayer = group("route-impacts");  // roads and railways the incident damaged, documented
   const meteosatLayer = group("meteosat");  // Meteosat's fire pixels (meteosat.py)
+  const frmLayer = group("fire-risk");  // LSA SAF's fire risk (meteosat_frm.py), off until ticked
+  frmLayer.show = false;
+  let frmVisible = false;
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
@@ -524,6 +527,26 @@ async function createCesiumMap(config) {
       }
     },
 
+    // LSA SAF's fire risk: a cell of 0.05° in the risk class's colour on the ground.
+    setupMeteosatFrm(label) {
+      layers.push([label, (visible) => {
+        frmVisible = visible;
+        frmLayer.show = visible && weatherCategoryVisible;
+      }, () => frmVisible && weatherCategoryVisible]);
+    },
+
+    drawMeteosatFrm(cells) {
+      frmLayer.entities.removeAll();
+      for (const cell of cells) {
+        frmLayer.entities.add({
+          name: "Brandrisk (LSA SAF)",
+          description: cell.text,
+          rectangle: { coordinates: Cesium.Rectangle.fromDegrees(cell.west, cell.south, cell.east, cell.north),
+                       material: cesiumColor(FRM_COLOURS[cell.risk], FRM_OPACITY), classificationType: Cesium.ClassificationType.BOTH },
+        });
+      }
+    },
+
     // SMHI's rain by the day: a dark blue point with the station's latest ended day.
     setupDailyRain(info) {
       layers.push([info.label, (visible) => {
@@ -744,6 +767,7 @@ async function createCesiumMap(config) {
         isobarLayer.show = visible && isobarVisible;
         lightningLayer.show = visible && lightningVisible;
         dailyRainLayer.show = visible && dailyRainVisible;
+        frmLayer.show = visible && frmVisible;
         stationLayer.show = visible;
         if (radarLayer) radarLayer.show = visible && radarVisible;
         for (const [box, shown] of layerBoxes) box.checked = shown();

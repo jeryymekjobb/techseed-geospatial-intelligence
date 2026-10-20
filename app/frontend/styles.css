@@ -275,5 +275,7 @@ body[data-incident="flood"] [data-incident="wildfire"], body[data-incident="wild
 .chart-section .met-forecast-values dt { white-space: nowrap; min-width: 2.6em; }
 .met-legend { margin: 0 0 2px; font-size: 0.75rem; color: var(--muted); }
 .met-legend .wind { color: #0b3d91; } .met-legend .gust { color: #c2410c; } .met-legend .rain { color: #1f5fa8; }
+.frm-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 2px; font-size: 0.75rem; color: var(--muted); }
+.frm-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 2px; opacity: 0.8; vertical-align: -1px; }
 .met-forecast-notices { margin: 4px 0; padding-left: 1.1em; font-size: 0.85rem; font-weight: 600; }
 .legend .alert { color: var(--accent); font-weight: 600; }

@@ -111,7 +111,7 @@ function satlogWhole(value) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -199,6 +199,13 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
       atMs: Date.parse(quarter.time_utc), text: `${said} ${satlogDecimal(quarter.max_frp_mw)} megawatt`, source: "meteosat", kind: "meteosat",
       spoken: `${said} ${satlogWhole(quarter.max_frp_mw)} megawatt`, sourceText: `Meteosat ${quarter.time_utc.slice(0, 4)}`,
     });
+  }
+  // LSA SAF's fire risk at the fire (meteosat_frm.py changes): its first class and every change, at 12 UTC.
+  for (const change of fireRiskChanges) {
+    const fwi = change.fwi === null || change.fwi === undefined ? "" : ` (FWI ${Math.round(change.fwi)})`;
+    const verb = change.direction === "up" ? `stiger till ${change.name}` : change.direction === "down" ? `sjunker till ${change.name}` : `är ${change.name}`;
+    lines.push({ atMs: Date.parse(change.valid_utc), text: `Brandrisken vid ${place} ${verb} enligt LSA SAF${fwi}`,
+                 source: "meteosat", kind: "fire_risk", sourceText: `LSA SAF ${change.valid_utc.slice(0, 4)}` });
   }
   // SMHI's observed flashes to the ground near the incident, at the end of each hour with any (lightning.py events).
   for (const item of lightningEvents) {

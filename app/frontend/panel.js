@@ -436,6 +436,34 @@ function showMeteosat(clock) {
   state.map.drawMeteosat(pixels.map((pixel) => ({ ...pixel, text: meteosatText(pixel, formatLocal(pixel.time_utc)) })));
 }
 
+// LSA SAF's fire risk (meteosat_frm.py, meteosat_frm.js): a line under the demo's own FWI, with
+// the classes' colours, and the maps' grid; both follow the latest day valid at the clock (12 UTC).
+function setupMeteosatFrm(info) {
+  const line = document.createElement("div");
+  line.id = "frm-status";
+  line.className = "status";
+  line.innerHTML = '<strong>Brandrisk enligt LSA SAF:</strong> <span id="frm-text">ingen karta ännu</span><div class="frm-legend">'
+    + Object.entries(info.risk_names).map(([risk, name]) => `<span><i style="background:${FRM_COLOURS[risk]}"></i>${name}</span>`).join("")
+    + "</div>";
+  const anchor = $("met-forecast-fwi") || $("forecast-values");
+  if (anchor) anchor.after(line);
+  else document.querySelector(".panel")?.append(line);
+  state.map.setupMeteosatFrm(info.label);
+  state.map.addAttribution(info.attribution);
+}
+
+function showMeteosatFrm(clock) {
+  const info = state.config.layers.meteosat_frm;
+  if (!info || !clock) return;
+  const index = frmDayAt(info.days, clock.getTime());
+  if (index === state.frmIndex) return;
+  state.frmIndex = index;
+  const when = index >= 0 ? formatLocal(info.days[index].valid_utc) : "";
+  $("frm-text").textContent = frmText(info.at_fire[index], info.risk_names, when);
+  state.map.drawMeteosatFrm(frmCells(info, index).map((cell) => ({ ...cell,
+    text: `Brandrisk ${info.risk_names[cell.risk]}${cell.fwi === null ? "" : `, FWI ${Math.round(cell.fwi)}`} (LSA SAF, gäller ${when}; Meteosat och ERA5)` })));
+}
+
 // Redrawn when a damage is reached or the computed rain passes into a new hour.
 function showRoutes(clock) {
   if (!state.routes || !clock) return;
@@ -686,6 +714,7 @@ function setClock(clock) {
   showMetForecast(clock);
   showLightning(clock);
   showMeteosat(clock);
+  showMeteosatFrm(clock);
   showRoutes(clock);
   showDailyRain(clock);
   showRain(clock);
@@ -1626,6 +1655,7 @@ async function startApp(createMap) {
       $("map").append(caption);
     }
   }
+  if (config.layers.meteosat_frm) setupMeteosatFrm(config.layers.meteosat_frm);
   if (config.layers.meteosat) {
     state.map.setupMeteosat(config.layers.meteosat.label);
     state.map.addAttribution(config.layers.meteosat.attribution);

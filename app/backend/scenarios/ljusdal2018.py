@@ -60,6 +60,8 @@ EMS_DIR = DATA / "ems"
 MET_FORECAST_DIR = DATA / "met-forecast"
 # SMHI's observed lightning (tools/fetch_smhi_lightning.py).
 LIGHTNING_DIR = DATA / "lightning"
+# LSA SAF's fire risk (FRM v3), a map a day valid at 12 UTC (tools/fetch_meteosat_frm.py).
+METEOSAT_FRM_FILE = DATA / "meteosat-frm" / "frm.json"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2018.json"
 

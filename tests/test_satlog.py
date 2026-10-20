@@ -337,3 +337,16 @@ def test_meteosat_has_a_line_for_each_quarter_with_pixels_and_no_passes() -> Non
     assert {line["source"] for line in lines} == {"meteosat"} and lines[0]["sourceText"] == "Meteosat 2014"
     # Not before its quarter.
     assert node(f"satelliteLog({{ meteosatQuarters: {json.dumps(quarters)} }}, Date.parse('2014-08-04T11:59:00Z')).length") == 0
+
+
+def test_the_fire_risk_has_a_line_for_its_first_class_and_each_change() -> None:
+    changes = [{"valid_utc": "2014-08-03T12:00:00Z", "name": "låg", "fwi": 3.2, "direction": "start"},
+               {"valid_utc": "2014-08-04T12:00:00Z", "name": "hög", "fwi": 25.1, "direction": "up"},
+               {"valid_utc": "2014-08-05T12:00:00Z", "name": "låg", "fwi": None, "direction": "down"}]
+    lines = node(f"satelliteLog({{ fireRiskChanges: {json.dumps(changes)} }}, Date.parse('2014-08-05T12:00:00Z'), 7 * 86400000)")
+    assert [line["text"] for line in lines] == [
+        "Brandrisken vid branden sjunker till låg enligt LSA SAF",
+        "Brandrisken vid branden stiger till hög enligt LSA SAF (FWI 25)",
+        "Brandrisken vid branden är låg enligt LSA SAF (FWI 3)",
+    ]
+    assert {line["sourceText"] for line in lines} == {"LSA SAF 2014"}

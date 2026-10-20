@@ -88,11 +88,12 @@ Det mesta som demon använder är öppet och kräver inget konto. Två saker kr�
 | **GitHub-repot** `jeryymekjobb/techseed-geospatial-intelligence` | För att hämta koden. | Åtkomst till repot och en SSH-nyckel på GitHub. Fråga ägaren av repot om åtkomst. |
 | **Space-Track** (space-track.org) | För satelliternas banor 2014. | Ett eget, gratis konto. Registrera dig på space-track.org och godkänn villkoren. Använd ett eget konto i stället för att dela någon annans inloggning. |
 
-Två konton behövs bara i särskilda fall och kan hoppas över för demon:
+Tre konton behövs bara i särskilda fall och kan hoppas över för demon:
 
 | Vad | När det behövs |
 |---|---|
 | Copernicus CDS | Bara om vinddatan från ERA5-Land ska hämtas om. Den finns redan i repot. |
+| LSA SAF (EUMETSAT) | Bara för att hämta Meteosats brandpixlar och brandrisken (avsnitt 5, steg 5.10). Ett gratis konto på mokey.lsasvcs.ipma.pt, sparat i `~/.netrc` som `machine datalsasaf.lsasvcs.ipma.pt login … password …`, aldrig i repot. |
 | Lantmäteriet Geotorget | Bara för Lantmäteriets kartor och fastighetsgränser. De är avstängda i demon. |
 
 Det här behöver **inget konto**: Landsat-bilden (Microsoft Planetary Computer), höjddata
@@ -229,6 +230,11 @@ TECHSEED_SCENARIO=vastmanland2014 .venv/bin/python -m tools.fetch_smhi_lightning
 
 # 5.9 Rösterna för uppläsningen (alla demona använder dem)
 .venv/bin/python -m tools.fetch_piper_voices
+
+# 5.10 Meteosats brandpixlar och brandrisken från LSA SAF (kräver LSA SAF-kontot i ~/.netrc, avsnitt 2)
+.venv/bin/pip install -r tools/requirements-meteosat.txt
+TECHSEED_SCENARIO=vastmanland2014 .venv/bin/python -m tools.fetch_meteosat_frp
+TECHSEED_SCENARIO=vastmanland2014 .venv/bin/python -m tools.fetch_meteosat_frm
 ```
 
 Första gången du kör 5.4 hämtar Docker tjänsterna, cirka 2,5 GB. Det sker bara en gång.
@@ -403,6 +409,18 @@ tillsammans med namnet; hotet står kvar i loggen. Bara hot som kommer in medan 
 markeras; när sidan laddas, vid **RESET** och vid hopp i tiden visas inga trianglar. Markeringarna räknas ur scenarioklockan som
 loggen och syns även när uppläsningen är av. Lagret heter **Hotad bebyggelse** och kan släckas i mission control.
 Huvudskärmen hämtar hoten när den laddas; ladda om den om PostGIS startade senare.
+
+**Meteosat.** Meteosat, en geostationär satellit, står över ekvatorn och ser Sverige snett. I
+Västmanland såg den branden bara den 4 augusti 2014, 14:00–15:45 svensk tid: lagret **Meteosat
+(geostationär, LSA SAF)** visar varje pixel som en lila rektangel på cirka 26 km², och loggen har en
+rad per kvart, till exempel "Meteosat-10 (geostationär) ser branden: 2 pixlar, starkast 2592,4
+megawatt". Pixlarnas läge och form är ungefärliga; de ligger några kilometer norr om FIRMS-punkterna.
+Raden **Brandrisk enligt LSA SAF** i panelen, under demons egen brandrisk, visar dagens riskklass
+(låg till extrem) och FWI vid branden, giltig från kl. 12 UTC (14:00 svensk tid). Den räknas ur
+ERA5:s väder och kalibreras mot satelliternas brandobservationer, så säg "Meteosat och ERA5", inte
+"uppmätt av Meteosat". Kryssa **Brandrisk (LSA SAF)** i mission control för rutor i riskklassens färg
+över kartan; loggen säger när riskklassen ändras, till exempel "Brandrisken vid branden stiger till
+hög enligt LSA SAF (FWI 25)". Brandrisken finns också i Kårböle 2018.
 
 **Diagrammen under Uppspelning.** Tidsdiagrammen med scenarioklockan ligger i panelen direkt
 under **Uppspelning**, i 2D och 3D: **Detektioner per dygn (UTC)** vid branden, **Regn (SMHI)** vid
@@ -613,8 +631,8 @@ att det du säger stämmer med märkningen.
 
 | Kategori | Vad | Säg |
 |---|---|---|
-| **Riktiga data** | Satelliternas upptäckter av branden (NASA FIRMS), också passagen och detektionerna i upptäcktssekvensen, Landsat-bilderna (USGS), väderobservationer från SMHI, satelliternas banor (Space-Track), kartdata från OpenStreetMap (dagens läge, inte 2014) | "Riktiga data från 2014, uppspelade. Det är inte live." |
-| **Beräknat** | Satelliternas positioner, vinden (ERA5-Land, en modell), brandprognosen, bedömningens poäng, reglerna i sekvensens korreleringssteg | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
+| **Riktiga data** | Meteosats brandpixlar (LSA SAF), satelliternas upptäckter av branden (NASA FIRMS), också passagen och detektionerna i upptäcktssekvensen, Landsat-bilderna (USGS), väderobservationer från SMHI, satelliternas banor (Space-Track), kartdata från OpenStreetMap (dagens läge, inte 2014) | "Riktiga data från 2014, uppspelade. Det är inte live." |
+| **Beräknat** | Satelliternas positioner, brandrisken från LSA SAF (ur ERA5:s väder), vinden (ERA5-Land, en modell), brandprognosen, bedömningens poäng, reglerna i sekvensens korreleringssteg | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
 | **Simulerat** | Sensorerna i montern (TEMP, WATER, AIR, NTN), sensorerna i brandområdet, satellitavbrottet, händelserna från mission control och sekvensens steg märkta SYNTETISKT: anomali ombord, nedlänk och IoT på marken | "Simulerat för demon. Det står på skärmen." |
 
 Säg inte att något är live, att sensorerna fanns i skogen 2014 eller att poängen är en
@@ -1076,6 +1094,7 @@ export TECHSEED_SCENARIO=ljusdal2018
 .venv/bin/python -m tools.fetch_ems_perimeters
 .venv/bin/python -m tools.fetch_met_forecasts   # MET Norways väderprognoser som de utfärdades, ca 20 min
 .venv/bin/python -m tools.fetch_smhi_lightning  # SMHI:s observerade blixtar
+.venv/bin/python -m tools.fetch_meteosat_frm    # brandrisken från LSA SAF (avsnitt 5, steg 5.10)
 .venv/bin/python -m tools.load_postgis    # databasen ljusdal2018, för frågorna
 ```
 

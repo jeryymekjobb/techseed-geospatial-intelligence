@@ -125,6 +125,8 @@ function createLeafletMap(config) {
   let lightningVisible = true;
   let routeImpactLayer = null;  // roads and railways the incident damaged (routes.py)
   let meteosatLayer = null;  // Meteosat's fire pixels (meteosat.py)
+  let frmLayer = null;  // LSA SAF's fire risk (meteosat_frm.py), off until ticked
+  let frmVisible = false;
   let dailyRainLayer = null;  // SMHI's rain by the day (daily_rain.py)
   let dailyRainVisible = true;
   let routeExposureLayer = null;  // roads and railways under heavy rain, computed from the radar
@@ -438,6 +440,21 @@ function createLeafletMap(config) {
       }
     },
 
+    // LSA SAF's fire risk: a cell of 0.05° in the risk class's colour, under everything else.
+    setupMeteosatFrm(label) {
+      frmLayer = L.layerGroup();
+      overlays[label] = frmLayer;
+    },
+
+    drawMeteosatFrm(cells) {
+      if (!frmLayer) return;
+      frmLayer.clearLayers();
+      for (const cell of cells) {
+        L.rectangle([[cell.south, cell.west], [cell.north, cell.east]], { stroke: false, fillColor: FRM_COLOURS[cell.risk], fillOpacity: FRM_OPACITY })
+          .bindTooltip(cell.text, { sticky: true }).addTo(frmLayer).bringToBack();
+      }
+    },
+
     // SMHI's rain by the day: a marker in the rain's class with the station's latest ended day.
     setupDailyRain(info) {
       dailyRainLayer = L.layerGroup().addTo(map);
@@ -519,6 +536,9 @@ function createLeafletMap(config) {
       } else if (name === "Prognosvind (MET Norway)") {
         forecastWindVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
+      } else if (layer === frmLayer) {
+        frmVisible = visible;
+        effectiveVisible = visible && weatherCategoryVisible;
       } else if (layer === dailyRainLayer) {
         dailyRainVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
@@ -587,6 +607,7 @@ function createLeafletMap(config) {
         setMapLayerVisible(isobarLayer, visible && isobarVisible);
         setMapLayerVisible(lightningLayer, visible && lightningVisible);
         setMapLayerVisible(dailyRainLayer, visible && dailyRainVisible);
+        setMapLayerVisible(frmLayer, visible && frmVisible);
         return;
       }
       const groups = { space: [hotspots, meteosatLayer], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer, routeImpactLayer, routeExposureLayer] };
