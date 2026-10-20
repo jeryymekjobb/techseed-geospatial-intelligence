@@ -58,6 +58,7 @@ def test_the_pixels_are_read_with_their_satellite_and_grouped_by_quarter(tmp_pat
             {"time_utc": "2014-08-04T12:15:00Z", "satellite": "Meteosat-10", "pixels": 2, "max_frp_mw": 2592.4},
         ]
         assert meteosat.layer()["label"] == meteosat.LABEL and "CC BY 4.0" in meteosat.layer()["attribution"]
+        assert meteosat.layer()["attribution"].startswith("Contains modified EUMETSAT Meteosat product ")
         monkeypatch.setattr(meteosat, "FILE", tmp_path / "missing.geojson")
         meteosat.pixels.cache_clear()
         assert meteosat.layer() is None

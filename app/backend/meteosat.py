@@ -19,7 +19,8 @@ from app.backend import scenario
 
 FILE = scenario.METEOSAT_FRP_FILE
 LABEL = "Meteosat (geostationär, LSA SAF)"
-ATTRIBUTION = "Meteosats brandpixlar: LSA SAF MSG FRP-Pixel, EUMETSAT (CC BY 4.0)"
+# In the form EUMETSAT's data policy (article 6.3) asks for, with the year the demo shows it.
+ATTRIBUTION = "Contains modified EUMETSAT Meteosat product 2026 (LSA SAF MSG FRP-Pixel, CC BY 4.0)"
 # LSA SAF's satellite codes and the names the screens give them.
 SATELLITE_NAMES = {"MSG1": "Meteosat-8", "MSG2": "Meteosat-9", "MSG3": "Meteosat-10", "MSG4": "Meteosat-11"}
 SAMPLING_KM = 3.0  # SEVIRI's sampling straight below the satellite

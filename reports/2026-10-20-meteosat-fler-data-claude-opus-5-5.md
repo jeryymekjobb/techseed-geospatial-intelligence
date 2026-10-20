@@ -98,20 +98,46 @@ demons egen FWI. Den kan hämtas med det konto som redan finns.
 
 ## Villkor
 
-- LSA SAF: CC BY 4.0 enligt filerna; kontot finns.
-- EUMETSAT Data Store: kräver ett gratis EUMETSAT-konto och en API-nyckel för
-  nedladdning *(dok.)*. Villkoren för molnmasken och FCI-bilderna är inte kontrollerade;
-  de ska läsas innan något visas på utställningen.
+Kontrollerat 2026-10-20 i EUMETSAT:s datapolicy, senast ändrad 25 november 2025
+(https://www-cdn.eumetsat.int/files/2026-01/45173%20-%20Data_Policy.pdf). Det här är en
+läsning av policyn, inte juridisk rådgivning.
+
+- **Core** (artikel 5.1, 6.1 och tabellen över kategorier): nivå 1-data från SEVIRI och
+  FCI en gång i timmen ("Hourly Data", den bild som hör till varje hel timme UTC), alla
+  härledda produkter från EUMETSAT:s marksegment och från SAF:arna ("All SAF products are
+  categorised as Core") och färdiga bildprodukter (RGB). De är fria för all användning
+  och får spridas vidare, under CC BY 4.0.
+- **Recommended** (artikel 5.2, 6.2, 12 och 14): nivå 1-data från SEVIRI och FCI oftare
+  än en gång i timmen. Data med minst en timmes fördröjning, vilket gäller allt arkiv, är
+  gratis för all användning, även för företag (artikel 14.1), men kräver EUMETSAT:s
+  licens, och de ursprungliga siffervärdena får inte spridas till andra (artikel 6.2).
+- **Kreditering** (artikel 6.3): "[Contains modified] EUMETSAT [Meteosat/Metop]
+  [data/product] [år för publicering eller spridning]".
+
+För demons produkter betyder det:
+
+| Produkt | Kategori | Villkor för demon |
+|---|---|---|
+| Molnmask, MSG 0° | Core (härledd produkt) | CC BY 4.0; får visas och spridas |
+| LSA SAF:s brandpixlar och brandrisk | Core (SAF-produkt) | CC BY 4.0; får visas och spridas |
+| FCI, en bild i timmen | Core | CC BY 4.0; får visas och spridas |
+| FCI, var 10:e minut | Recommended | Gratis för arkivdata efter godkänd licens; egna renderade bilder får visas, FCI-filerna själva får inte lämnas till andra |
+
+Nedladdning från EUMETSAT:s Data Store kräver ett gratis EUMETSAT-konto och en
+API-nyckel *(dok.)*; LSA SAF-kontot finns redan. Demons kreditering av Meteosats
+brandpixlar följer sedan 2026-10-20 artikel 6.3: "Contains modified EUMETSAT Meteosat
+product 2026 (LSA SAF MSG FRP-Pixel, CC BY 4.0)".
 
 ## Nästa steg
 
 1. Om molnmasken eller FCI-bilderna ska användas: användaren registrerar ett
-   EUMETSAT-konto, och villkoren kontrolleras.
+   EUMETSAT-konto; för FCI-bilder oftare än en gång i timmen godkänns också licensen.
 2. Besluta vilken av de tre som ska byggas först; brandrisken kan byggas direkt.
 
 ## Källor
 
 - LSA SAF, Fire Risk Map v3: https://datalsasaf.lsasvcs.ipma.pt/PRODUCTS/MSG/FRMv3/NETCDF/
+- EUMETSAT Data Policy (senast ändrad 25 november 2025): https://www-cdn.eumetsat.int/files/2026-01/45173%20-%20Data_Policy.pdf
 - EUMETSAT Data Store, katalog: https://api.eumetsat.int/data/browse/collections
 - EUMETSAT Data Store, produktsökning: https://api.eumetsat.int/data/search-products/1.0.0/os
 - Samlingar: `EO:EUM:DAT:MSG:CLM`, `EO:EUM:DAT:MSG:RSS-CLM`, `EO:EUM:DAT:0662`, `EO:EUM:DAT:0665`
