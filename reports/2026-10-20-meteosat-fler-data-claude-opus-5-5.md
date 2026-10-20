@@ -140,6 +140,35 @@ i kanten av synfältet med en starkt lutande synvinkel, men instrumentet prester
 förvånansvärt bra även norr om 70° N *(dok.)*. Om den såg cellerna över Kramfors är inte
 kontrollerat; det kräver att filerna hämtas.
 
+**Prövat 2026-10-20: molntoppens höjd över Kramfors.** Med användarens EUMETSAT-konto
+(nyckeln i `~/.eumdac/credentials`, hämtat med `eumdac` 3.1.1) hämtades MSG:s Cloud Top
+Height (`MSG:CTH`, Meteosat-10) för den 15 augusti 2026 kl. 12:00–19:45 UTC: 32 kvartar,
+cirka 410 kB vardera, i GRIB2 på ett rutnät av 1237 × 1237 för hela jordskivan (cirka
+3 × 3 SEVIRI-pixlar). Bara 10 rutor ligger i Kramfors kartområde (`MAP_BBOX`, 17,2–18,3° E,
+62,6–63,2° N) och 108 i en omgivning på 16–19,5° E, 62–63,8° N.
+
+Latitud och longitud som ecCodes 2.50 ger för produkten är roterade 180° (rutnätet har
+`scanningMode` 192). Kontrollerat mot kända molnmönster kl. 17 UTC: utan rättning blev
+Sahara 77 % molnigt; med rättningen blev regnbältet söder om Sahara (6–12° N) 81 % molnigt,
+södra Afrika under vintern (18–28° S) 4 % och Sahara 35 %. Ett verktyg måste rätta
+orienteringen och testa den.
+
+| Tid (UTC) | Kartområdet, moln | Kartområdet, medelhöjd | Omgivningen, medelhöjd |
+|---|---|---|---|
+| 12:00–14:45 | 90–100 % | 4,1–6,5 km | 5,1–6,5 km |
+| 15:00 | 100 % | 6,3 km | 6,9 km |
+| 15:30 | 100 % | 8,1 km | 7,6 km |
+| 16:00 | 100 % | 9,0 km | 8,0 km |
+| 17:00 | 100 % | 9,3 km | 8,3 km |
+| 18:00 | 100 % | 10,5 km | 8,6 km |
+| 19:00–19:45 | 100 % | 10,7–10,9 km | 9,0 km |
+
+Molntopparna över kartområdet steg från cirka 5–6 km till 9 km mellan 15:00 och 16:00
+UTC, före de syntetiska bräddgivarnas larm kl. 17 (DV1, DV3) och 18 UTC (DV4), och sedan
+mot cirka 11 km. Högsta värdet stannar vid 10,9 km från 15:15 UTC, troligen produktens tak
+eller tropopausens höjd, så medelhöjden säger mer. Bräddgivarna drivs av SMHI:s radarregn;
+tiderna är inte jämförda med radarn direkt.
+
 **Bedömning för demon.** Mest nytta för minst data: molntoppens höjd från MSG över
 skyfallet i Kramfors, kompletterad med MTG:s instabilitetsindex och Lightning Imagers
 blixtar, som tillsammans kan visa att ovädret byggdes upp innan bräddgivarna larmade.
