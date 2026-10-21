@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from tools import open_screens as screens
+from tools import windows_screens
+import pytest
 
 LISTING = """Monitors: 2
  0: +*HDMI-1-0 3440/797x1440/334+0+160  HDMI-1-0
@@ -82,3 +84,66 @@ def test_the_menu_opens_only_in_mission_control_s_place_and_the_other_screens_cl
     assert [(w.screen, w.path, w.x, w.y, w.width, w.height) for w in menu] == [
         ("control", "/menu.html", control.x, control.y, control.width, control.height)]
     assert [window.screen for window in closed] == ["monitor", "main"]
+
+
+def test_monitors_left_of_and_above_primary():
+    found = screens.monitors(" 0: +HDMI 1920/500x1080/300-1920-1080 HDMI")
+    assert found == [screens.Monitor("HDMI", 1920, 1080, -1920, -1080)]
+    assert screens.layout(found)[0].x == -1920
+
+
+def test_windows_monitor_dispatch(monkeypatch):
+    expected = [screens.Monitor("test", 1920, 1040, -1920, 0)]
+    monkeypatch.setattr(screens.sys, "platform", "win32")
+    monkeypatch.setattr(windows_screens, "monitors", lambda: expected)
+    assert screens.desktop_monitors() == expected
+
+
+def test_macos_has_an_explicit_limitation(monkeypatch):
+    monkeypatch.setattr(screens.sys, "platform", "darwin")
+    with pytest.raises(RuntimeError, match="macOS"):
+        screens.desktop_monitors()
+
+
+def test_linux_missing_tools_are_reported(monkeypatch):
+    monkeypatch.setattr(screens.sys, "platform", "linux")
+    monkeypatch.setattr(screens.shutil, "which", lambda name: None)
+    with pytest.raises(RuntimeError, match="X11"):
+        screens.desktop_monitors()
+
+
+def test_windows_closing_targets_a_complete_profile_argument(tmp_path):
+    profile = tmp_path / "user's files" / "main"
+    command = windows_screens.close_command(profile)
+    assert command[:4] == ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command"]
+    script = command[-1]
+    assert str(profile).replace("'", "''") in script
+    assert "[regex]::Escape" in script and "(?=\\s|$)" in script
+    assert "Win32_Process" in script and "Stop-Process -Id $_.ProcessId" in script
+    assert "taskkill" not in script
+
+
+def test_close_dispatch_is_limited_to_one_profile(monkeypatch):
+    commands = []
+    monkeypatch.setattr(screens.subprocess, "run", lambda command, **kwargs: commands.append(command))
+    monkeypatch.setattr(screens.sys, "platform", "win32")
+    screens.close_screen("main")
+    assert commands == [windows_screens.close_command(screens.PROFILES / "main")]
+    commands.clear()
+    monkeypatch.setattr(screens.sys, "platform", "linux")
+    screens.close_screen("main")
+    assert commands[0][:3] == ["pkill", "-f", "--"]
+    assert commands[0][-1].endswith(r"(\s|$)")
+
+
+def test_dry_run_never_opens_or_closes_windows(monkeypatch):
+    monkeypatch.setattr(screens, "find_chrome", lambda: "chrome.exe")
+    monkeypatch.setattr(screens, "desktop_monitors", lambda: [screens.Monitor("test", 1920, 1040, 0, 0)])
+    def forbidden(*args, **kwargs):
+        raise AssertionError("dry-run must not change windows or profiles")
+    monkeypatch.setattr(screens, "close_screen", forbidden)
+    monkeypatch.setattr(screens, "no_translation", forbidden)
+    monkeypatch.setattr(screens.subprocess, "Popen", forbidden)
+    assert screens.main(["--dry-run"]) == 0
+    assert screens.main(["--dry-run", "--menu"]) == 0
+    assert screens.main(["--dry-run", "--close"]) == 0

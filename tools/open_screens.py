@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Open the demo's three screens as Chrome app windows, each in its place.
 
+Ubuntu/X11 uses xrandr, xprop and wmctrl. Windows uses native monitor/window
+APIs and PowerShell process selection (tools/windows_screens.py); VM verification
+is still required. Chrome discovery also covers macOS, but automatic placement
+and closing there are not implemented: open the demo URLs manually instead.
+
 A new window in a running Chrome opens where Chrome likes; its position cannot be set.
 So each screen gets a Chrome of its own, with a profile of its own under
 ~/.cache/techseed-screens/. The window manager places new windows itself, so once a
@@ -28,13 +33,16 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from urllib.parse import quote
 
+from tools.startup_check import find_chrome
+
 PROFILES = Path.home() / ".cache" / "techseed-screens"
-MONITOR_LINE = re.compile(r"^\s*\d+:\s+\S+\s+(\d+)/\d+x(\d+)/\d+\+(\d+)\+(\d+)\s+(\S+)")
+MONITOR_LINE = re.compile(r"^\s*\d+:\s+\S+\s+(\d+)/\d+x(\d+)/\d+([+-]\d+)([+-]\d+)\s+(\S+)")
 
 
 @dataclass(frozen=True)
@@ -174,6 +182,32 @@ def place(pid: int, window: Window, seconds: float = 20.0) -> bool:
     return False
 
 
+def desktop_monitors() -> list[Monitor]:
+    if sys.platform == "win32":
+        from tools import windows_screens
+        return windows_screens.monitors()
+    if sys.platform != "linux":
+        raise RuntimeError("Automatic window placement is not implemented on macOS; open the demo URLs manually.")
+    for command in ("xrandr", "xprop", "wmctrl", "pkill"):
+        if not shutil.which(command):
+            raise RuntimeError(f"Missing {command}; automatic Linux placement requires an X11 desktop.")
+    listing = subprocess.run(["xrandr", "--listmonitors"], capture_output=True, text=True, check=False).stdout
+    prop = subprocess.run(["xprop", "-root", "_GTK_WORKAREAS_D0"], capture_output=True, text=True, check=False).stdout
+    return within_work_areas(monitors(listing), work_areas(prop))
+
+
+def close_screen(screen: str) -> None:
+    if sys.platform == "win32":
+        from tools import windows_screens
+        command = windows_screens.close_command(PROFILES / screen)
+    elif sys.platform == "linux":
+        # Escape profile paths as regex literals and require a complete argument.
+        command = ["pkill", "-f", "--", re.escape(f"--user-data-dir={PROFILES / screen}") + r"(\s|$)"]
+    else:
+        raise RuntimeError("Automatic demo window closing is not implemented on this platform.")
+    subprocess.run(command, check=False, timeout=15)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("--base-url", default="http://127.0.0.1:8765", help="the backend")
@@ -186,35 +220,38 @@ def main(argv: list[str] | None = None) -> int:
     if args.close:
         print("Stänger demons skärmar")
         if not args.dry_run:
-            subprocess.run(close_all_command(), check=False)
+            for screen in ("monitor", "main", "control"):
+                close_screen(screen)
         return 0
-    chrome = shutil.which("google-chrome") or shutil.which("google-chrome-stable") or shutil.which("chromium")
+    chrome = find_chrome()
     if not chrome:
         parser.exit(1, "open_screens: Google Chrome is not installed\n")
-    if not args.dry_run and not shutil.which("wmctrl"):
-        parser.exit(1, "open_screens: wmctrl is needed to place the windows (sudo apt install wmctrl)\n")
-    listing = subprocess.run(["xrandr", "--listmonitors"], capture_output=True, text=True, check=False).stdout
-    screens = monitors(listing)
+    try:
+        screens = desktop_monitors()
+    except (OSError, RuntimeError) as exc:
+        parser.exit(1, f"open_screens: {exc}\n")
     if not screens:
-        parser.exit(1, "open_screens: xrandr found no monitors\n")
-    prop = subprocess.run(["xprop", "-root", "_GTK_WORKAREAS_D0"], capture_output=True, text=True, check=False).stdout
-    screens = within_work_areas(screens, work_areas(prop))
+        parser.exit(1, "open_screens: no monitors found\n")
     windows, closed = menu_windows(layout(screens)) if args.menu else (layout(screens, args.at), [])
     for window in closed:
         print(f"{window.screen}: stängs tills en demo är vald")
         if not args.dry_run:
-            subprocess.run(close_command(window), check=False)
+            close_screen(window.screen)
     for window in windows:
         command = chrome_command(chrome, args.base_url.rstrip("/"), window)
         print(f"{window.screen}: {window.width}x{window.height} at {window.x},{window.y} – {args.base_url}{window.path}")
         if args.dry_run:
             print("  " + " ".join(command))
             continue
-        subprocess.run(close_command(window), check=False)
+        close_screen(window.screen)
         time.sleep(1.0)  # the old Chrome lets go of its profile
         no_translation(PROFILES / window.screen)
         chrome_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-        if not place(chrome_process.pid, window):
+        if sys.platform == "win32":
+            from tools.windows_screens import place as place_window
+        else:
+            place_window = place
+        if not place_window(chrome_process.pid, window):
             print(f"  {window.screen}: the window did not appear; move it by hand")
     return 0
 

@@ -134,16 +134,14 @@ def wait_for(url: str, seconds: float = 60.0) -> None:
 
 
 def screen_places() -> dict[str, open_screens.Window]:
-    """Where tools/open_screens.py puts each screen on this computer's monitors; empty without xrandr."""
+    """The shared desktop layout; empty if automatic monitor discovery is unavailable."""
     try:
-        listing = subprocess.run(["xrandr", "--listmonitors"], capture_output=True, text=True, check=False).stdout
-        prop = subprocess.run(["xprop", "-root", "_GTK_WORKAREAS_D0"], capture_output=True, text=True, check=False).stdout
-    except OSError:
+        found = open_screens.desktop_monitors()
+    except (OSError, RuntimeError):
         return {}
-    found = open_screens.monitors(listing)
     if not found:
         return {}
-    return {window.screen: window for window in open_screens.layout(open_screens.within_work_areas(found, open_screens.work_areas(prop)))}
+    return {window.screen: window for window in open_screens.layout(found)}
 
 
 def bounds(window: open_screens.Window) -> dict[str, Any]:
