@@ -492,6 +492,11 @@ kartan kan du fortfarande zooma, dra och högerklicka. Lägg till `?controls=1` 
 att få tillbaka huvudskärmens egna knappar och lagerlistor vid felsökning. Uppspelningsknapparna
 där styr alla skärmar, medan lagerlistan och stationslistorna bara gäller den skärmen.
 
+**VISA 2D / VISA 3D.** Knappen bredvid **UPPLÄSNING** i mission control byter huvudskärmen mellan
+3D-globen och 2D-kartan; den heter efter den vy du byter till. Klockan, lagren och händelserna följer
+med, och RESET behåller vyn. STARTA OM DEMO och BYT SCENARIO börjar i 3D. Ett fönster med
+`?controls=1` byter inte. GOD VIEW är tom utanför området runt händelsen i 2D, så använd 3D för den.
+
 **Kartans lager.** Rutan **Kartans lager**, överst i gruppen **Kartan** i mittkolumnen, har en
 kryssruta per lager och de fyra kategorierna för GOD VIEW: **Space** (detektioner och
 satelliter), **IoT** (syntetiska sensorer), **Infrastructure** (svar på fråga) och **Weather**
@@ -671,7 +676,7 @@ Hitta det du ser i vänstra kolumnen. Åtgärderna A–F står i kodblocket unde
 | Kartan runt brandområdet är tom eller ljus | Kartjänsten är inte igång. | F. |
 | 3D-vyn rör sig ryckigt | För hög hastighet eller för svagt grafikkort. | Välj 1 minut/s och tryck **ANVÄND** i SPACE VIEW. Kör generalrepetitionen i avsnitt 6. |
 | Mission control säger "fel eller saknad token" | Backend kräver token. | Lägg till `?token=din-token` i adressen, se avsnitt 9. |
-| GOD VIEW blir tom på 2D-kartan | Känd begränsning: den sparade kartan täcker bara brandområdet. | Använd 3D-vyn (`3d.html`). |
+| GOD VIEW blir tom på 2D-kartan | Känd begränsning: den sparade kartan täcker bara brandområdet. | Tryck **VISA 3D** i mission control. |
 | En röd ruta på huvudskärmen: "An error occurred while rendering. Rendering has stopped." | 3D-vyn har slutat rita, oftast på grund av grafikkortet. Panelen till höger fungerar fortfarande. | Ladda om huvudskärmen med adressen i avsnitt 8. Kommer rutan igen, starta om Chrome på vanligt sätt och kör generalrepetitionen i avsnitt 6. |
 | Något annat ser konstigt ut | – | Tryck **RESET**. Hjälper det inte, ladda om huvudskärmen med adressen i avsnitt 8. |
 

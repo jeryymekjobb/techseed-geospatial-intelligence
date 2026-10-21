@@ -43,3 +43,15 @@ def test_kiosk_options_are_parsed_and_validated() -> None:
     assert valid == {"showAll": False, "at": "2014-08-04T06:00:00.000Z", "autoplay": True, "speed": 10800, "horizon": "6"}
     assert invalid == {"showAll": True, "at": None, "autoplay": False, "speed": None, "horizon": None}
     assert labels == ["1 timme/s", "3 timmar/s", "1 dygn/s", "30 minuter/s"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_a_display_only_main_screen_follows_mission_control_s_view() -> None:
+    code = (
+        f"const k = require({json.dumps(str(KIOSK))});"
+        "console.log(JSON.stringify(["
+        "k.viewPage('3d', '2d', '?at=2014-07-31T00:00:00Z&show=all'), k.viewPage('2d', '3d', ''),"
+        "k.viewPage('3d', '3d', ''), k.viewPage('3d', '2d', '?controls=1'), k.viewPage('3d', undefined, '')]));"
+    )
+    pages = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+    assert pages == ["/?show=all", "/3d.html", None, None, None]

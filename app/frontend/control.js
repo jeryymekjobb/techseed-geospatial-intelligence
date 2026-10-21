@@ -92,6 +92,8 @@ function showState(scenarioState) {
   // UPPLÄSNING: the satellite monitor reads new log lines aloud.
   $("speech-toggle").textContent = status.speech ? "UPPLÄSNING PÅ" : "UPPLÄSNING AV";
   $("speech-toggle").classList.toggle("active", Boolean(status.speech));
+  // VISA 2D / VISA 3D: the main screen's map; the button names the other one.
+  $("view-toggle").textContent = status.view === "2d" ? "VISA 3D" : "VISA 2D";
   lastState = scenarioState;
   showUnsaved();
   if (![...speeds.options].some((option) => Number(option.value) === scenarioState.speed)) {
@@ -383,6 +385,15 @@ function setupWindow() {
   $("window-note").textContent = `Scenariots data: ${localTime.format(new Date(config.playback.data_start_utc))} – `
     + `${localTime.format(new Date(config.playback.data_end_utc))}. RESET går till start men ändrar inte tiderna, uppspelningen stannar vid stopp; SPARA PROFIL sparar tiderna.`;
 }
+
+$("view-toggle").addEventListener("click", () => {
+  send("view", status?.view === "2d" ? "3d" : "2d").then((state) => {
+    showState(state);
+    $("command-status").textContent = "";
+  }).catch((error) => {
+    $("command-status").textContent = `Vyn kunde inte bytas: ${error.message}`;
+  });
+});
 
 $("speech-toggle").addEventListener("click", () => {
   send("speech", status?.speech ? "off" : "on").then((state) => {

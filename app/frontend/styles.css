@@ -162,6 +162,7 @@ body.menu-page { background: #141414; color: #f2f2f2; display: grid; place-items
 .image-types .count { margin-left: auto; color: #b0b0b0; font-size: 0.85rem; white-space: nowrap; }
 .image-pick { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin: 6px 0; font-size: 0.9rem; }
 .control-row.pick-row { grid-template-columns: 1fr; margin-top: 0; }
+.control-row.pick-row.view-row { grid-template-columns: repeat(2, 1fr); }
 #image-shown { white-space: pre-line; }
 .image-pick select { width: 100%; min-width: 0; padding: 8px; font-size: 1rem; }
 .control-row.speed-row { grid-template-columns: repeat(3, 1fr); }

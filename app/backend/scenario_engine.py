@@ -123,6 +123,7 @@ class ScenarioEngine:
     _image_types: list[str] | None = field(default=None, init=False)
     _base_maps: list[str] | None = field(default=None, init=False)
     _speech: bool = field(default=True, init=False)
+    _view: str = field(default="3d", init=False)  # the main screen's map: "3d" globe or "2d" map
     _camera: dict[str, Any] = field(default_factory=lambda: {"target": None, "seq": 0}, init=False)
     _map_layers: dict[str, bool] = field(default_factory=dict, init=False)
     _choices: dict[str, str] = field(default_factory=dict, init=False)
@@ -250,7 +251,7 @@ class ScenarioEngine:
                 "status": {**self._status(), "detection": self._detection_status(), "image": self._image,
                            "image_types": None if self._image_types is None else list(self._image_types),
                            "base_maps": None if self._base_maps is None else list(self._base_maps),
-                           "speech": self._speech,
+                           "speech": self._speech, "view": self._view,
                            "camera": dict(self._camera), "map_layers": dict(self._map_layers),
                            "choices": dict(self._choices), "question": dict(self._question)},
             }
@@ -433,6 +434,10 @@ class ScenarioEngine:
                 if target not in ("on", "off"):
                     raise CommandError('speech needs "on" or "off"')
                 self._speech = target == "on"
+            elif name == "view":
+                if target not in ("2d", "3d"):
+                    raise CommandError('view needs "2d" or "3d"')
+                self._view = target
             elif name == "base_maps":
                 if target is None or not IMAGE_TYPES_PATTERN.fullmatch(target):
                     raise CommandError('base_maps needs base maps separated by commas, for example "offline,online"')

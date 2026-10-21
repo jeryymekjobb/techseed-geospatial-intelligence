@@ -1275,6 +1275,12 @@ function applyQuestion(status, previous) {
 function applyStatus(status) {
   const previous = state.scenarioStatus;
   state.scenarioStatus = status;
+  // VISA 2D / VISA 3D in mission control: a display-only main screen goes to the other page.
+  const page = viewPage(state.map.dimension, status.view, window.location.search);
+  if (page) {
+    window.location.assign(page);
+    return;
+  }
   const lines = statusLines(status);
   const list = $("scenario-status");
   list.innerHTML = "";

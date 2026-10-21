@@ -1,5 +1,6 @@
 // URL options for kiosk use and recordings: ?show=all, ?at=<ISO time>,
-// ?autoplay=1, ?speed=<simulated seconds per second>, ?horizon=<3|6|12|24>.
+// ?autoplay=1, ?speed=<simulated seconds per second>, ?horizon=<3|6|12|24>; and the main screen's
+// switch between the 2D map and the 3D globe from mission control (viewPage).
 "use strict";
 
 const KIOSK_HORIZONS = ["3", "6", "12", "24"];
@@ -26,4 +27,15 @@ function speedLabel(seconds) {
   return `${minutes} ${minutes === 1 ? "minut" : "minuter"}/s`;
 }
 
-if (typeof module !== "undefined") module.exports = { parseKioskOptions, speedLabel };
+// The page a display-only main screen goes to when mission control's view (the status's `view`)
+// differs from its own, with its own options but without ?at= (which would seek again); null when it
+// stays: the same view, or a window with ?controls=1 that someone works in.
+function viewPage(dimension, wanted, search) {
+  const options = new URLSearchParams(search);
+  if (!wanted || wanted === dimension || options.get("controls") === "1") return null;
+  options.delete("at");
+  const query = options.toString();
+  return `${wanted === "2d" ? "/" : "/3d.html"}${query ? `?${query}` : ""}`;
+}
+
+if (typeof module !== "undefined") module.exports = { parseKioskOptions, speedLabel, viewPage };
