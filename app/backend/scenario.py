@@ -114,6 +114,11 @@ METEOSAT_FRP_COMPARE = getattr(_module, "METEOSAT_FRP_COMPARE", None)
 METEOSAT_FRM_FILE = getattr(_module, "METEOSAT_FRM_FILE", None)
 # Meteosat's cloud top height over the area every 15 minutes (tools/fetch_meteosat_cth.py, meteosat_cth.py).
 METEOSAT_CTH_FILE = getattr(_module, "METEOSAT_CTH_FILE", None)
+# Meteosat's cloud mask over the area every hour and at each image (tools/fetch_meteosat_clm.py, meteosat_clm.py).
+METEOSAT_CLM_FILE = getattr(_module, "METEOSAT_CLM_FILE", None)
+# MTG's Lightning Imager flashes and instability indices over the area (tools/fetch_meteosat_li.py, fetch_meteosat_gii.py).
+METEOSAT_LI_FILE = getattr(_module, "METEOSAT_LI_FILE", None)
+METEOSAT_GII_FILE = getattr(_module, "METEOSAT_GII_FILE", None)
 # The fire's forecast weather station, for the screens' texts.
 FORECAST_STATION = getattr(_module, "FORECAST_STATION", "")
 SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})

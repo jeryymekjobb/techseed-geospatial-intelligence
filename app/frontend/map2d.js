@@ -129,6 +129,8 @@ function createLeafletMap(config) {
   let frmVisible = false;
   let cthLayer = null;  // Meteosat's cloud top height (meteosat_cth.py), off until ticked
   let cthVisible = false;
+  let liLayer = null;  // MTG's Lightning Imager flashes of the last hour (meteosat_li.py)
+  let liVisible = true;
   let dailyRainLayer = null;  // SMHI's rain by the day (daily_rain.py)
   let dailyRainVisible = true;
   let routeExposureLayer = null;  // roads and railways under heavy rain, computed from the radar
@@ -472,6 +474,21 @@ function createLeafletMap(config) {
       }
     },
 
+    // The Lightning Imager's flashes of the last hour: small cyan dots, apart from SMHI's yellow bolts.
+    setupMeteosatLi(label) {
+      liLayer = L.layerGroup().addTo(map);
+      overlays[label] = liLayer;
+    },
+
+    drawMeteosatLi(flashes) {
+      if (!liLayer) return;
+      liLayer.clearLayers();
+      for (const flash of flashes) {
+        L.circleMarker([flash.latitude, flash.longitude], { radius: 3, weight: 1, color: "#006d77", fillColor: "#22d3ee", fillOpacity: 0.9 })
+          .bindTooltip(`Blixt sedd från rymden för ${flash.age_min} min sedan (Meteosat-12)`).addTo(liLayer);
+      }
+    },
+
     // SMHI's rain by the day: a marker in the rain's class with the station's latest ended day.
     setupDailyRain(info) {
       dailyRainLayer = L.layerGroup().addTo(map);
@@ -553,6 +570,9 @@ function createLeafletMap(config) {
       } else if (name === "Prognosvind (MET Norway)") {
         forecastWindVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
+      } else if (layer === liLayer) {
+        liVisible = visible;
+        effectiveVisible = visible && weatherCategoryVisible;
       } else if (layer === cthLayer) {
         cthVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
@@ -629,6 +649,7 @@ function createLeafletMap(config) {
         setMapLayerVisible(dailyRainLayer, visible && dailyRainVisible);
         setMapLayerVisible(frmLayer, visible && frmVisible);
         setMapLayerVisible(cthLayer, visible && cthVisible);
+        setMapLayerVisible(liLayer, visible && liVisible);
         return;
       }
       const groups = { space: [hotspots, meteosatLayer], iot: [syntheticLayer], infrastructure: [queryLayer, threatLayer, routeImpactLayer, routeExposureLayer] };

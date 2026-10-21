@@ -369,3 +369,23 @@ def test_what_meteosat_missed_is_a_line_a_day() -> None:
     assert [line["text"] for line in lines] == [
         "Meteosat-11 (geostationär) ser branden vid Strandåsmyrvallen, 50 kilometer väster om Kårböle: 45 pixlar, starkast 3115,6 megawatt – men ingen vid Kårböle"]
     assert lines[0]["spoken"].endswith("starkast 3116 megawatt – men ingen vid Kårböle")
+
+
+def test_meteosat_12_s_lightning_and_instability_are_lines() -> None:
+    lightning = [{"time_utc": "2026-08-15T17:00:00Z", "count": 39, "kind": "up"}, {"time_utc": "2026-08-16T01:00:00Z", "count": 2, "kind": "down"}]
+    instability = [{"time_utc": "2026-08-15T06:00:06Z", "k_max": 32.5, "class": "hög"}]
+    lines = node(f"satelliteLog({{ lightningImagerEvents: {json.dumps(lightning)}, instabilityEvents: {json.dumps(instability)} }}, "
+                 "Date.parse('2026-08-16T02:00:00Z'), 86400000, Infinity, 'Kramfors')")
+    assert [line["text"] for line in lines] == [
+        "Åskan över Kramfors avtar enligt Meteosat: 2 blixtar den senaste timmen",
+        "Meteosat ser åska över Kramfors: 39 blixtar den senaste timmen",
+        "Meteosat: hög åskpotential runt Kramfors, K-index 32,5",
+    ]
+    assert lines[2]["spoken"] == "Meteosat: hög åskpotential runt Kramfors, K-index 33"  # a half up, as the voice rounds
+
+
+def test_an_image_line_says_meteosat_s_cloud_where_known() -> None:
+    scenes = [{"satellite": "Sentinel-1C", "acquired_utc": "2026-08-16T05:21:32Z", "meteosat_cloud_pct": 100},
+              {"satellite": "Landsat 8", "acquired_utc": "2026-08-16T10:00:00Z"}]
+    lines = node(f"satelliteLog({{ scenes: {json.dumps(scenes)} }}, Date.parse('2026-08-16T12:00:00Z'), 86400000, Infinity, 'Kramfors')")
+    assert [line["text"] for line in lines] == ["Landsat 8 tar bild över Kramfors", "Sentinel-1C tar bild över Kramfors – Meteosat: 100 procent moln"]

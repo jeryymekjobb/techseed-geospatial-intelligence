@@ -90,6 +90,7 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 .legend li { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
 .hydro-line { fill: none; stroke: #0b6e4f; stroke-width: 1.6; }
 .cth-line { fill: none; stroke: #5b3fb0; stroke-width: 1.6; }
+.clm-line { fill: none; stroke: #6b7280; stroke-width: 1.6; }
 .hydro-record { stroke: #b3261e; stroke-width: 1; stroke-dasharray: 4 3; }
 .legend-arrow { width: 28px; height: 14px; flex: none; }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid #0003; flex: none; }

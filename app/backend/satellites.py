@@ -35,10 +35,11 @@ def contributes(item: dict[str, Any], imaged: set[str], geostationary_data: bool
 
 
 def meteosat_data() -> bool:
-    """Whether the scenario shows Meteosat's own data: its fire pixels or its cloud tops."""
-    from app.backend import meteosat, meteosat_cth  # they import scenario only; kept local to keep this module light
+    """Whether the scenario shows Meteosat's own data: fire pixels, cloud tops, cloud mask, lightning or instability."""
+    from app.backend import meteosat, meteosat_clm, meteosat_cth, meteosat_gii, meteosat_li  # they import scenario only
 
-    return bool(meteosat.pixels()) or meteosat_cth.data() is not None
+    return (bool(meteosat.pixels()) or meteosat_cth.data() is not None or meteosat_clm.data() is not None
+            or bool(meteosat_li.flashes()) or meteosat_gii.data() is not None)
 
 
 @lru_cache(maxsize=1)

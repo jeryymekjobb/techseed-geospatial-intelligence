@@ -48,7 +48,7 @@ def test_config_gives_the_screens_the_scenario_texts_camera_and_map_area() -> No
 def test_sundsvall_2026_is_a_flood_with_its_own_data_and_the_municipality_s_layers() -> None:
     result = run_python("from app.backend import scenario; print(scenario.NAME, scenario.INCIDENT, scenario.DATABASE, "
                         "len(scenario.TLE_SATELLITES), scenario.TERRAIN_DIR.relative_to(scenario.REPO_ROOT))", "sundsvall2026")
-    assert result.stdout.split() == ["sundsvall2026", "flood", "sundsvall2026", "9", "data/sundsvall2026/terrain"]  # with Meteosat-10
+    assert result.stdout.split() == ["sundsvall2026", "flood", "sundsvall2026", "10", "data/sundsvall2026/terrain"]  # with Meteosat-10 and -12
     layers = run_python("from app.backend import scenario; print(*scenario.MUNICIPAL_WMS['layers'])", "sundsvall2026").stdout.split()
     assert len(layers) == 12 and all(layer.startswith("SundsvallsKommun:") for layer in layers)  # only the municipality's own
     config = run_python("from app.backend import server, lantmateriet; import json; "

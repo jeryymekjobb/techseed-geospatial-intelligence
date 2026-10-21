@@ -69,6 +69,8 @@ METEOSAT_FRP_COMPARE = {"name": "Strandåsmyrvallen", "source": "Copernicus EMS,
                         "direction": "väster om", "near": "Kårböle", "bbox": (14.25, 61.7, 14.7, 61.95)}
 # LSA SAF's fire risk (FRM v3), a map a day valid at 12 UTC (tools/fetch_meteosat_frm.py).
 METEOSAT_FRM_FILE = DATA / "meteosat-frm" / "frm.json"
+# Meteosat's cloud mask every hour and at each image (tools/fetch_meteosat_clm.py).
+METEOSAT_CLM_FILE = DATA / "meteosat-clm" / "clm.json"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2018.json"
 

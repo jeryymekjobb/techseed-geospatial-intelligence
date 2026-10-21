@@ -111,7 +111,7 @@ function satlogWhole(value) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null, lightningImagerEvents = [], instabilityEvents = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -134,7 +134,9 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
   for (const scene of scenes) {
     const satellite = scene.satellite || "Landsat 8";
     lines.push({
-      atMs: Date.parse(scene.acquired_utc), text: `${satellite} tar bild över ${place}`, source: "landsat", kind: "landsat",
+      // With Meteosat's cloudy share over the map area at the image's time, where fetched (meteosat_clm.py).
+      atMs: Date.parse(scene.acquired_utc), source: "landsat", kind: "landsat",
+      text: `${satellite} tar bild över ${place}${scene.meteosat_cloud_pct === undefined ? "" : ` – Meteosat: ${scene.meteosat_cloud_pct} procent moln`}`,
       // "Landsat 2014", "Sentinel-2 2026": the mission without the unit.
       sourceText: `${satellite.replace(/(Sentinel-\d)[A-Z]$/, "$1").replace(/ \d$/, "")} ${scene.acquired_utc.slice(0, 4)}`,
     });
@@ -210,6 +212,19 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     const said = `${day.satellite} (geostationär) ser branden vid ${meteosatCompare.name}, ${where}: ${count}, starkast`;
     lines.push({ atMs: Date.parse(day.time_utc), source: "meteosat", kind: "meteosat_compare", sourceText: `Meteosat ${day.time_utc.slice(0, 4)}`,
                  text: `${said} ${satlogDecimal(day.max_frp_mw)} megawatt${missed}`, spoken: `${said} ${satlogWhole(day.max_frp_mw)} megawatt${missed}` });
+  }
+  // MTG's Lightning Imager over the incident (meteosat_li.py events): a thunderstorm beginning and ending.
+  for (const event of lightningImagerEvents) {
+    const count = event.count === 1 ? "1 blixt" : `${event.count} blixtar`;
+    lines.push({ atMs: Date.parse(event.time_utc), source: "meteosat", kind: "lightning_imager", sourceText: `Meteosat ${event.time_utc.slice(0, 4)}`,
+                 text: event.kind === "up" ? `Meteosat ser åska över ${place}: ${count} den senaste timmen`
+                   : `Åskan över ${place} avtar enligt Meteosat: ${count} den senaste timmen` });
+  }
+  // MTG's instability indices (meteosat_gii.py events): the first time a day the K index is high.
+  for (const event of instabilityEvents) {
+    lines.push({ atMs: Date.parse(event.time_utc), source: "meteosat", kind: "instability", sourceText: `Meteosat ${event.time_utc.slice(0, 4)}`,
+                 text: `Meteosat: ${event.class} åskpotential runt ${place}, K-index ${String(event.k_max).replace(".", ",")}`,
+                 spoken: `Meteosat: ${event.class} åskpotential runt ${place}, K-index ${Math.round(event.k_max)}` });
   }
   // LSA SAF's fire risk at the fire (meteosat_frm.py changes): its first class and every change, at 12 UTC.
   for (const change of fireRiskChanges) {

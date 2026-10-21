@@ -1226,7 +1226,7 @@ TILES_FILE=vasternorrland.mbtiles docker compose up -d tiles
 
 ---
 
-# Del 9 – Meteosats molntoppar i Kramfors, Sundsvall och Västernorrland
+# Del 9 – Meteosat i översvämningarna: molntoppar, moln och åska
 
 Kramfors 2026, Sundsvall 2026 och Västernorrland 2025 visar, utöver SMHI:s radar och sensorerna,
 hur högt molntopparna nådde enligt Meteosat var 15:e minut. Stigande toppar visar åskmoln som växer, ofta innan regnet
@@ -1253,4 +1253,28 @@ Det är Meteosats produkt, inte en prognos. Data hämtas med EUMETSAT-kontot (av
 TECHSEED_SCENARIO=kramfors2026 .venv/bin/python -m tools.fetch_meteosat_cth
 TECHSEED_SCENARIO=sundsvall2026 .venv/bin/python -m tools.fetch_meteosat_cth       # nio dygn, cirka 350 MB
 TECHSEED_SCENARIO=vasternorrland2025 .venv/bin/python -m tools.fetch_meteosat_cth
+```
+
+**Moln (Meteosat), alla scenarier.** Panelen har kurvan **Moln (Meteosat)**: andelen moln över
+kartområdet varje timme, ur Meteosats molnmask. Varje satellitbild får sin molnandel i bildtexten, i
+mission controls bildlista och i loggen, till exempel "Sentinel-1C tar bild över Kramfors – Meteosat:
+100 procent moln". Det förklarar varför en optisk bild är molnig eller saknas; radarn ser genom moln.
+
+**Åska (Meteosat-12), Kramfors, Sundsvall och Västernorrland.** Meteosat-12 (MTG) har en
+blixtkamera och räknar ut åskpotentialen ur molnfria rutor:
+
+- Kartlagret **Blixtar från rymden (Meteosat)** visar blixtarna den senaste timmen som små cyanfärgade
+  punkter, också blixtar inne i molnen, bredvid SMHI:s gula blixtar. Zooma ut för att se hela området.
+- Panelens **Åska (Meteosat-12)** räknar blixtarna i kartområdet den senaste timmen och visar K-index
+  (åskpotential: under 20 låg, 20–30 måttlig, 30–35 hög, över 35 mycket hög – en tumregel) från de
+  senaste molnfria rutorna.
+- Loggen säger när en åskepisod börjar och slutar, till exempel "Meteosat ser åska över Kramfors: 87
+  blixtar den senaste timmen", och första gången per dygn K-index är högt.
+
+Norden ligger i kanten av blixtkamerans synfält. Data hämtas med EUMETSAT-kontot (avsnitt 2):
+
+```bash
+TECHSEED_SCENARIO=<scenario> .venv/bin/python -m tools.fetch_meteosat_clm   # molnmasken, alla scenarier
+TECHSEED_SCENARIO=<scenario> .venv/bin/python -m tools.fetch_meteosat_li    # blixtarna, 2025–2026
+TECHSEED_SCENARIO=<scenario> .venv/bin/python -m tools.fetch_meteosat_gii   # åskpotentialen, 2025–2026
 ```

@@ -108,14 +108,35 @@ def read_grib(data: bytes) -> tuple[int, list[float], list[float], list[float], 
         eccodes.codes_release(handle)
 
 
+def download(product, token, target: Path, timeout: float = 120, attempts: int = 3) -> Path:
+    """The product's zip into `target` from its URL with the API token, giving up a stalled download
+    after `timeout` seconds and trying `attempts` times (eumdac's own open() has no time limit)."""
+    from urllib.request import Request, urlopen
+
+    if target.is_file() and target.stat().st_size:
+        return target
+    for attempt in range(attempts):
+        try:
+            request = Request(product.url, headers={"Authorization": f"Bearer {token.access_token}"})
+            with urlopen(request, timeout=timeout) as response:
+                data = response.read()
+            target.write_bytes(data)
+            return target
+        except OSError:
+            if attempt == attempts - 1:
+                raise
+    return target
+
+
 def products(start: datetime, end: datetime):
     import eumdac  # only this tool needs it
 
     if not CREDENTIALS.is_file():
         raise SystemExit(f"fetch_meteosat_cth: no EUMETSAT API key in {CREDENTIALS} (eumdac set-credentials)")
     key, secret = CREDENTIALS.read_text(encoding="utf-8").strip().split(",", 1)
-    store = eumdac.DataStore(eumdac.AccessToken((key, secret)))
-    return sorted(store.get_collection(COLLECTION).search(dtstart=start, dtend=end), key=lambda product: str(product))
+    token = eumdac.AccessToken((key, secret))
+    store = eumdac.DataStore(token)
+    return token, sorted(store.get_collection(COLLECTION).search(dtstart=start, dtend=end), key=lambda product: str(product))
 
 
 def time_of(product_id: str) -> str:
@@ -136,12 +157,10 @@ def main(argv: list[str] | None = None) -> int:
     cells: list[dict[str, Any]] = []
     quarters = []
     satellites = set()
-    for product in products(scenario.PLAYBACK_START, scenario.PLAYBACK_END):
+    token, found = products(scenario.PLAYBACK_START, scenario.PLAYBACK_END)
+    for product in found:
         name = str(product)
-        cached = args.cache / f"{name}.zip"
-        if not (cached.is_file() and cached.stat().st_size):
-            with product.open() as stream:
-                cached.write_bytes(stream.read())
+        cached = download(product, token, args.cache / f"{name}.zip")
         size, lats, lons, values, missing = read_grib(cached.read_bytes())
         grid = rows(values, size)
         if not cells:
