@@ -19,6 +19,8 @@ import pytest
 from app.backend import lantmateriet, server, speech
 from app.backend.scenario_engine import ScenarioEngine
 from tools import fetch_piper_voices
+from app.backend import wav_player
+from types import SimpleNamespace
 
 # Takes a moment, like speaking; the WAV file or the text is its last argument.
 PLAY = [sys.executable, "-c", "import time; time.sleep(0.2)"]
@@ -95,6 +97,63 @@ def test_the_installed_voices_are_the_pinned_ones() -> None:
     assert set(fetch_piper_voices.SHA256) == {f"{model}{suffix}" for model in speech.VOICES.values() for suffix in (".onnx", ".onnx.json")}
     assert fetch_piper_voices.url("alma", "MODEL_CARD").endswith("/sv/sv_SE/alma/medium/MODEL_CARD")
     assert "alma (CC BY 4.0)" in speech.CREDIT and "nst (CC0)" not in speech.CREDIT  # only alma is heard
+
+
+def test_platform_audio_commands_preserve_linux_and_use_interruptible_players():
+    assert speech.audio_commands("linux") == (speech.PLAY, speech.FALLBACK, speech.CANCEL)
+    assert speech.audio_commands("darwin") == (("/usr/bin/afplay",), (), ())
+    play, fallback, cancel = speech.audio_commands("win32")
+    assert play == (sys.executable, str(Path(speech.__file__).with_name("wav_player.py")))
+    assert not fallback and not cancel
+    assert speech.audio_commands("unsupported") == ((), (), ())
+
+
+def test_missing_voice_without_fallback_is_explicit_and_never_plays(tmp_path, caplog):
+    speaker = speech.Speaker(lambda: {}, PLAY, (), ())
+    assert speaker._command("test", "alma", tmp_path) == ([], "unavailable")
+    assert speaker._command("test again", "alma", tmp_path) == ([], "unavailable")
+    assert len(caplog.records) == 1 and "Speech unavailable" in caplog.text
+    speaker.stop()
+
+
+@pytest.mark.parametrize("platform", ["win32", "darwin"])
+def test_platform_default_player_receives_the_synthesized_wav(platform, tmp_path, monkeypatch):
+    commands = speech.audio_commands(platform)
+    monkeypatch.setattr(speech, "audio_commands", lambda: commands)
+    speaker = speech.Speaker(fake_voices("alma"))
+    command, voice = speaker._command("test", "alma", tmp_path)
+    assert command == [*commands[0], str(tmp_path / "line.wav")] and voice == "alma"
+    assert (tmp_path / "line.wav").is_file()
+
+
+def test_stop_only_terminates_the_active_player_without_a_global_cancel(monkeypatch):
+    calls = []
+    speaker = speech.Speaker(lambda: {}, PLAY, (), ())
+    speaker.current = SimpleNamespace(poll=lambda: None, terminate=lambda: calls.append("terminate"))
+    def forbidden(*args, **kwargs):
+        raise AssertionError("no system-wide cancellation")
+    monkeypatch.setattr(speech.subprocess, "run", forbidden)
+    speaker.stop()
+    assert calls == ["terminate"]
+
+
+def test_windows_wav_playback_uses_synchronous_winsound_with_no_default_sound(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(wav_player.sys, "platform", "win32")
+    monkeypatch.setitem(sys.modules, "winsound", SimpleNamespace(
+        PlaySound=lambda path, flags: calls.append((path, flags)), SND_FILENAME=1, SND_NODEFAULT=2))
+    path = tmp_path / "a file å.wav"
+    assert wav_player.main([str(path)]) == 0
+    assert calls == [(str(path), 3)]
+
+
+def test_windows_wav_playback_reports_device_failure(monkeypatch, capsys):
+    def fail(*args):
+        raise RuntimeError("device error")
+    monkeypatch.setattr(wav_player.sys, "platform", "win32")
+    monkeypatch.setitem(sys.modules, "winsound", SimpleNamespace(PlaySound=fail, SND_FILENAME=1, SND_NODEFAULT=2))
+    assert wav_player.main(["line.wav"]) == 1
+    assert "audio device" in capsys.readouterr().err
 
 
 @pytest.fixture()

@@ -8,6 +8,11 @@ WAV file and played with pw-play. Without Piper or a voice's model the line is r
 speech-dispatcher's Swedish espeak-ng voice instead (`spd-say -l sv`). The browser's own speech
 synthesis is not used: Chrome on the exhibition PC lists no voices and then speaks English.
 
+On macOS WAV playback uses afplay; on Windows it uses winsound in a child process.
+Those platforms require Piper and the model, with no replacement system voice.
+Missing playback support is logged without preventing the visible log from working.
+Actual audio output on Windows and macOS remains to be verified on target machines.
+
 Before a line is synthesised, `spoken_form` writes it as it should be said, since the Swedish
 rules of espeak-ng, which turn the text into sounds for both voices, read "47,1" as "fyrtisju punkt
 ett", drop the dash of "2–6" and read "SMHI" as one syllable: a decimal comma becomes "komma", a
@@ -27,7 +32,9 @@ is being said.
 from __future__ import annotations
 
 import re
+import logging
 import subprocess
+import sys
 import tempfile
 import threading
 import wave
@@ -122,6 +129,22 @@ FALLBACK = ("spd-say", "--wait", "-l", "sv")
 CANCEL = ("spd-say", "--cancel")
 
 
+def audio_commands(platform: str | None = None) -> tuple[Sequence[str], Sequence[str], Sequence[str]]:
+    """Playback runs in a child process so stop can interrupt it on every platform.
+
+    macOS and Windows require Piper: do not silently substitute a different voice.
+    Their real audio output still needs verification on the target machines.
+    """
+    platform = sys.platform if platform is None else platform
+    if platform == "linux":
+        return PLAY, FALLBACK, CANCEL
+    if platform == "darwin":
+        return ("/usr/bin/afplay",), (), ()
+    if platform == "win32":
+        return (sys.executable, str(Path(__file__).with_name("wav_player.py"))), (), ()
+    return (), (), ()
+
+
 def piper_voices(folder: Path = VOICE_DIR) -> dict[str, Callable[[str, Path], None]]:
     """A synthesiser per voice whose model is in `folder`; none without Piper. Each writes a line to a WAV file."""
     try:
@@ -156,12 +179,15 @@ def piper_voices(folder: Path = VOICE_DIR) -> dict[str, Callable[[str, Path], No
 
 class Speaker:
     def __init__(self, voices: Callable[[], dict[str, Callable[[str, Path], None]]] = piper_voices,
-                 play: Sequence[str] = PLAY, fallback: Sequence[str] = FALLBACK, cancel: Sequence[str] = CANCEL) -> None:
+                 play: Sequence[str] | None = None, fallback: Sequence[str] | None = None,
+                 cancel: Sequence[str] | None = None) -> None:
         self.load_voices = voices
         self.voices: dict[str, Callable[[str, Path], None]] | None = None  # loaded on the first line
-        self.play = list(play)
-        self.fallback = list(fallback)
-        self.cancel = list(cancel)
+        defaults = audio_commands()
+        self.play = list(defaults[0] if play is None else play)
+        self.fallback = list(defaults[1] if fallback is None else fallback)
+        self.cancel = list(defaults[2] if cancel is None else cancel)
+        self.warned: set[str] = set()
         self.queue: deque[tuple[str, str]] = deque()
         self.condition = threading.Condition()
         self.current: subprocess.Popen[bytes] | None = None
@@ -198,24 +224,33 @@ class Speaker:
             current = self.current
         if current is not None and current.poll() is None:
             current.terminate()
-        try:
-            subprocess.run(self.cancel, check=False, timeout=5, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except (OSError, subprocess.TimeoutExpired):
-            pass
+        if self.cancel:
+            try:
+                subprocess.run(self.cancel, check=False, timeout=5, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+
+    def _warn_once(self, message: str) -> None:
+        if message not in self.warned:
+            self.warned.add(message)
+            logging.getLogger(__name__).warning(message)
 
     def _command(self, text: str, voice: str, folder: Path) -> tuple[list[str], str]:
         """The command that says the line, and the voice it uses."""
         self.available()
         text = spoken_form(text)
         synthesise = (self.voices or {}).get(voice)
-        if synthesise is not None:
+        if synthesise is not None and self.play:
             target = folder / "line.wav"
             try:
                 synthesise(text, target)
                 return [*self.play, str(target)], voice
             except Exception:  # noqa: BLE001 - fall back to espeak-ng rather than stay silent
                 pass
-        return [*self.fallback, text], "espeak-ng"
+        if self.fallback:
+            return [*self.fallback, text], "espeak-ng"
+        self._warn_once("Speech unavailable: a working Piper voice and WAV player are required on this platform; the log remains visible.")
+        return [], "unavailable"
 
     def _run(self) -> None:
         with tempfile.TemporaryDirectory(prefix="techseed-speech-") as scratch:
@@ -225,15 +260,20 @@ class Speaker:
                         self.condition.wait()
                     text, voice = self.queue.popleft()
                 command, used = self._command(text, voice, Path(scratch))
+                if not command:
+                    continue
                 try:
                     process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 except OSError:
+                    self._warn_once("Speech unavailable: the audio command could not be started; check the platform's audio dependencies.")
                     continue  # nothing to play with: the log is still shown, only not read aloud
                 with self.condition:
                     self.current = process
                     self.spoken.append((used, text))
                 try:
-                    process.wait(timeout=60)
+                    code = process.wait(timeout=60)
+                    if code:
+                        self._warn_once("Speech playback failed or was interrupted; check the audio device and player if this was not an intentional stop.")
                 except subprocess.TimeoutExpired:
                     process.kill()
                 with self.condition:
