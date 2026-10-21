@@ -83,7 +83,7 @@ def close_command(profile: Path) -> list[str]:
     script = (f"$profile = '{value}'; "
               "$argument = [regex]::Escape('--user-data-dir=' + $profile); "
               "$pattern = '(?:^|\\s)(?:\"' + $argument + '\"|' + $argument + '(?=\\s|$))'; "
-              "Get-CimInstance Win32_Process -Filter \"Name = 'chrome.exe' OR Name = 'chromium.exe'\" | "
+              "Get-CimInstance Win32_Process -Filter \"Name = 'chrome.exe' OR Name = 'chromium.exe' OR Name = 'msedge.exe'\" | "
               "Where-Object { $_.CommandLine -cmatch $pattern } | "
               "ForEach-Object { Stop-Process -Id $_.ProcessId -ErrorAction SilentlyContinue }")
     return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script]

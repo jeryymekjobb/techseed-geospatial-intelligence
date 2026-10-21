@@ -2,6 +2,7 @@
 
 Run with ``python -m tools.startup_check [scenario]`` after cloning the repository.
 These presence checks do not validate data contents, coverage or graphics performance.
+Use --browser edge (or TECHSEED_BROWSER=edge) to check Edge instead of default Chrome.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from pathlib import Path
 
 from app.backend.scenarios import AVAILABLE, DEFAULT, REPO_ROOT
 from tools.fetch_web_vendor import PACKAGES
+from tools import browsers
 
 
 @dataclass(frozen=True)
@@ -79,23 +81,23 @@ def data_checks(settings, root: Path = REPO_ROOT) -> list[Check]:
     return checks
 
 
-def installation_checks(name: str) -> list[Check]:
+def installation_checks(name: str, browser: str = "chrome") -> list[Check]:
     settings = importlib.import_module(f"app.backend.scenarios.{name}")
-    chrome = find_chrome()
+    chrome = browsers.find_edge() if browser == "edge" else find_chrome()
     return [Check("Python", sys.version_info >= (3, 10), f"{sys.version.split()[0]}: {sys.executable}"),
-            Check("Chrome/Chromium", chrome is not None, chrome or "not found"),
+            Check("Edge" if browser == "edge" else "Chrome/Chromium", chrome is not None, chrome or "not found"),
             probe("Docker Compose", ["docker", "compose", "version"]),
             probe("Docker engine", ["docker", "info", "--format", "{{.ServerVersion}}"]),
             *data_checks(settings)]
 
 
-def native_installation_checks(name: str, options) -> list[Check]:
+def native_installation_checks(name: str, options, browser: str = "chrome") -> list[Check]:
     from tools import native_services
 
     settings = importlib.import_module(f"app.backend.scenarios.{name}")
-    chrome = find_chrome()
+    chrome = browsers.find_edge() if browser == "edge" else find_chrome()
     checks = [Check("Python", sys.version_info >= (3, 10), f"{sys.version.split()[0]}: {sys.executable}"),
-              Check("Chrome/Chromium", chrome is not None, chrome or "not found")]
+              Check("Edge" if browser == "edge" else "Chrome/Chromium", chrome is not None, chrome or "not found")]
     for label, check in (("Native map/MQTT runtime", lambda: native_services.prepared(name, options)),
                          ("Native PostgreSQL/PostGIS", lambda: native_services.check_database(name))):
         try:
@@ -114,14 +116,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--node-modules", type=Path)
     parser.add_argument("--node")
     parser.add_argument("--mosquitto")
+    parser.add_argument("--browser", choices=("chrome", "edge"))
     args = parser.parse_args(argv)
+    try:
+        browser = browsers.choice(args.browser)
+    except ValueError as exc:
+        parser.error(str(exc))
+    browser_options = {"browser": browser} if browser != "chrome" else {}
     if args.services == "native":
         if args.node_modules is None:
             parser.error("--services native requires --node-modules")
         from tools.native_services import Options
-        checks = native_installation_checks(args.scenario, Options(args.node_modules, args.node, args.mosquitto))
+        checks = native_installation_checks(args.scenario, Options(args.node_modules, args.node, args.mosquitto), **browser_options)
     else:
-        checks = installation_checks(args.scenario)
+        checks = installation_checks(args.scenario, **browser_options)
     for check in checks:
         print(f"{'OK' if check.passed else 'MISSING/FAILED'} {check.name}: {check.detail}")
     print("Presence checks only; database contents, Python packages, audio and window placement are not verified.")

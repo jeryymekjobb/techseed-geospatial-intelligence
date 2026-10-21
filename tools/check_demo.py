@@ -44,6 +44,7 @@ from urllib.request import Request, urlopen
 
 from app.backend import offline_tiles, scenario
 from tools import open_screens
+from tools import browsers
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = Path(sys.executable)
@@ -84,6 +85,7 @@ class Report:
     canvas_px: str | None = None
     min_fps: float = DEFAULT_MIN_FPS
     javascript_errors: list[str] = field(default_factory=list)
+    browser_name: str = "chrome"
 
     @property
     def passed(self) -> bool:
@@ -96,7 +98,8 @@ class Report:
     def text(self) -> str:
         lines = [f"Demokontroll {self.started_utc} på {self.computer} mot {self.base_url} "
                  f"({'synligt fönster' if self.headed else 'headless'})"]
-        lines.append(f"Grafik (WebGL i Chrome): {self.webgl_renderer or 'okänd'}; 3D-ytan {self.canvas_px or 'okänd'} pixlar")
+        label = "Edge" if self.browser_name == "edge" else "Chrome"
+        lines.append(f"Grafik (WebGL i {label}): {self.webgl_renderer or 'okänd'}; 3D-ytan {self.canvas_px or 'okänd'} pixlar")
         lines += [f"{step.verdict:9} {step.name} ({step.seconds:.1f} s): {step.detail}" for step in self.steps]
         fps = "ej mätt" if self.frames_per_second is None else f"{self.frames_per_second:.1f}"
         lines.append(f"Bilder per sekund i 3D under uppspelning: {fps}")
@@ -498,17 +501,19 @@ def frames_per_second(demo: Demo, seconds: float = 3.0) -> float:
         demo.command({"command": "speed", "speed": 3600})  # back to the demo's speed
 
 
-def run(base_url: str, out: Path, headed: bool, min_fps: float = DEFAULT_MIN_FPS) -> Report:
+def run(base_url: str, out: Path, headed: bool, min_fps: float = DEFAULT_MIN_FPS, browser: str | None = None) -> Report:
     from playwright.sync_api import sync_playwright
 
-    report = Report(base_url, headed, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), min_fps=min_fps)
+    selected = browsers.choice(browser)
+    report = Report(base_url, headed, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    min_fps=min_fps, browser_name=selected)
     out.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
         args = KEEP_BOTH_RUNNING + ([] if headed else SOFTWARE_WEBGL)
-        browser = playwright.chromium.launch(channel="chrome", headless=not headed, args=args)
+        browser = playwright.chromium.launch(channel=browsers.channel(selected), headless=not headed, args=args)
         places = screen_places() if headed else {}
         if headed and not places:
-            print("Fönstren kunde inte placeras (xrandr hittade inga skärmar); de öppnas där Chrome vill.")
+            print("Fönstren kunde inte placeras automatiskt; de öppnas där webbläsaren vill.")
         demo = Demo(browser, base_url, out, report.javascript_errors, places)
         for index, (name, action) in enumerate(STEPS):
             started = time.time()
@@ -540,7 +545,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--headed", action="store_true", help="show the browser window (real graphics)")
     parser.add_argument("--out", type=Path, default=Path("demo-check"), help="directory for the report and screenshots")
     parser.add_argument("--min-fps", type=float, default=DEFAULT_MIN_FPS, help="warn below this 3D frame rate")
+    parser.add_argument("--browser", choices=("chrome", "edge"))
     args = parser.parse_args(argv)
+    try:
+        browser = browsers.choice(args.browser)
+    except ValueError as exc:
+        parser.error(str(exc))
     processes: list[subprocess.Popen[bytes]] = []
     try:
         base_url = args.base_url
@@ -551,7 +561,7 @@ def main(argv: list[str] | None = None) -> int:
             processes.append(subprocess.Popen([str(PYTHON), "-m", "tools.mqtt_node_sim", "--interval", "2"], cwd=REPO_ROOT,
                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         wait_for(f"{base_url}/api/config")
-        report = run(base_url.rstrip("/"), args.out, args.headed, args.min_fps)
+        report = run(base_url.rstrip("/"), args.out, args.headed, args.min_fps, browser=browser)
     finally:
         for process in processes:
             process.terminate()

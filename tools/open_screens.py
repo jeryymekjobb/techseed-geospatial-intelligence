@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Open the demo's three screens as Chrome app windows, each in its place.
 
+Select Edge explicitly with --browser edge or TECHSEED_BROWSER=edge; Chrome remains
+the default. Edge uses separate demo profiles, never the user's ordinary profile.
+
 Ubuntu/X11 uses xrandr, xprop and wmctrl. Windows uses native monitor/window
 APIs and PowerShell process selection (tools/windows_screens.py); VM verification
 is still required. Chrome discovery also covers macOS, but automatic placement
@@ -40,6 +43,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from tools.startup_check import find_chrome
+from tools import browsers
 
 PROFILES = Path.home() / ".cache" / "techseed-screens"
 MONITOR_LINE = re.compile(r"^\s*\d+:\s+\S+\s+(\d+)/\d+x(\d+)/\d+([+-]\d+)([+-]\d+)\s+(\S+)")
@@ -120,8 +124,12 @@ def menu_windows(windows: list[Window]) -> tuple[list[Window], list[Window]]:
             [window for window in windows if window.screen != "control"])
 
 
-def chrome_command(chrome: str, base_url: str, window: Window) -> list[str]:
-    return [chrome, f"--app={base_url}{window.path}", f"--user-data-dir={PROFILES / window.screen}",
+def profile(screen: str, browser: str = "chrome") -> Path:
+    return PROFILES / "edge" / screen if browser == "edge" else PROFILES / screen
+
+
+def chrome_command(chrome: str, base_url: str, window: Window, browser: str = "chrome") -> list[str]:
+    return [chrome, f"--app={base_url}{window.path}", f"--user-data-dir={profile(window.screen, browser)}",
             f"--window-position={window.x},{window.y}", f"--window-size={window.width},{window.height}",
             # The screens are in Swedish: no offer to translate them over the demo.
             "--no-first-run", "--no-default-browser-check", "--disable-features=Translate", "--lang=sv",
@@ -196,13 +204,13 @@ def desktop_monitors() -> list[Monitor]:
     return within_work_areas(monitors(listing), work_areas(prop))
 
 
-def close_screen(screen: str) -> None:
+def close_screen(screen: str, browser: str = "chrome") -> None:
     if sys.platform == "win32":
         from tools import windows_screens
-        command = windows_screens.close_command(PROFILES / screen)
+        command = windows_screens.close_command(profile(screen, browser))
     elif sys.platform == "linux":
         # Escape profile paths as regex literals and require a complete argument.
-        command = ["pkill", "-f", "--", re.escape(f"--user-data-dir={PROFILES / screen}") + r"(\s|$)"]
+        command = ["pkill", "-f", "--", re.escape(f"--user-data-dir={profile(screen, browser)}") + r"(\s|$)"]
     else:
         raise RuntimeError("Automatic demo window closing is not implemented on this platform.")
     subprocess.run(command, check=False, timeout=15)
@@ -216,16 +224,21 @@ def main(argv: list[str] | None = None) -> int:
                         help="only mission control, with the menu of demos (tools/start_demo.py); the other screens close")
     parser.add_argument("--close", action="store_true", help="only close every screen this tool opened")
     parser.add_argument("--dry-run", action="store_true", help="print the commands without running them")
+    parser.add_argument("--browser", choices=("chrome", "edge"))
     args = parser.parse_args(argv)
+    try:
+        browser = browsers.choice(args.browser)
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.close:
         print("Stänger demons skärmar")
         if not args.dry_run:
             for screen in ("monitor", "main", "control"):
-                close_screen(screen)
+                close_screen(screen, browser)
         return 0
-    chrome = find_chrome()
+    chrome = browsers.find_edge() if browser == "edge" else find_chrome()
     if not chrome:
-        parser.exit(1, "open_screens: Google Chrome is not installed\n")
+        parser.exit(1, f"open_screens: selected browser {browser} was not found\n")
     try:
         screens = desktop_monitors()
     except (OSError, RuntimeError) as exc:
@@ -236,16 +249,16 @@ def main(argv: list[str] | None = None) -> int:
     for window in closed:
         print(f"{window.screen}: stängs tills en demo är vald")
         if not args.dry_run:
-            close_screen(window.screen)
+            close_screen(window.screen, browser)
     for window in windows:
-        command = chrome_command(chrome, args.base_url.rstrip("/"), window)
+        command = chrome_command(chrome, args.base_url.rstrip("/"), window, browser)
         print(f"{window.screen}: {window.width}x{window.height} at {window.x},{window.y} – {args.base_url}{window.path}")
         if args.dry_run:
             print("  " + " ".join(command))
             continue
-        close_screen(window.screen)
+        close_screen(window.screen, browser)
         time.sleep(1.0)  # the old Chrome lets go of its profile
-        no_translation(PROFILES / window.screen)
+        no_translation(profile(window.screen, browser))
         chrome_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         if sys.platform == "win32":
             from tools.windows_screens import place as place_window

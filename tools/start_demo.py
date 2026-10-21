@@ -22,6 +22,8 @@ separately installed Node/TileServer GL and Mosquitto (--node and --mosquitto se
 their executables). PostgreSQL/PostGIS must already be running and loaded; native
 database options are documented in app/backend/postgres.py. Native map and broker
 children are stopped on exit, restart and scenario change; PostgreSQL is untouched.
+--browser edge (or TECHSEED_BROWSER=edge) selects Edge for every demo screen and
+its restart/menu lifecycle. Without an explicit choice Chrome remains the default.
 """
 
 from __future__ import annotations
@@ -45,6 +47,7 @@ from urllib.request import urlopen
 from app.backend import offline_tiles, profiles
 from app.backend.scenarios import AVAILABLE
 from tools.check_demo import served_tiles_file
+from tools import browsers
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = Path(sys.executable)
@@ -134,11 +137,15 @@ def menu_server(port: int = PORT) -> ThreadingHTTPServer:
     return server
 
 
-def choose_demo() -> str:
+def browser_flags(browser: str) -> list[str]:
+    return ["--browser", browser] if browser != "chrome" or os.environ.get("TECHSEED_BROWSER", "chrome") != "chrome" else []
+
+
+def choose_demo(browser: str = "chrome") -> str:
     """Show the menu in mission control's window until a demo is chosen; its name."""
     server = menu_server()
     print(f"Menyn: {MENU_TITLE} i mission control – välj en demo (Ctrl+C avslutar).", flush=True)
-    subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--menu", "--base-url", f"http://127.0.0.1:{PORT}"],
+    subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--menu", "--base-url", f"http://127.0.0.1:{PORT}", *browser_flags(browser)],
                    cwd=REPO_ROOT, check=False)
     try:
         server.serve_forever()
@@ -174,7 +181,7 @@ def answers(url: str) -> bool:
         return False
 
 
-def run_demo(name: str, at: str | None, *, native_env: dict[str, str] | None = None) -> int:
+def run_demo(name: str, at: str | None, *, native_env: dict[str, str] | None = None, browser: str = "chrome") -> int:
     """Start a demo and run it until the backend stops; its exit code (MENU_EXIT for BYT SCENARIO, RESTART_EXIT for STARTA OM DEMO), 0 after Ctrl+C."""
     tiles, start = scenario_settings(name)
     base_url = f"http://127.0.0.1:{PORT}"
@@ -202,7 +209,7 @@ def run_demo(name: str, at: str | None, *, native_env: dict[str, str] | None = N
                                      cwd=REPO_ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
 
         print("4/4 Skärmarna …", flush=True)
-        subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--base-url", base_url, "--at", at or start],
+        subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--base-url", base_url, "--at", at or start, *browser_flags(browser)],
                        cwd=REPO_ROOT, check=False)
         print(f"Demon går: {name} på {base_url}. BYT SCENARIO i mission control ger menyn, STARTA OM DEMO startar om; Ctrl+C stoppar.", flush=True)
         backend.wait()
@@ -235,7 +242,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--node-modules", type=Path, help="native TileServer GL runtime node_modules directory")
     parser.add_argument("--node", help="native Node.js executable")
     parser.add_argument("--mosquitto", help="native Mosquitto executable")
+    parser.add_argument("--browser", choices=("chrome", "edge"))
     args = parser.parse_args(argv)
+    try:
+        browser = browsers.choice(args.browser)
+    except ValueError as exc:
+        parser.error(str(exc))
+    browser_options = {"browser": browser} if browser != "chrome" else {}
     if args.services == "native" and args.node_modules is None:
         parser.error("--services native requires --node-modules")
     if port_in_use(PORT):
@@ -244,17 +257,17 @@ def main(argv: list[str] | None = None) -> int:
     try:
         while True:
             if name is None:
-                name, at = choose_demo(), None
+                name, at = (choose_demo(**browser_options) if browser_options else choose_demo()), None
             if args.services == "native":
                 from tools import native_services
                 options = native_services.Options(args.node_modules, args.node, args.mosquitto)
                 with native_services.running(name, options) as env:
-                    code = run_demo(name, at, native_env=env)
+                    code = run_demo(name, at, native_env=env, **browser_options)
             else:
-                code = run_demo(name, at)
+                code = run_demo(name, at, **browser_options)
             if code == RESTART_EXIT:
                 # The same scenario again from its saved start, once its screens are closed.
-                subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--close"], cwd=REPO_ROOT, check=False)
+                subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--close", *browser_flags(browser)], cwd=REPO_ROOT, check=False)
                 at = None
                 continue
             if code != MENU_EXIT:
