@@ -18,9 +18,15 @@ Kontrollsummor verifierar filernas integritet, inte vem som har publicerat dem.
 
 **Verifieringsläge:** Ubuntu är projektets befintliga körmiljö. De nya verktygen har
 enhetstestats där med syntetiska paket och ersättningar för plattformsanrop. Windows
-installation, Docker, fönster och ljud måste fortfarande provas i VM. macOS har kod
+installation, lokala tjänster, fönster och ljud måste fortfarande provas som helhet i VM. macOS har kod
 för Chrome-sökning och WAV-uppspelning, men är inte verifierat och saknar automatisk
 placering och stängning av demofönster. Det är ännu inte en färdig macOS-installation.
+
+**Välj installationsväg:** Ubuntu fortsätter använda Docker enligt A–F nedan.
+Windows utan Docker/WSL använder gemensamma steg A–C för Git, Python och data, och
+går därefter till **G. Windows med lokala tjänster – utan Docker eller WSL**.
+Hoppa över Docker-kraven i A och Docker-kommandona i D–E för denna Windows-väg.
+Utan `--services native` använder startverktyget fortfarande Docker.
 
 Resten av guiden innehåller äldre Ubuntu-kommandon och instruktioner för att hämta
 data från grunden. På Windows följer du denna sektion, inte de äldre Bash-kommandona.
@@ -35,14 +41,15 @@ och `pw-play` för Piper-ljud. Wayland är inte verifierat för fönsterhanterin
 Windows använder Windows-API:er och `powershell.exe` för demofönstren, inte dessa
 Linuxverktyg. WAV spelas där med Pythons `winsound` i en separat process.
 
-På Windows behövs en fungerande Docker-miljö för **Linuxcontainrar**, exempelvis
+Om Docker-vägen väljs på Windows behövs en fungerande miljö för **Linuxcontainrar**, exempelvis
 Docker Desktop med dess angivna systemkrav uppfyllda. I en Windows-VM måste även
 värddatorn och VM-konfigurationen medge den virtualisering Docker behöver. Kontrollera
 detta innan data installeras; Windows-stöd i koden garanterar inte att Docker kan köras
 i den aktuella VM:n. Ingen del av guiden kräver att tjänster exponeras på nätverket.
 
-Starta Docker. Kör `git --version`, `docker compose version` och `docker info` i din
-terminal. Alla måste lyckas. Ordna Git-åtkomst separat; dela inte SSH-nycklar eller
+För Docker-vägen: starta Docker och kör `docker compose version` och `docker info`.
+För båda vägarna: kontrollera `git --version`. Alla relevanta kontroller måste lyckas.
+Ordna Git-åtkomst separat; dela inte SSH-nycklar eller
 dataleverantörernas kontouppgifter. Klona till en lokal, skrivbar mapp:
 
 Ubuntu/Bash:
@@ -130,7 +137,8 @@ garanterar inte att paketet är komplett. Ändra inte paketet eller målmappen u
 importen. Ett avbrott under själva skrivningen kan lämna en delvis installerad uppsättning;
 undersök felet i stället för att radera eller skriva över befintliga data automatiskt.
 Utrymme behövs både för ZIP-filen, tillfälligt uppackade filer, installerade data och
-Dockerbilder. Fastställ storleken från det verkliga paketet, inte äldre storleksuppgifter.
+programberoenden (eller Dockerbilder för Docker-vägen). Fastställ storleken från det
+verkliga paketet, inte äldre storleksuppgifter.
 
 Om webbibliotek eller röster inte ingår i det godkända paketet kan de hämtas separat
 med internetanslutning. Kör bara de hämtningar som behövs:
@@ -300,6 +308,220 @@ Windows/PowerShell:
 
 Pröva paketet i en separat ren klon och genomför kontrollerna ovan innan det lämnas
 vidare via godkänd överföringsväg. En lyckad kontrollsumma ersätter inte det provet.
+
+### G. Windows med lokala tjänster – utan Docker eller WSL
+
+Denna väg är ett uttryckligt alternativ. **Ubuntus Docker-installation, startkommando
+och konfigurationsfiler ändras inte.** På Windows behövs ingen fungerande WSL-miljö
+eller nästlad virtualisering för de lokala tjänsterna. Rendering, ljud och samlad
+drift i Windows-VM återstår ändå att verifiera. Ett lyckat enhetstest på Ubuntu är
+inte ett sådant verifieringsresultat.
+
+Gör först A–C ovan för en ren, lokal Windows-klon, Pythonberoenden och ett godkänt
+datapaket. Hoppa över Docker-installation och steg D–E. Använd Python 3.12 x64 för
+det planerade Windows-provet; byt då miljökommandot i B till `py -3.12 -m venv .venv`.
+Kör inte från en delad VirtualBox-mapp: klonen, Pythonmiljön och programmens runtime
+ska ligga på Windows egen lokala disk. Verifiera att den valda Git-revisionen även
+innehåller `tools/native_services.py` och de två `tools/start_native_*.py`-verktygen.
+
+#### G1. Installera programmen separat
+
+Installera från respektive projekts angivna källor:
+
+| Program | Val för första Windows-provet | Källa/anvisning |
+|---|---|---|
+| Node.js | 22.x, Windows x64 | [Node.js](https://nodejs.org/en/download); öppna ny PowerShell efter installation |
+| Microsoft Visual C++ Redistributable | x64 | Krävs enligt [TileServer GL:s Windows-anvisning](https://tileserver.readthedocs.io/en/latest/installation.html) |
+| PostgreSQL | 16, Windows x64 | [PostgreSQLs Windows-sida](https://www.postgresql.org/download/windows/) länkar till EDB-installationen |
+| PostGIS | En släppt Windows-version kompatibel med vald PostgreSQL 16-installation | [PostGIS för Windows](https://postgis.net/documentation/getting_started/install_windows/), via StackBuilder eller angiven installerare |
+| Mosquitto | Officiell Windows x64-installation | [Mosquitto](https://mosquitto.org/download/); anteckna version och installationssökväg |
+
+Detta är versionsval för ett kommande prov, inte en verifierad kombination. Installera
+inte ett godtyckligt senare PostgreSQL/PostGIS-par utan att kontrollera kompatibiliteten.
+Välj lokal åtkomst för PostgreSQL och behåll autentisering; ändra inte till `trust`.
+Spara administratörslösenordet säkert utanför repo och kommandon. Exemplet nedan
+använder port 5432, men en befintlig installation kan behöva en annan port.
+
+Mosquitto ska inte samtidigt köras som automatisk Windows-tjänst på port 1883 när
+startverktyget ska äga processen. Välj bort sådan tjänstestart vid installation om
+möjligt. Om en tjänst redan använder porten: identifiera den och besluta separat hur
+den ska hanteras; stoppa inte okända tjänster eller ändra deras konfiguration.
+Startverktyget vägrar ersätta en process på port 1883 eller kartport 8081.
+
+Installera fullständiga TileServer GL i en separat runtime-mapp. `tileserver-gl-light`
+saknar den rasterrendering som demon använder. Följande hämtar npm-paket och kan köra
+deras installationsskript; kör bara mot betrodda källor och med nätåtkomst:
+
+```powershell
+node --version
+npm.cmd --version
+$Runtime = Join-Path $HOME "techseed-runtime"
+New-Item -ItemType Directory -Path $Runtime -Force
+npm.cmd install --prefix "$Runtime" --save-exact tileserver-gl@5.6.0
+```
+
+Node-versionen ska vara 22.x för detta prov. Vid npm-/DLL-/renderingsfel: stanna och
+spara feltexten. Kringgå inte kontrollsummor eller ersätt servern med light-versionen.
+Spara skapad `package-lock.json` för spårbarhet vid jämförande installationer; en
+fast toppnivåversion ensam låser inte alla transitiva beroenden mellan installationer.
+Denna runtime behöver inte checkas in eller installeras i `data/`.
+
+#### G2. Förbered lokal PostGIS med rätt behörighet
+
+PostgreSQL ska köras som sin installerade Windows-tjänst; demon startar eller stoppar
+inte databastjänsten. Administratören behöver skapa demots egen roll och databas samt
+aktivera PostGIS. Ge inte demots normala roll superuser-rättighet bara för att få
+installationen att fungera.
+
+Exemplet avser **en ny lokal installation** och bara Västmanland. Om rollen eller
+databasen redan finns: granska dem först och kör inte skapandekommandona blint.
+Kör följande i PowerShell och använd installationssökvägen som faktiskt gäller:
+
+```powershell
+$Psql = "C:\Program Files\PostgreSQL\16\bin\psql.exe"
+& $Psql --host=127.0.0.1 --port=5432 --username=postgres --dbname=postgres -W
+```
+
+`-W` frågar efter administratörens lösenord interaktivt. Skriv sedan följande **inne
+i psql**, inte i PowerShell. `\password` frågar efter demots lösenord utan att lägga
+det som klartext i SQL-kommandot:
+
+```sql
+CREATE ROLE firemap LOGIN;
+\password firemap
+CREATE DATABASE firemap OWNER firemap;
+\connect firemap
+CREATE EXTENSION IF NOT EXISTS postgis;
+SELECT PostGIS_Version();
+\q
+```
+
+Rollnamnet är `firemap`, medan databasnamnet beror på scenariot:
+
+| Scenario | Databas |
+|---|---|
+| `vastmanland2014` | `firemap` |
+| `sundsvall2026` | `sundsvall2026` |
+| `skane2024` | `skane2024` |
+| `ljusdal2018` | `ljusdal2018` |
+| `vasternorrland2025` | `vasternorrland2025` |
+| `kramfors2026` | `kramfors2026` |
+
+För övriga installerade scenarier skapar administratören respektive databas med
+`OWNER firemap` och aktiverar PostGIS där på samma sätt. Rollen skapas bara en gång.
+Föraktiveringen behövs eftersom `load_postgis` annars kan behöva större behörighet
+för att skapa databasen eller PostGIS-tillägget. Laddaren ersätter senare demotabeller,
+men ska inte användas som generell administratör av andra databaser.
+
+#### G3. Lösenordsfil och anslutningsinställningar
+
+Skapa PostgreSQLs lösenordsfil **utanför repot** med en textredigerare. Följande öppnar
+en lokal fil; om filen redan finns ska befintliga poster bevaras:
+
+```powershell
+$PassDir = Join-Path $env:APPDATA "postgresql"
+New-Item -ItemType Directory -Path $PassDir -Force
+$PassFile = Join-Path $PassDir "pgpass.conf"
+notepad.exe "$PassFile"
+```
+
+Lägg till en post enligt libpq-formatet, med demorollens verkliga lösenord i stället
+för platshållaren. Spara som UTF-8 utan BOM. Det här är **filinnehåll, inte ett kommando**:
+
+```text
+127.0.0.1:5432:*:firemap:ERSÄTT_MED_DEMOROLLENS_LÖSENORD
+```
+
+`*` tillåter denna lokala demoroll i flera scenariodatabaser och i `postgres`, som
+laddaren frågar för att kontrollera vilka databaser som finns. Kolon och backslash
+i lösenordet måste skyddas enligt [libpq:s lösenordsfilsformat](https://www.postgresql.org/docs/16/libpq-pgpass.html).
+Begränsa Windows-filens åtkomst till avsedda konton via filens säkerhetsinställningar.
+Checka aldrig in filen och dela inte dess innehåll i loggar eller felsökningssvar.
+
+Ange anslutning och runtime i PowerShell-fönstret som ska användas. Följande innehåller
+inga lösenord och gäller bara detta fönster och dess underprocesser:
+
+```powershell
+$Scenario = "vastmanland2014"
+$Runtime = Join-Path $HOME "techseed-runtime"
+$NodeModules = Join-Path $Runtime "node_modules"
+$Mosquitto = "C:\Program Files\mosquitto\mosquitto.exe"
+$env:TECHSEED_DB_MODE = "native"
+$env:TECHSEED_PSQL_PATH = "C:\Program Files\PostgreSQL\16\bin\psql.exe"
+$env:TECHSEED_DB_HOST = "127.0.0.1"
+$env:TECHSEED_DB_PORT = "5432"
+$env:TECHSEED_DB_USER = "firemap"
+$env:TECHSEED_DB_PASSFILE = Join-Path $env:APPDATA "postgresql\pgpass.conf"
+```
+
+Anpassa sökvägar och port till installationen. Native-anslutningen använder UTF-8,
+anslutningstimeout och `psql -w`: den frågar inte efter lösenord om filen saknas eller
+inte matchar. `PGPASSWORD` används inte av native-klienten. Startflaggan nedan väljer
+native-läge i backend, men fristående dataladdning behöver miljövariabeln ovan.
+
+#### G4. Kontrollera filer och ladda valt scenario
+
+Kör från klonens rot. Förhandskontrollerna nedan startar inga tjänster:
+
+```powershell
+.\.venv\Scripts\python.exe -m tools.start_native_tiles $Scenario --node-modules "$NodeModules" --dry-run
+.\.venv\Scripts\python.exe -m tools.start_native_mqtt --dry-run
+.\.venv\Scripts\python.exe -m tools.startup_check $Scenario --services native --node-modules "$NodeModules" --mosquitto "$Mosquitto"
+```
+
+Den sista kontrollen kör Node för versionskontroll och ansluter till scenariots databas
+med den skrivskyddade frågan `SELECT PostGIS_Version()`. Den startar inte kartserver,
+broker eller PostgreSQL och använder inte Docker. Den kontrollerar inte att alla
+demotabeller eller rasterbilder finns. Kontrollera kod 0 efter varje steg; vid fel
+ska nästa steg inte köras. `$LASTEXITCODE` visar det senaste programmets resultat.
+
+**Nästa kommando ändrar databasen och ersätter scenariots demotabeller.** Kör endast
+efter godkänd installation/omladdning, med demon stoppad och rätt scenario valt:
+
+```powershell
+$env:TECHSEED_SCENARIO = $Scenario
+.\.venv\Scripts\python.exe -m tools.load_postgis
+Remove-Item Env:TECHSEED_SCENARIO
+```
+
+Kräv lyckat resultat och `Loaded into ...`. Vid behörighetsfel: kontrollera G2; byt inte
+slentrianmässigt till administratörsrollen. Upprepa endast för andra scenarier vars
+data har installerats och vars databaser förberetts. Ingen Docker-volym ska kopieras.
+
+#### G5. Start, stopp och verifiering
+
+I samma PowerShell-fönster, från klonens rot:
+
+```powershell
+.\.venv\Scripts\python.exe -m tools.start_demo $Scenario --services native --node-modules "$NodeModules" --mosquitto "$Mosquitto"
+```
+
+Utelämna `$Scenario` för menyn. Native-läget startar en egen Node-kartserver och en
+egen Mosquitto, båda på localhost, och använder redan körande PostgreSQL. Vid avslut,
+scenariobyte och STARTA OM DEMO städas de egna tjänsteprocesserna. Ctrl+C stoppar även
+backend och simulerade noder men lämnar PostgreSQL och Chrome-fönstren kvar.
+Om en port redan är upptagen avbryts starten utan att den befintliga tjänsten stoppas.
+
+Utför checklistan i E, men ersätt Docker-kontrollerna med kontroller av lokal
+PostgreSQL/PostGIS, TileServer GL och Mosquitto. Anteckna deras och Nodes versioner.
+Verifiera särskilt baskartan, vägnummer/järnvägstunnlar ovanpå bilder, båda vyerna,
+svenska ortnamn i databasfrågor, MQTT, Alma-ljud och städning efter omstart/scenariobyte.
+Verifiera också offlinekörning när program och data väl är installerade.
+
+Automatisk demokontroll kan köras **mot den native-demo som redan går**, från ett
+andra PowerShell-fönster. Använd `--base-url` så att kontrollen inte startar egen
+backend med fel inställningar. I detta andra fönster, från samma klon:
+
+```powershell
+$env:TECHSEED_SCENARIO = "vastmanland2014"
+.\.venv\Scripts\python.exe -m tools.check_demo --headed --base-url http://127.0.0.1:8765 --out "$HOME\demo-check-native"
+Remove-Item Env:TECHSEED_SCENARIO
+```
+
+Byt scenarionamnet till det som faktiskt körs och välj en ny rapportmapp. Testet styr
+och återställer den körande demon: använd det inte samtidigt som någon demonstrerar.
+Det verifierar inte alla plattformsfunktioner; de manuella ljud- och fönsterproven
+behövs fortfarande. Windows utan Docker är inte godkänt förrän dessa prov genomförts.
 
 ## Vad demon är
 
