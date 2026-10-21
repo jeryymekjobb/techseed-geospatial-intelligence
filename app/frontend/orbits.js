@@ -88,6 +88,12 @@ function nextPass(lib, elements, from, latitude, longitude, halfSwathKm, hours =
 // A catalogue acquisition (Sentinel-1) as a pass: the product's first 25 seconds.
 const ACQUISITION_MS = 25000;
 
+// Whether any of the satellites stands still over the equator (Meteosat), which SPACE VIEW must
+// show from further out.
+function hasGeostationary(items) {
+  return (items || []).some((item) => Boolean(item.geostationary));
+}
+
 // Whether a satellite has passes over the incident: a swath round its track or known acquisitions.
 function hasPasses(item) {
   return Boolean(item.half_swath_km || item.acquisitions);
@@ -155,4 +161,4 @@ function passesBetween(lib, elements, startMs, endMs, latitude, longitude, halfS
   return passes;
 }
 
-if (typeof module !== "undefined") module.exports = { elementAt, subpoint, groundDistanceKm, orbitTrack, nextPass, passesBetween, hasPasses, contributingSatellites, satellitePasses };
+if (typeof module !== "undefined") module.exports = { elementAt, subpoint, groundDistanceKm, orbitTrack, nextPass, passesBetween, hasPasses, hasGeostationary, contributingSatellites, satellitePasses };

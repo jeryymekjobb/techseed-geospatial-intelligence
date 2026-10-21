@@ -418,7 +418,8 @@ rad per kvart, till exempel "Meteosat-10 (geostationär) ser branden: 2 pixlar, 
 megawatt". Pixlarnas läge och form är ungefärliga; de ligger några kilometer norr om FIRMS-punkterna.
 Satellitbevakningen visar Meteosat-10 som en punkt över ekvatorn vid 0° längd, där den står still, och
 listan säger "geostationär, ser branden hela tiden"; den har inga passager. På 3D-globen ligger den
-35 800 km ut och syns inte i SPACE VIEW, som är riktad mot Norden.
+35 800 km ut; SPACE VIEW zoomar då ut så att både jorden och Meteosat-10 syns, och jorden blir cirka en
+fjärdedel av skärmens höjd.
 Raden **Brandrisk enligt LSA SAF** i panelen, under demons egen brandrisk, visar dagens riskklass
 (låg till extrem) och FWI vid branden, giltig från kl. 12 UTC (14:00 svensk tid). Den räknas ur
 ERA5:s väder och kalibreras mot satelliternas brandobservationer, så säg "Meteosat och ERA5", inte
@@ -1227,7 +1228,7 @@ når marken: den 15 augusti steg medelhöjden över kartområdet från cirka 5�
   tio över kartområdet, så de visar ovädret i stort, inte enskilda celler.
 
 Satellitbevakningen visar Meteosat-10, som sände molntopparna, som en punkt över ekvatorn vid 0° längd
-med "geostationär, ser Kramfors hela tiden" i listan.
+med "geostationär, ser Kramfors hela tiden" i listan, och SPACE VIEW zoomar ut så att den syns på 3D-globen.
 
 Det är Meteosats produkt, inte en prognos. Data hämtas med EUMETSAT-kontot (avsnitt 2):
 

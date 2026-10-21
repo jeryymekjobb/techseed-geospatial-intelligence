@@ -367,3 +367,11 @@ print(scenario.LEVEL_SENSOR_RIVERS["Rönne å"])
 """
     lines = run_scenario("skane2024", code).splitlines()
     assert lines == ["Vad finns inom 200 m från de larmande punkterna?", "Inga larmande punkter vid scenariotiden (syntetiska nivågivare).", "['2176:3']"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_space_view_goes_wide_only_with_a_geostationary_satellite() -> None:
+    meteosat = {"name": "Meteosat-10", "half_swath_km": None, "geostationary": True}
+    landsat = {"name": "Landsat 8", "half_swath_km": 92.5}
+    assert node("orbits.js", f"[hasGeostationary([{json.dumps(landsat)}, {json.dumps(meteosat)}]), hasGeostationary([{json.dumps(landsat)}]),"
+                " hasGeostationary(undefined), hasPasses(" + json.dumps(meteosat) + ")]") == [True, False, False, False]

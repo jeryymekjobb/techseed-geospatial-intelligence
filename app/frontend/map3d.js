@@ -16,6 +16,11 @@ const LIGHTNING_IMAGE = svgImage('<svg viewBox="0 0 24 32"><path d="M14 1 L3 18 
   + 'stroke="#3a2a00" stroke-width="1.5" stroke-linejoin="round"/></svg>', 28);
 // SPACE VIEW: the satellites' orbits around Scandinavia.
 const SPACE_VIEW = { lon: 16, lat: 45, height: 20_000_000, seconds: 4.0 };
+// With a geostationary satellite (Meteosat, 42 164 km from the Earth's centre over 0 degrees) SPACE
+// VIEW looks from DISTANCE m out in the direction of FROM at a point between the Earth's far side
+// and the satellite, so both the incident and the satellite fit; the Earth is then about a quarter
+// of the screen's height.
+const SPACE_VIEW_GEO = { target_m: 17_896_000, from: { lat: 30, lon: 10 }, distance: 60_000_000, seconds: 4.0 };
 // The detection sequence: from the south and high enough to see the satellite and the fire.
 const DETECTION_VIEW = { latOffset: -12, height: 2_500_000, pitch: -60, seconds: 3.0 };
 const SATELLITE_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7", SAR: "#b388ff", MSI: "#69f0ae" };
@@ -194,6 +199,7 @@ async function createCesiumMap(config) {
   const cthLayer = group("cloud-tops");  // Meteosat's cloud top height (meteosat_cth.py), off until ticked
   cthLayer.show = false;
   let cthVisible = false;
+  let wideSpaceView = false;  // a geostationary satellite is drawn (hasGeostationary in orbits.js)
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
   const queryLayer = group("query");
@@ -806,6 +812,7 @@ async function createCesiumMap(config) {
     // its height with its name, and the orbit 50 minutes back and ahead (none for a satellite that
     // sends the scenario no data: an empty track).
     drawSatellites(items) {
+      wideSpaceView = hasGeostationary(items);
       for (const item of items) {
         const color = cesiumColor(SATELLITE_COLORS[item.instrument] || "#d0d0d0");
         const position = Cesium.Cartesian3.fromDegrees(item.point.longitude, item.point.latitude, item.point.height_km * 1000);
@@ -901,6 +908,17 @@ async function createCesiumMap(config) {
         return flyToFire(lon, lat);
       }
       return new Promise((resolve) => {
+        if (wideSpaceView) {
+          const target = new Cesium.Cartesian3(SPACE_VIEW_GEO.target_m, 0, 0);
+          const from = Cesium.Cartesian3.normalize(Cesium.Cartesian3.fromDegrees(SPACE_VIEW_GEO.from.lon, SPACE_VIEW_GEO.from.lat), new Cesium.Cartesian3());
+          const destination = Cesium.Cartesian3.add(target, Cesium.Cartesian3.multiplyByScalar(from, SPACE_VIEW_GEO.distance, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          const direction = Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(target, destination, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          // North up: the Earth's axis without its part along the view.
+          const along = Cesium.Cartesian3.multiplyByScalar(direction, Cesium.Cartesian3.dot(Cesium.Cartesian3.UNIT_Z, direction), new Cesium.Cartesian3());
+          const up = Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(Cesium.Cartesian3.UNIT_Z, along, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          viewer.camera.flyTo({ destination, orientation: { direction, up }, duration: SPACE_VIEW_GEO.seconds, complete: resolve, cancel: resolve });
+          return;
+        }
         viewer.camera.flyTo({
           destination: Cesium.Cartesian3.fromDegrees(SPACE_VIEW.lon, SPACE_VIEW.lat, SPACE_VIEW.height),
           duration: SPACE_VIEW.seconds, complete: resolve, cancel: resolve,
