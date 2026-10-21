@@ -22,6 +22,9 @@ ATTRIBUTION = "Contains modified EUMETSAT Meteosat product 2026 (MSG Cloud Top H
 # The log's lines when the mean cloud top over the map area rises past these, and when it falls
 # below the lowest again.
 THRESHOLDS_KM = (8.0, 10.0)
+# A threshold counts as left only when the mean is this far below it, so a mean hovering round one
+# does not give a line every quarter (Sundsvall's nine showery days).
+HYSTERESIS_KM = 1.0
 
 
 @lru_cache(maxsize=1)
@@ -32,19 +35,22 @@ def data() -> dict[str, Any] | None:
     return loaded if loaded.get("quarters") else None
 
 
-def events(quarters: list[dict[str, Any]], thresholds: tuple[float, ...] = THRESHOLDS_KM) -> list[dict[str, Any]]:
+def events(quarters: list[dict[str, Any]], thresholds: tuple[float, ...] = THRESHOLDS_KM,
+           hysteresis: float = HYSTERESIS_KM) -> list[dict[str, Any]]:
     """The quarters the mean cloud top rises past a threshold it was below, and those it falls
-    below the lowest threshold again, in time order."""
-    found, level = [], 0  # how many thresholds the mean is at or above
+    HYSTERESIS_KM below the lowest threshold again, in time order."""
+    found, level = [], 0  # how many thresholds the mean has passed and not left
     for item in quarters:
         mean = item.get("mean_km")
         if mean is None:
             continue
-        now = sum(mean >= limit for limit in thresholds)
+        reached = sum(mean >= limit for limit in thresholds)
+        kept = sum(mean >= limit - hysteresis for limit in thresholds[:level])
+        now = max(reached, kept)
         if now > level:
             found.append({"time_utc": item["time_utc"], "kind": "up", "km": thresholds[now - 1], "mean_km": mean})
         elif now == 0 and level > 0:
-            found.append({"time_utc": item["time_utc"], "kind": "down", "km": thresholds[0], "mean_km": mean})
+            found.append({"time_utc": item["time_utc"], "kind": "down", "km": thresholds[0] - hysteresis, "mean_km": mean})
         level = now
     return found
 

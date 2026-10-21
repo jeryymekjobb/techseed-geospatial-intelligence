@@ -40,11 +40,12 @@ def test_a_quarter_has_the_cloudy_share_and_mean_height_over_the_map_area() -> N
 def test_the_log_hears_when_the_tops_pass_8_and_10_km_and_fall_back() -> None:
     def q(time: str, km: float | None) -> dict:
         return {"time_utc": time, "mean_km": km}
-    quarters = [q("15:00", 6.3), q("15:30", 8.1), q("15:45", None), q("16:00", 7.9), q("16:15", 10.2), q("17:00", 9.5),
-                q("17:15", 10.0), q("01:00", 7.9)]
-    # A quarter without a product is skipped; passing both thresholds at once is one line, at the higher.
+    quarters = [q("15:00", 6.3), q("15:30", 8.1), q("15:45", None), q("16:00", 7.5), q("16:15", 10.2), q("17:00", 9.5),
+                q("17:15", 10.0), q("18:00", 8.8), q("18:15", 10.1), q("01:00", 7.5), q("01:15", 6.9)]
+    # A quarter without a product is skipped; dips of less than a kilometre below a threshold do not
+    # count (7.5 after 8.1, 9.5 after 10.2); passing both at once is one line, at the higher; 8.8 leaves 10.
     assert [(e["time_utc"], e["kind"], e["km"]) for e in meteosat_cth.events(quarters)] == [
-        ("15:30", "up", 8.0), ("16:00", "down", 8.0), ("16:15", "up", 10.0), ("17:15", "up", 10.0), ("01:00", "down", 8.0)]
+        ("15:30", "up", 8.0), ("16:15", "up", 10.0), ("18:15", "up", 10.0), ("01:15", "down", 7.0)]
 
 
 def test_the_layer_gives_heights_in_km(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

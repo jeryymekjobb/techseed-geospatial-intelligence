@@ -1218,27 +1218,31 @@ TILES_FILE=vasternorrland.mbtiles docker compose up -d tiles
 
 ---
 
-# Del 9 – Skyfallet i Kramfors 2026: Meteosats molntoppar
+# Del 9 – Meteosats molntoppar i Kramfors, Sundsvall och Västernorrland
 
-Kramfors 2026 visar, utöver SMHI:s radar och de syntetiska bräddgivarna, hur högt molntopparna
-nådde enligt Meteosat var 15:e minut. Stigande toppar visar åskmoln som växer, ofta innan regnet
+Kramfors 2026, Sundsvall 2026 och Västernorrland 2025 visar, utöver SMHI:s radar och sensorerna,
+hur högt molntopparna nådde enligt Meteosat var 15:e minut. Stigande toppar visar åskmoln som växer, ofta innan regnet
 når marken: den 15 augusti steg medelhöjden över kartområdet från cirka 5–6 km till 9 km mellan
 17:00 och 18:00 svensk tid, före bräddgivarnas larm.
 
 - **Panelen:** **Molntoppar (Meteosat)** under regnet, en kurva över medelhöjden med 8 och 10 km
   streckade och raden **Nu** med höjd och molnandel.
-- **Loggen:** en rad som läses upp när topparna når 8 och 10 km och när de sjunker under 8 km igen,
+- **Loggen:** en rad som läses upp när topparna når 8 och 10 km och när de sjunker under 7 km igen
+  (en tröskel räknas som lämnad först en kilometer under den, så att en medelhöjd som pendlar inte
+  ger en rad varje kvart; Sundsvall får 16 rader på nio dygn),
   till exempel "Molntopparna över Kramfors når 8 kilometer enligt Meteosat – åskmolnen växer".
 - **Kartan:** kryssa **Molntoppar (Meteosat)** i mission control (väder) för rutor färgade efter
   höjd, ljust för låga toppar och mörklila över 10 km. Rutorna är grova så här långt norrut, cirka
   tio över kartområdet, så de visar ovädret i stort, inte enskilda celler.
 
 Satellitbevakningen visar Meteosat-10, som sände molntopparna, som en punkt över ekvatorn vid 0° längd
-med "geostationär, ser Kramfors hela tiden" i listan, och SPACE VIEW zoomar ut så att den syns på 3D-globen.
+med "geostationär, ser … hela tiden" i listan, och SPACE VIEW zoomar ut så att den syns på 3D-globen.
 
 Det är Meteosats produkt, inte en prognos. Data hämtas med EUMETSAT-kontot (avsnitt 2):
 
 ```bash
 .venv/bin/pip install -r tools/requirements-meteosat.txt
 TECHSEED_SCENARIO=kramfors2026 .venv/bin/python -m tools.fetch_meteosat_cth
+TECHSEED_SCENARIO=sundsvall2026 .venv/bin/python -m tools.fetch_meteosat_cth       # nio dygn, cirka 350 MB
+TECHSEED_SCENARIO=vasternorrland2025 .venv/bin/python -m tools.fetch_meteosat_cth
 ```

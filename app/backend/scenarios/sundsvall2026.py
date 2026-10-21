@@ -61,6 +61,8 @@ SENTINEL1_DIR = DATA / "sentinel1"
 MUNICIPAL_DIR = DATA / "municipal"
 # MCF's flood areas (tools/fetch_mcf_flood_maps.py).
 MCF_DIR = DATA / "mcf"
+# Meteosat's cloud top height every 15 minutes (tools/fetch_meteosat_cth.py, meteosat_cth.py).
+METEOSAT_CTH_FILE = DATA / "meteosat-cth" / "cth.json"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2026.json"
 
@@ -111,6 +113,7 @@ RAIN_STATIONS = {
 TLE_SATELLITES = {
     "62261": "Sentinel-1C", "66315": "Sentinel-1D", "40697": "Sentinel-2A", "42063": "Sentinel-2B",
     "60989": "Sentinel-2C", "39084": "Landsat 8", "49260": "Landsat 9", "25544": "ISS",
+    "38552": "Meteosat-10",
 }
 TLE_START, TLE_END = "2026-08-10", "2026-08-24"
 # half_swath_km: Sentinel-2 MSI 290 km and Landsat OLI 185 km across, centred under the
@@ -126,6 +129,8 @@ SATELLITE_ROLES = {
     "39084": {"firms": None, "instrument": "OLI", "role": "Optisk jordobservation", "half_swath_km": 92.5},
     "49260": {"firms": None, "instrument": "OLI", "role": "Optisk jordobservation", "half_swath_km": 92.5},
     "25544": {"firms": None, "instrument": None, "role": "Rymdstationen", "half_swath_km": None},
+    # Meteosat-10 (MSG-3) at 0 degrees, whose cloud top height the demo shows (meteosat_cth.py).
+    "38552": {"firms": None, "instrument": "SEVIRI", "role": "Geostationär, ser området hela tiden", "half_swath_km": None, "geostationary": True},
 }
 SATELLITE_LABEL = "Position 2026, beräknad ur banelement (SGP4) – inte en observation"
 
