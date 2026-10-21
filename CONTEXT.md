@@ -91,6 +91,13 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 ## Backlog
 
 - Implement support for local installation of the necessary data files when installing the demo from the Git repository, without depending on the USB3 stick; this complements the Linux, macOS and Windows platform-support work (user request, 2026-10-21).
+- Planned 2026-10-21, not implemented: scenario-selective data acquisition for new users installing from Git. Local package import is a separate installation route, not a replacement for fetching and preparing the data with the user's own access. Implementation plan:
+  1. Inventory each scenario's required and optional inputs, authoritative sources, account/access requirements, applicable licence and redistribution conditions, and fetch/build dependencies. Keep verified terms, assumptions and unresolved rights questions separate; do not assume that permission to display data permits redistribution.
+  2. Let the user select scenarios and review the required data, account requirements and estimated download/storage sizes before downloading. Mark estimates and avoid fetching unrelated scenarios.
+  3. Fetch from the original sources using the user's own access where required. Keep credentials outside the repository, data packages and logs; never distribute another user's credentials.
+  4. Make the necessary acquisition and data preparation available on Windows without Docker, including replacing or adapting the remaining Docker/Linux-dependent tools. Preserve the existing Ubuntu workflow and cover it with regression tests. Assess macOS separately and do not claim support before verification.
+  5. Support resuming interrupted downloads, integrity checks against authoritative checksums where available, explicit reporting of verification limits, source/licence metadata and timestamps, and actionable errors for unavailable data or denied access.
+  6. Verify the complete selected-scenario installation from a clean Git clone on Ubuntu and Windows, including data preparation and local database loading. Retain reviewed data packages as an alternative only for inputs whose redistribution is permitted; distinguish local test transfers from a generally distributable package.
 - Firmware for the booth nodes: nRF91 board, nRF Connect SDK version, Wi-Fi fallback.
 - Exposing and securing the MQTT broker for real nodes (network, passwords or certificates).
 - A real 1 h forecast horizon for +60 MIN (the forecast has 3, 6, 12 and 24 h).
