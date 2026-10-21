@@ -46,7 +46,7 @@ from app.backend import offline_tiles, scenario
 from tools import open_screens
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
+PYTHON = Path(sys.executable)
 # Where the check starts on the scenario clock (for Västmanland a satellite pass and the Landsat scene follow within minutes).
 START_UTC = scenario.CHECK_START_UTC
 RESET_LIMIT_S = 5.0

@@ -41,7 +41,7 @@ from app.backend.scenarios import AVAILABLE
 from tools.check_demo import served_tiles_file
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
+PYTHON = Path(sys.executable)
 NODE_LOG = REPO_ROOT / "data" / "node-sim.log"
 FRONTEND = REPO_ROOT / "app" / "frontend"
 PORT = 8765

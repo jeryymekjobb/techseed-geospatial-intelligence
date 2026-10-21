@@ -40,7 +40,9 @@ def test_the_backend_is_started_on_a_free_local_port() -> None:
         probe.bind(("127.0.0.1", port))  # still free
     command = check_demo.backend_command(port)
     assert command[1:] == ["-m", "app.backend.server", "--port", str(port)]
-    assert command[0].endswith(".venv/bin/python")
+    import sys
+
+    assert command[0] == sys.executable
 
 
 def test_mission_control_restores_the_check_start_time_after_its_automatic_reset() -> None:
