@@ -20,7 +20,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from app.backend import scenario
+from app.backend import postgres, scenario
 
 SOURCE = scenario.SPATIAL_SOURCE
 DISTANCE_M = 5000
@@ -189,10 +189,7 @@ class Psql:
     """One `psql` process kept open; a query is sent with a marker and read up to it."""
 
     def __init__(self, command: list[str] | None = None) -> None:
-        self.command = command or [
-            "docker", "compose", "exec", "-T", "postgis", "psql", "-U", "firemap", "-d", scenario.DATABASE,
-            "-q", "-A", "-t", "-X", "-v", "ON_ERROR_STOP=0",
-        ]
+        self.command = command or postgres.command(scenario.DATABASE, interactive=True)
         self.process: subprocess.Popen[str] | None = None
         self.lock = threading.Lock()
         self.count = 0
@@ -202,7 +199,7 @@ class Psql:
             try:
                 self.process = subprocess.Popen(
                     self.command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True, cwd=scenario.REPO_ROOT, bufsize=1,
+                    text=True, encoding="utf-8", env=postgres.environment(), cwd=scenario.REPO_ROOT, bufsize=1,
                 )
             except OSError as exc:
                 raise Unavailable(f"psql kunde inte startas: {exc}") from exc
@@ -225,13 +222,13 @@ class Psql:
                 while True:
                     line = process.stdout.readline()
                     if not line:
-                        raise Unavailable("PostGIS svarar inte (är `docker compose up -d postgis` igång?)")
+                        raise Unavailable(postgres.unavailable_message())
                     if line.strip() == marker:
                         break
                     lines.append(line.rstrip("\n"))
             except (BrokenPipeError, OSError) as exc:
                 self.process = None
-                raise Unavailable("PostGIS svarar inte (är `docker compose up -d postgis` igång?)") from exc
+                raise Unavailable(postgres.unavailable_message()) from exc
             except Unavailable:
                 self.process = None
                 raise

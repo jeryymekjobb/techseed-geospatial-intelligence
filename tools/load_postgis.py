@@ -16,6 +16,10 @@ database driver is needed on the host. Tables, all in WGS 84 (EPSG:4326):
 
 A scenario's database is created, with PostGIS, if it does not exist yet. Re-running
 replaces the tables. Only the Python standard library is used.
+
+Docker remains the default. Set TECHSEED_DB_MODE=native explicitly to use a local
+psql client instead (connection and password-file options: app/backend/postgres.py).
+The native path does not install or start PostgreSQL; loading still replaces tables.
 """
 
 from __future__ import annotations
@@ -26,7 +30,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Iterable
 
-from app.backend import scenario
+from app.backend import postgres, scenario
 
 TARGETS_FILE = scenario.TARGETS_FILE
 SCHEMA = """
@@ -173,11 +177,9 @@ def ensure_database(*, compose_dir: Path = scenario.REPO_ROOT) -> None:
 
 
 def run_psql(sql: str, *, compose_dir: Path = scenario.REPO_ROOT, quiet: bool = True, database: str | None = None) -> str:
-    command = ["docker", "compose", "exec", "-T", "postgis", "psql", "-v", "ON_ERROR_STOP=1", "-U", "firemap",
-               "-d", database or scenario.DATABASE]
-    if quiet:
-        command += ["-q", "-A", "-t"]
-    result = subprocess.run(command, input=sql, text=True, capture_output=True, cwd=compose_dir, check=False)
+    command = postgres.command(database or scenario.DATABASE, quiet=quiet)
+    result = subprocess.run(command, input=sql, text=True, encoding="utf-8", env=postgres.environment(),
+                            capture_output=True, cwd=compose_dir, check=False)
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or f"psql exited with {result.returncode}")
     return result.stdout
