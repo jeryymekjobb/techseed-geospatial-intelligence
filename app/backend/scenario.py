@@ -123,6 +123,9 @@ METEOSAT_GII_FILE = getattr(_module, "METEOSAT_GII_FILE", None)
 FORECAST_STATION = getattr(_module, "FORECAST_STATION", "")
 SENTINEL2_SCENES = getattr(_module, "SENTINEL2_SCENES", {})
 SENTINEL2_SIZE = getattr(_module, "SENTINEL2_SIZE", None)
+# Sentinel-2 scenes whose natural colour is stretched over another surface reflectance than 0-0.25,
+# by scene (tools/fetch_sentinel2_scene.py); a lower top suits a winter's low sun on snow-free ground.
+SENTINEL2_NATURAL_REFLECTANCE = getattr(_module, "SENTINEL2_NATURAL_REFLECTANCE", {})
 RADAR_ANALYSIS_BBOX = getattr(_module, "RADAR_ANALYSIS_BBOX", None) or MAP_BBOX
 FLOOD_HAZARD_WMS = getattr(_module, "FLOOD_HAZARD_WMS", None)
 MUNICIPAL_WMS = getattr(_module, "MUNICIPAL_WMS", None)
@@ -148,5 +151,8 @@ ROUTE_EXPOSURE_FILE = getattr(_module, "ROUTE_EXPOSURE_FILE", None)
 # The level sensors' alarm as a rise over the flow at the playback's start, instead of above the
 # station's record (level_sensors.py); and SMHI's stations that report the rain by the day (daily_rain.py).
 LEVEL_ALARM_RISE = getattr(_module, "LEVEL_ALARM_RISE", None)
+# Further places for the synthetic level sensors at reported damage, with a "site", latitude and
+# longitude, where the scenario's own reports name too few (tools/derive_impact_sensor_points.py).
+LEVEL_SENSOR_SITES = getattr(_module, "LEVEL_SENSOR_SITES", [])
 DAILY_RAIN_STATIONS = getattr(_module, "DAILY_RAIN_STATIONS", {})
 DAILY_RAIN_DIR = getattr(_module, "DAILY_RAIN_DIR", None)

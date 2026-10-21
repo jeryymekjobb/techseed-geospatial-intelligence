@@ -6,7 +6,8 @@ by product up to the relative orbit, for example `S2A_MSIL2A_20260820T101701_R06
 every tile of that datatake over the map area is used, so an area across two tiles
 or UTM zones is whole. Per scene it writes two PNGs, four for a wildfire:
 
-- natural colour (bands B04-B03-B02, reflectance 0-0.25);
+- natural colour (bands B04-B03-B02, reflectance 0-0.25, or the range the scenario's
+  SENTINEL2_NATURAL_REFLECTANCE gives the scene);
 - for a wildfire scenario, false colour with short-wave infrared (B12-B8A-B04, reflectance
   0-0.4), as Landsat's 7-5-4: burnt forest is dark red-brown, active fire bright;
 - for a wildfire scenario, the moisture in the vegetation by the normalised difference moisture
@@ -49,6 +50,15 @@ NATURAL = {"bands": ["B04", "B03", "B02"], "reflectance": (0.0, 0.25)}
 # Short-wave infrared, near infrared and red, for the fires' burnt areas.
 SWIR = {"bands": ["B12", "B8A", "B04"], "reflectance": (0.0, 0.4)}
 COMPOSITES = {"natural": NATURAL, **({"swir": SWIR} if WILDFIRE else {})}
+# Scenes whose natural colour has another stretch, by scene name.
+NATURAL_REFLECTANCE = scenario.SENTINEL2_NATURAL_REFLECTANCE
+
+
+def composites_for(scene: str, stretches: dict[str, tuple[float, float]] = NATURAL_REFLECTANCE) -> dict[str, dict]:
+    """The composites of a scene, with its own natural-colour stretch if the scenario gives one."""
+    if scene not in stretches:
+        return COMPOSITES
+    return {**COMPOSITES, "natural": {**NATURAL, "reflectance": tuple(stretches[scene])}}
 # Narrow near infrared and short-wave infrared at 1.6 µm, both 20 m, for the NDMI.
 NDMI_BANDS = ("B8A", "B11")
 RAW_BANDS = ("B03", "B08", "SCL", *(NDMI_BANDS if WILDFIRE else ()))
@@ -94,7 +104,7 @@ def warp_script(urls: dict[str, list[str]], scene: str, baseline: str, bbox: tup
                      f"-te {west} {south} {east} {north} -ts {size[0]} {size[1]} -srcnodata 0 -dstnodata 0 -r {method} {sources} {band}.tif")
     for band in RAW_BANDS:
         lines.append(f"gdal_translate -q -of EHdr {band}.tif {scene}-{band}.bil")
-    for name, composite in COMPOSITES.items():
+    for name, composite in composites_for(scene).items():
         low, high = (dn_for(value, baseline) for value in composite["reflectance"])
         lines.append(f"gdalbuildvrt -q -separate {name}.vrt " + " ".join(f"{band}.tif" for band in composite["bands"]))
         lines.append(f"gdal_translate -q -ot Byte -scale {low} {high} 1 255 -a_nodata 0 -of PNG {name}.vrt {scene}-{name}.png")
@@ -182,7 +192,7 @@ def process(prefix: str, token: str, out: Path) -> dict:
         "focus_area_water_pct": water,
         "images": {
             **{name: {"file": f"{prefix}-{name}.png", "bands": "-".join(composite["bands"]), "reflectance": list(composite["reflectance"])}
-               for name, composite in COMPOSITES.items()},
+               for name, composite in composites_for(prefix).items()},
             "water": {"file": f"{prefix}-water.png", "bands": "(B03-B08)/(B03+B08) > 0", "masked": "SCL 0, 1, 3, 8, 9, 10"},
             **({"ndmi": {"file": f"{prefix}-ndmi.png", "bands": "(B8A-B11)/(B8A+B11)", "index": [stop for stop, _ in NDMI_COLOURS],
                          "masked": "SCL 0, 1, 3, 6, 8, 9, 10"}} if WILDFIRE else {}),
