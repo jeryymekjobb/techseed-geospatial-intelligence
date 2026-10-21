@@ -92,7 +92,8 @@ def test_the_endpoint_gives_the_elements_with_their_role_and_source(tmp_path: Pa
     finally:
         satellites.satellites.cache_clear()
     assert result["available"] and result["label"] == satellites.LABEL
-    assert result["source"] == "Space-Track.org (gp_history), hämtad 2026-10-05T08:08:00Z"
+    assert result["source"] == "USSPACECOM via Space-Track.org (banelement, gp_history), hämtad 2026-10-05T08:08:00Z"
+    assert result["attribution"] == "Banelement: USSPACECOM via Space-Track.org"
     assert result["satellites"] == [{  # Landsat 8 without elements is left out
         "norad": "37849", "name": "Suomi NPP", "firms": "SNPP", "instrument": "VIIRS",
         "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0, "elements": [element],

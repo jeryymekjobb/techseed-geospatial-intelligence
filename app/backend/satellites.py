@@ -65,6 +65,9 @@ def satellites() -> dict[str, Any]:
     return {
         "available": True,
         "label": LABEL,
-        "source": f"Space-Track.org (gp_history), hämtad {fetched}",
+        # The data are USSPACECOM's; Space-Track's blanket approval for basic SSA data (element sets) and for
+        # publishing analysis of them asks for an appropriate citation (reports/2026-10-21-space-track-villkor).
+        "source": f"USSPACECOM via Space-Track.org (banelement, gp_history), hämtad {fetched}",
+        "attribution": "Banelement: USSPACECOM via Space-Track.org",
         "satellites": [item for item in items if contributes(item, imaged, meteosat_data())],
     }

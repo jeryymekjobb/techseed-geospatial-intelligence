@@ -980,6 +980,7 @@ function passFor(item, clock) {
   const today = Math.floor(now / DAY_MS);
   for (const day of [today, today + 1]) {
     const pass = passesOn(item, day).find((candidate) => candidate.end > now);
+  if (data.attribution) state.map.addAttribution(data.attribution);  // the globe's satellites and their orbits
     if (pass) return pass;
   }
   return null;
