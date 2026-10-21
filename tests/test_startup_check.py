@@ -56,3 +56,41 @@ def test_cli_reports_failure_without_installing(monkeypatch, capsys):
     monkeypatch.setattr(startup_check, "installation_checks", lambda name: [startup_check.Check(name, False, "missing")])
     assert startup_check.main(["kramfors2026"]) == 1
     assert "MISSING/FAILED kramfors2026" in capsys.readouterr().out
+
+
+def test_landsat_metadata_is_only_required_for_configured_scenes(tmp_path):
+    from app.backend.scenarios import ljusdal2018, vastmanland2014
+
+    assert not ljusdal2018.LANDSAT_SCENES
+    checks = startup_check.data_checks(ljusdal2018, tmp_path)
+    assert str(ljusdal2018.LANDSAT_DIR / "SOURCE.json") not in {check.name for check in checks}
+    assert vastmanland2014.LANDSAT_SCENES
+    checks = startup_check.data_checks(vastmanland2014, tmp_path)
+    assert str(vastmanland2014.LANDSAT_DIR / "SOURCE.json") in {check.name for check in checks}
+
+
+def test_forecast_weather_inputs_are_checked_and_deduplicated(tmp_path):
+    settings = SimpleNamespace(TERRAIN_FILE=tmp_path / "terrain.json", TARGETS_FILE=tmp_path / "targets.json",
+                               WIND_FILE=tmp_path / "wind.csv", TLE_DIR=tmp_path / "tle", TLE_FILE_NAME="tle.json",
+                               TILES_FILE="demo.mbtiles", FIRMS_FILES=[],
+                               FORECAST_WEATHER_FILES=[tmp_path / "spinup.csv", tmp_path / "weather.csv",
+                                                       tmp_path / "weather.csv"])
+    def weather_checks():
+        return [check for check in startup_check.data_checks(settings, tmp_path)
+                if check.name in {str(path) for path in settings.FORECAST_WEATHER_FILES}]
+
+    assert len(weather_checks()) == 2
+    assert not any(check.passed for check in weather_checks())
+    for path in settings.FORECAST_WEATHER_FILES:
+        path.write_text("synthetic weather fixture", encoding="utf-8")
+    assert all(check.passed for check in weather_checks())
+    settings.FORECAST_WEATHER_FILES[0].write_text("")
+    assert not all(check.passed for check in weather_checks())
+
+
+def test_karbole_forecast_weather_files_are_included(tmp_path):
+    from app.backend.scenarios import ljusdal2018
+
+    names = {check.name for check in startup_check.data_checks(ljusdal2018, tmp_path)}
+    assert ljusdal2018.FORECAST_WEATHER_FILES
+    assert all(str(path) in names for path in ljusdal2018.FORECAST_WEATHER_FILES)

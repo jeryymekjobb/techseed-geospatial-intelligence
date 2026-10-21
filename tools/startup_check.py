@@ -51,8 +51,9 @@ def probe(name: str, command: list[str]) -> Check:
 def data_checks(settings, root: Path = REPO_ROOT) -> list[Check]:
     """Check configured inputs, not raw build inputs or a database's contents."""
     files = [Path(settings.TERRAIN_FILE), Path(settings.TARGETS_FILE), Path(settings.WIND_FILE),
-             Path(settings.TLE_DIR) / settings.TLE_FILE_NAME,
-             root / "data/tiles" / settings.TILES_FILE, *map(Path, settings.FIRMS_FILES)]
+              Path(settings.TLE_DIR) / settings.TLE_FILE_NAME,
+              root / "data/tiles" / settings.TILES_FILE, *map(Path, settings.FIRMS_FILES)]
+    files.extend(map(Path, getattr(settings, "FORECAST_WEATHER_FILES", [])))
     for name, value in vars(settings).items():
         if name.endswith("_FILE") and isinstance(value, Path) and value not in files:
             files.append(value)
@@ -63,6 +64,8 @@ def data_checks(settings, root: Path = REPO_ROOT) -> list[Check]:
                    "LIGHTNING_DIR": "SOURCE.json", "RADAR_DIR": "SOURCE.json",
                    "EMS_DIR": "perimeters.geojson", "MUNICIPAL_BASEMAP_DIR": "SOURCE.json"}
         if name in markers and isinstance(value, Path):
+            if name == "LANDSAT_DIR" and not getattr(settings, "LANDSAT_SCENES", {}):
+                continue
             files.append(value / markers[name])
     checks = [Check(str(path), path.is_file() and path.stat().st_size > 0, "required input file")
               for path in dict.fromkeys(files)]
