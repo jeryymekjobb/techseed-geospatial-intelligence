@@ -494,8 +494,9 @@ där styr alla skärmar, medan lagerlistan och stationslistorna bara gäller den
 
 **VISA 2D / VISA 3D.** Knappen bredvid **UPPLÄSNING** i mission control byter huvudskärmen mellan
 3D-globen och 2D-kartan; den heter efter den vy du byter till. Klockan, lagren och händelserna följer
-med, och RESET behåller vyn. STARTA OM DEMO och BYT SCENARIO börjar i 3D. Ett fönster med
-`?controls=1` byter inte. GOD VIEW är tom utanför området runt händelsen i 2D, så använd 3D för den.
+med, och RESET behåller vyn. STARTA OM DEMO och BYT SCENARIO börjar i 3D. Innan någon har tryckt
+på knappen stannar varje skärm där den öppnades, till exempel ett eget fönster med 2D-kartan; efter ett
+val följer huvudskärmen det, också när den laddas om. Ett fönster med `?controls=1` byter inte. GOD VIEW är tom utanför området runt händelsen i 2D, så använd 3D för den.
 
 **Kartans lager.** Rutan **Kartans lager**, överst i gruppen **Kartan** i mittkolumnen, har en
 kryssruta per lager och de fyra kategorierna för GOD VIEW: **Space** (detektioner och

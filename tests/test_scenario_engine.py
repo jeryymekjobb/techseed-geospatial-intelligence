@@ -102,7 +102,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
     assert scenario.snapshot()["status"] == {
         "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
         "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
-        "image_types": None, "base_maps": None, "speech": True, "view": "3d", "camera": {"target": None, "seq": 0}, "map_layers": {}, "choices": {}, "question": {"id": None, "seq": 0},
+        "image_types": None, "base_maps": None, "speech": True, "view": None, "camera": {"target": None, "seq": 0}, "map_layers": {}, "choices": {}, "question": {"id": None, "seq": 0},
     }
     scenario.command("seek", at="2014-08-04T12:00:00Z")
     scenario.command("satellite_detection")
@@ -122,7 +122,7 @@ def test_events_are_stored_with_the_scenario_time_and_add_up_to_a_status() -> No
         "satcom_up": False, "plus60": True, "god_view": True, "space_view": False, "power_failure": False,
         "failed_sensors": ["sensor-17"], "closed_roads": ["road-66"],
         "satcom_down_since": "2014-08-04T12:00:00Z", "last_outage": None, "hidden_layers": [], "iot": True, "placed_sensors": [], "detection": None, "image": "auto",
-        "image_types": None, "base_maps": None, "speech": True, "view": "3d", "camera": {"target": None, "seq": 0}, "map_layers": {}, "choices": {}, "question": {"id": None, "seq": 0},
+        "image_types": None, "base_maps": None, "speech": True, "view": None, "camera": {"target": None, "seq": 0}, "map_layers": {}, "choices": {}, "question": {"id": None, "seq": 0},
     }
     # Toggles switch back, and SATCOM can be restored.
     scenario.command("plus60")
@@ -505,7 +505,7 @@ def test_the_playback_s_length_counts_the_slow_windows() -> None:
 
 def test_the_main_screen_s_view_is_chosen_from_mission_control_and_kept_by_reset() -> None:
     scenario, _ = engine()
-    assert scenario.snapshot()["status"]["view"] == "3d"
+    assert scenario.snapshot()["status"]["view"] is None  # not chosen: every screen stays where it was opened
     assert scenario.command("view", target="2d")["status"]["view"] == "2d"
     assert scenario.command("reset")["status"]["view"] == "2d"  # RESET keeps it, like the speed
     with pytest.raises(CommandError):

@@ -123,7 +123,9 @@ class ScenarioEngine:
     _image_types: list[str] | None = field(default=None, init=False)
     _base_maps: list[str] | None = field(default=None, init=False)
     _speech: bool = field(default=True, init=False)
-    _view: str = field(default="3d", init=False)  # the main screen's map: "3d" globe or "2d" map
+    # The main screen's map chosen in mission control: "3d" globe or "2d" map; None until chosen, when
+    # every screen stays on the page it was opened with (tools/record_demo.py records the 2D map).
+    _view: str | None = field(default=None, init=False)
     _camera: dict[str, Any] = field(default_factory=lambda: {"target": None, "seq": 0}, init=False)
     _map_layers: dict[str, bool] = field(default_factory=dict, init=False)
     _choices: dict[str, str] = field(default_factory=dict, init=False)
