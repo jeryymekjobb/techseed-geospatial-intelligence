@@ -6,6 +6,301 @@ Läs gärna igenom hela guiden en gång innan du börjar.
 
 Teknisk bakgrund för utvecklare finns i `app/README.md`.
 
+## Installation från Git utan USB – Ubuntu och Windows
+
+Den här installationsvägen använder en Git-klon och ett separat, lokalt datapaket.
+USB3-stickan ingår inte i kedjan. Git-klonen innehåller inte alla kördata, röster eller
+webbibliotek. Ett datapaket måste först tas fram från en uttryckligen granskad fillista;
+den här guiden innebär inte att ett komplett eller distributionsgodkänt paket finns.
+Be projektansvarig om paketet och den kodrevision som ska användas. Paketets manifest
+anger en kodrevision, men importören kontrollerar inte att den är kompatibel med koden.
+Kontrollsummor verifierar filernas integritet, inte vem som har publicerat dem.
+
+**Verifieringsläge:** Ubuntu är projektets befintliga körmiljö. De nya verktygen har
+enhetstestats där med syntetiska paket och ersättningar för plattformsanrop. Windows
+installation, Docker, fönster och ljud måste fortfarande provas i VM. macOS har kod
+för Chrome-sökning och WAV-uppspelning, men är inte verifierat och saknar automatisk
+placering och stängning av demofönster. Det är ännu inte en färdig macOS-installation.
+
+Resten av guiden innehåller äldre Ubuntu-kommandon och instruktioner för att hämta
+data från grunden. På Windows följer du denna sektion, inte de äldre Bash-kommandona.
+
+### A. Förutsättningar och ren klon
+
+Installera Git, Python med `venv`, Google Chrome samt Docker med Compose enligt
+respektive programs installationsanvisningar. Python måste vara minst 3.10;
+välj samma Python-version vid jämförande tester och anteckna den i testrapporten.
+Ubuntu behöver X11 och `xrandr`, `xprop`, `wmctrl`, `pkill` för automatisk placering,
+och `pw-play` för Piper-ljud. Wayland är inte verifierat för fönsterhanteringen.
+Windows använder Windows-API:er och `powershell.exe` för demofönstren, inte dessa
+Linuxverktyg. WAV spelas där med Pythons `winsound` i en separat process.
+
+På Windows behövs en fungerande Docker-miljö för **Linuxcontainrar**, exempelvis
+Docker Desktop med dess angivna systemkrav uppfyllda. I en Windows-VM måste även
+värddatorn och VM-konfigurationen medge den virtualisering Docker behöver. Kontrollera
+detta innan data installeras; Windows-stöd i koden garanterar inte att Docker kan köras
+i den aktuella VM:n. Ingen del av guiden kräver att tjänster exponeras på nätverket.
+
+Starta Docker. Kör `git --version`, `docker compose version` och `docker info` i din
+terminal. Alla måste lyckas. Ordna Git-åtkomst separat; dela inte SSH-nycklar eller
+dataleverantörernas kontouppgifter. Klona till en lokal, skrivbar mapp:
+
+Ubuntu/Bash:
+
+```bash
+cd ~
+git clone git@github.com:jeryymekjobb/techseed-geospatial-intelligence.git
+cd techseed-geospatial-intelligence
+git status --short --branch
+git rev-parse HEAD
+python3 --version
+```
+
+Windows/PowerShell:
+
+```powershell
+Set-Location $HOME
+git clone git@github.com:jeryymekjobb/techseed-geospatial-intelligence.git
+Set-Location techseed-geospatial-intelligence
+git status --short --branch
+git rev-parse HEAD
+py -3 --version
+```
+
+Kommandona nedan förutsätter att klonen innehåller de nya verktygen
+`tools/startup_check.py`, `tools/install_data.py` och `tools/package_data.py`.
+Arbetet ligger på `cross-platform-installation` tills det publiceras eller integreras;
+en vanlig klon av `main` ger inte nödvändigtvis dessa ändringar. Använd endast en
+publicerad revision som projektansvarig har angett. Guiden är inte en uppmaning att
+pusha eller byta branch i ett repo med pågående arbete.
+
+### B. Pythonberoenden
+
+Kör från klonens rot. Ingen aktivering av Pythonmiljön eller ändring av PowerShells
+exekveringspolicy behövs:
+
+Ubuntu/Bash:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt -r app/requirements-speech.txt -r tools/requirements-record.txt
+```
+
+Windows/PowerShell:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt -r app/requirements-speech.txt -r tools/requirements-record.txt
+```
+
+Avbryt vid installationsfel. Tillgängligheten av Piper och dess beroenden på vald
+Windows/Python/processor-kombination återstår att verifiera. Guiden förutsätter inte
+att Linuxmiljön `.venv` kopieras till Windows. Kravfiler för att hämta och bygga data
+från grunden behövs inte för en komplett paketbaserad installation.
+
+### C. Installera ett granskat lokalt datapaket
+
+Hämta paketet via en av projektansvarig godkänd överföringsväg, utan USB-beroende.
+Lägg det exempelvis som `demo-data.zip` i hemmappen. Paketet ska innehålla nödvändiga
+filer för de scenarier som ska köras, tillsammans med käll- och licensuppgifter.
+Lokala visningsprofiler, loggar och inloggningsuppgifter ska inte följa med.
+Paketskaparen måste granska även innehållet: filtrering på filnamn bevisar inte att
+filerna saknar hemligheter eller att distribution är tillåten.
+
+Verifiera först hela paketet utan att skriva filer. Installera därefter, endast om
+kontrollen lyckas och paketets innehåll är godkänt:
+
+Ubuntu/Bash:
+
+```bash
+.venv/bin/python -m tools.install_data "$HOME/demo-data.zip" --dry-run
+.venv/bin/python -m tools.install_data "$HOME/demo-data.zip"
+```
+
+Windows/PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m tools.install_data "$HOME\demo-data.zip" --dry-run
+.\.venv\Scripts\python.exe -m tools.install_data "$HOME\demo-data.zip"
+```
+
+Importören lämnar identiska befintliga filer orörda och avbryter om en fil skiljer sig.
+Den skriver inte över `data/display-profiles.json`. Den laddar inte databasen och
+garanterar inte att paketet är komplett. Ändra inte paketet eller målmappen under
+importen. Ett avbrott under själva skrivningen kan lämna en delvis installerad uppsättning;
+undersök felet i stället för att radera eller skriva över befintliga data automatiskt.
+Utrymme behövs både för ZIP-filen, tillfälligt uppackade filer, installerade data och
+Dockerbilder. Fastställ storleken från det verkliga paketet, inte äldre storleksuppgifter.
+
+Om webbibliotek eller röster inte ingår i det godkända paketet kan de hämtas separat
+med internetanslutning. Kör bara de hämtningar som behövs:
+
+Ubuntu/Bash:
+
+```bash
+.venv/bin/python -m tools.fetch_web_vendor
+.venv/bin/python -m tools.fetch_piper_voices
+```
+
+Windows/PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m tools.fetch_web_vendor
+.\.venv\Scripts\python.exe -m tools.fetch_piper_voices
+```
+
+Verktygen verifierar bibliotek och röstmodeller mot fastställda kontrollsummor.
+Hämtningen av webbibliotek ersätter deras befintliga versionsmappar. Gör den inte mot
+en pågående demo. På Windows krävs fungerande Piper och röstmodell för uppläsning;
+ingen annan systemröst väljs automatiskt. Saknat eller felande ljud loggas i backend.
+
+### D. Kontrollera data och fyll PostGIS för valda scenarier
+
+Exemplet väljer enbart Västmanland. Byt namnet till ett scenario som paketet faktiskt
+omfattar: `vastmanland2014`, `sundsvall2026`, `skane2024`, `ljusdal2018`,
+`vasternorrland2025` eller `kramfors2026`.
+
+Ubuntu/Bash:
+
+```bash
+SCENARIO=vastmanland2014
+.venv/bin/python -m tools.startup_check "$SCENARIO"
+```
+
+Windows/PowerShell:
+
+```powershell
+$Scenario = "vastmanland2014"
+.\.venv\Scripts\python.exe -m tools.startup_check $Scenario
+```
+
+Kontrollen är skrivskyddad och ska avslutas med kod 0. Den kontrollerar Python-version,
+Chrome, Docker och vissa konfigurerade datafiler/metadata. Den verifierar **inte**
+alla bildfiler eller tidstäckning, Pythonpaket, databasens innehåll, ljud eller
+fönsterplacering. Utred varje `MISSING/FAILED`; ett lyckat resultat är inte ett
+godkännande av hela installationen.
+
+**Följande kommandon ändrar databasen.** Kör bara vid avsedd installation eller
+omladdning av det valda scenariot, med demon stoppad. `load_postgis` skapar databasen
+vid behov och ersätter scenariots demotabeller. Den befintliga Docker-volymen ska
+inte raderas. Starta tjänsterna och vänta tills PostGIS är friskt:
+
+```text
+docker compose up -d tiles postgis mosquitto
+docker compose ps
+```
+
+När PostGIS visar `healthy`, ladda det valda scenariot:
+
+Ubuntu/Bash:
+
+```bash
+TECHSEED_SCENARIO="$SCENARIO" .venv/bin/python -m tools.load_postgis
+```
+
+Windows/PowerShell:
+
+```powershell
+$env:TECHSEED_SCENARIO = $Scenario
+.\.venv\Scripts\python.exe -m tools.load_postgis
+Remove-Item Env:TECHSEED_SCENARIO
+```
+
+Kontrollera att kommandot lyckas och rapporterar `Loaded into ...`. Upprepa endast för
+övriga valda scenarier, med respektive namn. Startverktyget väljer scenariots egen
+kartfil när demon startas; kartan som visas av den första Compose-starten kan vara standardkartan.
+
+### E. Start och verifiering på måldatorn
+
+Ubuntu/Bash:
+
+```bash
+.venv/bin/python -m tools.start_demo vastmanland2014
+```
+
+Windows/PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m tools.start_demo vastmanland2014
+```
+
+Utelämna scenarionamnet för menyn. Menyn listar alla scenarier i koden, även dem som
+inte har installerade data; välj bara installerade scenarier. Ctrl+C stoppar backend
+och simulerade noder, men lämnar webbläsarfönster och Docker-tjänster igång.
+
+Checklista för Windows-VM, ännu inte genomförd:
+
+- Anteckna Windows-, Python-, Chrome-, Docker- och VM-version, processorarkitektur,
+  grafikinställningar, skärmantal och skalningsfaktorer.
+- Kontrollera att Docker faktiskt kör Linuxcontainrar och att tjänsterna svarar.
+- Prova start och stopp, meny, scenariobyte och STARTA OM DEMO. Kontrollera att din
+  vanliga Chrome inte stängs när demofönstren stängs.
+- Prova fönsterplacering med en skärm och med flera skärmar om VM:n medger det,
+  inklusive olika skalning och en skärm till vänster om primärskärmen.
+- Kontrollera 2D/3D, karta, satellitbilder, simulerade MQTT-noder och PostGIS-frågor.
+- Prova Alma-uppläsning, UPPLÄSNING av/på och stopp under pågående tal.
+- Prova avsedd offlinekörning efter att alla data och Dockerbilder installerats.
+  Valbara nätkartor och andra nätberoende lager blir inte offline genom dataimporten.
+
+Stoppa startverktyget innan den automatiska demokontrollen körs; den startar egen
+backend och simulerade noder. Använd valt scenario och en ny rapportmapp:
+
+Ubuntu/Bash:
+
+```bash
+TECHSEED_SCENARIO="$SCENARIO" .venv/bin/python -m tools.check_demo --headed --out "$HOME/demo-check-installation"
+```
+
+Windows/PowerShell:
+
+```powershell
+$env:TECHSEED_SCENARIO = $Scenario
+.\.venv\Scripts\python.exe -m tools.check_demo --headed --out "$HOME\demo-check-installation"
+Remove-Item Env:TECHSEED_SCENARIO
+```
+
+Kontrollen startar inte Docker-tjänsterna; de måste redan köra med rätt scenariokarta.
+Spara rapporten och notera scenariofel separat från plattformsfel. En VM kan verifiera
+funktion, men dess WebGL-bildfrekvens är inte ett prestandagodkännande av mässdatorn.
+Demokontrollen ersätter inte manuella prov av ljud och fönstrens livscykel.
+
+### F. Skapa paketet – endast för den som ansvarar för data
+
+Granska filinnehåll, källhänvisningar och distributionsrättigheter först. Skapa sedan
+en lokal JSON-fillista med paketversion, avsedd kodrevision, scenarionamn och varje
+enskild godkänd fil. Exemplet visar bara formatet och är **inte ett körbart datapaket**:
+
+```json
+{
+  "package_version": "example-only",
+  "code_revision": "replace-with-approved-commit",
+  "scenarios": ["vastmanland2014"],
+  "files": ["data/example/approved-input.json"]
+}
+```
+
+Spara listan lokalt, exempelvis som `selection.json` utanför repot. Verktyget skannar
+inte kataloger och avgör inte om listan ger en komplett demo. Det samlar inte
+automatiskt in hemligheter, visningsprofiler eller Docker-volymer. Källmetadata och
+licensfiler måste också listas uttryckligen där de behövs. Outputfilen får inte finnas.
+
+Ubuntu/Bash:
+
+```bash
+.venv/bin/python -m tools.package_data "$HOME/selection.json" "$HOME/demo-data.zip" --dry-run
+.venv/bin/python -m tools.package_data "$HOME/selection.json" "$HOME/demo-data.zip"
+```
+
+Windows/PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m tools.package_data "$HOME\selection.json" "$HOME\demo-data.zip" --dry-run
+.\.venv\Scripts\python.exe -m tools.package_data "$HOME\selection.json" "$HOME\demo-data.zip"
+```
+
+Pröva paketet i en separat ren klon och genomför kontrollerna ovan innan det lämnas
+vidare via godkänd överföringsväg. En lyckad kontrollsumma ersätter inte det provet.
+
 ## Vad demon är
 
 Demon spelar upp skogsbranden i Västmanland sommaren 2014 med riktiga satellitdata. Den
@@ -50,7 +345,8 @@ fungerar demon utan internet.
 
 Datorn behöver:
 
-- **Linux**, till exempel Ubuntu. Guiden är skriven för Ubuntu.
+- **Linux**, till exempel Ubuntu, för denna äldre installationsväg. Windows beskrivs
+  separat i sektionen **Installation från Git utan USB** ovan.
 - **Git**, för att hämta koden, och **curl**, för att hämta kartutdraget.
 - **Python 3** med `venv`, som demon är skriven i.
 - **Docker** med `docker compose`, för databasen, kartan och meddelandetjänsten.
@@ -163,36 +459,13 @@ Det tar någon minut. Sista raden ska börja med `Successfully installed`.
 
 ## 5. Hämta och bygga data
 
-### Kopiera data från en dator där demon redan fungerar
+### Installera färdiga data utan USB
 
-Datan ligger i mappen `data/` (cirka 2 GB) och i webbiblioteken under `app/frontend/vendor/`.
-Ingen av dem finns i repot. Finns demon redan på en annan dator går det snabbare att kopiera
-dem därifrån än att hämta allt igen, och då kommer de sparade visningsprofilerna
-(`data/display-profiles.json`) och rösterna för uppläsningen med. Kör på den dator där demon
-fungerar, från repots mapp, och byt `mässdatorn` mot den nya datorns namn eller IP-adress:
-
-```bash
-rsync -a --info=progress2 --exclude osm/sweden-latest.osm.pbf --exclude '*.log' \
-  data/ mässdatorn:techseed-geospatial-intelligence/data/
-rsync -a app/frontend/vendor/ mässdatorn:techseed-geospatial-intelligence/app/frontend/vendor/
-```
-
-Kartutdraget för Sverige behövs bara för att bygga kartorna och lämnas därför utanför. Med ett
-USB-minne går det lika bra: kopiera de två mapparna till samma platser i repot på den nya
-datorn.
-
-Databasen följer inte med, eftersom den ligger i Docker. Starta tjänsterna och fyll databasen
-för varje demo på den nya datorn:
-
-```bash
-docker compose up -d tiles postgis mosquitto
-for s in vastmanland2014 sundsvall2026 skane2024 ljusdal2018; do
-  TECHSEED_SCENARIO=$s .venv/bin/python -m tools.load_postgis
-done
-```
-
-Gå sedan direkt till avsnitt 6. Resten av avsnitt 5, och avsnitt 15, 21 och 23, behövs bara
-om datan ska hämtas från början.
+Använd den nya sektionen **Installation från Git utan USB**, steg C–E, för ett granskat
+lokalt paket, data- och tjänstekontroll, laddning av valda scenariers PostGIS och start.
+Kopiera inte hela `data/` okontrollerat: mappen innehåller även lokala profiler och loggar.
+Databasen ligger i Docker och följer inte med datapaketet. Resterande steg nedan behövs
+bara om data ska hämtas och byggas från grunden på Ubuntu; den vägen är inte portad till Windows.
 
 ### Hämta datan från början
 
