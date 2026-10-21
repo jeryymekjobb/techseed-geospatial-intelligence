@@ -83,7 +83,7 @@ CAMERA_ROUTE = [
 # around the playback so an element set from before the start is there as well.
 # Sentinel-1A was still in commissioning in August 2014 and Sentinel-2A was launched in
 # 2015, so neither is here.
-TLE_SATELLITES = {"25994": "Terra", "27424": "Aqua", "37849": "Suomi NPP", "39084": "Landsat 8", "25544": "ISS"}
+TLE_SATELLITES = {"25994": "Terra", "27424": "Aqua", "37849": "Suomi NPP", "39084": "Landsat 8", "25544": "ISS", "38552": "Meteosat-10"}
 TLE_START, TLE_END = "2014-07-27", "2014-08-17"
 # What each satellite contributes to the demo; the FIRMS `satellite` field names the first three.
 # half_swath_km decides when a pass covers the fire: MODIS 2330 km, VIIRS 3040 km and
@@ -94,6 +94,8 @@ SATELLITE_ROLES = {
     "37849": {"firms": "SNPP", "instrument": "VIIRS", "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0},
     "39084": {"firms": None, "instrument": "OLI", "role": "Optisk jordobservation", "half_swath_km": 92.5},
     "25544": {"firms": None, "instrument": None, "role": "Rymdstationen", "half_swath_km": None},
+    # Meteosat-10 (MSG-3) at 0 degrees, which saw the fire's pixels on 4 August (meteosat.py).
+    "38552": {"firms": None, "instrument": "SEVIRI", "role": "Geostationär, ser området hela tiden", "half_swath_km": None, "geostationary": True},
 }
 SATELLITE_LABEL = "Position 2014, beräknad ur banelement (SGP4) – inte en observation"
 

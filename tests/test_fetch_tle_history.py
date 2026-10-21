@@ -86,7 +86,7 @@ def test_credentials_are_read_from_key_value_lines(tmp_path: Path) -> None:
 
 def test_one_query_for_every_satellite_and_the_period() -> None:
     path = tle.query_path("2014-07-27", "2014-08-17")
-    assert path.startswith("/basicspacedata/query/class/gp_history/NORAD_CAT_ID/25994,27424,37849,39084,25544/")
+    assert path.startswith("/basicspacedata/query/class/gp_history/NORAD_CAT_ID/25994,27424,37849,39084,25544,38552/")
     assert "/EPOCH/2014-07-27--2014-08-17/" in path and path.endswith("/format/json")
 
 

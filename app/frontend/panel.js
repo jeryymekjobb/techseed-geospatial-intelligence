@@ -987,7 +987,7 @@ function showSatellites(clock) {
   state.satelliteInfoAt = clock;
   fillList("satellite-list", items.map((item) => {
     const instrument = item.instrument ? ` (${item.instrument})` : "";
-    let pass = "";
+    let pass = item.geostationary ? ` · geostationär, ser ${state.config.incident_place} hela tiden` : "";
     if (hasPasses(item)) {
       const next = passFor(item, clock);
       const place = state.config.incident_place;

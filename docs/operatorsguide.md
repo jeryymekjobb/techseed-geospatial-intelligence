@@ -416,6 +416,9 @@ Västmanland såg den branden bara den 4 augusti 2014, 14:00–15:45 svensk tid:
 (geostationär, LSA SAF)** visar varje pixel som en lila rektangel på cirka 26 km², och loggen har en
 rad per kvart, till exempel "Meteosat-10 (geostationär) ser branden: 2 pixlar, starkast 2592,4
 megawatt". Pixlarnas läge och form är ungefärliga; de ligger några kilometer norr om FIRMS-punkterna.
+Satellitbevakningen visar Meteosat-10 som en punkt över ekvatorn vid 0° längd, där den står still, och
+listan säger "geostationär, ser branden hela tiden"; den har inga passager. På 3D-globen ligger den
+35 800 km ut och syns inte i SPACE VIEW, som är riktad mot Norden.
 Raden **Brandrisk enligt LSA SAF** i panelen, under demons egen brandrisk, visar dagens riskklass
 (låg till extrem) och FWI vid branden, giltig från kl. 12 UTC (14:00 svensk tid). Den räknas ur
 ERA5:s väder och kalibreras mot satelliternas brandobservationer, så säg "Meteosat och ERA5", inte
@@ -1222,6 +1225,9 @@ når marken: den 15 augusti steg medelhöjden över kartområdet från cirka 5�
 - **Kartan:** kryssa **Molntoppar (Meteosat)** i mission control (väder) för rutor färgade efter
   höjd, ljust för låga toppar och mörklila över 10 km. Rutorna är grova så här långt norrut, cirka
   tio över kartområdet, så de visar ovädret i stort, inte enskilda celler.
+
+Satellitbevakningen visar Meteosat-10, som sände molntopparna, som en punkt över ekvatorn vid 0° längd
+med "geostationär, ser Kramfors hela tiden" i listan.
 
 Det är Meteosats produkt, inte en prognos. Data hämtas med EUMETSAT-kontot (avsnitt 2):
 

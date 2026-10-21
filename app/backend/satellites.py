@@ -6,7 +6,9 @@ with satellite.js (SGP4) from the latest element set at or before that time.
 Without the file the globe simply shows no satellites.
 
 Only the satellites that send the scenario data to the ground are given (contributes): the
-FIRMS satellites, those with known Sentinel-1 acquisitions and those of the scenario's images.
+FIRMS satellites, those with known Sentinel-1 acquisitions, those of the scenario's images and
+Meteosat where the scenario shows its fire pixels or cloud tops. Meteosat is geostationary: it
+has no passes, and the screens say it sees the area all the time.
 The others' element sets stay in the file, but no screen, log line or pass shows them.
 """
 
@@ -25,9 +27,18 @@ ROLES = scenario.SATELLITE_ROLES
 LABEL = scenario.SATELLITE_LABEL
 
 
-def contributes(item: dict[str, Any], imaged: set[str]) -> bool:
-    """Whether a satellite sends the scenario data: FIRMS detections, known acquisitions or one of its images."""
-    return bool(item.get("firms") or item.get("acquisitions") or item["name"] in imaged)
+def contributes(item: dict[str, Any], imaged: set[str], geostationary_data: bool = False) -> bool:
+    """Whether a satellite sends the scenario data: FIRMS detections, known acquisitions, one of its
+    images, or for a geostationary one (Meteosat) the scenario's fire pixels or cloud tops."""
+    return bool(item.get("firms") or item.get("acquisitions") or item["name"] in imaged
+                or (item.get("geostationary") and geostationary_data))
+
+
+def meteosat_data() -> bool:
+    """Whether the scenario shows Meteosat's own data: its fire pixels or its cloud tops."""
+    from app.backend import meteosat, meteosat_cth  # they import scenario only; kept local to keep this module light
+
+    return bool(meteosat.pixels()) or meteosat_cth.data() is not None
 
 
 @lru_cache(maxsize=1)
@@ -55,5 +66,5 @@ def satellites() -> dict[str, Any]:
         "available": True,
         "label": LABEL,
         "source": f"Space-Track.org (gp_history), hämtad {fetched}",
-        "satellites": [item for item in items if contributes(item, imaged)],
+        "satellites": [item for item in items if contributes(item, imaged, meteosat_data())],
     }

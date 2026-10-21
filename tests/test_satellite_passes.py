@@ -68,6 +68,10 @@ def test_only_the_satellites_that_send_the_scenario_data_are_given(tmp_path: Pat
     # Known acquisitions count as data too (Sentinel-1).
     assert satellites.contributes({"name": "Sentinel-1C", "acquisitions": ["2026-08-17T05:14:00Z"]}, set())
     assert not satellites.contributes({"name": "ISS", "firms": None}, {"Landsat 8"})
+    # Meteosat counts only where the scenario shows its fire pixels or cloud tops.
+    meteosat = {"name": "Meteosat-10", "firms": None, "geostationary": True}
+    assert satellites.contributes(meteosat, set(), geostationary_data=True)
+    assert not satellites.contributes(meteosat, set(), geostationary_data=False)
 
 
 def test_the_endpoint_gives_the_elements_with_their_role_and_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, base_url: str) -> None:

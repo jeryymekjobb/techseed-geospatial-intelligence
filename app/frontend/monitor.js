@@ -196,7 +196,7 @@ async function start() {
     list.innerHTML = "";
     for (const item of items) {
       const next = item.passes?.find((pass) => pass.end > clock.getTime());
-      const pass = !item.passes ? "" : !next ? ` · ingen passage över ${place} närmaste dygnet`
+      const pass = item.geostationary ? ` · geostationär, ser ${place} hela tiden` : !item.passes ? "" : !next ? ` · ingen passage över ${place} närmaste dygnet`
         : next.start <= clock.getTime() ? ` · ÖVER ${place.toUpperCase()} NU` : ` · nästa passage över ${place} ${hourMinute.format(new Date(next.start))}`;
       const row = document.createElement("li");
       const swatch = document.createElement("span");
