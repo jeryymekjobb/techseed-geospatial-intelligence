@@ -360,3 +360,12 @@ def test_the_cloud_tops_are_a_line_when_they_pass_a_threshold() -> None:
         "Molntopparna över Kramfors når 8 kilometer enligt Meteosat – åskmolnen växer",
     ]
     assert lines[0]["sourceText"] == "Meteosat 2026"
+
+
+def test_what_meteosat_missed_is_a_line_a_day() -> None:
+    compare = {"name": "Strandåsmyrvallen", "near": "Kårböle", "distance_km": 50, "direction": "väster om",
+               "days": [{"time_utc": "2018-07-16T17:00:00Z", "satellite": "Meteosat-11", "pixels": 45, "max_frp_mw": 3115.6, "incident_seen": False}]}
+    lines = node(f"satelliteLog({{ meteosatCompare: {json.dumps(compare)} }}, Date.parse('2018-07-16T18:00:00Z'))")
+    assert [line["text"] for line in lines] == [
+        "Meteosat-11 (geostationär) ser branden vid Strandåsmyrvallen, 50 kilometer väster om Kårböle: 45 pixlar, starkast 3115,6 megawatt – men ingen vid Kårböle"]
+    assert lines[0]["spoken"].endswith("starkast 3116 megawatt – men ingen vid Kårböle")

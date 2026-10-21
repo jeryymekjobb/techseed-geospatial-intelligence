@@ -76,3 +76,19 @@ def test_the_maps_show_a_pixel_from_its_quarter_on() -> None:
     shown, low, high, text = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
     assert shown == 1 and low == 0.1 and high == pytest.approx(0.3)
     assert text.startswith("Meteosat-10 (SEVIRI): 2605 MW i en pixel på 26 km²") and "inte live" in text
+
+
+def test_the_comparison_area_has_a_day_line_and_not_the_quarters() -> None:
+    def pixel(time: str, area: str, frp: float) -> dict:
+        return {"time_utc": time, "satellite": "Meteosat-11", "frp_mw": frp, "area": area}
+    items = (pixel("2018-07-16T17:45:00Z", "compare", 3115.6), pixel("2018-07-16T17:00:00Z", "compare", 1000.0),
+             pixel("2018-07-16T17:00:00Z", "compare", 900.0),
+             pixel("2018-07-17T00:00:00Z", "compare", 736.1), pixel("2018-07-17T12:00:00Z", "incident", 50.0),
+             pixel("2018-07-16T16:00:00Z", "incident", 40.0))
+    assert [quarter["time_utc"] for quarter in meteosat.quarters(items)] == ["2018-07-16T16:00:00Z", "2018-07-17T12:00:00Z"]
+    assert meteosat.compare_days(items) == [
+        # The first quarter's pixels, not the day's total: the log says what was seen by then.
+        {"time_utc": "2018-07-16T17:00:00Z", "satellite": "Meteosat-11", "pixels": 2, "max_frp_mw": 1000.0, "incident_seen": True},
+        # The own fire's pixel at 12:00 comes after this line, so it is not counted yet.
+        {"time_utc": "2018-07-17T00:00:00Z", "satellite": "Meteosat-11", "pixels": 1, "max_frp_mw": 736.1, "incident_seen": False},
+    ]

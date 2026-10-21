@@ -36,6 +36,7 @@ SUMMARY = [
     "Bilder från Sentinel-2 före (4 juli), under (27 juli) och efter branden (2 september, som jämförelse): naturliga färger, falska färger i kortvågigt infrarött och fukten i växtligheten (NDMI).",
     "Landsats bilder från de veckorna är för molniga över branden och är inte med.",
     "Brandområdet enligt Copernicus krishanteringstjänst (EMS) och en modellberäknad prognos för spridningen, med brandväder från SMHI Hamra A.",
+    "Meteosat, en geostationär satellit, såg aldrig branden vid Kårböle, bara branden vid Strandåsmyrvallen 50 kilometer västerut – grova pixlar så här långt norrut.",
     "Sensorerna på marken är simulerade.",
 ]
 
@@ -60,6 +61,12 @@ EMS_DIR = DATA / "ems"
 MET_FORECAST_DIR = DATA / "met-forecast"
 # SMHI's observed lightning (tools/fetch_smhi_lightning.py).
 LIGHTNING_DIR = DATA / "lightning"
+# Meteosat's fire pixels from LSA SAF (tools/fetch_meteosat_frp.py): none in the map area, but the fire
+# at Strandåsmyrvallen about 50 km west, which Copernicus EMS mapped (EMSR298, area 05STRANDASMYRVALLEN,
+# 61.78-61.85 N, 14.36-14.51 E), shows what a geostationary satellite misses this far north.
+METEOSAT_FRP_FILE = DATA / "meteosat-frp" / "frp-pixels.geojson"
+METEOSAT_FRP_COMPARE = {"name": "Strandåsmyrvallen", "source": "Copernicus EMS, EMSR298", "distance_km": 50,
+                        "direction": "väster om", "near": "Kårböle", "bbox": (14.25, 61.7, 14.7, 61.95)}
 # LSA SAF's fire risk (FRM v3), a map a day valid at 12 UTC (tools/fetch_meteosat_frm.py).
 METEOSAT_FRM_FILE = DATA / "meteosat-frm" / "frm.json"
 TLE_DIR = DATA / "tle"
@@ -100,6 +107,7 @@ CAMERA_ROUTE = [
 TLE_SATELLITES = {
     "25994": "Terra", "27424": "Aqua", "37849": "Suomi NPP", "43013": "NOAA-20", "39084": "Landsat 8",
     "39634": "Sentinel-1A", "41456": "Sentinel-1B", "40697": "Sentinel-2A", "42063": "Sentinel-2B", "25544": "ISS",
+    "40732": "Meteosat-11",
 }
 TLE_START, TLE_END = "2018-07-08", "2018-08-11"
 SATELLITE_ROLES = {
@@ -113,6 +121,8 @@ SATELLITE_ROLES = {
     "40697": {"firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
     "42063": {"firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
     "25544": {"firms": None, "instrument": None, "role": "Rymdstationen", "half_swath_km": None},
+    # Meteosat-11 (MSG-4) at 0 degrees, which saw the fire at Strandåsmyrvallen but not Kårböle (meteosat.py).
+    "40732": {"firms": None, "instrument": "SEVIRI", "role": "Geostationär, ser området hela tiden", "half_swath_km": None, "geostationary": True},
 }
 SATELLITE_LABEL = "Position 2018, beräknad ur banelement (SGP4) – inte en observation"
 

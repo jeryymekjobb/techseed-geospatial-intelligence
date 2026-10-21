@@ -101,7 +101,7 @@ async function start() {
       forecastIssues: config.layers.met_forecast?.issues || [], lightningEvents: config.layers.lightning?.events || [],
       lightningKm: config.layers.lightning?.near_km || 30, routeImpacts: config.layers.routes?.impacts || [],
       meteosatQuarters: config.layers.meteosat?.quarters || [], fireRiskChanges: config.layers.meteosat_frm?.changes || [],
-      cloudTopEvents: config.layers.meteosat_cth?.events || [] }, clock.getTime(),
+      cloudTopEvents: config.layers.meteosat_cth?.events || [], meteosatCompare: config.layers.meteosat?.compare || null }, clock.getTime(),
       clock.getTime() - startMs + 1, Infinity, place);
     if (scenarioState.jump !== heardJump) {
       heardJump = scenarioState.jump;

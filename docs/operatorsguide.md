@@ -427,6 +427,13 @@ ERA5:s väder och kalibreras mot satelliternas brandobservationer, så säg "Met
 över kartan; loggen säger när riskklassen ändras, till exempel "Brandrisken vid branden stiger till
 hög enligt LSA SAF (FWI 25)". Brandrisken finns också i Kårböle 2018.
 
+I Kårböle 2018 visar demon i stället vad Meteosat missar: Meteosat-11 såg aldrig branden vid Kårböle,
+men väl branden vid Strandåsmyrvallen cirka 50 km västerut (Copernicus EMS, EMSR298). Raden
+**Meteosat (geostationär)** i panelen räknar pixlarna vid Kårböle (0) och vid Strandåsmyrvallen upp
+till klockan, loggen har en rad per dygn, till exempel "Meteosat-11 (geostationär) ser branden vid
+Strandåsmyrvallen, 50 kilometer väster om Kårböle: 1 pixel, starkast 1021,3 megawatt – men ingen vid
+Kårböle", och de lila rektanglarna syns på 3D-globen (utanför offlinekartan i 2D).
+
 **Diagrammen under Uppspelning.** Tidsdiagrammen med scenarioklockan ligger i panelen direkt
 under **Uppspelning**, i 2D och 3D: **Detektioner per dygn (UTC)** vid branden, **Regn (SMHI)** vid
 översvämningen och i Skåne också **Vattenföring och vattenstånd (SMHI)**. De är kompakta, med
@@ -1108,6 +1115,7 @@ export TECHSEED_SCENARIO=ljusdal2018
 .venv/bin/python -m tools.fetch_met_forecasts   # MET Norways väderprognoser som de utfärdades, ca 20 min
 .venv/bin/python -m tools.fetch_smhi_lightning  # SMHI:s observerade blixtar
 .venv/bin/python -m tools.fetch_meteosat_frm    # brandrisken från LSA SAF (avsnitt 5, steg 5.10)
+.venv/bin/python -m tools.fetch_meteosat_frp    # Meteosats brandpixlar, också vid Strandåsmyrvallen
 .venv/bin/python -m tools.load_postgis    # databasen ljusdal2018, för frågorna
 ```
 

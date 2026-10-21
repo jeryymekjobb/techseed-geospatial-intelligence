@@ -528,6 +528,31 @@ function drawMeteosatCth(info, clock) {
   svg.innerHTML = parts.join("");
 }
 
+// What Meteosat missed (meteosat.py compare): a line counting its pixels at the scenario's own fire and
+// at the nearby one it saw, up to the clock.
+function setupMeteosatCompare(info) {
+  const line = document.createElement("div");
+  line.id = "meteosat-compare";
+  line.className = "status";
+  const anchor = $("frm-status") || $("met-forecast-fwi") || $("forecast-values");
+  if (anchor) anchor.after(line);
+  else document.querySelector(".panel")?.append(line);
+}
+
+function showMeteosatCompare(clock) {
+  const info = state.config.layers.meteosat;
+  if (!info?.compare || !clock) return;
+  const shown = meteosatPixelsAt(info.pixels, clock.getTime());
+  const own = shown.filter((pixel) => pixel.area === "incident").length;
+  const other = shown.length - own;
+  const key = `${own}|${other}`;
+  if (key === state.meteosatCompareKey) return;
+  state.meteosatCompareKey = key;
+  const { name, near, distance_km: km, direction, source } = info.compare;
+  $("meteosat-compare").innerHTML = "<strong>Meteosat (geostationär):</strong> "
+    + `${own ? `${own} brandpixlar` : "ingen brandpixel"} vid ${near} – ${other} vid branden vid ${name}, ${km} km ${direction} ${near} (${source})`;
+}
+
 // Redrawn when a damage is reached or the computed rain passes into a new hour.
 function showRoutes(clock) {
   if (!state.routes || !clock) return;
@@ -778,6 +803,7 @@ function setClock(clock) {
   showMetForecast(clock);
   showLightning(clock);
   showMeteosat(clock);
+  showMeteosatCompare(clock);
   showMeteosatFrm(clock);
   showMeteosatCth(clock);
   showRoutes(clock);
@@ -1728,6 +1754,7 @@ async function startApp(createMap) {
   }
   if (config.layers.meteosat_frm) setupMeteosatFrm(config.layers.meteosat_frm);
   if (config.layers.meteosat_cth) setupMeteosatCth(config.layers.meteosat_cth);
+  if (config.layers.meteosat?.compare) setupMeteosatCompare(config.layers.meteosat);
   if (config.layers.meteosat) {
     state.map.setupMeteosat(config.layers.meteosat.label);
     state.map.addAttribution(config.layers.meteosat.attribution);

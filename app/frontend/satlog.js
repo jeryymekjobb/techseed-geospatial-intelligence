@@ -111,7 +111,7 @@ function satlogWhole(value) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -201,6 +201,15 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
       atMs: Date.parse(quarter.time_utc), text: `${said} ${satlogDecimal(quarter.max_frp_mw)} megawatt`, source: "meteosat", kind: "meteosat",
       spoken: `${said} ${satlogWhole(quarter.max_frp_mw)} megawatt`, sourceText: `Meteosat ${quarter.time_utc.slice(0, 4)}`,
     });
+  }
+  // A nearby fire Meteosat saw where it missed the scenario's own (meteosat.py compare): a line a day.
+  for (const day of meteosatCompare?.days || []) {
+    const where = `${meteosatCompare.distance_km} kilometer ${meteosatCompare.direction} ${meteosatCompare.near}`;
+    const count = day.pixels === 1 ? "1 pixel" : `${day.pixels} pixlar`;
+    const missed = day.incident_seen ? "" : ` – men ingen vid ${meteosatCompare.near}`;
+    const said = `${day.satellite} (geostationär) ser branden vid ${meteosatCompare.name}, ${where}: ${count}, starkast`;
+    lines.push({ atMs: Date.parse(day.time_utc), source: "meteosat", kind: "meteosat_compare", sourceText: `Meteosat ${day.time_utc.slice(0, 4)}`,
+                 text: `${said} ${satlogDecimal(day.max_frp_mw)} megawatt${missed}`, spoken: `${said} ${satlogWhole(day.max_frp_mw)} megawatt${missed}` });
   }
   // LSA SAF's fire risk at the fire (meteosat_frm.py changes): its first class and every change, at 12 UTC.
   for (const change of fireRiskChanges) {

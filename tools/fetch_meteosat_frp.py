@@ -7,7 +7,9 @@ position, fire radiative power (FRP), pixel area and view angle. This tool fetch
 of the scenario's playback period into a cache outside the repository (about 100 kB each, 96
 a day), keeps the pixels inside the scenario's MAP_BBOX and writes
 data/<scenario>/meteosat-frp/frp-pixels.geojson and SOURCE.json. A list already in the cache
-is not fetched again; quarters missing on the server are counted.
+is not fetched again; quarters missing on the server are counted. A scenario may also name a
+comparison area (METEOSAT_FRP_COMPARE), a fire Meteosat saw near one it missed; its pixels are kept
+too, marked "compare".
 
 The archive needs a free LSA SAF account (https://mokey.lsasvcs.ipma.pt/auth/signup), read
 from ~/.netrc ("machine datalsasaf.lsasvcs.ipma.pt login ... password ..."), never from the
@@ -125,7 +127,11 @@ def main(argv: list[str] | None = None) -> int:
     open_url = opener().open
     with ThreadPoolExecutor(max_workers=4) as pool:
         paths = list(pool.map(lambda slot: fetch(slot, args.cache, open_url), wanted))
-    found = [item for slot, path in zip(wanted, paths) if path for item in read_list(path, scenario.MAP_BBOX, slot)]
+    # The map area's pixels, and those of the scenario's comparison area (METEOSAT_FRP_COMPARE: a fire
+    # Meteosat saw near one it missed), each marked with its area.
+    areas = {"incident": scenario.MAP_BBOX, **({"compare": scenario.METEOSAT_FRP_COMPARE["bbox"]} if scenario.METEOSAT_FRP_COMPARE else {})}
+    found = [{**item, "area": area} for slot, path in zip(wanted, paths) if path
+             for area, bbox in areas.items() for item in read_list(path, bbox, slot)]
     missing = [slot.strftime("%Y-%m-%dT%H:%MZ") for slot, path in zip(wanted, paths) if path is None]
     features = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [item.pop("longitude"), item.pop("latitude")]},
                  "properties": item} for item in found]
@@ -135,13 +141,16 @@ def main(argv: list[str] | None = None) -> int:
         "url": BASE_URL,
         "licence": LICENCE,
         "map_bbox_west_south_east_north": list(scenario.MAP_BBOX),
+        "compare": scenario.METEOSAT_FRP_COMPARE,
         "period_utc": [wanted[0].strftime("%Y-%m-%dT%H:%MZ"), (wanted[-1] + SLOT).strftime("%Y-%m-%dT%H:%MZ")],
         "quarters": len(wanted),
         "quarters_missing_on_server": missing,
         "pixels": len(features),
         "processed_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"{len(features)} pixlar i kartområdet, {len(wanted) - len(missing)} av {len(wanted)} kvartar hämtade; {args.out}")
+    inside = sum(feature["properties"]["area"] == "incident" for feature in features)
+    print(f"{inside} pixlar i kartområdet, {len(features) - inside} i jämförelseområdet, "
+          f"{len(wanted) - len(missing)} av {len(wanted)} kvartar hämtade; {args.out}")
     return 0
 
 

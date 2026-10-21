@@ -4,7 +4,9 @@ A geostationary satellite stands over the equator; at 60 N it sees the ground ab
 above the horizon, so its pixels there cover about 26 km² against 9 km² straight below it, and
 only the most intense hours of a fire show. The maps draw each pixel as a rectangle of its area,
 SAMPLING_KM wide east-west times the slant distance and the rest north-south: the shape is an
-approximation, the area is the product's. The log has a line for each quarter with any pixel.
+approximation, the area is the product's. The log has a line for each quarter with any pixel. A scenario may name a comparison area
+(METEOSAT_FRP_COMPARE): a nearby fire Meteosat saw where it missed the scenario's own, which the
+panel and the log set against the empty map area, once a day.
 Archive data, not live; the screens say so.
 """
 
@@ -59,6 +61,7 @@ def pixels() -> tuple[dict[str, Any], ...]:
         found.append({
             "time_utc": item["time_utc"], "satellite": SATELLITE_NAMES.get(item["satellite"], item["satellite"]),
             "latitude": lat, "longitude": lon, "frp_mw": item["frp_mw"], "pixel_area_km2": item["pixel_area_km2"],
+            "area": item.get("area", "incident"),
             "footprint": footprint(lat, lon, item["pixel_area_km2"]),
         })
     return tuple(sorted(found, key=lambda item: item["time_utc"]))
@@ -68,6 +71,8 @@ def quarters(items: tuple[dict[str, Any], ...] | None = None) -> list[dict[str, 
     """For the log: each quarter with any pixel, its satellite, how many and the strongest."""
     grouped: dict[str, dict[str, Any]] = {}
     for item in pixels() if items is None else items:
+        if item.get("area", "incident") != "incident":
+            continue
         quarter = grouped.setdefault(item["time_utc"], {"time_utc": item["time_utc"], "satellite": item["satellite"],
                                                         "pixels": 0, "max_frp_mw": 0.0})
         quarter["pixels"] += 1
@@ -75,8 +80,30 @@ def quarters(items: tuple[dict[str, Any], ...] | None = None) -> list[dict[str, 
     return [grouped[key] for key in sorted(grouped)]
 
 
+def compare_days(items: tuple[dict[str, Any], ...] | None = None) -> list[dict[str, Any]]:
+    """For the log: each day Meteosat saw the comparison area's fire, at its first quarter that day,
+    with that quarter's pixels and strongest power (what was seen by then, not the day's total)."""
+    days: dict[str, dict[str, Any]] = {}
+    for item in sorted(pixels() if items is None else items, key=lambda entry: entry["time_utc"]):
+        if item.get("area") != "compare":
+            continue
+        day = days.setdefault(item["time_utc"][:10], {"time_utc": item["time_utc"], "satellite": item["satellite"],
+                                                       "pixels": 0, "max_frp_mw": 0.0})
+        if item["time_utc"] != day["time_utc"]:
+            continue
+        day["pixels"] += 1
+        day["max_frp_mw"] = max(day["max_frp_mw"], item["frp_mw"] or 0.0)
+    # Whether Meteosat had seen the scenario's own fire that day by then.
+    own = [item["time_utc"] for item in (pixels() if items is None else items) if item.get("area", "incident") == "incident"]
+    return [{**day, "incident_seen": any(key == time[:10] and time <= day["time_utc"] for time in own)}
+            for key, day in sorted(days.items())]
+
+
 def layer() -> dict[str, Any] | None:
-    """The maps' layer and the log's quarters, or None where the scenario has no pixels."""
+    """The maps' layer, the log's quarters and, where the scenario names one, the comparison area with
+    the days Meteosat saw its fire; None where the scenario has no pixels."""
     if not pixels():
         return None
-    return {"label": LABEL, "attribution": ATTRIBUTION, "pixels": list(pixels()), "quarters": quarters()}
+    compare = scenario.METEOSAT_FRP_COMPARE
+    return {"label": LABEL, "attribution": ATTRIBUTION, "pixels": list(pixels()), "quarters": quarters(),
+            "compare": {**{key: value for key, value in compare.items() if key != "bbox"}, "days": compare_days()} if compare else None}

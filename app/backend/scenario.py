@@ -108,6 +108,8 @@ MET_FORECAST_DIR = getattr(_module, "MET_FORECAST_DIR", None)
 LIGHTNING_DIR = getattr(_module, "LIGHTNING_DIR", None)
 # Meteosat's fire pixels over the map area from LSA SAF (tools/fetch_meteosat_frp.py, meteosat.py).
 METEOSAT_FRP_FILE = getattr(_module, "METEOSAT_FRP_FILE", None)
+# A nearby fire Meteosat saw where it missed the scenario's own: name, source, bbox (west, south, east, north), distance_km.
+METEOSAT_FRP_COMPARE = getattr(_module, "METEOSAT_FRP_COMPARE", None)
 # LSA SAF's fire risk (FRM v3) over the map area, a map a day (tools/fetch_meteosat_frm.py, meteosat_frm.py).
 METEOSAT_FRM_FILE = getattr(_module, "METEOSAT_FRM_FILE", None)
 # Meteosat's cloud top height over the area every 15 minutes (tools/fetch_meteosat_cth.py, meteosat_cth.py).
