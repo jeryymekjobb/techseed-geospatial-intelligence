@@ -90,6 +90,7 @@ Develop the concept for a short, repeatable exhibition demonstrator showing how 
 
 ## Backlog
 
+- Implement support for local installation of the necessary data files when installing the demo from the Git repository, without depending on the USB3 stick; this complements the Linux, macOS and Windows platform-support work (user request, 2026-10-21).
 - Firmware for the booth nodes: nRF91 board, nRF Connect SDK version, Wi-Fi fallback.
 - Exposing and securing the MQTT broker for real nodes (network, passwords or certificates).
 - A real 1 h forecast horizon for +60 MIN (the forecast has 3, 6, 12 and 24 h).
