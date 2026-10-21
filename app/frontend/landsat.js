@@ -57,7 +57,8 @@ function imageTypeCounts(scenes, names, clockMs) {
 function imageOptions(scenes, names, clockMs, formatTime, types = null) {
   const order = Object.keys(names).filter((image) => !types || types.includes(image));
   const entries = (scene) => order.filter((image) => scene.images[image])
-    .map((image) => ({ value: `${scene.scene}|${image}`, text: `${formatTime(scene.acquired_utc)} – ${scene.satellite} – ${IMAGE_KINDS[image] || image}` }));
+    .map((image) => ({ value: `${scene.scene}|${image}`, text: `${formatTime(scene.acquired_utc)} – ${scene.satellite} – ${IMAGE_KINDS[image] || image}`
+      + (scene.meteosat_cloud_pct === undefined ? "" : ` – Meteosat ${scene.meteosat_cloud_pct} % moln`) }));
   const taken = scenes.filter((scene) => Date.parse(scene.acquired_utc) <= clockMs)
     .sort((a, b) => Date.parse(b.acquired_utc) - Date.parse(a.acquired_utc));
   const comparisons = scenes.filter((scene) => scene.role === "after" && Date.parse(scene.acquired_utc) > clockMs);
@@ -94,7 +95,8 @@ function mapText(baseMap, mapData, offlineTiles, formatDate) {
 function viewCaption({ scene, image, reason, choice, mapData, offlineTiles, formatTime, formatDate, detection, baseMap }) {
   let shown;
   if (scene && image) {
-    shown = `Satellitbild – ${scene.satellite}, ${IMAGE_KINDS[image] || image}, tagen ${formatTime(scene.acquired_utc)}`;
+    shown = `Satellitbild – ${scene.satellite}, ${IMAGE_KINDS[image] || image}, tagen ${formatTime(scene.acquired_utc)}`
+      + (scene.meteosat_cloud_pct === undefined ? "" : ` – Meteosat: ${scene.meteosat_cloud_pct} % moln över kartan`);
   } else {
     shown = mapText(baseMap, mapData, offlineTiles, formatDate)
       + (reason === "none-yet" ? `; ingen bild (${typeNames(choice)}) tagen ännu vid scenariotiden` : "")

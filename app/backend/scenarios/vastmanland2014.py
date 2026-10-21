@@ -48,6 +48,8 @@ LIGHTNING_DIR = REPO_ROOT / "data" / "vastmanland2014" / "lightning"
 METEOSAT_FRP_FILE = REPO_ROOT / "data" / "vastmanland2014" / "meteosat-frp" / "frp-pixels.geojson"
 # LSA SAF's fire risk (FRM v3), a map a day valid at 12 UTC (tools/fetch_meteosat_frm.py).
 METEOSAT_FRM_FILE = REPO_ROOT / "data" / "vastmanland2014" / "meteosat-frm" / "frm.json"
+# Meteosat's cloud mask every hour and at each image (tools/fetch_meteosat_clm.py).
+METEOSAT_CLM_FILE = REPO_ROOT / "data" / "vastmanland2014" / "meteosat-clm" / "clm.json"
 TLE_DIR = REPO_ROOT / "data" / "tle"
 TLE_FILE_NAME = "tle-2014.json"
 

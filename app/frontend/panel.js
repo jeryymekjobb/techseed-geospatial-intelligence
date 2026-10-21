@@ -553,6 +553,96 @@ function showMeteosatCompare(clock) {
     + `${own ? `${own} brandpixlar` : "ingen brandpixel"} vid ${near} – ${other} vid branden vid ${name}, ${km} km ${direction} ${near} (${source})`;
 }
 
+// Meteosat's cloud mask (meteosat_clm.py): a chart of the cloudy share over the map area every hour.
+function setupMeteosatClm(info) {
+  const section = document.createElement("section");
+  section.id = "clm-section";
+  section.className = "chart-section";
+  section.innerHTML = "<h2>Moln (Meteosat)</h2>"
+    + '<svg id="clm-chart" class="timeline" role="img" aria-label="Andel moln över kartområdet enligt Meteosat"></svg>'
+    + '<dl id="clm-values" class="forecast-values"></dl>'
+    + '<div class="status">Andel moln över kartområdet varje timme, ur Meteosats molnmask. Förklarar varför en optisk '
+    + "satellitbild är molnig eller saknas; radarn ser genom moln.</div>";
+  const after = $("cth-section") || $("hydro-section") || $("rain-station")?.closest("section") || $("timeline")?.closest("section");
+  if (after) after.after(section);
+  else document.querySelector(".panel")?.append(section);
+  state.map.addAttribution(info.attribution);
+}
+
+function showMeteosatClm(clock) {
+  const info = state.config.layers.meteosat_clm;
+  if (!info || !clock || !$("clm-values")) return;
+  const index = cthQuarterAt(info.hours, clock.getTime());  // the latest hour at the clock (meteosat_cth.js)
+  const key = `${index}|${state.config.playback.start_utc}|${state.config.playback.end_utc}`;
+  if (key === state.clmKey) return;
+  state.clmKey = key;
+  const item = info.hours[index];
+  $("clm-values").innerHTML = [["Nu", item && item.cloud_pct !== null ? `${item.cloud_pct} % moln (${formatLocal(item.time_utc)})` : "ingen produkt ännu"]]
+    .map(chartValue).join("");
+  const start = Date.parse(state.config.playback.start_utc);
+  const end = Date.parse(state.config.playback.end_utc);
+  const width = 300;
+  const height = CHART_HEIGHT;
+  const xOf = (ms) => ((ms - start) / (end - start)) * width;
+  const yOf = (pct) => 6 + (1 - pct / 100) * (height - 26);
+  const points = info.hours.filter((hour) => hour.cloud_pct !== null);
+  const path = points.map((hour, i) => `${i ? "L" : "M"}${xOf(Date.parse(hour.time_utc)).toFixed(1)},${yOf(hour.cloud_pct).toFixed(1)}`).join(" ");
+  const parts = [`<path class="clm-line" d="${path}"></path>`, `<text x="2" y="${yOf(100) + 8}">100 %</text>`];
+  const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
+  for (let day = start; day < end; day += every * 86400000) {
+    parts.push(`<text x="${xOf(day) + 1}" y="${height - 3}">${new Date(day).toISOString().slice(5, 10)}</text>`);
+  }
+  const x = xOf(clock.getTime());
+  parts.push(`<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`);
+  $("clm-chart").setAttribute("viewBox", `0 0 ${width} ${height}`);
+  $("clm-chart").innerHTML = parts.join("");
+}
+
+// MTG's Lightning Imager and instability indices (meteosat_li.py, meteosat_gii.py): a section with the
+// flashes in the map area the last hour and the latest thunderstorm potential where the sky was clear.
+function setupMeteosatMtg(config) {
+  const section = document.createElement("section");
+  section.id = "mtg-section";
+  section.className = "chart-section";
+  section.innerHTML = "<h2>Åska (Meteosat-12)</h2>" + '<dl id="mtg-values" class="forecast-values"></dl>'
+    + '<div class="status">Blixtar sedda från rymden, också inne i molnen, och åskpotentialen ur molnfria rutor '
+    + "(K-index; klasserna är en tumregel). Norden ligger i kanten av instrumentets synfält.</div>";
+  const after = $("clm-section") || $("cth-section") || $("hydro-section") || $("rain-station")?.closest("section");
+  if (after) after.after(section);
+  else document.querySelector(".panel")?.append(section);
+  if (config.layers.meteosat_li) {
+    state.map.setupMeteosatLi(config.layers.meteosat_li.label);
+    state.map.addAttribution(config.layers.meteosat_li.attribution);
+  }
+  if (config.layers.meteosat_gii) state.map.addAttribution(config.layers.meteosat_gii.attribution);
+}
+
+async function showMeteosatMtg(clock) {
+  const li = state.config.layers.meteosat_li;
+  const gii = state.config.layers.meteosat_gii;
+  if ((!li && !gii) || !clock || !$("mtg-values")) return;
+  const step = Math.floor(clock.getTime() / 600000);  // every ten scenario minutes
+  if (step === state.mtgStep) return;
+  state.mtgStep = step;
+  const rows = [];
+  if (li) {
+    const at = new Date(step * 600000).toISOString();
+    const data = await fetch(`/api/meteosat-li?at=${encodeURIComponent(at)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (step !== state.mtgStep) return;
+    state.map.drawMeteosatLi(data?.flashes || []);
+    rows.push(["Blixtar senaste timmen", data ? `${data.in_area} i kartområdet` : "–"]);
+  }
+  if (gii) {
+    const times = gii.times.filter((item) => Date.parse(item.time_utc) <= clock.getTime());
+    const latest = times[times.length - 1];
+    const clear = [...times].reverse().find((item) => item.k_max !== null);
+    rows.push(["Åskpotential", !clear ? "inga molnfria rutor ännu"
+      : `K-index ${String(clear.k_max).replace(".", ",")} – ${clear.class} (${formatLocal(clear.time_utc)})`
+        + (latest && latest !== clear && latest.k_max === null ? "; molnigt sedan dess" : "")]);
+  }
+  $("mtg-values").innerHTML = rows.map(chartValue).join("");
+}
+
 // Redrawn when a damage is reached or the computed rain passes into a new hour.
 function showRoutes(clock) {
   if (!state.routes || !clock) return;
@@ -806,6 +896,8 @@ function setClock(clock) {
   showMeteosatCompare(clock);
   showMeteosatFrm(clock);
   showMeteosatCth(clock);
+  showMeteosatClm(clock);
+  showMeteosatMtg(clock);
   showRoutes(clock);
   showDailyRain(clock);
   showRain(clock);
@@ -934,6 +1026,7 @@ async function setupSatellites(config) {
   }
   state.satellites = data;
   $("satellite-note").textContent = `${data.label}. Källa: ${data.source}.`;
+  if (data.attribution) state.map.addAttribution(data.attribution);  // the globe's satellites and their orbits
   // The satellite monitor has its own window (monitor.html); ?monitor=1 also shows it in a corner here.
   if (new URLSearchParams(window.location.search).get("monitor") === "1") {
     const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
@@ -980,7 +1073,6 @@ function passFor(item, clock) {
   const today = Math.floor(now / DAY_MS);
   for (const day of [today, today + 1]) {
     const pass = passesOn(item, day).find((candidate) => candidate.end > now);
-  if (data.attribution) state.map.addAttribution(data.attribution);  // the globe's satellites and their orbits
     if (pass) return pass;
   }
   return null;
@@ -1755,6 +1847,8 @@ async function startApp(createMap) {
   }
   if (config.layers.meteosat_frm) setupMeteosatFrm(config.layers.meteosat_frm);
   if (config.layers.meteosat_cth) setupMeteosatCth(config.layers.meteosat_cth);
+  if (config.layers.meteosat_clm) setupMeteosatClm(config.layers.meteosat_clm);
+  if (config.layers.meteosat_li || config.layers.meteosat_gii) setupMeteosatMtg(config);
   if (config.layers.meteosat?.compare) setupMeteosatCompare(config.layers.meteosat);
   if (config.layers.meteosat) {
     state.map.setupMeteosat(config.layers.meteosat.label);

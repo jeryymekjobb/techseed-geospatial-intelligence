@@ -199,6 +199,8 @@ async function createCesiumMap(config) {
   const cthLayer = group("cloud-tops");  // Meteosat's cloud top height (meteosat_cth.py), off until ticked
   cthLayer.show = false;
   let cthVisible = false;
+  const liLayer = group("meteosat-li");  // MTG's Lightning Imager flashes of the last hour (meteosat_li.py)
+  let liVisible = true;
   let wideSpaceView = false;  // a geostationary satellite is drawn (hasGeostationary in orbits.js)
   const forecastLayer = group("forecast");
   const syntheticLayer = group("synthetic-sensors");
@@ -576,6 +578,25 @@ async function createCesiumMap(config) {
       }
     },
 
+    // The Lightning Imager's flashes of the last hour: small cyan points on the ground.
+    setupMeteosatLi(label) {
+      layers.push([label, (visible) => {
+        liVisible = visible;
+        liLayer.show = visible && weatherCategoryVisible;
+      }, () => liVisible && weatherCategoryVisible]);
+    },
+
+    drawMeteosatLi(flashes) {
+      liLayer.entities.removeAll();
+      for (const flash of flashes) {
+        liLayer.entities.add({
+          name: "Blixt (Meteosat-12)", description: `Sedd från rymden för ${flash.age_min} min sedan`,
+          position: Cesium.Cartesian3.fromDegrees(flash.longitude, flash.latitude),
+          point: { pixelSize: 6, color: cesiumColor("#22d3ee"), outlineColor: cesiumColor("#006d77"), outlineWidth: 1, ...ON_GROUND },
+        });
+      }
+    },
+
     // SMHI's rain by the day: a dark blue point with the station's latest ended day.
     setupDailyRain(info) {
       layers.push([info.label, (visible) => {
@@ -798,6 +819,7 @@ async function createCesiumMap(config) {
         dailyRainLayer.show = visible && dailyRainVisible;
         frmLayer.show = visible && frmVisible;
         cthLayer.show = visible && cthVisible;
+        liLayer.show = visible && liVisible;
         stationLayer.show = visible;
         if (radarLayer) radarLayer.show = visible && radarVisible;
         for (const [box, shown] of layerBoxes) box.checked = shown();
