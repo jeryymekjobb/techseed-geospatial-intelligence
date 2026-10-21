@@ -89,11 +89,39 @@ def installation_checks(name: str) -> list[Check]:
             *data_checks(settings)]
 
 
+def native_installation_checks(name: str, options) -> list[Check]:
+    from tools import native_services
+
+    settings = importlib.import_module(f"app.backend.scenarios.{name}")
+    chrome = find_chrome()
+    checks = [Check("Python", sys.version_info >= (3, 10), f"{sys.version.split()[0]}: {sys.executable}"),
+              Check("Chrome/Chromium", chrome is not None, chrome or "not found")]
+    for label, check in (("Native map/MQTT runtime", lambda: native_services.prepared(name, options)),
+                         ("Native PostgreSQL/PostGIS", lambda: native_services.check_database(name))):
+        try:
+            check()
+        except (ValueError, OSError, subprocess.SubprocessError):
+            checks.append(Check(label, False, "check failed; verify installed runtime, connection and scenario inputs"))
+        else:
+            checks.append(Check(label, True, "available"))
+    return [*checks, *data_checks(settings)]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("scenario", nargs="?", choices=AVAILABLE, default=DEFAULT)
+    parser.add_argument("--services", choices=("docker", "native"), default="docker")
+    parser.add_argument("--node-modules", type=Path)
+    parser.add_argument("--node")
+    parser.add_argument("--mosquitto")
     args = parser.parse_args(argv)
-    checks = installation_checks(args.scenario)
+    if args.services == "native":
+        if args.node_modules is None:
+            parser.error("--services native requires --node-modules")
+        from tools.native_services import Options
+        checks = native_installation_checks(args.scenario, Options(args.node_modules, args.node, args.mosquitto))
+    else:
+        checks = installation_checks(args.scenario)
     for check in checks:
         print(f"{'OK' if check.passed else 'MISSING/FAILED'} {check.name}: {check.detail}")
     print("Presence checks only; database contents, Python packages, audio and window placement are not verified.")

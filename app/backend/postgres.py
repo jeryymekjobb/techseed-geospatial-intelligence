@@ -14,39 +14,42 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Mapping
 
 from app.backend.scenarios import REPO_ROOT
 
 
-def mode() -> str:
-    value = os.environ.get("TECHSEED_DB_MODE", "docker")
+def mode(environ: Mapping[str, str] | None = None) -> str:
+    value = (os.environ if environ is None else environ).get("TECHSEED_DB_MODE", "docker")
     if value not in ("docker", "native"):
         raise ValueError("TECHSEED_DB_MODE must be docker or native")
     return value
 
 
-def command(database: str, *, interactive: bool = False, quiet: bool = True) -> list[str]:
-    if mode() == "docker":
+def command(database: str, *, interactive: bool = False, quiet: bool = True,
+            environ: Mapping[str, str] | None = None) -> list[str]:
+    environ = os.environ if environ is None else environ
+    if mode(environ) == "docker":
         if interactive:
             return ["docker", "compose", "exec", "-T", "postgis", "psql", "-U", "firemap", "-d", database,
                     "-q", "-A", "-t", "-X", "-v", "ON_ERROR_STOP=0"]
         result = ["docker", "compose", "exec", "-T", "postgis", "psql", "-v", "ON_ERROR_STOP=1",
                   "-U", "firemap", "-d", database]
         return result + (["-q", "-A", "-t"] if quiet else [])
-    port = os.environ.get("TECHSEED_DB_PORT", "5432")
+    port = environ.get("TECHSEED_DB_PORT", "5432")
     if not port.isascii() or not port.isdecimal() or not 1 <= int(port) <= 65535:
         raise ValueError("TECHSEED_DB_PORT must be between 1 and 65535")
-    result = [os.environ.get("TECHSEED_PSQL_PATH", "psql"),
-              "--host=" + os.environ.get("TECHSEED_DB_HOST", "127.0.0.1"),
-              "--port=" + port, "--username=" + os.environ.get("TECHSEED_DB_USER", "firemap"),
+    result = [environ.get("TECHSEED_PSQL_PATH", "psql"),
+              "--host=" + environ.get("TECHSEED_DB_HOST", "127.0.0.1"),
+              "--port=" + port, "--username=" + environ.get("TECHSEED_DB_USER", "firemap"),
               "--dbname=" + database, "-w", "-X", "-v", f"ON_ERROR_STOP={0 if interactive else 1}"]
     return result + (["-q", "-A", "-t"] if quiet or interactive else [])
 
 
-def environment() -> dict[str, str] | None:
-    if mode() == "docker":
+def environment(environ: Mapping[str, str] | None = None) -> dict[str, str] | None:
+    if mode(environ) == "docker":
         return None  # preserve the existing inherited Docker environment
-    env = dict(os.environ)
+    env = dict(os.environ if environ is None else environ)
     env.pop("PGPASSWORD", None)
     env["PGCLIENTENCODING"] = "UTF8"
     env["PGCONNECT_TIMEOUT"] = "5"

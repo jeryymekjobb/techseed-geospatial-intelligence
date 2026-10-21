@@ -16,6 +16,12 @@ saved start. Ctrl+C stops the backend and the nodes; the screens and the service
 
 It stops at once when something already answers on the backend's port, such as a
 backend left running, rather than start a second one.
+
+Docker remains the default. --services native --node-modules PATH explicitly uses
+separately installed Node/TileServer GL and Mosquitto (--node and --mosquitto select
+their executables). PostgreSQL/PostGIS must already be running and loaded; native
+database options are documented in app/backend/postgres.py. Native map and broker
+children are stopped on exit, restart and scenario change; PostgreSQL is untouched.
 """
 
 from __future__ import annotations
@@ -168,16 +174,18 @@ def answers(url: str) -> bool:
         return False
 
 
-def run_demo(name: str, at: str | None) -> int:
+def run_demo(name: str, at: str | None, *, native_env: dict[str, str] | None = None) -> int:
     """Start a demo and run it until the backend stops; its exit code (MENU_EXIT for BYT SCENARIO, RESTART_EXIT for STARTA OM DEMO), 0 after Ctrl+C."""
     tiles, start = scenario_settings(name)
     base_url = f"http://127.0.0.1:{PORT}"
     print(f"1/4 Tjänsterna, med kartan {tiles} …", flush=True)
-    subprocess.run(services_command(), cwd=REPO_ROOT, env={**os.environ, "TILES_FILE": tiles}, check=True)
-    wait_until(lambda: served_tiles_file(offline_tiles.url_template()) == tiles, 90, f"the tiles service did not serve {tiles}")
+    if native_env is None:
+        subprocess.run(services_command(), cwd=REPO_ROOT, env={**os.environ, "TILES_FILE": tiles}, check=True)
+    template = native_env["OFFLINE_TILES_URL"] if native_env is not None else offline_tiles.url_template()
+    wait_until(lambda: served_tiles_file(template) == tiles, 90, f"the tiles service did not serve {tiles}")
 
     print(f"2/4 Backend för {name} …", flush=True)
-    env = {**os.environ, "TECHSEED_SCENARIO": name, "TECHSEED_DEMO_MENU_EXIT": str(MENU_EXIT),
+    env = {**(os.environ if native_env is None else native_env), "TECHSEED_SCENARIO": name, "TECHSEED_DEMO_MENU_EXIT": str(MENU_EXIT),
            "TECHSEED_DEMO_RESTART_EXIT": str(RESTART_EXIT)}
     backend = subprocess.Popen([str(PYTHON), "-m", "app.backend.server", "--scenario", name, "--port", str(PORT)],
                                cwd=REPO_ROOT, env=env)
@@ -223,7 +231,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("scenario", nargs="?", choices=AVAILABLE, help="the demo to start (default: the menu)")
     parser.add_argument("--at", help="the main screen's starting time in UTC, with a demo's name (default: the scenario's)")
+    parser.add_argument("--services", choices=("docker", "native"), default="docker")
+    parser.add_argument("--node-modules", type=Path, help="native TileServer GL runtime node_modules directory")
+    parser.add_argument("--node", help="native Node.js executable")
+    parser.add_argument("--mosquitto", help="native Mosquitto executable")
     args = parser.parse_args(argv)
+    if args.services == "native" and args.node_modules is None:
+        parser.error("--services native requires --node-modules")
     if port_in_use(PORT):
         parser.exit(1, f"start_demo: something already answers on port {PORT} – stop the running backend first (Ctrl+C in its terminal)\n")
     name, at = args.scenario, args.at
@@ -231,7 +245,13 @@ def main(argv: list[str] | None = None) -> int:
         while True:
             if name is None:
                 name, at = choose_demo(), None
-            code = run_demo(name, at)
+            if args.services == "native":
+                from tools import native_services
+                options = native_services.Options(args.node_modules, args.node, args.mosquitto)
+                with native_services.running(name, options) as env:
+                    code = run_demo(name, at, native_env=env)
+            else:
+                code = run_demo(name, at)
             if code == RESTART_EXIT:
                 # The same scenario again from its saved start, once its screens are closed.
                 subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--close"], cwd=REPO_ROOT, check=False)
@@ -243,6 +263,11 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         print("\nAvslutar.")
         return 0
+    except (ValueError, OSError, subprocess.SubprocessError) as exc:
+        if args.services != "native":
+            raise
+        print(f"start_demo: native services failed: {exc}")
+        return 1
 
 
 if __name__ == "__main__":
