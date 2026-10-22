@@ -237,8 +237,8 @@ Windows/PowerShell:
 .\.venv\Scripts\python.exe -m tools.start_demo vastmanland2014
 ```
 
-Utelämna scenarionamnet för menyn. Menyn listar alla scenarier i koden, även dem som
-inte har installerade data; välj bara installerade scenarier. Ctrl+C stoppar backend
+Utelämna scenarionamnet för menyn. Menyn listar alla scenarier i koden; de som saknar
+installerade data är gråa med texten "Data saknas" och går inte att välja. Ctrl+C stoppar backend
 och simulerade noder, men lämnar webbläsarfönster och Docker-tjänster igång.
 
 Checklista för Windows-VM, ännu inte genomförd:

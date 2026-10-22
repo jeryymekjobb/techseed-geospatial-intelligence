@@ -85,8 +85,11 @@ den renderade mättes inte; en VM utan grafikkort säger inget om utställningsd
 4. **Menyn listar alla scenarier, också de som inte är installerade.** Ett val av Sundsvall gav
    `Missing or empty scenario map: …\data\tiles\sundsvall.mbtiles`. Guiden säger det, men
    menyn skulle kunna visa vilka scenarier som har data.
+   Åtgärdat samma dag: menyn gråar ut och avvisar ett scenario vars obligatoriska data saknas.
 5. **`start_demo` slutar när ett scenario saknar data**, i stället för att visa menyn igen; i
    kioskläge borde den hellre gå tillbaka till menyn.
+   Åtgärdat samma dag: ett scenario utan data som valts i menyn, eller startats i kioskläge,
+   leder tillbaka till menyn.
 
 Övrigt: `npm install` rapporterade 12 kända sårbarheter i TileServer GL:s beroenden; `npm audit
 fix` kördes inte, eftersom den byter de fastlåsta versionerna. Kartservern lyssnar bara på
