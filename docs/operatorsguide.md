@@ -586,6 +586,7 @@ data själv kan köra GDAL- och osmium-stegen utan Docker med `--tools native`, 
 | `tools.fetch_sentinel1_scene` | GDAL: radarbilderna och höjddatan för havet |
 | `tools.fetch_ems_perimeters` | GDAL (`ogr2ogr`): EMS-ytorna |
 | `tools.build_offline_tiles` | osmium och tilemaker, se nedan |
+| `tools.build_terrain` | GDAL och Python-paketen i `tools/requirements-terrain.txt` i stället för ctb-tile |
 
 Programmen ska finnas på PATH, till exempel från en conda-forge-miljö med paketen `gdal` och
 `osmium-tool`; installera dem enligt respektive projekts anvisningar och anteckna versionerna.
@@ -598,8 +599,14 @@ Två begränsningar:
   --tools native` kräver tilemaker på PATH och `--tilemaker-resources` med tilemakers
   `resources`-mapp. På Windows tas kartan i stället ur scenariots datapaket, som byggs på
   Ubuntu (C); `tools.package_data` varnar om den saknas i paketets fillista.
-- **3D-terrängen** (`tools.build_terrain`) kräver fortfarande Docker och tas på Windows ur
-  datapaketet på samma sätt.
+- **3D-terrängen** byggs med `build_terrain --tools native` av `tools/quantized_terrain.py`
+  i stället för ctb-tile, efter `pip install -r tools/requirements-terrain.txt` (pydelatin och
+  quantized-mesh-encoder, MIT, med färdiga Windows-paket). Den kan också tas ur datapaketet.
+
+Terrängen jämfördes 2026-10-22 med ctb-tiles för `flen2024`: samma 278 tiles och samma
+`layer.json`; på den djupaste nivån låg den native-byggda ytan i medel 2,3 m från höjddatan
+(ctb-tiles 3,0 m) med färre hörn, och 3D-vyn såg likadan ut. De två ytorna skiljer sig i medel
+2,9 m från varandra eftersom de trianguleras olika. Den är inte provad på Windows.
 
 Provat 2026-10-22 på Ubuntu med GDAL 3.13.3 och osmium 1.19.1 från conda-forge, mot Docker-vägen
 med samma indata: osmium-utdraget, EMS-konverteringen och kompositbilderna blev desamma. Höjddata
