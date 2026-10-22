@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from tools import open_screens as screens
 from tools import windows_screens
 import pytest
@@ -147,3 +149,26 @@ def test_dry_run_never_opens_or_closes_windows(monkeypatch):
     assert screens.main(["--dry-run"]) == 0
     assert screens.main(["--dry-run", "--menu"]) == 0
     assert screens.main(["--dry-run", "--close"]) == 0
+
+
+def test_a_screen_s_chrome_is_found_by_its_profile_and_only_named_screens_open(monkeypatch, capsys) -> None:
+    assert screens.SCREENS == ("monitor", "main", "control")
+    # Found by the same complete profile argument as close_screen stops it by, for the chosen browser.
+    monkeypatch.setattr(screens.sys, "platform", "linux")
+    assert screens.running_command("main") == ["pgrep", "-f", "--", re.escape(f"--user-data-dir={screens.PROFILES / 'main'}") + r"(\s|$)"]
+    assert screens.running_command("main", "edge")[-1].startswith(re.escape(f"--user-data-dir={screens.PROFILES / 'edge' / 'main'}"))
+    monkeypatch.setattr(screens.sys, "platform", "win32")
+    command = screens.running_command("main")
+    assert command[:4] == ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command"]
+    assert "Win32_Process" in command[-1] and "exit 0" in command[-1] and "Stop-Process" not in command[-1]
+    # --only (kiosk mode in tools/start_demo.py): just the screens that have gone, without ?at=.
+    monkeypatch.setattr(screens, "find_chrome", lambda: "/usr/bin/google-chrome")
+    monkeypatch.setattr(screens, "desktop_monitors", lambda: screens.monitors(LISTING))
+    assert screens.main(["--dry-run", "--only", "monitor,main"]) == 0
+    printed = [line.split(":")[0] for line in capsys.readouterr().out.splitlines() if not line.startswith(" ")]
+    assert printed == ["monitor", "main"]
+    try:
+        screens.main(["--dry-run", "--only", "elsewhere"])
+        raise AssertionError("an unknown screen was accepted")
+    except SystemExit as exc:
+        assert exc.code == 2

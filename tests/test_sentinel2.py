@@ -84,3 +84,10 @@ def test_the_moisture_index_has_landsat_s_colours_and_hides_clouds_water_and_gap
     assert image[10, 10, 3] == image[11, 11, 3] == image[12, 12, 3] == 0
     if s2.WILDFIRE:
         assert set(s2.NDMI_BANDS) <= set(s2.RAW_BANDS)
+
+
+def test_a_scene_can_have_its_own_natural_colour_stretch() -> None:
+    stretches = {"WINTER": (0.0, 0.12)}
+    assert s2.composites_for("WINTER", stretches)["natural"]["reflectance"] == (0.0, 0.12)
+    assert s2.composites_for("SUMMER", stretches)["natural"]["reflectance"] == (0.0, 0.25)
+    assert s2.NATURAL["reflectance"] == (0.0, 0.25)

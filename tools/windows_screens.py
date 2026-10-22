@@ -77,13 +77,23 @@ def place(pid, window, seconds=20.0):
     return False
 
 
+def _profile_processes(profile: Path) -> str:
+    """PowerShell that lists the browser processes with one complete profile argument."""
+    value = str(profile).replace("'", "''")
+    return (f"$profile = '{value}'; "
+            "$argument = [regex]::Escape('--user-data-dir=' + $profile); "
+            "$pattern = '(?:^|\\s)(?:\"' + $argument + '\"|' + $argument + '(?=\\s|$))'; "
+            "Get-CimInstance Win32_Process -Filter \"Name = 'chrome.exe' OR Name = 'chromium.exe' OR Name = 'msedge.exe'\" | "
+            "Where-Object { $_.CommandLine -cmatch $pattern }")
+
+
 def close_command(profile: Path) -> list[str]:
     """Match one complete profile argument, never all Chrome processes or a PID tree."""
-    value = str(profile).replace("'", "''")
-    script = (f"$profile = '{value}'; "
-              "$argument = [regex]::Escape('--user-data-dir=' + $profile); "
-              "$pattern = '(?:^|\\s)(?:\"' + $argument + '\"|' + $argument + '(?=\\s|$))'; "
-              "Get-CimInstance Win32_Process -Filter \"Name = 'chrome.exe' OR Name = 'chromium.exe' OR Name = 'msedge.exe'\" | "
-              "Where-Object { $_.CommandLine -cmatch $pattern } | "
-              "ForEach-Object { Stop-Process -Id $_.ProcessId -ErrorAction SilentlyContinue }")
+    script = _profile_processes(profile) + " | ForEach-Object { Stop-Process -Id $_.ProcessId -ErrorAction SilentlyContinue }"
+    return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script]
+
+
+def running_command(profile: Path) -> list[str]:
+    """Exit code 0 while a browser with this complete profile argument runs (kiosk mode in tools/start_demo.py)."""
+    script = f"if (@({_profile_processes(profile)}).Count) {{ exit 0 }} else {{ exit 1 }}"
     return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script]

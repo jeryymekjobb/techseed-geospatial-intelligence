@@ -23,7 +23,8 @@ its monitor - so it fits the monitor's work area exactly. The thirds are of the 
 - one: the satellite monitor, the main screen and mission control side by side.
 
 A screen already open with this tool is closed first, so it opens in its place again; --close
-only closes them all (STARTA OM DEMO in tools/start_demo.py).
+only closes them all (STARTA OM DEMO in tools/start_demo.py), and --only opens just the screens
+named (kiosk mode in tools/start_demo.py opens a screen whose window has gone).
 Chrome's own messages go nowhere. Press F11 in the main screen for full screen.
 
     .venv/bin/python -m tools.open_screens
@@ -46,6 +47,7 @@ from tools.startup_check import find_chrome
 from tools import browsers
 
 PROFILES = Path.home() / ".cache" / "techseed-screens"
+SCREENS = ("monitor", "main", "control")
 MONITOR_LINE = re.compile(r"^\s*\d+:\s+\S+\s+(\d+)/\d+x(\d+)/\d+([+-]\d+)([+-]\d+)\s+(\S+)")
 
 
@@ -161,6 +163,17 @@ def close_command(window: Window) -> list[str]:
     return ["pkill", "-f", "--", f"--user-data-dir={PROFILES / window.screen}"]
 
 
+def running_command(screen: str, browser: str = "chrome") -> list[str]:
+    """Finds the screen's own browser, if it runs (exit code 0), by the same complete profile argument
+    close_screen stops it by."""
+    if sys.platform == "win32":
+        from tools import windows_screens
+        return windows_screens.running_command(profile(screen, browser))
+    if sys.platform == "linux":
+        return ["pgrep", "-f", "--", re.escape(f"--user-data-dir={profile(screen, browser)}") + r"(\s|$)"]
+    raise RuntimeError("Finding the demo's windows is not implemented on this platform.")
+
+
 def window_ids(listing: str, pid: int) -> list[str]:
     """The windows of a process in `wmctrl -lp` (id, desktop, pid, host, title)."""
     return [fields[0] for fields in (line.split(None, 4) for line in listing.splitlines()) if len(fields) >= 3 and fields[2] == str(pid)]
@@ -223,6 +236,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--menu", action="store_true",
                         help="only mission control, with the menu of demos (tools/start_demo.py); the other screens close")
     parser.add_argument("--close", action="store_true", help="only close every screen this tool opened")
+    parser.add_argument("--only", help=f"open only these screens, separated by commas ({', '.join(SCREENS)})")
     parser.add_argument("--dry-run", action="store_true", help="print the commands without running them")
     parser.add_argument("--browser", choices=("chrome", "edge"))
     args = parser.parse_args(argv)
@@ -230,10 +244,13 @@ def main(argv: list[str] | None = None) -> int:
         browser = browsers.choice(args.browser)
     except ValueError as exc:
         parser.error(str(exc))
+    only = set(args.only.split(",")) if args.only else set(SCREENS)
+    if only - set(SCREENS):
+        parser.error(f"--only takes {', '.join(SCREENS)}")
     if args.close:
         print("Stänger demons skärmar")
         if not args.dry_run:
-            for screen in ("monitor", "main", "control"):
+            for screen in SCREENS:
                 close_screen(screen, browser)
         return 0
     chrome = browsers.find_edge() if browser == "edge" else find_chrome()
@@ -246,6 +263,7 @@ def main(argv: list[str] | None = None) -> int:
     if not screens:
         parser.exit(1, "open_screens: no monitors found\n")
     windows, closed = menu_windows(layout(screens)) if args.menu else (layout(screens, args.at), [])
+    windows = [window for window in windows if window.screen in only]
     for window in closed:
         print(f"{window.screen}: stängs tills en demo är vald")
         if not args.dry_run:

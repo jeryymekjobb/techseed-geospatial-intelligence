@@ -94,6 +94,10 @@ function showState(scenarioState) {
   $("speech-toggle").classList.toggle("active", Boolean(status.speech));
   // VISA 2D / VISA 3D: the main screen's map; the button names the other one.
   $("view-toggle").textContent = status.view === "2d" ? "VISA 3D" : "VISA 2D";
+  // AUTOSLINGA: the kiosk's loop for the demo that runs (on in kiosk mode); not saved in the profile.
+  const loop = scenarioState.loop || {};
+  $("loop-toggle").textContent = loop.on ? "AUTOSLINGA PÅ" : "AUTOSLINGA AV";
+  $("loop-toggle").classList.toggle("active", Boolean(loop.on));
   lastState = scenarioState;
   showUnsaved();
   if (![...speeds.options].some((option) => Number(option.value) === scenarioState.speed)) {
@@ -401,6 +405,15 @@ $("speech-toggle").addEventListener("click", () => {
     $("command-status").textContent = "";
   }).catch((error) => {
     $("command-status").textContent = `Uppläsningen kunde inte ändras: ${error.message}`;
+  });
+});
+
+$("loop-toggle").addEventListener("click", () => {
+  send("loop", lastState?.loop?.on ? "off" : "on").then((state) => {
+    showState(state);
+    $("command-status").textContent = "";
+  }).catch((error) => {
+    $("command-status").textContent = `Autoslingan kunde inte ändras: ${error.message}`;
   });
 });
 

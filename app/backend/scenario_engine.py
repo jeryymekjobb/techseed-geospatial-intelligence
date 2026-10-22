@@ -40,6 +40,13 @@ demo's start and stop; `data_start_utc` and `data_end_utc` the scenario's period
 `reset` clears the events and the image and map choices and sets the clock to the demo's start;
 the ticks go back to the saved display profile (`profile`, profiles.py), or None without one.
 
+The kiosk's loop (`loop`, on in kiosk mode, tools/start_demo.py; `loop` with "on" or "off" from
+mission control) runs the demo without an operator: at the demo's start, standing still, it plays
+after LOOP_SUMMARY_SECONDS (the screens show the scenario's summary meanwhile); at the stop it
+resets after LOOP_CLOSING_SECONDS (the screens show the closing view meanwhile). A pause in between
+stays a pause. The snapshot's `loop` gives whether it is on, the phase ("summary", "closing" or
+None) and the real seconds left of it. It moves on whenever the clock is read (`tick`).
+
 So that visitors can follow the satellite passes, the clock goes no faster than
 SLOW_SPEED inside the slow windows (set_slow_windows), whatever the chosen speed;
 the clock is advanced window by window, so a high speed cannot jump over one.
@@ -80,6 +87,9 @@ TARGET_PATTERN = re.compile(r"[a-z0-9_-]{1,64}")
 IMAGE_PATTERN = re.compile(r"auto|off|[A-Za-z0-9_]{1,80}\|[a-z]{1,20}")
 IMAGE_TYPES_PATTERN = re.compile(r"(?:[a-z]{1,20}(?:,[a-z]{1,20}){0,19})?")
 CHOICE_PATTERN = re.compile(r"[a-z_]{1,32}=[A-Za-z0-9_.:-]{1,40}")
+# The kiosk's loop: the summary at the start and the closing view at the stop, in real seconds.
+LOOP_SUMMARY_SECONDS = 20.0
+LOOP_CLOSING_SECONDS = 30.0
 WINDOW_PATTERN = re.compile(r"[0-9T:+Z.-]{10,32}/[0-9T:+Z.-]{10,32}")
 MAX_EVENTS = 100
 
@@ -106,6 +116,8 @@ class ScenarioEngine:
     speed: float = DEFAULT_SPEED
     # The saved display profile: its ticks are read at the start and at every reset, its start, stop and speed at the start.
     profile: Callable[[], dict[str, Any] | None] | None = None
+    # The kiosk's loop: play at the start and reset at the stop by themselves.
+    loop: bool = False
     _clock: datetime = field(init=False)
     # The demo's start and stop within start and end (playback_window, or the saved profile).
     _first: datetime = field(init=False)
@@ -130,6 +142,9 @@ class ScenarioEngine:
     _map_layers: dict[str, bool] = field(default_factory=dict, init=False)
     _choices: dict[str, str] = field(default_factory=dict, init=False)
     _question: dict[str, Any] = field(default_factory=lambda: {"id": None, "seq": 0}, init=False)
+    # The loop's phase ("summary" or "closing") and the monotonic time it began.
+    _loop_phase: str | None = field(default=None, init=False)
+    _loop_since: float = field(default=0.0, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
 
     def __post_init__(self) -> None:
@@ -231,6 +246,34 @@ class ScenarioEngine:
                 self._playing = False
                 self.revision += 1
         self._since = now
+        self._follow_loop(now)
+
+    def _follow_loop(self, now: float) -> None:
+        """The loop's next step: play after the summary at the start, reset after the closing view at the stop."""
+        phase = None
+        if self.loop and not self._playing:
+            phase = "closing" if self._clock >= self._last else "summary" if self._clock == self._first else None
+        if phase != self._loop_phase:
+            self._loop_phase, self._loop_since = phase, now
+            return
+        if phase == "summary" and now - self._loop_since >= LOOP_SUMMARY_SECONDS:
+            self._playing = True
+            self._loop_phase = None
+            self.revision += 1
+        elif phase == "closing" and now - self._loop_since >= LOOP_CLOSING_SECONDS:
+            self._reset()
+            self._loop_phase, self._loop_since = "summary", now
+            self.revision += 1
+
+    def _loop_status(self) -> dict[str, Any]:
+        length = {"summary": LOOP_SUMMARY_SECONDS, "closing": LOOP_CLOSING_SECONDS}.get(self._loop_phase or "")
+        left = None if length is None else max(0, math.ceil(length - (self.monotonic() - self._loop_since)))
+        return {"on": self.loop, "phase": self._loop_phase, "seconds_left": left}
+
+    def tick(self) -> None:
+        """Move the clock and the loop on without a screen asking (server.py's loop thread)."""
+        with self._lock:
+            self._advance()
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
@@ -239,6 +282,7 @@ class ScenarioEngine:
                 "clock_utc": utc_text(self._clock),
                 "playing": self._playing,
                 "finished": self._clock >= self._last,
+                "loop": self._loop_status(),
                 "speed": self.speed,
                 "playback_seconds": round(self._playback_seconds()),
                 "effective_speed": self._speed_at(self._clock),
@@ -349,6 +393,19 @@ class ScenarioEngine:
             raise CommandError(f"at most {MAX_PLACED_SENSORS} placed sensors")
         self._record_event("place_sensor", f"placed-{placed + 1}", latitude=round(latitude, 5), longitude=round(longitude, 5))
 
+    def _reset(self) -> None:
+        self._playing = False
+        self.events.clear()
+        self._detection = None
+        self._image = "auto"
+        self._map_layers.clear()
+        self._choices.clear()
+        self._apply_profile()
+        self._clock = self._first
+        if self._question["id"] is not None:
+            self._question = {"id": None, "seq": self._question["seq"] + 1}
+        self.jump += 1
+
     def command(
         self, name: str, *, at: str | None = None, speed: float | None = None, target: str | None = None,
         latitude: float | None = None, longitude: float | None = None,
@@ -363,17 +420,7 @@ class ScenarioEngine:
             elif name == "pause":
                 self._playing = False
             elif name == "reset":
-                self._playing = False
-                self.events.clear()
-                self._detection = None
-                self._image = "auto"
-                self._map_layers.clear()
-                self._choices.clear()
-                self._apply_profile()
-                self._clock = self._first
-                if self._question["id"] is not None:
-                    self._question = {"id": None, "seq": self._question["seq"] + 1}
-                self.jump += 1
+                self._reset()
             elif name == "seek":
                 if not at:
                     raise CommandError("seek needs a time")
@@ -436,6 +483,11 @@ class ScenarioEngine:
                 if target not in ("on", "off"):
                     raise CommandError('speech needs "on" or "off"')
                 self._speech = target == "on"
+            elif name == "loop":
+                if target not in ("on", "off"):
+                    raise CommandError('loop needs "on" or "off"')
+                self.loop = target == "on"
+                self._loop_phase = None
             elif name == "view":
                 if target not in ("2d", "3d"):
                     raise CommandError('view needs "2d" or "3d"')

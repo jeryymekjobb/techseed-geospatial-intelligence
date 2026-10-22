@@ -1202,6 +1202,12 @@ function setupScenarioView() {
   summary.setAttribute("role", "status");
   summary.hidden = true;
   document.body.append(summary);
+  const closing = document.createElement("section");
+  closing.id = "closing-view";
+  closing.className = "closing-view";
+  closing.setAttribute("role", "status");
+  closing.hidden = true;
+  document.body.append(closing);
   const card = document.createElement("section");
   card.id = "detection-card";
   card.className = "detection-card";
@@ -1639,14 +1645,51 @@ function showSummary(scenarioState) {
     start.className = "summary-start";
     start.textContent = "▶ STARTA SCENARIOT";
     start.addEventListener("click", () => runCommand("play"));
-    element.append(title, list, start);
+    const countdown = document.createElement("p");
+    countdown.className = "loop-countdown";
+    element.append(title, list, start, countdown);
   }
+  showCountdown(element, loopCountdown(scenarioState, "summary"));
   element.hidden = !(summary.shown && lines.length);
+}
+
+// The kiosk's loop under the summary or the closing view: when it plays or starts again by itself.
+function showCountdown(element, text) {
+  const countdown = element.querySelector(".loop-countdown");
+  if (!countdown) return;
+  countdown.textContent = text || "";
+  countdown.hidden = !text;
+}
+
+// The closing view at the demo's stop (satlog.js closingShown): the one-pager's closing lines, then
+// the scenario's title and what its data are, so the end too says it is not live.
+function showClosing(scenarioState) {
+  const element = $("closing-view");
+  const shown = closingShown(scenarioState);
+  if (shown && !element.childElementCount) {
+    const [name, slogan, motto] = CLOSING_LINES;
+    const heading = document.createElement("h2");
+    heading.textContent = name;
+    const lines = [[slogan, "closing-slogan"], [motto, "closing-motto"],
+      [state.config.title, "closing-scenario"], [state.config.data_label, "closing-label"]];
+    element.append(heading, ...lines.filter(([text]) => text).map(([text, className]) => {
+      const line = document.createElement("p");
+      line.className = className;
+      line.textContent = text;
+      return line;
+    }));
+    const countdown = document.createElement("p");
+    countdown.className = "loop-countdown";
+    element.append(countdown);
+  }
+  showCountdown(element, loopCountdown(scenarioState, "closing"));
+  element.hidden = !shown;
 }
 
 function applyState(scenarioState) {
   followPlaybackWindow(scenarioState);
   showSummary(scenarioState);
+  showClosing(scenarioState);
   showThreats(scenarioState);
   state.playing = scenarioState.playing;
   state.finished = scenarioState.finished;

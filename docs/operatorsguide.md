@@ -802,6 +802,27 @@ svarar på port 8765 går en backend redan; stoppa den först. Sensorernas rader
 `data/node-sim.log`. Skärmarna öppnas på 4 augusti 2014 kl. 11:30 svensk tid; avsnitt 8 beskriver
 dem.
 
+**Slutbilden.** När uppspelningen når demons stopp visar huvudskärmen slutbilden: "TECHSEED
+GEOSPATIAL INTELLIGENCE – Physical world. Space. Data. Intelligence. – From Orbit to Decision." och
+under det scenariots namn och att datan inte är i realtid. Den står kvar tills du trycker RESET,
+PLAY eller hoppar i tiden.
+
+**Kioskläge, när ingen står vid demon.** Tryck **KIOSKLÄGE AV** överst i menyn så att det står
+**KIOSKLÄGE PÅ**, och välj sedan demo (eller starta med `--kiosk`). Då sköter demon sig själv:
+
+- Sammanfattningen visas i 20 sekunder ("Startar av sig själv om … s"), sedan spelas demon upp.
+- Vid stoppet står slutbilden i 30 sekunder ("Demon börjar om om … s"), sedan börjar demon om från
+  start.
+- Var tionde sekund kontrollerar `start_demo` att sensorerna i montern och de tre skärmarna går, och
+  startar det som har stannat. Öppnas mission control igen återställs demon och börjar från start.
+- Stannar backend av sig själv, eller startar demon inte, försöker `start_demo` igen efter 10 sekunder.
+
+Knappen **AUTOSLINGA** bredvid UPPLÄSNING i mission control slår av slingan för demon som går, till
+exempel medan du visar något för en besökare, och slår på den igen. Den sparas inte i profilen;
+kioskläget i menyn avgör om demon startar med slingan på. Kioskläget gäller tills `start_demo`
+avslutas, också efter BYT SCENARIO och STARTA OM DEMO. Ctrl+C avslutar som vanligt. En paus med
+PAUSE står kvar tills någon trycker PLAY, också i kioskläge.
+
 **Steg för steg**, om du hellre startar delarna själv: demon behöver två program som är igång
 hela dagen. Öppna **två terminaler** och gå in i repot i båda (`cd ~/techseed-geospatial-intelligence`).
 

@@ -510,3 +510,64 @@ def test_the_main_screen_s_view_is_chosen_from_mission_control_and_kept_by_reset
     assert scenario.command("reset")["status"]["view"] == "2d"  # RESET keeps it, like the speed
     with pytest.raises(CommandError):
         scenario.command("view", target="4d")
+
+
+def test_the_kiosk_s_loop_plays_after_the_summary_and_starts_again_after_the_closing_view() -> None:
+    from app.backend.scenario_engine import LOOP_CLOSING_SECONDS, LOOP_SUMMARY_SECONDS
+
+    fake = FakeTime()
+    scenario = ScenarioEngine(START, START + timedelta(hours=10), monotonic=fake, speed=3600, loop=True)
+    first = scenario.snapshot()
+    assert first["loop"] == {"on": True, "phase": "summary", "seconds_left": LOOP_SUMMARY_SECONDS}
+    fake.now += LOOP_SUMMARY_SECONDS - 1
+    assert not scenario.snapshot()["playing"] and scenario.snapshot()["loop"]["seconds_left"] == 1
+    fake.now += 1
+    playing = scenario.snapshot()
+    assert playing["playing"] and playing["loop"]["phase"] is None
+    fake.now += 10  # 10 h at 1 h/s: the stop
+    stopped = scenario.snapshot()
+    assert stopped["finished"] and stopped["loop"]["phase"] == "closing"
+    fake.now += LOOP_CLOSING_SECONDS - 1
+    assert scenario.snapshot()["finished"]
+    scenario.command("satcom_failure")
+    jump = scenario.snapshot()["jump"]
+    fake.now += 1
+    again = scenario.snapshot()
+    # Back at the start, reset, with the summary again before it plays.
+    assert again["clock_utc"] == "2014-07-31T00:00:00Z" and not again["playing"] and again["events"] == []
+    assert again["jump"] == jump + 1 and again["loop"]["phase"] == "summary"
+    fake.now += LOOP_SUMMARY_SECONDS
+    assert scenario.snapshot()["playing"]
+
+
+def test_a_pause_stays_a_pause_and_the_loop_is_switched_from_mission_control() -> None:
+    from app.backend.scenario_engine import LOOP_SUMMARY_SECONDS
+
+    scenario, fake = engine()
+    assert scenario.snapshot()["loop"] == {"on": False, "phase": None, "seconds_left": None}
+    fake.now += 3600
+    assert not scenario.snapshot()["playing"]  # without the loop nothing plays by itself
+    scenario.command("loop", target="on")
+    scenario.command("play")
+    fake.now += 5
+    scenario.command("pause")
+    fake.now += 3600
+    paused = scenario.snapshot()
+    assert not paused["playing"] and paused["loop"] == {"on": True, "phase": None, "seconds_left": None}
+    scenario.command("reset")
+    scenario.command("loop", target="off")
+    fake.now += LOOP_SUMMARY_SECONDS * 2
+    assert not scenario.snapshot()["playing"] and scenario.snapshot()["loop"]["on"] is False
+    with pytest.raises(CommandError):
+        scenario.command("loop", target="maybe")
+
+
+def test_kiosk_mode_switches_the_loop_on_when_the_backend_starts(monkeypatch: pytest.MonkeyPatch) -> None:
+    started = []
+    monkeypatch.setattr(server.threading, "Thread", lambda **kwargs: type("T", (), {"start": lambda self: started.append(kwargs["name"])})())
+    for kiosk, on in (("0", False), ("1", True)):
+        monkeypatch.setattr(server.Handler, "engine", ScenarioEngine(START, END))
+        monkeypatch.setenv("TECHSEED_DEMO_KIOSK", kiosk)
+        server.start_kiosk_loop()
+        assert server.Handler.engine.snapshot()["loop"]["on"] is on
+    assert started == ["scenario-tick", "scenario-tick"]

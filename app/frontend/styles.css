@@ -108,6 +108,18 @@ html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color:
 /* The summary's start button: last, centred, in the title's yellow; shown also on the display-only screen. */
 .scenario-summary .summary-start { display: block; margin: 16px auto 0; padding: 10px 28px; border: 0; border-radius: 6px; background: #ffd54a; color: #202020; font: inherit; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.04em; cursor: pointer; }
 .scenario-summary .summary-start:hover, .scenario-summary .summary-start:focus-visible { background: #ffe27a; outline: 2px solid #fff; outline-offset: 2px; }
+/* The closing view at the demo's stop: the one-pager's closing lines over the map, then the scenario. */
+.closing-view { position: fixed; top: 50%; left: calc((100% - 340px) / 2); transform: translate(-50%, -50%); z-index: 1002; width: min(820px, calc(100% - 380px)); padding: 40px 36px 30px; border-radius: 8px; background: #141414f2; color: #fff; text-align: center; box-shadow: 0 4px 24px #000c; }
+.closing-view[hidden] { display: none; }
+.closing-view h2 { margin: 0 0 18px; font-size: 2.3rem; letter-spacing: 0.08em; color: #ffd54a; }
+.closing-view p { margin: 0; }
+.closing-view .closing-slogan { font-size: 1.4rem; line-height: 1.4; }
+.closing-view .closing-motto { margin-top: 10px; font-size: 1.7rem; font-weight: 700; }
+.closing-view .closing-scenario { margin-top: 30px; font-size: 1.05rem; color: #ddd; }
+.closing-view .closing-label { margin-top: 4px; font-size: 0.95rem; color: #aaa; }
+/* The kiosk's loop: when the summary plays or the closing view starts again by itself. */
+.loop-countdown { margin: 14px 0 0; text-align: center; font-size: 1rem; color: #ffd54a; }
+.loop-countdown[hidden] { display: none; }
 .event-banner strong { font-size: 1.4rem; letter-spacing: 0.04em; color: #ffd54a; }
 .event-banner span { font-size: 0.85rem; }
 body[data-satcom="down"] .data-label::after { content: " · SATELLITE DATA UNAVAILABLE (simulerat avbrott)"; color: var(--accent); }
@@ -129,6 +141,13 @@ body.menu-page { background: #141414; color: #f2f2f2; display: grid; place-items
 .demo-choice strong { font-size: clamp(1.1rem, 2.6vw, 1.8rem); }
 .demo-choice span { color: #d0d0d0; font-size: 1rem; }
 .menu-page .status { color: #d0d0d0; font-size: 1rem; }
+/* KIOSKLÄGE on the menu: a large switch, yellow when on. */
+.kiosk-choice { display: grid; gap: 8px; justify-items: center; }
+.kiosk-choice p { margin: 0; color: #d0d0d0; font-size: 1rem; }
+.kiosk-toggle { min-width: 260px; padding: 14px 28px; border: 2px solid #5b5b57; border-radius: 10px; background: #2a2a2a; color: #fff; font: inherit; font-size: 1.3rem; font-weight: 700; letter-spacing: 0.05em; cursor: pointer; }
+.kiosk-toggle[aria-pressed="true"] { border-color: #ffd54a; background: #ffd54a; color: #202020; }
+.kiosk-toggle:hover:not(:disabled), .kiosk-toggle:focus-visible { border-color: #ffd54a; }
+.kiosk-toggle:disabled { opacity: 0.5; cursor: default; }
 /* The main screen only shows (panel.js startApp): its buttons and the 2D/3D link are hidden and its
    lists read as text, since mission control sets them all; ?controls=1 brings them back. The map's
    own zoom and right click stay. */
@@ -163,7 +182,7 @@ body.menu-page { background: #141414; color: #f2f2f2; display: grid; place-items
 .image-types .count { margin-left: auto; color: #b0b0b0; font-size: 0.85rem; white-space: nowrap; }
 .image-pick { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin: 6px 0; font-size: 0.9rem; }
 .control-row.pick-row { grid-template-columns: 1fr; margin-top: 0; }
-.control-row.pick-row.view-row { grid-template-columns: repeat(2, 1fr); }
+.control-row.pick-row.view-row { grid-template-columns: repeat(3, 1fr); }
 #image-shown { white-space: pre-line; }
 .image-pick select { width: 100%; min-width: 0; padding: 8px; font-size: 1rem; }
 .control-row.speed-row { grid-template-columns: repeat(3, 1fr); }
@@ -265,7 +284,7 @@ body.monitor-page { display: flex; flex-direction: column; height: 100%; backgro
 .answer pre { max-height: 220px; overflow: auto; font-size: 0.75rem; white-space: pre-wrap; }
 .answer button { margin-top: 6px; }
 .event-log { margin: 0; padding-left: 1.4em; font-size: 0.85rem; color: #d0d0d0; }
-@media (max-width: 760px) { .event-banner { left: 50%; } .scenario-summary { left: 50%; width: calc(100% - 32px); } .layout { grid-template-columns: 1fr; grid-template-rows: 60vh auto; height: auto; } .panel { border-left: 0; } }
+@media (max-width: 760px) { .event-banner { left: 50%; } .scenario-summary, .closing-view { left: 50%; width: calc(100% - 32px); } .layout { grid-template-columns: 1fr; grid-template-rows: 60vh auto; height: auto; } .panel { border-left: 0; } }
 /* A scenario shows only the parts of its kind of incident (config.incident on <body>). */
 body[data-incident="flood"] [data-incident="wildfire"], body[data-incident="wildfire"] [data-incident="flood"] { display: none; }
 .rain-bar { fill: #1f5fa8; }
