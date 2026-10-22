@@ -563,6 +563,38 @@ och återställer den körande demon: använd det inte samtidigt som någon demo
 Det verifierar inte alla plattformsfunktioner; de manuella ljud- och fönsterproven
 behövs fortfarande. Windows utan Docker är inte godkänt förrän dessa prov genomförts.
 
+#### G6. Hämta och bygga data utan Docker
+
+Den vanliga Windows-vägen tar data ur ett datapaket (C). Den som i stället hämtar och bygger
+data själv kan köra GDAL- och osmium-stegen utan Docker med `--tools native`, eller
+`$env:TECHSEED_TOOLS = "native"` för hela fönstret. Det gäller:
+
+| Verktyg | Steg utan Docker |
+|---|---|
+| `tools.fetch_landsat_scene`, `tools.fetch_sentinel2_scene` | GDAL: utsnitt, kompositbilder och råa band |
+| `tools.fetch_sentinel1_scene` | GDAL: radarbilderna och höjddatan för havet |
+| `tools.fetch_ems_perimeters` | GDAL (`ogr2ogr`): EMS-ytorna |
+| `tools.build_offline_tiles` | osmium och tilemaker, se nedan |
+
+Programmen ska finnas på PATH, till exempel från en conda-forge-miljö med paketen `gdal` och
+`osmium-tool`; installera dem enligt respektive projekts anvisningar och anteckna versionerna.
+Saknas ett program avbryts verktyget med ett meddelande om det. Docker är fortfarande standard,
+och Ubuntus kommandon ändras inte.
+
+Två begränsningar:
+
+- **Offlinekartan** byggs med tilemaker, som saknar färdig Windows-version. `build_offline_tiles
+  --tools native` kräver tilemaker på PATH och `--tilemaker-resources` med tilemakers
+  `resources`-mapp. På Windows tas kartan i stället ur scenariots datapaket.
+- **3D-terrängen** (`tools.build_terrain`) kräver fortfarande Docker och tas på Windows ur
+  datapaketet.
+
+Provat 2026-10-22 på Ubuntu med GDAL 3.13.3 och osmium 1.19.1 från conda-forge, mot Docker-vägen
+med samma indata: osmium-utdraget, EMS-konverteringen och kompositbilderna blev desamma. Höjddata
+som medelvärdesbildas (`-r average`, Sentinel-1:s havsmask) skiljer sig något, i Flens område i
+medel 0,9 m och som mest 10 m, eftersom containern har GDAL 2.4 och metoden ändrades i GDAL 3.
+Hämtning från Planetary Computer med native GDAL och körning på Windows är inte provade.
+
 ## Vad demon är
 
 Demon spelar upp skogsbranden i Västmanland sommaren 2014 med riktiga satellitdata. Den
