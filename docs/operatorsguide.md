@@ -17,8 +17,10 @@ anger en kodrevision, men importören kontrollerar inte att den är kompatibel m
 Kontrollsummor verifierar filernas integritet, inte vem som har publicerat dem.
 
 **Verifieringsläge:** Ubuntu är projektets befintliga körmiljö. De nya verktygen har
-enhetstestats där med syntetiska paket och ersättningar för plattformsanrop. Windows
-installation, lokala tjänster, fönster och ljud måste fortfarande provas som helhet i VM. macOS har kod
+enhetstestats där med syntetiska paket och ersättningar för plattformsanrop. Windows-vägen
+utan Docker (G) provades som helhet i en Windows 11-VM 2026-10-22 med `flen2019`: installation,
+lokala tjänster, Edge-fönster, 2D och 3D, ljud och kioskläge fungerade. Chrome på Windows,
+flera skärmar, offlinekörning och riktig Windows-hårdvara är inte provade. macOS har kod
 för Chrome-sökning och WAV-uppspelning, men är inte verifierat och saknar automatisk
 placering och stängning av demofönster. Det är ännu inte en färdig macOS-installation.
 
@@ -166,7 +168,8 @@ ingen annan systemröst väljs automatiskt. Saknat eller felande ljud loggas i b
 
 Exemplet väljer enbart Västmanland. Byt namnet till ett scenario som paketet faktiskt
 omfattar: `vastmanland2014`, `sundsvall2026`, `skane2024`, `ljusdal2018`,
-`vasternorrland2025` eller `kramfors2026`.
+`vasternorrland2025`, `kramfors2026`, `flenkommun2024`, `flen2024`, `flenkommun2021`
+eller `flen2019`.
 
 Ubuntu/Bash:
 
@@ -183,7 +186,9 @@ $Scenario = "vastmanland2014"
 ```
 
 Kontrollen är skrivskyddad och ska avslutas med kod 0. Den kontrollerar Python-version,
-Chrome, Docker och vissa konfigurerade datafiler/metadata. Den verifierar **inte**
+Chrome, Docker och vissa konfigurerade datafiler/metadata. MET Norways prognoser är
+valfria: saknas de visas `OPTIONAL/MISSING`, kontrollen godkänns ändå och demons panel
+**Väderprognos** blir tom. Den verifierar **inte**
 alla bildfiler eller tidstäckning, Pythonpaket, databasens innehåll, ljud eller
 fönsterplacering. Utred varje `MISSING/FAILED`; ett lyckat resultat är inte ett
 godkännande av hela installationen.
@@ -313,9 +318,8 @@ vidare via godkänd överföringsväg. En lyckad kontrollsumma ersätter inte de
 
 Denna väg är ett uttryckligt alternativ. **Ubuntus Docker-installation, startkommando
 och konfigurationsfiler ändras inte.** På Windows behövs ingen fungerande WSL-miljö
-eller nästlad virtualisering för de lokala tjänsterna. Rendering, ljud och samlad
-drift i Windows-VM återstår ändå att verifiera. Ett lyckat enhetstest på Ubuntu är
-inte ett sådant verifieringsresultat.
+eller nästlad virtualisering för de lokala tjänsterna. Vägen provades i en Windows-VM
+2026-10-22; vad som provades och inte står i rapporten som nämns nedan.
 
 Gör först A–C ovan för en ren, lokal Windows-klon, Pythonberoenden och ett godkänt
 datapaket. Hoppa över Docker-installation och steg D–E. Använd Python 3.12 x64 för
@@ -324,27 +328,46 @@ Kör inte från en delad VirtualBox-mapp: klonen, Pythonmiljön och programmens 
 ska ligga på Windows egen lokala disk. Verifiera att den valda Git-revisionen även
 innehåller `tools/native_services.py` och de två `tools/start_native_*.py`-verktygen.
 
+**Prova i en VirtualBox-VM.** Vägen provades 2026-10-22 i en Windows 11-VM i VirtualBox
+7.0.16 (`reports/2026-10-22-windows-vm-test-claude-opus-5-5.md`). Med 4 virtuella
+processorer blev VM:en överbelastad när 3D-globen ritades i mjukvara, och med VirtualBox
+3D-acceleration påslagen låste den sig. Det fungerade med **minst 8 processorer och
+3D-accelerationen avstängd**. En VM utan grafikkort säger inget om prestandan på
+utställningsdatorn. Ta en ögonblicksbild av VM:en innan du installerar något.
+
+**Administratörsfönster.** Programmen installeras som vanligt, men att stoppa en
+Windows-tjänst eller ändra hur den startar kräver ett PowerShell-fönster som öppnats med
+högerklick och **Kör som administratör** (Run as administrator); i ett vanligt fönster
+svarar Windows "Cannot open … service". Gör allt annat i ett vanligt fönster.
+
 #### G1. Installera programmen separat
 
 Installera från respektive projekts angivna källor:
 
 | Program | Val för första Windows-provet | Källa/anvisning |
 |---|---|---|
-| Node.js | 22.x, Windows x64 | [Node.js](https://nodejs.org/en/download); öppna ny PowerShell efter installation |
+| Node.js | 22.x eller 24.x, Windows x64 (24.17.0 provat 2026-10-22) | [Node.js](https://nodejs.org/en/download); öppna ny PowerShell efter installation |
 | Microsoft Visual C++ Redistributable | x64 | Krävs enligt [TileServer GL:s Windows-anvisning](https://tileserver.readthedocs.io/en/latest/installation.html) |
 | PostgreSQL | 16, Windows x64 | [PostgreSQLs Windows-sida](https://www.postgresql.org/download/windows/) länkar till EDB-installationen |
 | PostGIS | En släppt Windows-version kompatibel med vald PostgreSQL 16-installation | [PostGIS för Windows](https://postgis.net/documentation/getting_started/install_windows/), via StackBuilder eller angiven installerare |
 | Mosquitto | Officiell Windows x64-installation | [Mosquitto](https://mosquitto.org/download/); anteckna version och installationssökväg |
 
-Detta är versionsval för ett kommande prov, inte en verifierad kombination. Installera
+Windows-provet 2026-10-22 använde Node.js 24.17.0, PostgreSQL 16.15 med PostGIS 3.6
+och Microsoft Edge; övriga kombinationer är inte provade. Installera
 inte ett godtyckligt senare PostgreSQL/PostGIS-par utan att kontrollera kompatibiliteten.
 Välj lokal åtkomst för PostgreSQL och behåll autentisering; ändra inte till `trust`.
 Spara administratörslösenordet säkert utanför repo och kommandon. Exemplet nedan
 använder port 5432, men en befintlig installation kan behöva en annan port.
 
 Mosquitto ska inte samtidigt köras som automatisk Windows-tjänst på port 1883 när
-startverktyget ska äga processen. Välj bort sådan tjänstestart vid installation om
-möjligt. Om en tjänst redan använder porten: identifiera den och besluta separat hur
+startverktyget ska äga processen. Windows-installationen av Mosquitto skapar en sådan
+tjänst. Ställ den på manuell start i ett administratörsfönster:
+
+```powershell
+Stop-Service mosquitto
+Set-Service mosquitto -StartupType Manual
+```
+ Om en tjänst redan använder porten: identifiera den och besluta separat hur
 den ska hanteras; stoppa inte okända tjänster eller ändra deras konfiguration.
 Startverktyget vägrar ersätta en process på port 1883 eller kartport 8081.
 Används 1883 av ett annat program som ska fortsätta gå – i Windows-provet 2026-10-22 var det
@@ -364,7 +387,7 @@ New-Item -ItemType Directory -Path $Runtime -Force
 npm.cmd install --prefix "$Runtime" --save-exact tileserver-gl@5.6.0
 ```
 
-Node-versionen ska vara 22.x för detta prov. Vid npm-/DLL-/renderingsfel: stanna och
+Node-versionen ska vara 22.x eller 24.x; Windows-provet använde 24.17.0. Vid npm-/DLL-/renderingsfel: stanna och
 spara feltexten. Kringgå inte kontrollsummor eller ersätt servern med light-versionen.
 Spara skapad `package-lock.json` för spårbarhet vid jämförande installationer; en
 fast toppnivåversion ensam låser inte alla transitiva beroenden mellan installationer.
@@ -410,6 +433,10 @@ Rollnamnet är `firemap`, medan databasnamnet beror på scenariot:
 | `ljusdal2018` | `ljusdal2018` |
 | `vasternorrland2025` | `vasternorrland2025` |
 | `kramfors2026` | `kramfors2026` |
+| `flenkommun2024` | `flenkommun2024` |
+| `flen2024` | `flen2024` |
+| `flenkommun2021` | `flenkommun2021` |
+| `flen2019` | `flen2019` |
 
 För övriga installerade scenarier skapar administratören respektive databas med
 `OWNER firemap` och aktiverar PostGIS där på samma sätt. Rollen skapas bara en gång.
@@ -462,6 +489,13 @@ Anpassa sökvägar och port till installationen. Native-anslutningen använder U
 anslutningstimeout och `psql -w`: den frågar inte efter lösenord om filen saknas eller
 inte matchar. `PGPASSWORD` används inte av native-klienten. Startflaggan nedan väljer
 native-läge i backend, men fristående dataladdning behöver miljövariabeln ovan.
+
+Saknar datorn Chrome, välj Edge för hela fönstret, så att alla verktyg och deras
+underprocesser använder det utan `--browser edge` i varje kommando:
+
+```powershell
+$env:TECHSEED_BROWSER = "edge"
+```
 
 #### G4. Kontrollera filer och ladda valt scenario
 
