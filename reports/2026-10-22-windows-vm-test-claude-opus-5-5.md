@@ -77,8 +77,11 @@ den renderade mättes inte; en VM utan grafikkort säger inget om utställningsd
    databaser (G2) och i scenariolistan i D; att `TECHSEED_BROWSER=edge` kan sättas för hela
    fönstret; att Windows-tjänster stoppas i ett administratörsfönster; att provet gick med Node
    24.17.0; och för VirtualBox-VM:ar minst 8 processorer och ingen 3D-acceleration (7.0.16).
+   Åtgärdat samma dag i `docs/operatorsguide.md` (avsnitt D och G).
 3. **`startup_check` kräver MET Norways prognoser**, som scenarierna klarar sig utan (panelen
    blir tom). För `flen2019` har prognoserna aldrig hämtats, inte heller på Ubuntu.
+   Åtgärdat samma dag: `startup_check` visar dem som `OPTIONAL/MISSING` och godkänns ändå.
+   Prognoserna för `flen2019` är fortfarande inte hämtade.
 4. **Menyn listar alla scenarier, också de som inte är installerade.** Ett val av Sundsvall gav
    `Missing or empty scenario map: …\data\tiles\sundsvall.mbtiles`. Guiden säger det, men
    menyn skulle kunna visa vilka scenarier som har data.
