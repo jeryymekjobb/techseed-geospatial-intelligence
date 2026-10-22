@@ -102,3 +102,18 @@ def test_changed_source_is_detected_before_publishing(tmp_path, monkeypatch):
     with pytest.raises(ValueError):
         package_data.build(selection, output, root)
     assert not output.exists()
+
+
+def test_a_selection_without_the_map_or_terrain_is_warned_about(tmp_path, capsys):
+    # Windows without Docker cannot build them (no tilemaker, no ctb-tile): the package must carry them.
+    root, selection, selected, output = fixture(tmp_path)
+    selected["scenarios"] = ["flen2019"]
+    selection.write_text(json.dumps(selected), encoding="utf-8")
+    assert package_data.main([str(selection), str(output), "--root", str(root), "--dry-run"]) == 0  # a warning, not a refusal
+    printed = capsys.readouterr().out
+    for path in ["data/tiles/flen.mbtiles", "data/tiles/flen.SOURCE.json", "data/flen2024/terrain/layer.json",
+                 "data/flen2024/terrain/ (the terrain's tiles)"]:
+        assert f"Warning: {path} is not in the selection" in printed
+    complete = {"scenarios": ["flen2019"], "files": [{"path": path} for path in [
+        "data/tiles/flen.mbtiles", "data/tiles/flen.SOURCE.json", "data/flen2024/terrain/layer.json", "data/flen2024/terrain/0/0/0.terrain"]]}
+    assert package_data.missing_map_inputs(complete) == []

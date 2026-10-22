@@ -13,6 +13,11 @@ Docker volumes or raw data are collected automatically.
 
 Preview validates inputs and calculates hashes but creates no files. Existing
 output files are never overwritten. Do not modify inputs while packaging.
+
+A package for Windows without Docker must carry each scenario's offline map and 3D
+terrain, which cannot be built there (no tilemaker, no ctb-tile). The tool warns, without
+refusing, when a listed scenario's map (data/tiles/<file>.mbtiles and its .SOURCE.json) or
+terrain (its layer.json and tiles) is not in the selection.
 """
 
 from __future__ import annotations
@@ -44,6 +49,29 @@ def selection_manifest(selection: Path, root: Path) -> dict:
         files.append({"path": name, "size": path.stat().st_size, "sha256": checksum})
     return {"format_version": 1, "package_version": selected.get("package_version"),
             "code_revision": selected.get("code_revision"), "scenarios": selected.get("scenarios"), "files": files}
+
+
+def missing_map_inputs(manifest: dict) -> list[str]:
+    """Each listed scenario's offline map and 3D terrain that the selection lacks (repository-relative paths),
+    for a warning: Windows without Docker cannot build them."""
+    import importlib
+
+    from app.backend.scenarios import AVAILABLE
+
+    paths = {item["path"] for item in manifest["files"]}
+    missing = []
+    for name in manifest.get("scenarios") or []:
+        if name not in AVAILABLE:
+            continue
+        settings = importlib.import_module(f"app.backend.scenarios.{name}")
+        tiles = Path(settings.TILES_FILE)
+        terrain = Path(settings.TERRAIN_DIR).resolve().relative_to(REPO_ROOT.resolve()).as_posix()
+        for path in (f"data/tiles/{tiles.name}", f"data/tiles/{tiles.stem}.SOURCE.json", f"{terrain}/layer.json"):
+            if path not in paths:
+                missing.append(path)
+        if not any(path.startswith(f"{terrain}/") and not path.endswith("layer.json") for path in paths):
+            missing.append(f"{terrain}/ (the terrain's tiles)")
+    return list(dict.fromkeys(missing))
 
 
 def build(selection: Path, output: Path, root: Path, dry_run: bool = False) -> dict:
@@ -118,6 +146,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(f"{'Would package' if args.dry_run else 'Packaged'} {len(manifest['files'])} explicitly selected files "
           f"for {', '.join(manifest['scenarios'])}; version {manifest['package_version']}.")
+    for path in missing_map_inputs(manifest):
+        print(f"Warning: {path} is not in the selection; Windows without Docker cannot build it (offline map or 3D terrain).")
     return 0
 
 
