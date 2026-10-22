@@ -112,6 +112,9 @@ från grunden behövs inte för en komplett paketbaserad installation.
 Hämta paketet via en av projektansvarig godkänd överföringsväg, utan USB-beroende.
 Lägg det exempelvis som `demo-data.zip` i hemmappen. Paketet ska innehålla nödvändiga
 filer för de scenarier som ska köras, tillsammans med käll- och licensuppgifter.
+För Windows utan Docker måste det också innehålla varje scenarios **offlinekarta**
+(`data/tiles/<karta>.mbtiles` med `<karta>.SOURCE.json`) och **3D-terräng** (scenariots
+`terrain`-mapp med `layer.json`), eftersom de inte kan byggas där (G6).
 Lokala visningsprofiler, loggar och inloggningsuppgifter ska inte följa med.
 Paketskaparen måste granska även innehållet: filtrering på filnamn bevisar inte att
 filerna saknar hemligheter eller att distribution är tillåten.
@@ -296,6 +299,14 @@ Spara listan lokalt, exempelvis som `selection.json` utanför repot. Verktyget s
 inte kataloger och avgör inte om listan ger en komplett demo. Det samlar inte
 automatiskt in hemligheter, visningsprofiler eller Docker-volymer. Källmetadata och
 licensfiler måste också listas uttryckligen där de behövs. Outputfilen får inte finnas.
+Saknas ett listat scenarios offlinekarta eller 3D-terräng i listan skriver verktyget en
+varning (`Warning: … is not in the selection`) men bygger ändå paketet; ett paket för
+Windows utan Docker ska inte ge några sådana varningar.
+
+Offlinekartan är härledd ur OpenStreetMap (© OpenStreetMap contributors, ODbL), och
+3D-terrängen ur Copernicus DEM (attributionen visas i demons karta). Kontrollera
+respektive källas villkor för spridning och attribution innan ett paket lämnas till
+någon annan; det här är ingen juridisk bedömning.
 
 Ubuntu/Bash:
 
@@ -585,9 +596,10 @@ Två begränsningar:
 
 - **Offlinekartan** byggs med tilemaker, som saknar färdig Windows-version. `build_offline_tiles
   --tools native` kräver tilemaker på PATH och `--tilemaker-resources` med tilemakers
-  `resources`-mapp. På Windows tas kartan i stället ur scenariots datapaket.
+  `resources`-mapp. På Windows tas kartan i stället ur scenariots datapaket, som byggs på
+  Ubuntu (C); `tools.package_data` varnar om den saknas i paketets fillista.
 - **3D-terrängen** (`tools.build_terrain`) kräver fortfarande Docker och tas på Windows ur
-  datapaketet.
+  datapaketet på samma sätt.
 
 Provat 2026-10-22 på Ubuntu med GDAL 3.13.3 och osmium 1.19.1 från conda-forge, mot Docker-vägen
 med samma indata: osmium-utdraget, EMS-konverteringen och kompositbilderna blev desamma. Höjddata
