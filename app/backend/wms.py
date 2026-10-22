@@ -100,4 +100,7 @@ def get_map(source_id: str, query: dict[str, str]) -> tuple[bytes, str]:
         raise ValueError("only WMS GetMap with map parameters is forwarded")
     if not parameters.get("LAYERS") or set(parameters["LAYERS"].split(",")) - set(source["layers"]):
         raise ValueError("only the scenario's layers are forwarded")
+    # The screens send an empty STYLES, which the query parsing drops; MCF's service refuses a
+    # GetMap without it (an XML error with status 200), while empty means each layer's default style.
+    parameters.setdefault("STYLES", "")
     return _fetch(source_id, parameters)

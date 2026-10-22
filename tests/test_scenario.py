@@ -94,6 +94,29 @@ except KeyError:
     assert run_python(code, "sundsvall2026").stdout.split() == ["refused", "refused", "refused", "unknown"]
 
 
+def test_the_wms_proxy_always_forwards_styles() -> None:
+    code = """
+from urllib.parse import parse_qs, urlsplit
+from app.backend import wms
+urls = []
+class Answer:
+    headers = {'Content-Type': 'image/png'}
+    def read(self): return b'png'
+    def __enter__(self): return self
+    def __exit__(self, *exc): return False
+def answer(request, timeout):
+    urls.append(request.full_url)
+    return Answer()
+wms.urlopen = answer
+wms.get_map('mcf', {'service': 'WMS', 'request': 'GetMap', 'layers': '12', 'format': 'image/png'})
+wms.get_map('mcf', {'service': 'WMS', 'request': 'GetMap', 'layers': '12', 'styles': 'default'})
+for url in urls:
+    print(parse_qs(urlsplit(url).query, keep_blank_values=True)['STYLES'])
+"""
+    # The screens' empty styles= is dropped by the query parsing; MCF refuses a GetMap without STYLES.
+    assert run_python(code, "flenkommun2024").stdout.split("\n")[:2] == ["['']", "['default']"]
+
+
 def test_a_silent_map_service_is_refused_at_once_and_reported_unavailable() -> None:
     code = """
 from app.backend import wms
