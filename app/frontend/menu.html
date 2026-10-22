@@ -11,18 +11,30 @@
   <!-- tools/start_demo.py's menu, in mission control's window until a demo is chosen. -->
   <main class="demo-menu">
     <h1 id="menu-title">Techseed Geospatial Intelligence Demos</h1>
+    <div class="kiosk-choice">
+      <button id="kiosk-toggle" type="button" class="kiosk-toggle" aria-pressed="false">KIOSKLÄGE AV</button>
+      <p id="kiosk-help">Med kioskläge på spelar demon själv, visar slutbilden och börjar om, och det som stannar startas igen – utan operatör.</p>
+    </div>
     <div id="demos" class="demo-list"></div>
     <p id="menu-status" class="status" aria-live="polite">Välj en demo. Skärmarna öppnas när demon har startat.</p>
   </main>
   <script>
     "use strict";
     const $ = (id) => document.getElementById(id);
+    let kiosk = false;
+
+    function showKiosk() {
+      $("kiosk-toggle").textContent = kiosk ? "KIOSKLÄGE PÅ" : "KIOSKLÄGE AV";
+      $("kiosk-toggle").setAttribute("aria-pressed", String(kiosk));
+    }
+    $("kiosk-toggle").addEventListener("click", () => { kiosk = !kiosk; showKiosk(); });
 
     async function choose(demo, buttons) {
       for (const button of buttons) button.disabled = true;
-      $("menu-status").textContent = `Startar ${demo.title} … skärmarna öppnas när demon har startat.`;
+      $("kiosk-toggle").disabled = true;
+      $("menu-status").textContent = `Startar ${demo.title}${kiosk ? " i kioskläge" : ""} … skärmarna öppnas när demon har startat.`;
       const response = await fetch("/api/demo/start", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario: demo.name }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario: demo.name, kiosk }),
       }).catch(() => null);
       // Another screen may have chosen first: the menu is closing either way.
       if (!response || !response.ok) $("menu-status").textContent = "En demo startar redan – skärmarna öppnas när den har startat.";
@@ -30,6 +42,8 @@
 
     fetch("/api/demos").then((response) => response.json()).then((menu) => {
       $("menu-title").textContent = menu.title;
+      kiosk = Boolean(menu.kiosk);  // kept from the demo before (BYT SCENARIO) or --kiosk
+      showKiosk();
       const buttons = menu.demos.map((demo) => {
         const button = document.createElement("button");
         button.type = "button";

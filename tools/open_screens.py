@@ -15,7 +15,8 @@ its monitor - so it fits the monitor's work area exactly. The thirds are of the 
 - one: the satellite monitor, the main screen and mission control side by side.
 
 A screen already open with this tool is closed first, so it opens in its place again; --close
-only closes them all (STARTA OM DEMO in tools/start_demo.py).
+only closes them all (STARTA OM DEMO in tools/start_demo.py), and --only opens just the screens
+named (kiosk mode in tools/start_demo.py opens a screen whose window has gone).
 Chrome's own messages go nowhere. Press F11 in the main screen for full screen.
 
     .venv/bin/python -m tools.open_screens
@@ -34,6 +35,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 PROFILES = Path.home() / ".cache" / "techseed-screens"
+SCREENS = ("monitor", "main", "control")
 MONITOR_LINE = re.compile(r"^\s*\d+:\s+\S+\s+(\d+)/\d+x(\d+)/\d+\+(\d+)\+(\d+)\s+(\S+)")
 
 
@@ -145,6 +147,11 @@ def close_command(window: Window) -> list[str]:
     return ["pkill", "-f", "--", f"--user-data-dir={PROFILES / window.screen}"]
 
 
+def running_command(screen: str) -> list[str]:
+    """Finds the screen's own Chrome, if it runs (pgrep's exit code 0)."""
+    return ["pgrep", "-f", "--", f"--user-data-dir={PROFILES / screen}"]
+
+
 def window_ids(listing: str, pid: int) -> list[str]:
     """The windows of a process in `wmctrl -lp` (id, desktop, pid, host, title)."""
     return [fields[0] for fields in (line.split(None, 4) for line in listing.splitlines()) if len(fields) >= 3 and fields[2] == str(pid)]
@@ -181,8 +188,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--menu", action="store_true",
                         help="only mission control, with the menu of demos (tools/start_demo.py); the other screens close")
     parser.add_argument("--close", action="store_true", help="only close every screen this tool opened")
+    parser.add_argument("--only", help=f"open only these screens, separated by commas ({', '.join(SCREENS)})")
     parser.add_argument("--dry-run", action="store_true", help="print the commands without running them")
     args = parser.parse_args(argv)
+    only = set(args.only.split(",")) if args.only else set(SCREENS)
+    if only - set(SCREENS):
+        parser.error(f"--only takes {', '.join(SCREENS)}")
     if args.close:
         print("Stänger demons skärmar")
         if not args.dry_run:
@@ -200,6 +211,7 @@ def main(argv: list[str] | None = None) -> int:
     prop = subprocess.run(["xprop", "-root", "_GTK_WORKAREAS_D0"], capture_output=True, text=True, check=False).stdout
     screens = within_work_areas(screens, work_areas(prop))
     windows, closed = menu_windows(layout(screens)) if args.menu else (layout(screens, args.at), [])
+    windows = [window for window in windows if window.screen in only]
     for window in closed:
         print(f"{window.screen}: stängs tills en demo är vald")
         if not args.dry_run:

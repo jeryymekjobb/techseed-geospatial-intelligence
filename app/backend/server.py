@@ -1141,6 +1141,19 @@ def reset_scenario_for_startup() -> None:
     Handler.engine.command("reset")
 
 
+def start_kiosk_loop(interval: float = 1.0) -> None:
+    """In kiosk mode (TECHSEED_DEMO_KIOSK=1, set by tools/start_demo.py) the demo plays and starts again
+    by itself (scenario_engine.py's loop); a thread moves it on even while no screen asks for the clock."""
+    if os.environ.get("TECHSEED_DEMO_KIOSK") == "1":
+        Handler.engine.command("loop", target="on")
+
+    def loop() -> None:
+        while True:
+            Handler.engine.tick()
+            time.sleep(interval)
+    threading.Thread(target=loop, name="scenario-tick", daemon=True).start()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Backend for the demo map")
     parser.add_argument("--scenario", choices=AVAILABLE, help=f"the scenario to run (default: TECHSEED_SCENARIO or {DEFAULT})")
@@ -1154,6 +1167,7 @@ def main(argv: list[str] | None = None) -> int:
         os.environ["TECHSEED_SCENARIO"] = args.scenario
         os.execv(sys.executable, [sys.executable, "-m", "app.backend.server", *(argv if argv is not None else sys.argv[1:])])
     reset_scenario_for_startup()
+    start_kiosk_loop()
     code_branch()  # the code being run, before anyone switches the branch
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.daemon_threads = True

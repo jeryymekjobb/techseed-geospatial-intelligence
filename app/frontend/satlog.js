@@ -420,6 +420,14 @@ function closingShown(scenarioState) {
   return Boolean(scenarioState.finished && !scenarioState.playing);
 }
 
+// In the kiosk's loop (the scenario state's `loop`): what happens by itself, and when, on the summary
+// ("summary") or the closing view ("closing"); null outside that phase.
+function loopCountdown(scenarioState, phase) {
+  const loop = scenarioState.loop;
+  if (!loop?.on || loop.phase !== phase || loop.seconds_left == null) return null;
+  return phase === "summary" ? `Startar av sig själv om ${loop.seconds_left} s.` : `Demon börjar om om ${loop.seconds_left} s.`;
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, satlogDecimal, satlogWhole, satlogSaid, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, summaryDuration, CLOSING_LINES, closingShown, SATLOG_SOURCES };
+  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, satlogDecimal, satlogWhole, satlogSaid, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, summaryDuration, CLOSING_LINES, closingShown, loopCountdown, SATLOG_SOURCES };
 }

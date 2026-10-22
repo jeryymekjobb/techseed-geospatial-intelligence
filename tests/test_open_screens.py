@@ -82,3 +82,19 @@ def test_the_menu_opens_only_in_mission_control_s_place_and_the_other_screens_cl
     assert [(w.screen, w.path, w.x, w.y, w.width, w.height) for w in menu] == [
         ("control", "/menu.html", control.x, control.y, control.width, control.height)]
     assert [window.screen for window in closed] == ["monitor", "main"]
+
+
+def test_a_screen_s_chrome_is_found_by_its_profile_and_only_named_screens_open(monkeypatch, capsys) -> None:
+    assert screens.SCREENS == ("monitor", "main", "control")
+    assert screens.running_command("main") == ["pgrep", "-f", "--", f"--user-data-dir={screens.PROFILES / 'main'}"]
+    # --only (kiosk mode in tools/start_demo.py): just the screens that have gone, without ?at=.
+    monkeypatch.setattr(screens.shutil, "which", lambda name: "/usr/bin/google-chrome")
+    monkeypatch.setattr(screens.subprocess, "run", lambda command, **kwargs: type("R", (), {"stdout": LISTING if "xrandr" in command else ""})())
+    assert screens.main(["--dry-run", "--only", "monitor,main"]) == 0
+    printed = [line.split(":")[0] for line in capsys.readouterr().out.splitlines() if not line.startswith(" ")]
+    assert printed == ["monitor", "main"]
+    try:
+        screens.main(["--dry-run", "--only", "elsewhere"])
+        raise AssertionError("an unknown screen was accepted")
+    except SystemExit as exc:
+        assert exc.code == 2

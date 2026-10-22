@@ -403,3 +403,16 @@ def test_an_image_line_says_meteosat_s_cloud_where_known() -> None:
               {"satellite": "Landsat 8", "acquired_utc": "2026-08-16T10:00:00Z"}]
     lines = node(f"satelliteLog({{ scenes: {json.dumps(scenes)} }}, Date.parse('2026-08-16T12:00:00Z'), 86400000, Infinity, 'Kramfors')")
     assert [line["text"] for line in lines] == ["Landsat 8 tar bild över Kramfors", "Sentinel-1C tar bild över Kramfors – Meteosat: 100 procent moln"]
+
+
+def test_the_kiosk_s_loop_says_when_it_plays_or_starts_again() -> None:
+    def state(phase: str | None, on: bool = True, left: int | None = 12) -> dict:
+        return {"loop": {"on": on, "phase": phase, "seconds_left": left}}
+    assert node(f"loopCountdown({json.dumps(state('summary'))}, 'summary')") == "Startar av sig själv om 12 s."
+    assert node(f"loopCountdown({json.dumps(state('closing'))}, 'closing')") == "Demon börjar om om 12 s."
+    assert node(f"loopCountdown({json.dumps(state('closing'))}, 'summary')") is None
+    assert node(f"loopCountdown({json.dumps(state('summary', on=False))}, 'summary')") is None
+    assert node("loopCountdown({}, 'closing')") is None
+    panel = (SCRIPT.parent / "panel.js").read_text(encoding="utf-8")
+    assert 'showCountdown(element, loopCountdown(scenarioState, "summary"));' in panel
+    assert 'showCountdown(element, loopCountdown(scenarioState, "closing"));' in panel
