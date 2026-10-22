@@ -189,36 +189,68 @@ def test_every_process_has_its_own_client_id() -> None:
     assert iot.client_id("techseed-firemap") == f"techseed-firemap-{os.getpid()}"
 
 
-@pytest.mark.skipif(not __import__("importlib").util.find_spec("paho"), reason="needs paho-mqtt and the mosquitto service")
-def test_two_backends_both_receive_the_nodes() -> None:
+@pytest.fixture
+def own_broker():
+    """A Mosquitto of the test's own, on a free port, so the test's node never reaches the shared broker
+    on port 1883 and a backend listening there (a running demo, or the demo check) would not list it."""
+    import shutil
     import socket
+    import subprocess
+    import time
+    import uuid
+    from pathlib import Path
+
+    if not shutil.which("docker"):
+        pytest.skip("needs Docker for a broker of the test's own")
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    name = f"techseed-test-mosquitto-{uuid.uuid4().hex[:8]}"
+    config = Path(__file__).resolve().parents[1] / "mosquitto" / "mosquitto.conf"
+    started = subprocess.run(["docker", "run", "-d", "--rm", "--name", name, "-p", f"127.0.0.1:{port}:1883",
+                              "-v", f"{config}:/mosquitto/config/mosquitto.conf:ro", "eclipse-mosquitto:2"],
+                             capture_output=True, text=True, check=False, timeout=60)
+    if started.returncode != 0:
+        pytest.skip(f"could not start a broker of the test's own: {started.stderr.strip()[:200]}")
+    try:
+        deadline = time.time() + 20
+        while True:
+            try:
+                socket.create_connection(("127.0.0.1", port), timeout=1).close()
+                break
+            except OSError:
+                if time.time() > deadline:
+                    pytest.skip("the test's own broker did not answer")
+                time.sleep(0.2)
+        yield port
+    finally:
+        subprocess.run(["docker", "stop", name], capture_output=True, check=False, timeout=60)
+
+
+@pytest.mark.skipif(not __import__("importlib").util.find_spec("paho"), reason="needs paho-mqtt")
+def test_two_backends_both_receive_the_nodes(own_broker: int) -> None:
     import time
 
     import paho.mqtt.client as mqtt
-
-    try:
-        socket.create_connection(("127.0.0.1", 1883), timeout=1).close()
-    except OSError:
-        pytest.skip("needs the mosquitto service (docker compose up -d mosquitto)")
     # Two stores in two "processes": give the second its own id as a second process would.
     first, second = iot.SensorStore(), iot.SensorStore()
     original = iot.client_id
-    iot.start(first, "127.0.0.1", 1883)
+    iot.start(first, "127.0.0.1", own_broker)
     iot.client_id = lambda prefix: original(prefix) + "-second"
     try:
-        iot.start(second, "127.0.0.1", 1883)
+        iot.start(second, "127.0.0.1", own_broker)
     finally:
         iot.client_id = original
     deadline = time.time() + 10
     while time.time() < deadline and not (first.connection == second.connection == "connected"):
         time.sleep(0.1)
     publisher = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=original("test-publisher"))
-    publisher.connect("127.0.0.1", 1883)
+    publisher.connect("127.0.0.1", own_broker)
     publisher.loop_start()
     publisher.publish("techseed/test-node/temp", message(21.5), qos=1).wait_for_publish()
     publisher.loop_stop()
     publisher.disconnect()
-    # The booth simulator may publish on the same broker; look for this test's node only.
+    # Only this test publishes on its own broker; look for its node by name all the same.
     def test_value(store: iot.SensorStore) -> object:
         return next((sensor["value"] for sensor in store.snapshot()["sensors"] if sensor["node"] == "test-node"), None)
 
