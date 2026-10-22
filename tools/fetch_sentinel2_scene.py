@@ -29,13 +29,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlencode
 
 from app.backend import scenario
-from tools.fetch_landsat_scene import NDMI_COLOURS, STAC, docker_command, get_json, without_token
+from tools import geo_tools
+from tools.fetch_landsat_scene import NDMI_COLOURS, STAC, get_json, run_gdal, without_token
 
 COLLECTION = "sentinel-2-l2a"
 TOKEN_URL = f"https://planetarycomputer.microsoft.com/api/sas/v1/token/{COLLECTION}"
@@ -91,25 +91,32 @@ def datatake_items(prefix: str) -> list[dict]:
     return sorted(items, key=lambda item: item["id"])
 
 
-def warp_script(urls: dict[str, list[str]], scene: str, baseline: str, bbox: tuple[float, ...] = BBOX,
-                size: tuple[int, int] = SIZE) -> str:
-    """Shell script for the GDAL container: one mosaic per band over the area, the natural-colour PNG and the raw bands."""
+def warp_steps(urls: dict[str, list[str]], scene: str, baseline: str, bbox: tuple[float, ...] = BBOX,
+               size: tuple[int, int] = SIZE) -> tuple[list[list[str]], list[str]]:
+    """The GDAL steps (geo_tools): one mosaic per band over the area, the natural-colour PNG and the raw bands;
+    and the files to clean up."""
     west, south, east, north = bbox
-    lines = ["set -e", "cd /data"]
+    steps = []
     for band in sorted(urls):
         # The classification is a set of classes: nearest neighbour, never interpolated.
         method = "near" if band == "SCL" else "bilinear"
-        sources = " ".join(f"'/vsicurl/{url}'" for url in urls[band])
-        lines.append(f"gdalwarp -q --config GDAL_DISABLE_READDIR_ON_OPEN EMPTY_DIR -overwrite -t_srs EPSG:4326 "
-                     f"-te {west} {south} {east} {north} -ts {size[0]} {size[1]} -srcnodata 0 -dstnodata 0 -r {method} {sources} {band}.tif")
+        steps.append(["gdalwarp", "-q", "--config", "GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR", "-overwrite", "-t_srs", "EPSG:4326",
+                      "-te", *map(str, (west, south, east, north)), "-ts", str(size[0]), str(size[1]),
+                      "-srcnodata", "0", "-dstnodata", "0", "-r", method, *(f"/vsicurl/{url}" for url in urls[band]), f"{band}.tif"])
     for band in RAW_BANDS:
-        lines.append(f"gdal_translate -q -of EHdr {band}.tif {scene}-{band}.bil")
+        steps.append(["gdal_translate", "-q", "-of", "EHdr", f"{band}.tif", f"{scene}-{band}.bil"])
     for name, composite in composites_for(scene).items():
         low, high = (dn_for(value, baseline) for value in composite["reflectance"])
-        lines.append(f"gdalbuildvrt -q -separate {name}.vrt " + " ".join(f"{band}.tif" for band in composite["bands"]))
-        lines.append(f"gdal_translate -q -ot Byte -scale {low} {high} 1 255 -a_nodata 0 -of PNG {name}.vrt {scene}-{name}.png")
-    lines.append("rm -f " + " ".join(f"{band}.tif" for band in sorted(urls)) + " *.vrt *.aux.xml")
-    return "\n".join(lines)
+        steps.append(["gdalbuildvrt", "-q", "-separate", f"{name}.vrt", *(f"{band}.tif" for band in composite["bands"])])
+        steps.append(["gdal_translate", "-q", "-ot", "Byte", "-scale", str(low), str(high), "1", "255", "-a_nodata", "0",
+                      "-of", "PNG", f"{name}.vrt", f"{scene}-{name}.png"])
+    return steps, [*(f"{band}.tif" for band in sorted(urls)), "*.vrt", "*.aux.xml"]
+
+
+def warp_script(urls: dict[str, list[str]], scene: str, baseline: str, bbox: tuple[float, ...] = BBOX,
+                size: tuple[int, int] = SIZE) -> str:
+    """The steps as the GDAL container's shell script."""
+    return geo_tools.shell_script(*warp_steps(urls, scene, baseline, bbox, size))
 
 
 def focus_rows_cols(size: tuple[int, int], bbox: tuple[float, ...], area: tuple[float, ...]) -> tuple[slice, slice]:
@@ -167,13 +174,13 @@ def ndmi_image(out: Path, scene: str, baseline: str, size: tuple[int, int] = SIZ
     Image.fromarray(rgba, "RGBA").save(out / f"{scene}-ndmi.png", optimize=True)
 
 
-def process(prefix: str, token: str, out: Path) -> dict:
+def process(prefix: str, token: str, out: Path, tools: str = "docker") -> dict:
     """Cut one datatake into its PNGs and return its record for SOURCE.json."""
     items = datatake_items(prefix)
     baseline = items[0]["properties"].get("s2:processing_baseline", "05.00")
     bands = {band for composite in COMPOSITES.values() for band in composite["bands"]} | set(RAW_BANDS)
     urls = {band: [f"{item['assets'][band]['href']}?{token}" for item in items] for band in bands}
-    run = subprocess.run(docker_command(warp_script(urls, prefix, baseline), out), capture_output=True, text=True)
+    run = run_gdal(warp_steps(urls, prefix, baseline), out, tools)
     if run.returncode != 0:
         raise RuntimeError(f"GDAL failed for {prefix}:\n{without_token(run.stderr, token)[-2000:]}")
     coverage, cloud, water = water_image(out, prefix, baseline)
@@ -204,7 +211,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("--scenes", nargs="+", choices=sorted(SCENES), default=list(SCENES), help="which of the scenario's scenes")
     parser.add_argument("--out", type=Path, default=SENTINEL2_DIR, help=argparse.SUPPRESS)
+    geo_tools.add_argument(parser)
     args = parser.parse_args(argv)
+    tools = geo_tools.choice(args.tools)
     if not SCENES or args.out is None:
         parser.exit(1, f"fetch_sentinel2_scene: the scenario {scenario.NAME} has no Sentinel-2 scenes\n")
     token = get_json(TOKEN_URL)["token"]
@@ -212,7 +221,7 @@ def main(argv: list[str] | None = None) -> int:
     records = []
     for role in args.scenes:
         try:
-            record = process(SCENES[role], token, args.out)
+            record = process(SCENES[role], token, args.out, tools)
         except RuntimeError as exc:
             parser.exit(1, f"fetch_sentinel2_scene: {exc}\n")
         records.append({"role": role, **record})

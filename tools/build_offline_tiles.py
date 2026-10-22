@@ -14,6 +14,11 @@ The `tiles` service of docker-compose.yml (tileserver-gl) then renders them as
 map images, and the backend serves those at /tiles/{z}/{x}/{y}.png. Map data
 © OpenStreetMap contributors, ODbL. Only Docker and the Python standard library
 are needed; data/ is not versioned.
+
+--tools native (geo_tools) runs osmium and tilemaker from PATH instead, with
+--tilemaker-resources naming tilemaker's resources directory (config-openmaptiles.json and
+process-openmaptiles.lua). There is no ready-made tilemaker for Windows; there the map comes
+with the scenario's data package.
 """
 
 from __future__ import annotations
@@ -22,11 +27,13 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 from app.backend import scenario
+from tools import geo_tools
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA = REPO_ROOT / "data"
@@ -60,6 +67,18 @@ def extract_command(source: Path, area: Path, bbox: str) -> list[str]:
     return ["docker", "run", "--rm", "-v", f"{source.parent}:/osm", OSMIUM_IMAGE, "sh", "-c", script]
 
 
+def extract_step(source: Path, area: Path, bbox: str) -> list[str]:
+    """osmium from PATH (--tools native)."""
+    return ["osmium", "extract", "-b", bbox, "--strategy", "smart", "--overwrite", str(source), "-o", str(area)]
+
+
+def tilemaker_step(area: Path, output: Path, bbox: str, resources: Path) -> list[str]:
+    """tilemaker from PATH (--tools native), run in the parent of its resources directory, since
+    process-techseed.lua loads resources/process-openmaptiles.lua from there."""
+    return ["tilemaker", "--input", str(area), "--output", str(output), "--bbox", bbox,
+            "--config", str(resources / "config-openmaptiles.json"), "--process", str(PROCESS_DIR / PROCESS_FILE), "--skip-integrity"]
+
+
 def tilemaker_command(area: Path, output: Path, bbox: str) -> list[str]:
     return [
         "docker", "run", "--rm", "-u", user(), "-v", f"{DATA}:/data", "-v", f"{PROCESS_DIR}:/techseed:ro", TILEMAKER_IMAGE,
@@ -77,15 +96,30 @@ def main(argv: list[str] | None = None) -> int:
                         help="country extract, for example from download.openstreetmap.fr or Geofabrik")
     parser.add_argument("--source-url", default="https://download.openstreetmap.fr/extracts/europe/sweden-latest.osm.pbf")
     parser.add_argument("--bbox", default=DEFAULT_BBOX, help="west,south,east,north")
+    geo_tools.add_argument(parser)
+    parser.add_argument("--tilemaker-resources", type=Path, help="with --tools native: tilemaker's resources directory")
     args = parser.parse_args(argv)
+    tools = geo_tools.choice(args.tools)
+    resources = args.tilemaker_resources.resolve() if args.tilemaker_resources else None
+    if tools == "native":
+        missing = [name for name in ("osmium", "tilemaker") if shutil.which(name) is None]
+        if missing or resources is None or not (resources / "process-openmaptiles.lua").is_file():
+            parser.error("--tools native needs osmium and tilemaker on PATH and --tilemaker-resources with tilemaker's "
+                         "process-openmaptiles.lua; without tilemaker (as on Windows) take the map from the data package")
     source = args.source.resolve()
     area = source.parent / f"{scenario.NAME}-area.osm.pbf"
     output = DATA / "tiles" / scenario.TILES_FILE
     output.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(extract_command(source, area, args.bbox), check=True)
+    if tools == "native":
+        subprocess.run(extract_step(source, area, args.bbox), check=True)
+    else:
+        subprocess.run(extract_command(source, area, args.bbox), check=True)
     if output.exists():
         output.unlink()
-    subprocess.run(tilemaker_command(area, output, args.bbox), check=True, stdout=subprocess.DEVNULL)
+    if tools == "native":
+        subprocess.run(tilemaker_step(area, output, args.bbox, resources), cwd=resources.parent, check=True, stdout=subprocess.DEVNULL)
+    else:
+        subprocess.run(tilemaker_command(area, output, args.bbox), check=True, stdout=subprocess.DEVNULL)
     (output.parent / f"{output.stem}.SOURCE.json").write_text(json.dumps({
         "source_file": source.name,
         "source_url": args.source_url,

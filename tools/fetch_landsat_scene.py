@@ -43,6 +43,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.backend import scenario
+from tools import geo_tools
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LANDSAT_DIR = scenario.LANDSAT_DIR
@@ -97,27 +98,34 @@ def get_json(url: str, attempts: int = 3) -> dict:
     raise RuntimeError("unreachable")
 
 
-def warp_script(urls: dict[str, str], scene: str, bbox: tuple[float, ...] = BBOX, size: tuple[int, int] = SIZE) -> str:
-    """Shell script for the GDAL container: one warped GeoTIFF per band, then a PNG per composite."""
+def warp_steps(urls: dict[str, str], scene: str, bbox: tuple[float, ...] = BBOX,
+               size: tuple[int, int] = SIZE) -> tuple[list[list[str]], list[str]]:
+    """The GDAL steps (geo_tools): one warped GeoTIFF per band, then a PNG per composite; and the files to clean up."""
     west, south, east, north = bbox
     bands = sorted({band for composite in COMPOSITES.values() for band in composite["bands"]} | set(RAW_BANDS))
-    lines = ["set -e", "cd /data"]
+    steps = []
     for band in bands:
         # The QA mask holds bit flags: nearest neighbour, never interpolated.
         method = "near" if band == "qa_pixel" else "bilinear"
         # Not listing the remote directory speeds up /vsicurl/. Set per command: globally it stops
         # GDAL 2.4 from writing the EHdr files below (exit 1 without a message).
-        lines.append(f"gdalwarp -q --config GDAL_DISABLE_READDIR_ON_OPEN EMPTY_DIR -overwrite -t_srs EPSG:4326 -te {west} {south} {east} {north} -ts {size[0]} {size[1]} "
-                     f"-r {method} '/vsicurl/{urls[band]}' {band}.tif")
+        steps.append(["gdalwarp", "-q", "--config", "GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR", "-overwrite", "-t_srs", "EPSG:4326",
+                      "-te", *map(str, (west, south, east, north)), "-ts", str(size[0]), str(size[1]),
+                      "-r", method, f"/vsicurl/{urls[band]}", f"{band}.tif"])
     for band in RAW_BANDS:
         # Plain little-endian UInt16 rows for numpy (EHdr: a .bil file and a .hdr header).
-        lines.append(f"gdal_translate -q -of EHdr {band}.tif {scene}-{band}.bil")
+        steps.append(["gdal_translate", "-q", "-of", "EHdr", f"{band}.tif", f"{scene}-{band}.bil"])
     for name, composite in COMPOSITES.items():
         low, high = (dn_for(value) for value in composite["reflectance"])
-        lines.append(f"gdalbuildvrt -q -separate {name}.vrt " + " ".join(f"{band}.tif" for band in composite["bands"]))
-        lines.append(f"gdal_translate -q -ot Byte -scale {low} {high} 1 255 -a_nodata 0 -of PNG {name}.vrt {scene}-{name}.png")
-    lines.append("rm -f " + " ".join(f"{band}.tif" for band in bands) + " *.vrt *.aux.xml")
-    return "\n".join(lines)
+        steps.append(["gdalbuildvrt", "-q", "-separate", f"{name}.vrt", *(f"{band}.tif" for band in composite["bands"])])
+        steps.append(["gdal_translate", "-q", "-ot", "Byte", "-scale", str(low), str(high), "1", "255", "-a_nodata", "0",
+                      "-of", "PNG", f"{name}.vrt", f"{scene}-{name}.png"])
+    return steps, [*(f"{band}.tif" for band in bands), "*.vrt", "*.aux.xml"]
+
+
+def warp_script(urls: dict[str, str], scene: str, bbox: tuple[float, ...] = BBOX, size: tuple[int, int] = SIZE) -> str:
+    """The steps as the GDAL container's shell script."""
+    return geo_tools.shell_script(*warp_steps(urls, scene, bbox, size))
 
 
 def fire_area_rows_cols(size: tuple[int, int] = SIZE, bbox: tuple[float, ...] = BBOX) -> tuple[slice, slice]:
@@ -184,12 +192,19 @@ def without_token(text: str, token: str) -> str:
     return text.replace(token, "<token>")
 
 
-def process(scene: str, token: str, out: Path) -> dict:
+def run_gdal(steps: tuple[list[list[str]], list[str]], out: Path, tools: str = "docker") -> subprocess.CompletedProcess:
+    """The GDAL steps in the container (docker_command) or from PATH with the same HTTP options (geo_tools)."""
+    if tools == "native":
+        return geo_tools.run_native(steps[0], out, steps[1], GDAL_HTTP)
+    return subprocess.run(docker_command(geo_tools.shell_script(*steps), out), capture_output=True, text=True)
+
+
+def process(scene: str, token: str, out: Path, tools: str = "docker") -> dict:
     """Cut one scene into its PNGs and return its record for SOURCE.json."""
     item = get_json(f"{STAC}/collections/landsat-c2-l2/items/{scene}")
     bands = {band for composite in COMPOSITES.values() for band in composite["bands"]} | set(RAW_BANDS)
     urls = {band: f"{item['assets'][band]['href']}?{token}" for band in bands}
-    run = subprocess.run(docker_command(warp_script(urls, scene), out), capture_output=True, text=True)
+    run = run_gdal(warp_steps(urls, scene), out, tools)
     if run.returncode != 0:
         raise RuntimeError(f"GDAL failed for {scene}:\n{without_token(run.stderr, token)[-2000:]}")
     coverage, fire_cloud = ndmi_image(out, scene)
@@ -216,7 +231,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--scenes", nargs="+", choices=sorted(SCENES), default=list(SCENES), help="which of the three scenes")
     parser.add_argument("--scene-id", action="append", default=[], metavar="ROLE=ID", help="use another scene for a role")
     parser.add_argument("--out", type=Path, default=LANDSAT_DIR, help=argparse.SUPPRESS)
+    geo_tools.add_argument(parser)
     args = parser.parse_args(argv)
+    tools = geo_tools.choice(args.tools)
     scenes = dict(SCENES)
     for choice in args.scene_id:
         role, _, scene = choice.partition("=")
@@ -228,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
     records = []
     for role in args.scenes:
         try:
-            record = process(scenes[role], token, args.out)
+            record = process(scenes[role], token, args.out, tools)
         except RuntimeError as exc:
             parser.exit(1, f"fetch_landsat_scene: {exc}\n")
         records.append({"role": role, **record})

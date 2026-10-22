@@ -34,6 +34,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 from app.backend import scenario
+from tools import geo_tools
 from tools.fetch_landsat_scene import GDAL_IMAGE, USER_AGENT, user
 
 PAGE = "https://mapping.emergency.copernicus.eu/activations/{activation}/"
@@ -67,15 +68,25 @@ def latest_source(rows: list[dict[str, str]]) -> tuple[str, str] | None:
     return max(dated) if dated else None
 
 
-def convert(directory: Path) -> tuple[dict, list[dict[str, str]]]:
-    """The observed event in WGS 84 with each part's hectares, and the source table, by GDAL in Docker."""
+def convert_steps(event: str, source: str) -> list[list[str]]:
+    """The OGR steps (geo_tools): the observed event in WGS 84 with each part's hectares, and the source table as CSV."""
+    return [["ogr2ogr", "-f", "GeoJSON", "-t_srs", "EPSG:4326", "-dialect", "sqlite", "-sql",
+             f"SELECT geometry, ST_Area(ST_Transform(geometry, 3006)) / 10000.0 AS ha FROM '{event}'", "event.geojson", f"{event}.shp"],
+            ["ogr2ogr", "-f", "CSV", "source.csv", f"{source}.dbf"]]
+
+
+def convert(directory: Path, tools: str = "docker") -> tuple[dict, list[dict[str, str]]]:
+    """The observed event in WGS 84 with each part's hectares, and the source table, by GDAL in Docker or from PATH."""
     event = next(directory.glob("*observed_event_a.shp")).stem
     source = next(directory.glob("*source*.dbf")).stem
-    script = (f"cd /data && ogr2ogr -f GeoJSON -t_srs EPSG:4326 -dialect sqlite -sql "
-              f"\"SELECT geometry, ST_Area(ST_Transform(geometry, 3006)) / 10000.0 AS ha FROM '{event}'\" event.geojson {event}.shp"
-              f" && ogr2ogr -f CSV source.csv {source}.dbf")
-    subprocess.run(["docker", "run", "--rm", "-u", user(), "-v", f"{directory.resolve()}:/data", GDAL_IMAGE, "sh", "-c", script],
-                   check=True, capture_output=True, text=True)
+    steps = convert_steps(event, source)
+    if tools == "native":
+        run = geo_tools.run_native(steps, directory)
+        if run.returncode != 0:
+            raise subprocess.CalledProcessError(run.returncode, run.args, run.stdout, run.stderr)
+    else:
+        subprocess.run(["docker", "run", "--rm", "-u", user(), "-v", f"{directory.resolve()}:/data", GDAL_IMAGE, "sh", "-c",
+                        geo_tools.shell_script(steps)], check=True, capture_output=True, text=True)
     with (directory / "source.csv").open(encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
     return json.loads((directory / "event.geojson").read_text(encoding="utf-8")), rows
@@ -85,7 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("--out", type=Path, default=scenario.EMS_DIR)
     parser.add_argument("--zips", type=Path, help="read the products' zip files from here instead of downloading them")
+    geo_tools.add_argument(parser)
     args = parser.parse_args(argv)
+    tools = geo_tools.choice(args.tools)
     if not scenario.EMS_AREA or args.out is None:
         parser.exit(1, f"fetch_ems_perimeters: the scenario {scenario.NAME} has no EMS area\n")
     activation, area = scenario.EMS_AREA["activation"], scenario.EMS_AREA["area"]
@@ -103,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
         work.mkdir(exist_ok=True)
         data = (args.zips / url.rsplit("/", 1)[1]).read_bytes() if args.zips else download(url)
         zipfile.ZipFile(io.BytesIO(data)).extractall(work)
-        event, source_rows = convert(work)
+        event, source_rows = convert(work, tools)
         latest = latest_source(source_rows)
         hectares = round(sum(feature["properties"]["ha"] for feature in event["features"]))
         parts = [feature["geometry"] for feature in event["features"]]

@@ -37,7 +37,8 @@ from typing import Any
 from urllib.request import Request, urlopen
 
 from app.backend import scenario
-from tools.fetch_landsat_scene import GDAL_IMAGE, STAC, USER_AGENT, docker_command, get_json, user, without_token
+from tools import geo_tools
+from tools.fetch_landsat_scene import GDAL_IMAGE, STAC, USER_AGENT, get_json, run_gdal, user, without_token
 from tools.fetch_sentinel2_scene import focus_rows_cols
 
 COLLECTION = "sentinel-1-grd"
@@ -80,17 +81,21 @@ def pass_items(acquisition: dict[str, str]) -> list[dict]:
     return sorted(items, key=lambda item: item["id"])
 
 
-def warp_script(urls: list[str], key: str, bbox: tuple[float, ...] = BBOX, size: tuple[int, int] = SIZE) -> str:
-    """Shell script for the GDAL container: the products' VV warped with their GCPs and averaged, as raw rows."""
+def warp_steps(urls: list[str], key: str, bbox: tuple[float, ...] = BBOX,
+               size: tuple[int, int] = SIZE) -> tuple[list[list[str]], list[str]]:
+    """The GDAL steps (geo_tools): the products' VV warped with their GCPs and averaged, as raw rows."""
     west, south, east, north = bbox
-    sources = " ".join(f"'/vsicurl/{url}'" for url in urls)
-    return "\n".join([
-        "set -e", "cd /data",
-        f"gdalwarp -q --config GDAL_DISABLE_READDIR_ON_OPEN EMPTY_DIR -overwrite -tps -t_srs EPSG:4326 -te {west} {south} {east} {north} "
-        f"-ts {size[0]} {size[1]} -r average -srcnodata 0 -dstnodata 0 -ot UInt16 {sources} vv.tif",
-        f"gdal_translate -q -of EHdr vv.tif {key}-vv.bil",
-        "rm -f vv.tif *.aux.xml",
-    ])
+    return [
+        ["gdalwarp", "-q", "--config", "GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR", "-overwrite", "-tps", "-t_srs", "EPSG:4326",
+         "-te", *map(str, (west, south, east, north)), "-ts", str(size[0]), str(size[1]), "-r", "average",
+         "-srcnodata", "0", "-dstnodata", "0", "-ot", "UInt16", *(f"/vsicurl/{url}" for url in urls), "vv.tif"],
+        ["gdal_translate", "-q", "-of", "EHdr", "vv.tif", f"{key}-vv.bil"],
+    ], ["vv.tif", "*.aux.xml"]
+
+
+def warp_script(urls: list[str], key: str, bbox: tuple[float, ...] = BBOX, size: tuple[int, int] = SIZE) -> str:
+    """The steps as the GDAL container's shell script."""
+    return geo_tools.shell_script(*warp_steps(urls, key, bbox, size))
 
 
 def known_water(size: tuple[int, int], bbox: tuple[float, ...], polygons: list[list[list[float]]]) -> Any:
@@ -107,26 +112,35 @@ def known_water(size: tuple[int, int], bbox: tuple[float, ...], polygons: list[l
     return np.array(image, dtype=bool)
 
 
-def dem_script(tiles: list[str], bbox: tuple[float, ...] = BBOX, size: tuple[int, int] = SIZE) -> str:
-    """Shell script for the GDAL container: the DEM on the images' grid, as raw rows."""
+def dem_steps(tiles: list[str], bbox: tuple[float, ...] = BBOX, size: tuple[int, int] = SIZE,
+              dem: str = "/dem") -> tuple[list[list[str]], list[str]]:
+    """The GDAL steps (geo_tools): the DEM on the images' grid, as raw rows. `dem` is the DEM's directory
+    as the steps see it: /dem in the container, the directory itself natively."""
     west, south, east, north = bbox
-    inputs = " ".join(f"/dem/{name}" for name in tiles)
-    return "\n".join([
-        "set -e", "cd /data",
-        f"gdalwarp -q -overwrite -t_srs EPSG:4326 -te {west} {south} {east} {north} -ts {size[0]} {size[1]} -r average -ot Float32 {inputs} dem.tif",
-        "gdal_translate -q -of EHdr dem.tif dem.bil",
-        "rm -f dem.tif *.aux.xml",
-    ])
+    return [
+        ["gdalwarp", "-q", "-overwrite", "-t_srs", "EPSG:4326", "-te", *map(str, (west, south, east, north)),
+         "-ts", str(size[0]), str(size[1]), "-r", "average", "-ot", "Float32", *(f"{dem}/{name}" for name in tiles), "dem.tif"],
+        ["gdal_translate", "-q", "-of", "EHdr", "dem.tif", "dem.bil"],
+    ], ["dem.tif", "*.aux.xml"]
 
 
-def sea(out: Path, dem_dir: Path, size: tuple[int, int] = SIZE) -> Any:
+def dem_script(tiles: list[str], bbox: tuple[float, ...] = BBOX, size: tuple[int, int] = SIZE) -> str:
+    """The steps as the GDAL container's shell script."""
+    return geo_tools.shell_script(*dem_steps(tiles, bbox, size))
+
+
+def sea(out: Path, dem_dir: Path, size: tuple[int, int] = SIZE, tools: str = "docker") -> Any:
     """Where the Copernicus DEM is at sea level on the images' grid."""
     import numpy as np
 
     tiles = sorted(path.name for path in dem_dir.glob("*.tif"))
-    command = ["docker", "run", "--rm", "-u", user(), "-v", f"{out.resolve()}:/data", "-v", f"{dem_dir.resolve()}:/dem:ro",
-               GDAL_IMAGE, "sh", "-c", dem_script(tiles)]
-    run = subprocess.run(command, capture_output=True, text=True)
+    if tools == "native":
+        steps, cleanup = dem_steps(tiles, dem=dem_dir.resolve().as_posix())
+        run = geo_tools.run_native(steps, out, cleanup)
+    else:
+        command = ["docker", "run", "--rm", "-u", user(), "-v", f"{out.resolve()}:/data", "-v", f"{dem_dir.resolve()}:/dem:ro",
+                   GDAL_IMAGE, "sh", "-c", dem_script(tiles)]
+        run = subprocess.run(command, capture_output=True, text=True)
     if run.returncode != 0:
         raise RuntimeError(f"GDAL failed for the DEM:\n{run.stderr[-2000:]}")
     width, height = size
@@ -196,11 +210,11 @@ def radar_images(out: Path, key: str, water: Any, size: tuple[int, int] = SIZE,
     }
 
 
-def process(acquisition: dict[str, str], token: str, out: Path, water: Any) -> dict[str, Any]:
+def process(acquisition: dict[str, str], token: str, out: Path, water: Any, tools: str = "docker") -> dict[str, Any]:
     key = scene_key(acquisition)
     items = pass_items(acquisition)
     urls = [f"{item['assets']['vv']['href']}?{token}" for item in items]
-    run = subprocess.run(docker_command(warp_script(urls, key), out), capture_output=True, text=True)
+    run = run_gdal(warp_steps(urls, key), out, tools)
     if run.returncode != 0:
         raise RuntimeError(f"GDAL failed for {key}:\n{without_token(run.stderr, token)[-2000:]}")
     stats = radar_images(out, key, water)
@@ -220,16 +234,18 @@ def process(acquisition: dict[str, str], token: str, out: Path, water: Any) -> d
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("--out", type=Path, default=SENTINEL1_DIR, help=argparse.SUPPRESS)
+    geo_tools.add_argument(parser)
     args = parser.parse_args(argv)
+    tools = geo_tools.choice(args.tools)
     if not ACQUISITIONS or args.out is None:
         parser.exit(1, f"fetch_sentinel1_scene: the scenario {scenario.NAME} has no Sentinel-1 acquisitions\n")
     token = get_json(TOKEN_URL)["token"]
     args.out.mkdir(parents=True, exist_ok=True)
-    water = known_water(SIZE, BBOX, water_polygons(scenario.TERRAIN_FILE)) | sea(args.out, scenario.DEM_DIR)
+    water = known_water(SIZE, BBOX, water_polygons(scenario.TERRAIN_FILE)) | sea(args.out, scenario.DEM_DIR, tools=tools)
     records = []
     for acquisition in ACQUISITIONS:
         try:
-            record = process(acquisition, token, args.out, water)
+            record = process(acquisition, token, args.out, water, tools)
         except RuntimeError as exc:
             parser.exit(1, f"fetch_sentinel1_scene: {exc}\n")
         records.append(record)
