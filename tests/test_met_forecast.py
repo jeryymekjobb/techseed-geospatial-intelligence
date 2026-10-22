@@ -116,3 +116,39 @@ def test_the_log_line_starts_with_the_mean_wind_of_the_first_six_hours() -> None
     # South-east and east-south-east average to south-east; a calm hour lowers the speed.
     assert mf.wind_now([hour(135, 6.0)] * 3 + [hour(112, 6.0)] * 2 + [hour(135, 0.0)]) == {"from": "sydost", "ms": 5}
     assert mf.wind_now([hour(270, 4.0)] * 5) is None  # a run shorter than six hours
+
+
+def test_before_the_first_run_the_screens_get_an_answer_not_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+    import threading
+    from http.server import ThreadingHTTPServer
+    from urllib.error import HTTPError
+    from urllib.request import urlopen
+
+    from app.backend import server
+
+    def get(base: str) -> tuple[int, dict]:
+        try:
+            with urlopen(f"{base}/api/met-forecast?at=2024-01-20T00:00:00Z", timeout=10) as response:
+                return response.status, json.loads(response.read())
+        except HTTPError as exc:
+            return exc.code, json.loads(exc.read())
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+    try:
+        # A scenario with forecasts, none issued yet: 200, so the browser logs no error (Skåne's demo check).
+        monkeypatch.setattr(mf, "runs", lambda: [object()])
+        monkeypatch.setattr(mf, "at", lambda clock: None)
+        assert get(base) == (200, {"published": False})
+        monkeypatch.setattr(mf, "at", lambda clock: {"issued_utc": "2024-01-19T21:00:00Z"})
+        assert get(base) == (200, {"issued_utc": "2024-01-19T21:00:00Z"})
+        # A scenario without forecasts: the screens never ask, and it is not found.
+        monkeypatch.setattr(mf, "runs", lambda: [])
+        assert get(base)[0] == 404
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+    panel = (server.FRONTEND_DIR / "panel.js").read_text(encoding="utf-8")
+    assert "if (forecast?.published === false) forecast = null;" in panel

@@ -719,7 +719,8 @@ class Handler(BaseHTTPRequestHandler):
             if not met_forecast.runs():
                 self.send_json({"error": "not_in_scenario"}, HTTPStatus.NOT_FOUND)
             else:
-                self.send_json(data or {"error": "none_published_yet"}, HTTPStatus.OK if data else HTTPStatus.NOT_FOUND)
+                # Before the first run is out, an answer and not an error: the browser logs a 404 as one.
+                self.send_json(data or {"published": False})
         elif path == "/api/routes/exposure":
             # The OSM roads and railways with the radar's rain since the playback's start (routes.py).
             computed = routes.exposure()

@@ -317,6 +317,7 @@ async function showMetForecast(clock) {
   } catch {
     forecast = null;
   }
+  if (forecast?.published === false) forecast = null;  // none issued yet at the clock
   if (hour !== state.metForecastHour) return;  // the clock has moved on meanwhile
   if (!forecast) {
     $("met-forecast-issued").textContent = "Ingen prognos utfärdad ännu vid scenariotiden.";
