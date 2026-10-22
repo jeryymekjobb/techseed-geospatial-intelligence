@@ -68,7 +68,11 @@ den renderade mättes inte; en VM utan grafikkort säger inget om utställningsd
    Mosquitto på 1883 och ger backend `127.0.0.1:1883`, och `start_demo` startar de simulerade
    noderna utan `--broker`. I VM:en lyssnade tjänsten **zenon Data Hub** (COPA-DATA, med en egen
    Mosquitto) på 1883, och demon vägrade starta, som den ska. Den stoppades tillfälligt för
-   testet. Förslag: en inställbar port som följer med till backend och noderna.
+   testet. Åtgärdat samma dag (`7d8a601`): `--mqtt-port` i `start_demo` och `startup_check`
+   flyttar demons broker, och backend och noderna följer med. Provat i VM:en med zenon Data Hub
+   igång: `startup_check` visade `MISSING/FAILED Native MQTT port 1883: in use by another
+   program`, med `--mqtt-port 18830` var porten ledig, demon startade (`IoT: Ansluter till
+   127.0.0.1:18830`) och `/api/sensors` gav de fyra simulerade noderna med värden.
 2. **Guiden behöver kompletteras:** de fyra Flen-scenarierna saknas i tabellen över
    databaser (G2) och i scenariolistan i D; att `TECHSEED_BROWSER=edge` kan sättas för hela
    fönstret; att Windows-tjänster stoppas i ett administratörsfönster; att provet gick med Node
