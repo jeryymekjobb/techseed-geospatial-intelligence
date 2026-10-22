@@ -55,3 +55,55 @@ def test_geojson_carries_attribution_and_classes() -> None:
     assert [feature["properties"] for feature in collection["features"]] == [
         {"terrain": "skog", "osm_tag": "landuse=forest", "osm_id": "way/3", "name": "Skog"},
     ]
+
+
+def test_a_box_overpass_fails_on_is_split_and_the_answers_joined(monkeypatch) -> None:
+    from urllib.error import HTTPError
+
+    asked = []
+
+    def overpass(query: str) -> dict:
+        bbox = query.split("way[")[1].split("(")[1].split(")")[0]
+        asked.append(bbox)
+        south, west, north, east = (float(value) for value in bbox.split(","))
+        if north - south > 1.0:  # the whole box: a gateway error, as Overpass gave Västernorrland
+            raise HTTPError("https://overpass", 502, "Bad Gateway", None, None)
+        # Way 1 touches every part (it is given whole each time); way 2 lies only in the north-east.
+        elements = [{"type": "way", "id": 1, "tags": {"natural": "water"}, "geometry": []}]
+        if south >= 63.0 and west >= 18.0:
+            elements.append({"type": "way", "id": 2, "tags": {"landuse": "forest"}, "geometry": []})
+        return {"version": 0.6, "osm3s": {"timestamp_osm_base": "2026-10-22T00:00:00Z"}, "elements": elements}
+
+    monkeypatch.setattr(terrain, "fetch_query", overpass)
+    payload = terrain.fetch((62.5, 17.2, 63.7, 18.9))
+    assert len(asked) == 5 and asked[0] == "62.5,17.2,63.7,18.9"
+    assert sorted((element["type"], element["id"]) for element in payload["elements"]) == [("way", 1), ("way", 2)]
+    assert payload["osm3s"]["timestamp_osm_base"] == "2026-10-22T00:00:00Z"
+    assert terrain.quarters((0.0, 0.0, 2.0, 4.0)) == [(0.0, 0.0, 1.0, 2.0), (0.0, 2.0, 1.0, 4.0), (1.0, 0.0, 2.0, 2.0), (1.0, 2.0, 2.0, 4.0)]
+
+
+def test_a_refused_query_or_a_box_that_keeps_failing_is_not_split_for_ever(monkeypatch) -> None:
+    from urllib.error import HTTPError
+
+    import pytest
+
+    asked = []
+
+    def refused(query: str) -> dict:
+        asked.append(query)
+        raise HTTPError("https://overpass", 400, "Bad Request", None, None)
+
+    monkeypatch.setattr(terrain, "fetch_query", refused)
+    with pytest.raises(HTTPError):
+        terrain.fetch((62.5, 17.2, 63.7, 18.9))
+    assert len(asked) == 1  # a refused query is not split
+
+    def silent(query: str) -> dict:
+        asked.append(query)
+        raise TimeoutError("The read operation timed out")
+
+    asked.clear()
+    monkeypatch.setattr(terrain, "fetch_query", silent)
+    with pytest.raises(TimeoutError):
+        terrain.fetch((62.5, 17.2, 63.7, 18.9), depth=2)
+    assert len(asked) == 3  # the box, its first part and that part's first part, where the splitting stops

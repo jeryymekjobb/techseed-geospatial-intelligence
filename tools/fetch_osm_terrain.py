@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Fetch OpenStreetMap land cover for one area as a classified GeoJSON layer.
 
-Queries the Overpass API once for land-use and natural areas inside a
+Queries the Overpass API for land-use and natural areas inside a
 latitude/longitude box, joins multipolygon members into rings, maps OSM tags to
 a few terrain classes and writes a GeoJSON FeatureCollection with source,
 licence and fetch time. OSM shows the current state, not a historical one.
+
+The box is asked for in one query. When Overpass fails on it (a server error
+such as 502 or 504, or no answer in time), the box is split into four parts
+asked for one by one, and a part that fails is split again, SPLIT_DEPTH times
+at most. `out geom` gives every object that touches a part whole, so the parts'
+answers are joined by the objects' type and id into the same answer as one query.
 
 Only the Python standard library is used.
 """
@@ -16,12 +22,15 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 USER_AGENT = "techseed-geospatial-intelligence/0.1 (exhibition demonstrator; one-off terrain extract)"
 ATTRIBUTION = "© OpenStreetMap contributors, ODbL 1.0, https://www.openstreetmap.org/copyright"
+# How many times a box Overpass fails on is split into four (at most 4 ** 3 = 64 parts).
+SPLIT_DEPTH = 3
 
 # (tag, value) -> terrain class shown in the GUI. The first matching tag wins.
 TERRAIN_CLASSES: dict[tuple[str, str], str] = {
@@ -190,8 +199,38 @@ def simplify_collection(collection: dict[str, Any], tolerance: float) -> dict[st
     return collection
 
 
-def fetch(bbox: tuple[float, float, float, float]) -> dict[str, Any]:
-    return fetch_query(overpass_query(*bbox))
+def quarters(bbox: tuple[float, float, float, float]) -> list[tuple[float, float, float, float]]:
+    """The box (south, west, north, east) split into four."""
+    south, west, north, east = bbox
+    middle_lat, middle_lon = (south + north) / 2, (west + east) / 2
+    return [(south, west, middle_lat, middle_lon), (south, middle_lon, middle_lat, east),
+            (middle_lat, west, north, middle_lon), (middle_lat, middle_lon, north, east)]
+
+
+def overpass_failed(exc: Exception) -> bool:
+    """A server error or no answer in time, which a smaller box may get past; a refused query is not."""
+    if isinstance(exc, HTTPError):
+        return exc.code >= 500
+    return isinstance(exc, (URLError, TimeoutError))
+
+
+def joined(payloads: list[dict[str, Any]]) -> dict[str, Any]:
+    """The parts' answers as one: each object once, by its type and id."""
+    elements: dict[tuple[str, int], dict[str, Any]] = {}
+    for payload in payloads:
+        for element in payload.get("elements", []):
+            elements.setdefault((element.get("type"), element.get("id")), element)
+    return {**payloads[0], "elements": list(elements.values())}
+
+
+def fetch(bbox: tuple[float, float, float, float], depth: int = SPLIT_DEPTH) -> dict[str, Any]:
+    try:
+        return fetch_query(overpass_query(*bbox))
+    except (URLError, OSError) as exc:
+        if depth <= 0 or not overpass_failed(exc):
+            raise
+        print(f"Overpass svarade inte för {','.join(f'{value:g}' for value in bbox)} ({exc}) – delar området i fyra", flush=True)
+        return joined([fetch(part, depth - 1) for part in quarters(bbox)])
 
 
 def fetch_query(query: str) -> dict[str, Any]:
