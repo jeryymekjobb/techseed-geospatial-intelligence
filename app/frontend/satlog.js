@@ -412,6 +412,14 @@ function summaryDuration(scenarioState) {
   return `Uppspelningen tar cirka ${length} med ${pace}${slowed}.`;
 }
 
+// The closing view when the playback has come to the demo's stop: the one-pager's closing lines
+// (onepager.md, "Slutbild") and the scenario, until RESET, a seek back or PLAY.
+const CLOSING_LINES = ["TECHSEED GEOSPATIAL INTELLIGENCE", "Physical world. Space. Data. Intelligence.", "From Orbit to Decision."];
+
+function closingShown(scenarioState) {
+  return Boolean(scenarioState.finished && !scenarioState.playing);
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, satlogDecimal, satlogWhole, satlogSaid, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, summaryDuration, SATLOG_SOURCES };
+  module.exports = { firmsPasses, satelliteLog, satlogSpan, satlogSpanOf, satlogDecimal, satlogWhole, satlogSaid, alternateVoices, threatMarks, threatHighlights, THREAT_HIGHLIGHT_MS, THREAT_ICON_SVG, spokenLines, satlogKey, levelReport, levelReportDue, summaryState, summaryMessages, summaryDuration, CLOSING_LINES, closingShown, SATLOG_SOURCES };
 }

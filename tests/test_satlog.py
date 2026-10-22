@@ -284,6 +284,20 @@ def test_the_summary_shows_when_the_scenario_comes_to_its_start_until_play() -> 
     assert ".scenario-summary .summary-start { display: block; margin: 16px auto 0;" in (frontend / "styles.css").read_text(encoding="utf-8")
 
 
+def test_the_closing_view_shows_at_the_demo_s_stop_until_it_plays_or_moves() -> None:
+    assert node("CLOSING_LINES") == ["TECHSEED GEOSPATIAL INTELLIGENCE", "Physical world. Space. Data. Intelligence.",
+                                     "From Orbit to Decision."]
+    states = [{"finished": True, "playing": False}, {"finished": True, "playing": True},
+              {"finished": False, "playing": False}, {"finished": False, "playing": True}, {}]
+    assert node(f"{json.dumps(states)}.map(closingShown)") == [True, False, False, False, False]
+    frontend = SCRIPT.parent
+    panel = (frontend / "panel.js").read_text(encoding="utf-8")
+    assert "showClosing(scenarioState);" in panel and 'closing.id = "closing-view";' in panel
+    # The scenario's title and data label follow the closing lines, so the end too says it is not live.
+    assert "[state.config.title, \"closing-scenario\"], [state.config.data_label, \"closing-label\"]" in panel
+    assert ".closing-view[hidden] { display: none; }" in (frontend / "styles.css").read_text(encoding="utf-8")
+
+
 def test_measured_values_are_read_with_a_half_rounded_away_from_zero() -> None:
     values = [4.35, 47.05, 0.05, 0.04, 13, 9.95, 1.45, 8.25, -4.35, -0.04, 0]
     assert node(f"{json.dumps(values)}.map(satlogDecimal)") == [

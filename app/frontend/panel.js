@@ -1202,6 +1202,12 @@ function setupScenarioView() {
   summary.setAttribute("role", "status");
   summary.hidden = true;
   document.body.append(summary);
+  const closing = document.createElement("section");
+  closing.id = "closing-view";
+  closing.className = "closing-view";
+  closing.setAttribute("role", "status");
+  closing.hidden = true;
+  document.body.append(closing);
   const card = document.createElement("section");
   card.id = "detection-card";
   card.className = "detection-card";
@@ -1644,9 +1650,31 @@ function showSummary(scenarioState) {
   element.hidden = !(summary.shown && lines.length);
 }
 
+// The closing view at the demo's stop (satlog.js closingShown): the one-pager's closing lines, then
+// the scenario's title and what its data are, so the end too says it is not live.
+function showClosing(scenarioState) {
+  const element = $("closing-view");
+  const shown = closingShown(scenarioState);
+  if (shown && !element.childElementCount) {
+    const [name, slogan, motto] = CLOSING_LINES;
+    const heading = document.createElement("h2");
+    heading.textContent = name;
+    const lines = [[slogan, "closing-slogan"], [motto, "closing-motto"],
+      [state.config.title, "closing-scenario"], [state.config.data_label, "closing-label"]];
+    element.append(heading, ...lines.filter(([text]) => text).map(([text, className]) => {
+      const line = document.createElement("p");
+      line.className = className;
+      line.textContent = text;
+      return line;
+    }));
+  }
+  element.hidden = !shown;
+}
+
 function applyState(scenarioState) {
   followPlaybackWindow(scenarioState);
   showSummary(scenarioState);
+  showClosing(scenarioState);
   showThreats(scenarioState);
   state.playing = scenarioState.playing;
   state.finished = scenarioState.finished;
