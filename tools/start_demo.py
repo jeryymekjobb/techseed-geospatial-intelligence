@@ -243,7 +243,9 @@ def run_demo(name: str, at: str | None, *, kiosk: bool = False, native_env: dict
 
         def start_nodes() -> subprocess.Popen:
             with NODE_LOG.open("a", encoding="utf-8") as log:
-                return subprocess.Popen([str(PYTHON), "-m", "tools.mqtt_node_sim", "--interval", "5"],
+                # The nodes publish to the backend's broker (native mode may move it off port 1883).
+                broker = ["--broker", env["IOT_MQTT_BROKER"]] if env.get("IOT_MQTT_BROKER") else []
+                return subprocess.Popen([str(PYTHON), "-m", "tools.mqtt_node_sim", "--interval", "5", *broker],
                                         cwd=REPO_ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
 
         def reopen(screens: list[str]) -> None:
@@ -292,6 +294,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--node-modules", type=Path, help="native TileServer GL runtime node_modules directory")
     parser.add_argument("--node", help="native Node.js executable")
     parser.add_argument("--mosquitto", help="native Mosquitto executable")
+    parser.add_argument("--mqtt-port", type=int, help="native mode: the port of its own MQTT broker (default 1883)")
     parser.add_argument("--browser", choices=("chrome", "edge"))
     parser.add_argument("--kiosk", action="store_true", help="kiosk mode: the demo plays, shows its closing view and starts again by itself")
     args = parser.parse_args(argv)
@@ -302,6 +305,8 @@ def main(argv: list[str] | None = None) -> int:
     browser_options = {"browser": browser} if browser != "chrome" else {}
     if args.services == "native" and args.node_modules is None:
         parser.error("--services native requires --node-modules")
+    if args.mqtt_port is not None and (args.services != "native" or not 1 <= args.mqtt_port <= 65535):
+        parser.error("--mqtt-port needs --services native and a port between 1 and 65535")
     if port_in_use(PORT):
         parser.exit(1, f"start_demo: something already answers on port {PORT} – stop the running backend first (Ctrl+C in its terminal)\n")
     name, at, kiosk = args.scenario, args.at, args.kiosk
@@ -313,7 +318,8 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 if args.services == "native":
                     from tools import native_services
-                    options = native_services.Options(args.node_modules, args.node, args.mosquitto)
+                    options = native_services.Options(args.node_modules, args.node, args.mosquitto,
+                                                      args.mqtt_port or native_services.MQTT_PORT)
                     # Kiosk mode starts the native services again with the demo, as the backend.
                     with native_services.running(name, options) as env:
                         code = run_demo(name, at, native_env=env, **kiosk_options, **browser_options)

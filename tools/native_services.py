@@ -3,6 +3,10 @@
 PostgreSQL must already be installed, running and loaded for the selected scenario.
 Only this launcher's Node/Mosquitto children are stopped. No database is created or
 loaded here. Native runtime paths are supplied explicitly by the caller.
+
+The broker listens on MQTT_PORT unless Options gives another port, for a computer where
+something else already listens there (zenon Data Hub's Mosquitto, in the Windows test of
+2026-10-22); the backend and the simulated booth nodes get the same port.
 """
 
 from __future__ import annotations
@@ -25,17 +29,22 @@ from app.backend.scenarios import REPO_ROOT
 from tools import start_native_mqtt, start_native_tiles
 
 
+MQTT_PORT = 1883
+TILES_PORT = 8081
+
+
 @dataclass(frozen=True)
 class Options:
     node_modules: Path
     node: str | None = None
     mosquitto: str | None = None
+    mqtt_port: int = MQTT_PORT
 
 
-def child_environment(name: str) -> dict[str, str]:
+def child_environment(name: str, mqtt_port: int = MQTT_PORT) -> dict[str, str]:
     return {**os.environ, "TECHSEED_DB_MODE": "native", "TECHSEED_SCENARIO": name,
-            "OFFLINE_TILES_URL": "http://127.0.0.1:8081/styles/techseed/256/{z}/{x}/{y}.png",
-            "IOT_MQTT_BROKER": "127.0.0.1:1883"}
+            "OFFLINE_TILES_URL": f"http://127.0.0.1:{TILES_PORT}/styles/techseed/256/{{z}}/{{x}}/{{y}}.png",
+            "IOT_MQTT_BROKER": f"127.0.0.1:{mqtt_port}"}
 
 
 def check_database(name: str) -> None:
@@ -81,8 +90,9 @@ def stop(process) -> None:
 @contextmanager
 def running(name: str, options: Options):
     config, node_entry, broker = prepared(name, options)
+    mqtt_config = start_native_mqtt.configuration(options.mqtt_port)  # refuses a port outside 1-65535
     check_database(name)
-    for port in (8081, 1883):
+    for port in (TILES_PORT, options.mqtt_port):
         if port_busy(port):
             raise ValueError(f"Native service port {port} is in use; no existing service was stopped")
     children = []
@@ -90,20 +100,20 @@ def running(name: str, options: Options):
         tiles = Path(scratch) / "tiles.json"
         mqtt = Path(scratch) / "mosquitto.conf"
         tiles.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
-        mqtt.write_text(start_native_mqtt.configuration(1883), encoding="utf-8")
+        mqtt.write_text(mqtt_config, encoding="utf-8")
         try:
-            children.append(subprocess.Popen(start_native_tiles.command(node_entry[0], Path(node_entry[1]), tiles, 8081), cwd=REPO_ROOT))
+            children.append(subprocess.Popen(start_native_tiles.command(node_entry[0], Path(node_entry[1]), tiles, TILES_PORT), cwd=REPO_ROOT))
             children.append(subprocess.Popen(start_native_mqtt.command(broker, mqtt), cwd=REPO_ROOT))
             deadline = time.monotonic() + 60
             while True:
                 if any(child.poll() is not None for child in children):
                     raise ValueError("A native service exited before becoming ready")
-                if port_busy(8081) and port_busy(1883):
+                if port_busy(TILES_PORT) and port_busy(options.mqtt_port):
                     break
                 if time.monotonic() >= deadline:
                     raise ValueError("Native services did not become ready within 60 s")
                 time.sleep(0.25)
-            yield child_environment(name)
+            yield child_environment(name, options.mqtt_port)
         finally:
             for child in reversed(children):
                 stop(child)

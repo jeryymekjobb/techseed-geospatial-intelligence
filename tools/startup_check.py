@@ -106,6 +106,10 @@ def native_installation_checks(name: str, options, browser: str = "chrome") -> l
             checks.append(Check(label, False, "check failed; verify installed runtime, connection and scenario inputs"))
         else:
             checks.append(Check(label, True, "available"))
+    # start_demo refuses to start over another service on these ports, as zenon Data Hub held 1883 in the Windows test.
+    for label, port in (("Native map port", native_services.TILES_PORT), ("Native MQTT port", options.mqtt_port)):
+        busy = native_services.port_busy(port)
+        checks.append(Check(f"{label} {port}", not busy, "in use by another program; stop it or choose another --mqtt-port" if busy else "free"))
     return [*checks, *data_checks(settings)]
 
 
@@ -116,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--node-modules", type=Path)
     parser.add_argument("--node")
     parser.add_argument("--mosquitto")
+    parser.add_argument("--mqtt-port", type=int, help="native mode: the port of its own MQTT broker (default 1883)")
     parser.add_argument("--browser", choices=("chrome", "edge"))
     args = parser.parse_args(argv)
     try:
@@ -126,8 +131,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.services == "native":
         if args.node_modules is None:
             parser.error("--services native requires --node-modules")
-        from tools.native_services import Options
-        checks = native_installation_checks(args.scenario, Options(args.node_modules, args.node, args.mosquitto), **browser_options)
+        from tools.native_services import MQTT_PORT, Options
+        checks = native_installation_checks(args.scenario, Options(args.node_modules, args.node, args.mosquitto, args.mqtt_port or MQTT_PORT),
+                                            **browser_options)
     else:
         checks = installation_checks(args.scenario, **browser_options)
     for check in checks:

@@ -347,6 +347,10 @@ startverktyget ska äga processen. Välj bort sådan tjänstestart vid installat
 möjligt. Om en tjänst redan använder porten: identifiera den och besluta separat hur
 den ska hanteras; stoppa inte okända tjänster eller ändra deras konfiguration.
 Startverktyget vägrar ersätta en process på port 1883 eller kartport 8081.
+Används 1883 av ett annat program som ska fortsätta gå – i Windows-provet 2026-10-22 var det
+zenon Data Hub (COPA-DATA), som har en egen Mosquitto – kan demons egen broker i stället köras
+på en annan port med `--mqtt-port`, till exempel `--mqtt-port 18830`, både i `startup_check`
+och i `start_demo`. Backend och de simulerade noderna följer med till samma port.
 
 Installera fullständiga TileServer GL i en separat runtime-mapp. `tileserver-gl-light`
 saknar den rasterrendering som demon använder. Följande hämtar npm-paket och kan köra
@@ -500,7 +504,9 @@ Utelämna `$Scenario` för menyn. Native-läget startar en egen Node-kartserver 
 egen Mosquitto, båda på localhost, och använder redan körande PostgreSQL. Vid avslut,
 scenariobyte och STARTA OM DEMO städas de egna tjänsteprocesserna. Ctrl+C stoppar även
 backend och simulerade noder men lämnar PostgreSQL och Chrome-fönstren kvar.
-Om en port redan är upptagen avbryts starten utan att den befintliga tjänsten stoppas.
+Om en port redan är upptagen avbryts starten utan att den befintliga tjänsten stoppas;
+`startup_check` visar då vilken port det gäller. Lägg till `--mqtt-port 18830` (eller en
+annan ledig port) om det är 1883.
 
 Utför checklistan i E, men ersätt Docker-kontrollerna med kontroller av lokal
 PostgreSQL/PostGIS, TileServer GL och Mosquitto. Anteckna deras och Nodes versioner.
