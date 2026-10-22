@@ -164,3 +164,56 @@ def test_kiosk_mode_starts_a_stopped_demo_again_and_only_kiosk_mode(monkeypatch:
     started.clear()
     outcomes = iter([1])
     assert start_demo.main(["sundsvall2026"]) == 1 and len(started) == 1
+
+
+def test_a_demo_without_its_data_is_found_and_only_its_own_data_count(tmp_path, monkeypatch) -> None:
+    from tools import startup_check
+
+    data = start_demo.REPO_ROOT / "data"
+    checks = [startup_check.Check(str(data / "flen2019" / "radar" / "SOURCE.json"), False, "required input file"),
+              startup_check.Check(str(data / "flen2019" / "met-forecast" / "SOURCE.json"), False, "optional", False),
+              startup_check.Check(str(data / "voices" / "sv_SE-alma-medium.onnx"), False, "Alma voice"),
+              startup_check.Check(str(start_demo.REPO_ROOT / "app" / "frontend" / "vendor" / "x.js"), False, "browser library"),
+              startup_check.Check(str(data / "tiles" / "flen.mbtiles"), True, "required input file")]
+    monkeypatch.setattr(startup_check, "data_checks", lambda settings: checks)
+    # Only the scenario's own required data: not the optional forecasts, the voices or the web libraries.
+    assert start_demo.MISSING_DATA("flen2019") == [str(data / "flen2019" / "radar" / "SOURCE.json")]
+
+
+def test_the_menu_greys_out_and_refuses_a_demo_without_data(monkeypatch) -> None:
+    monkeypatch.setattr(start_demo, "missing_data", lambda name: ["data/x"] if name == "sundsvall2026" else [])
+    installed = {demo["name"]: demo["installed"] for demo in start_demo.demos()}
+    assert installed["sundsvall2026"] is False and installed["flen2019"] is True
+    server = start_demo.menu_server(0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        assert request(f"{base}/api/demo/start", {"scenario": "sundsvall2026"})[0] == 409
+        assert server.chosen is None  # the menu stays open for another choice
+        assert request(f"{base}/api/demo/start", {"scenario": "flen2019"})[0] == 202
+    finally:
+        server.shutdown()
+        server.server_close()
+    page = (start_demo.FRONTEND / "menu.html").read_text(encoding="utf-8")
+    assert "button.disabled = !demo.installed;" in page and "Data saknas" in page
+
+
+def test_a_demo_without_data_leads_back_to_the_menu_unless_named_without_kiosk(monkeypatch) -> None:
+    monkeypatch.setattr(start_demo, "port_in_use", lambda port: False)
+    monkeypatch.setattr(start_demo, "missing_data", lambda name: ["data/sundsvall2026/x"] if name == "sundsvall2026" else [])
+    started, menus = [], []
+    choices = iter([("sundsvall2026", False), ("flen2019", False)])
+    monkeypatch.setattr(start_demo, "choose_demo", lambda kiosk=False, **options: menus.append(kiosk) or next(choices))
+    monkeypatch.setattr(start_demo, "run_demo", lambda name, at, **options: started.append(name) or 0)
+    # Chosen on the menu: back to the menu, and the next choice starts.
+    assert start_demo.main([]) == 0
+    assert started == ["flen2019"] and len(menus) == 2
+    # Named on the command line: ends with an error, as before.
+    started.clear()
+    assert start_demo.main(["sundsvall2026"]) == 1 and started == []
+    # Named in kiosk mode: back to the menu, with kiosk mode kept.
+    menus.clear()
+    choices = iter([("flen2019", True)])
+    assert start_demo.main(["sundsvall2026", "--kiosk"]) == 0
+    assert started == ["flen2019"] and menus == [True]

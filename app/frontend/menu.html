@@ -30,13 +30,20 @@
     $("kiosk-toggle").addEventListener("click", () => { kiosk = !kiosk; showKiosk(); });
 
     async function choose(demo, buttons) {
-      for (const button of buttons) button.disabled = true;
+      for (const button of buttons) button.disabled = true;  // the menu closes once a demo starts
       $("kiosk-toggle").disabled = true;
       $("menu-status").textContent = `Startar ${demo.title}${kiosk ? " i kioskläge" : ""} … skärmarna öppnas när demon har startat.`;
       const response = await fetch("/api/demo/start", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario: demo.name, kiosk }),
       }).catch(() => null);
       // Another screen may have chosen first: the menu is closing either way.
+      if (response && response.status === 409) {
+        // Its data were removed after the menu opened: the others stay to choose from.
+        $("menu-status").textContent = `${demo.title} saknar data – installera scenariots datapaket först.`;
+        for (const button of buttons) button.disabled = button.dataset.installed !== "true" || button.textContent.startsWith(demo.title);
+        $("kiosk-toggle").disabled = false;
+        return;
+      }
       if (!response || !response.ok) $("menu-status").textContent = "En demo startar redan – skärmarna öppnas när den har startat.";
     }
 
@@ -50,8 +57,10 @@
         button.className = "demo-choice";
         button.innerHTML = "<strong></strong><span></span>";
         button.querySelector("strong").textContent = demo.title;
-        button.querySelector("span").textContent = demo.label;
+        button.querySelector("span").textContent = demo.installed ? demo.label : "Data saknas – installera scenariots datapaket först";
+        button.dataset.installed = String(demo.installed);
         button.addEventListener("click", () => choose(demo, buttons));
+        button.disabled = !demo.installed;
         $("demos").append(button);
         return button;
       });

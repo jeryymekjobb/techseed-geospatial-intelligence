@@ -18,7 +18,12 @@ saved start. Ctrl+C stops the backend and the nodes; the screens and the service
 KIOSKLÄGE on the menu (or --kiosk) runs the demo without an operator: the backend gets
 TECHSEED_DEMO_KIOSK=1 and loops the demo (app/backend/scenario_engine.py): it plays after the
 scenario's summary, shows the closing view at the stop and starts again. The choice holds until
-start_demo ends, through BYT SCENARIO and STARTA OM DEMO. In kiosk mode start_demo also keeps the
+start_demo ends, through BYT SCENARIO and STARTA OM DEMO.
+
+The menu greys out a demo whose data are not installed (startup_check's required input files
+under data/, as a Git clone with only some data packages has), and refuses it. A demo chosen on
+the menu, or any demo in kiosk mode, that turns out to lack data leads back to the menu rather
+than ending start_demo; a demo named on the command line without kiosk mode still ends it. In kiosk mode start_demo also keeps the
 demo up: every WATCH_SECONDS it starts the booth's simulated nodes again if they have stopped and
 opens a screen whose window has gone (a new mission control resets the demo, which then starts
 from its beginning); a backend that stops by itself, or a demo that fails to start, is started
@@ -51,6 +56,7 @@ from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -87,12 +93,28 @@ def scenario_settings(name: str) -> tuple[str, str]:
     return module.TILES_FILE, start
 
 
-def demos() -> list[dict[str, str]]:
-    """The menu's demos: each scenario's name, title and data label."""
+def missing_data(name: str) -> list[str]:
+    """The scenario's required input files under data/ that are missing or empty (startup_check's checks);
+    the web libraries and voices are shared by every demo and checked by startup_check itself."""
+    from tools import startup_check
+
+    data, voices = REPO_ROOT / "data", REPO_ROOT / "data" / "voices"
+    settings = importlib.import_module(f"app.backend.scenarios.{name}")
+    return [check.name for check in startup_check.data_checks(settings)
+            if check.required and not check.passed
+            and Path(check.name).is_relative_to(data) and not Path(check.name).is_relative_to(voices)]
+
+
+# The check itself, kept for the tests, which stand in for missing_data elsewhere (tests/conftest.py).
+MISSING_DATA = missing_data
+
+
+def demos() -> list[dict[str, Any]]:
+    """The menu's demos: each scenario's name, title, data label and whether its data are installed."""
     found = []
     for name in AVAILABLE:
         module = importlib.import_module(f"app.backend.scenarios.{name}")
-        found.append({"name": name, "title": module.TITLE, "label": module.DATA_LABEL})
+        found.append({"name": name, "title": module.TITLE, "label": module.DATA_LABEL, "installed": not missing_data(name)})
     return found
 
 
@@ -139,6 +161,9 @@ class MenuHandler(BaseHTTPRequestHandler):
             name, kiosk = None, None
         if name not in AVAILABLE or not isinstance(kiosk, bool) or self.server.chosen:
             self.send_json(HTTPStatus.BAD_REQUEST, {"error": "invalid_demo"})
+            return
+        if missing_data(name):
+            self.send_json(HTTPStatus.CONFLICT, {"error": "not_installed"})
             return
         self.server.chosen, self.server.kiosk = name, kiosk
         self.send_json(HTTPStatus.ACCEPTED, {"scenario": name, "kiosk": kiosk})
@@ -310,10 +335,20 @@ def main(argv: list[str] | None = None) -> int:
     if port_in_use(PORT):
         parser.exit(1, f"start_demo: something already answers on port {PORT} – stop the running backend first (Ctrl+C in its terminal)\n")
     name, at, kiosk = args.scenario, args.at, args.kiosk
+    from_menu = False
     try:
         while True:
             if name is None:
                 (name, kiosk), at = choose_demo(kiosk=kiosk, **browser_options), None
+                from_menu = True
+            missing = missing_data(name)
+            if missing:
+                print(f"start_demo: {name} saknar data ({len(missing)} filer, till exempel {missing[0]}); "
+                      "installera scenariots datapaket först", flush=True)
+                if not (from_menu or kiosk):
+                    return 1
+                name = None  # back to the menu
+                continue
             kiosk_options = {"kiosk": True} if kiosk else {}
             try:
                 if args.services == "native":
