@@ -2,6 +2,8 @@
 
 Run with ``python -m tools.startup_check [scenario]`` after cloning the repository.
 These presence checks do not validate data contents, coverage or graphics performance.
+MET Norway's archived forecasts are optional: a scenario runs without them, with an empty
+forecast panel, so their absence is reported but does not fail the check.
 Use --browser edge (or TECHSEED_BROWSER=edge) to check Edge instead of default Chrome.
 """
 
@@ -26,6 +28,11 @@ class Check:
     name: str
     passed: bool
     detail: str
+    required: bool = True
+
+
+# Inputs a scenario runs without (MET Norway's forecasts: the forecast panel stays empty).
+OPTIONAL_MARKERS = {"MET_FORECAST_DIR": "optional; the forecast panel stays empty without MET Norway's forecasts"}
 
 
 def find_chrome() -> str | None:
@@ -52,6 +59,7 @@ def probe(name: str, command: list[str]) -> Check:
 
 def data_checks(settings, root: Path = REPO_ROOT) -> list[Check]:
     """Check configured inputs, not raw build inputs or a database's contents."""
+    optional: dict[Path, str] = {}
     files = [Path(settings.TERRAIN_FILE), Path(settings.TARGETS_FILE), Path(settings.WIND_FILE),
               Path(settings.TLE_DIR) / settings.TLE_FILE_NAME,
               root / "data/tiles" / settings.TILES_FILE, *map(Path, settings.FIRMS_FILES)]
@@ -69,7 +77,9 @@ def data_checks(settings, root: Path = REPO_ROOT) -> list[Check]:
             if name == "LANDSAT_DIR" and not getattr(settings, "LANDSAT_SCENES", {}):
                 continue
             files.append(value / markers[name])
-    checks = [Check(str(path), path.is_file() and path.stat().st_size > 0, "required input file")
+            if name in OPTIONAL_MARKERS:
+                optional[value / markers[name]] = OPTIONAL_MARKERS[name]
+    checks = [Check(str(path), path.is_file() and path.stat().st_size > 0, optional.get(path, "required input file"), path not in optional)
               for path in dict.fromkeys(files)]
     for name, spec in PACKAGES.items():
         path = root / "app/frontend/vendor" / f"{name}-{spec['version']}"
@@ -137,9 +147,10 @@ def main(argv: list[str] | None = None) -> int:
     else:
         checks = installation_checks(args.scenario, **browser_options)
     for check in checks:
-        print(f"{'OK' if check.passed else 'MISSING/FAILED'} {check.name}: {check.detail}")
+        state = "OK" if check.passed else "MISSING/FAILED" if check.required else "OPTIONAL/MISSING"
+        print(f"{state} {check.name}: {check.detail}")
     print("Presence checks only; database contents, Python packages, audio and window placement are not verified.")
-    return 0 if all(check.passed for check in checks) else 1
+    return 0 if all(check.passed for check in checks if check.required) else 1
 
 
 if __name__ == "__main__":

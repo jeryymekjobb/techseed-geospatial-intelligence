@@ -94,3 +94,22 @@ def test_karbole_forecast_weather_files_are_included(tmp_path):
     names = {check.name for check in startup_check.data_checks(ljusdal2018, tmp_path)}
     assert ljusdal2018.FORECAST_WEATHER_FILES
     assert all(str(path) in names for path in ljusdal2018.FORECAST_WEATHER_FILES)
+
+
+def test_met_norway_forecasts_are_reported_but_optional(tmp_path, monkeypatch, capsys):
+    # The Windows test of 2026-10-22: flen2019 runs without forecasts, which were never fetched for it.
+    settings = SimpleNamespace(TERRAIN_FILE=tmp_path / "terrain.json", TARGETS_FILE=tmp_path / "targets.json",
+                               WIND_FILE=tmp_path / "wind.csv", TLE_DIR=tmp_path / "tle", TLE_FILE_NAME="tle.json",
+                               TILES_FILE="demo.mbtiles", FIRMS_FILES=[], MET_FORECAST_DIR=tmp_path / "met-forecast")
+    for check in startup_check.data_checks(settings, tmp_path):
+        if "met-forecast" not in check.name:
+            path = tmp_path / check.name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("synthetic test placeholder", encoding="utf-8")
+    checks = startup_check.data_checks(settings, tmp_path)
+    forecast = next(check for check in checks if "met-forecast" in check.name)
+    assert not forecast.passed and not forecast.required and "optional" in forecast.detail
+    assert all(check.passed for check in checks if check.required)
+    monkeypatch.setattr(startup_check, "installation_checks", lambda name: checks)
+    assert startup_check.main(["flen2019"]) == 0
+    assert "OPTIONAL/MISSING" in capsys.readouterr().out
