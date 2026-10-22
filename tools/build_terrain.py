@@ -11,6 +11,10 @@
 The backend serves the result at /terrain/. Run tools/fetch_copernicus_dem.py
 first. Only Docker and the Python standard library are needed; data/ is not
 versioned.
+
+--tools native (geo_tools) builds the same tiles and layer.json without Docker:
+GDAL from PATH joins the DEM, and tools/quantized_terrain.py meshes and encodes the
+tiles (pydelatin and quantized-mesh-encoder, tools/requirements-terrain.txt).
 """
 
 from __future__ import annotations
@@ -23,10 +27,12 @@ import subprocess
 from datetime import datetime, timezone
 
 from app.backend import scenario
+from tools import geo_tools, quantized_terrain
 
 DEM_DIR = scenario.DEM_DIR
 TERRAIN_DIR = scenario.TERRAIN_DIR
 CTB_IMAGE = "tumgis/ctb-quantized-mesh:latest"
+NATIVE_BUILDER = "tools/quantized_terrain.py (GDAL, pydelatin 0.4.0, quantized-mesh-encoder 0.5.0)"
 
 
 def user() -> str:
@@ -52,7 +58,9 @@ def docker_command(script: str) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
-    parser.parse_args(argv)
+    geo_tools.add_argument(parser)
+    args = parser.parse_args(argv)
+    tools = geo_tools.choice(args.tools)
     source_file = DEM_DIR / "SOURCE.json"
     if not source_file.is_file():
         raise SystemExit(f"{source_file} is missing; run python3 -m tools.fetch_copernicus_dem first")
@@ -61,13 +69,17 @@ def main(argv: list[str] | None = None) -> int:
     if TERRAIN_DIR.exists():
         shutil.rmtree(TERRAIN_DIR)
     TERRAIN_DIR.mkdir(parents=True)
-    subprocess.run(docker_command(build_script(tiles, source["bbox_west_south_east_north"])), check=True)
+    if tools == "native":
+        bbox = tuple(float(value) for value in source["bbox_west_south_east_north"].split(","))
+        quantized_terrain.build(DEM_DIR, tiles, bbox, TERRAIN_DIR)
+    else:
+        subprocess.run(docker_command(build_script(tiles, source["bbox_west_south_east_north"])), check=True)
     count = sum(1 for _ in TERRAIN_DIR.rglob("*.terrain"))
     (TERRAIN_DIR / "SOURCE.json").write_text(json.dumps({
         "dataset": source["dataset"],
         "inputs": source["tiles"],
         "bbox_west_south_east_north": source["bbox_west_south_east_north"],
-        "builder": CTB_IMAGE,
+        "builder": NATIVE_BUILDER if tools == "native" else CTB_IMAGE,
         "format": "quantized-mesh-1.0 with oct-encoded vertex normals (gzip)",
         "tiles": count,
         "built_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
