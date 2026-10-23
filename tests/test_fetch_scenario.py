@@ -165,3 +165,32 @@ def test_the_image_steps_need_pillow_from_its_requirements_file() -> None:
         assert "PIL" in plan[key].packages, key
     assert fetch.requirements_for(("PIL",)) == "pip install -r tools/requirements-data.txt"
     assert "Pillow==" in (REPO_ROOT / "tools" / "requirements-data.txt").read_text(encoding="utf-8")
+
+
+# The pip project of each third-party module the code imports, and the requirements files that name them.
+PIP_NAMES = {"PIL": "pillow", "paho": "paho-mqtt", "piper": "piper-tts", "quantized_mesh_encoder": "quantized-mesh-encoder"}
+
+
+def test_every_third_party_module_the_code_imports_is_in_a_requirements_file() -> None:
+    # A clean clone lacked Pillow, and numpy came only through onnxruntime (2026-10-23).
+    import ast
+    import re
+    import sys
+
+    required = set()
+    for path in [*REPO_ROOT.glob("app/requirements-*.txt"), *REPO_ROOT.glob("tools/requirements-*.txt")]:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            match = re.match(r"\s*([A-Za-z0-9_.-]+)", line.split("#", 1)[0])
+            if match:
+                required.add(match.group(1).lower().replace("_", "-"))
+    imported = {}
+    for path in [*REPO_ROOT.glob("tools/*.py"), *REPO_ROOT.glob("app/backend/**/*.py")]:
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            names = [alias.name for alias in node.names] if isinstance(node, ast.Import) else \
+                [node.module] if isinstance(node, ast.ImportFrom) and node.module and node.level == 0 else []
+            for name in names:
+                top = name.split(".")[0]
+                if top not in sys.stdlib_module_names and top not in ("app", "tools", "tests"):
+                    imported.setdefault(top, path.name)
+    missing = {top: where for top, where in imported.items() if PIP_NAMES.get(top, top).lower().replace("_", "-") not in required}
+    assert not missing, missing

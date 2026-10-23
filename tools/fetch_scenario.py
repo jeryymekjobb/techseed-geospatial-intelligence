@@ -57,7 +57,7 @@ PACKAGES = {
     "tools/requirements-era5.txt": ("cdsapi", "netCDF4"),
     "tools/requirements-meteosat.txt": ("h5py", "eumdac", "eccodes"),
     "tools/requirements-terrain.txt": ("pydelatin", "quantized_mesh_encoder"),
-    "tools/requirements-data.txt": ("PIL",),
+    "tools/requirements-data.txt": ("PIL", "numpy"),
     "netCDF4": ("netCDF4",),
 }
 # The fire scenarios' SMHI stations are not in their modules (the guide's sections 4 and 23).

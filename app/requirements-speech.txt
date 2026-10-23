@@ -2,3 +2,5 @@
 # fetched by tools/fetch_piper_voices.py. Piper (piper1-gpl) is GPL-3.0-or-later.
 # python3 -m venv .venv && .venv/bin/pip install -r app/requirements-speech.txt
 piper-tts==1.8.0
+# app/backend/speech.py imports numpy itself; it came only through Piper's onnxruntime before.
+numpy==2.5.3

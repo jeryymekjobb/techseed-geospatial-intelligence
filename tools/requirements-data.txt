@@ -3,3 +3,5 @@
 # derive_route_exposure.py and weather_chart.py. A clean clone lacked it (Windows and Ubuntu, 2026-10-23).
 # .venv/bin/pip install -r tools/requirements-data.txt
 Pillow==12.3.0
+# numpy reads the bands and DEMs and draws the masks; it came only through Piper's onnxruntime before.
+numpy==2.5.3
