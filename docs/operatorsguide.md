@@ -225,12 +225,15 @@ igång (D, eller G för Windows). Med `--tools native` körs GDAL- och osmium-st
 (G6); utan tilemaker, som på Windows, säger verktyget att offlinekartan ska tas ur datapaketet.
 Vilka källor, konton och licenser varje scenario använder står i
 `reports/2026-10-22-datahamtning-per-scenario-claude-opus-5-5.md`. Ett rent Windows-prov för
-`flen2019` gjordes 2026-10-23: datastegen, PostGIS-laddningen och de syntetiska givarna
-slutfördes. Den första körningens slutkontroll använde Docker/Chrome och returnerade fel;
-en separat kontroll med `--services native --browser edge` passerade. `fetch_scenario`
-skickar nu native-inställningarna vidare; en full VM-omkörning med den uppdaterade CLI:n
-återstår. I testet kördes 528 timvärden för Meteosats molnmask, och PostGIS laddades med
-5 304 targets, 1 201 terrain features och 166 flood areas.
+`flen2019` gjordes 2026-10-23 från en ny klon av `main` vid `92d8f1d`, med en ny Conda-miljö
+och ett lokalt paket som bara innehöll baskartan. Hela `fetch_scenario`-kommandot med native
+tjänster, Edge och uttryckliga runtime-sökvägar avslutades med kod 0; alla obligatoriska
+datasteg, PostGIS och den avslutande native-startkontrollen passerade. De valfria MET Norway-
+prognoserna hämtades inte. Meteosat CLM gav 528 timvärden, 5 scenbilder och 18 pixlar i
+kartområdet; PostGIS laddades med 5 304 targets, 1 201 terrain features och 166 flood areas.
+Testet använde conda-forges `python-eccodes`, eftersom pip inte kunde installera `eccodeslib`
+på Windows. Den native-byggda terrängen slutfördes med en icke-fatal `RuntimeWarning` i
+occlusion-beräkningen; visuell jämförelse med ctb-tile är inte gjord.
 
 ### D. Kontrollera data och fyll PostGIS för valda scenarier
 
