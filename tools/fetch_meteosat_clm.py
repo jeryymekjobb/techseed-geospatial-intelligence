@@ -24,7 +24,6 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import tempfile
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -66,10 +65,7 @@ def read_grib(data: bytes, positions: bool):
 
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         grib = archive.read(next(item for item in archive.namelist() if item.endswith(".grb")))
-    with tempfile.TemporaryFile() as stream:  # ecCodes reads this product from a file, not from memory
-        stream.write(grib)
-        stream.seek(0)
-        handle = eccodes.codes_grib_new_from_file(stream)
+    handle = eccodes.codes_new_from_message(grib)
     try:
         size = eccodes.codes_get(handle, "Nx")
         values = eccodes.codes_get_values(handle)

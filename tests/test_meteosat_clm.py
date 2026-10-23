@@ -2,15 +2,67 @@
 
 from __future__ import annotations
 
+import io
 import json
+import sys
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy
 import pytest
 
 from app.backend import meteosat_clm
 from tools import fetch_meteosat_clm as fetch
+
+
+def test_read_grib_decodes_zip_message_in_memory(monkeypatch: pytest.MonkeyPatch) -> None:
+    message = b"GRIB message"
+    zipped = io.BytesIO()
+    with zipfile.ZipFile(zipped, "w") as archive:
+        archive.writestr("product.grb", message)
+
+    handle = object()
+    arrays = {"latitudes": [60.0, 61.0, 62.0, 63.0], "longitudes": [15.0, 16.0, 17.0, 18.0]}
+    decoded_messages: list[bytes] = []
+    released: list[object] = []
+
+    def new_from_message(data: bytes) -> object:
+        decoded_messages.append(data)
+        return handle
+
+    def get(current: object, key: str) -> int:
+        assert current is handle
+        assert key == "Nx"
+        return 2
+
+    def get_values(current: object) -> list[int]:
+        assert current is handle
+        return [0, 1, 2, 3]
+
+    def get_array(current: object, key: str) -> list[float]:
+        assert current is handle
+        return arrays[key]
+
+    def release(current: object) -> None:
+        released.append(current)
+
+    monkeypatch.setitem(sys.modules, "eccodes", SimpleNamespace(
+        codes_new_from_message=new_from_message,
+        codes_get=get,
+        codes_get_values=get_values,
+        codes_get_array=get_array,
+        codes_release=release,
+    ))
+
+    size, values, lats, lons = fetch.read_grib(zipped.getvalue(), positions=True)
+    assert size == 2
+    assert values == [0, 1, 2, 3]
+    assert lats == arrays["latitudes"]
+    assert lons == arrays["longitudes"]
+    assert decoded_messages == [message]
+    assert released == [handle]
 
 
 def test_the_cloudy_share_leaves_out_pixels_without_data() -> None:
