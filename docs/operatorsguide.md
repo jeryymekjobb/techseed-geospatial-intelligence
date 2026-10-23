@@ -177,6 +177,37 @@ argument ur scenariot. Visa först planen; den hämtar ingenting:
 .venv/bin/python -m tools.fetch_scenario flen2019 --list
 ```
 
+Windows utan Docker använder en Conda-miljö som innehåller Python 3.12, GDAL, osmium-tool
+och ecCodes.
+Pip kunde inte installera `eccodeslib==2.50.0.33` i Windows-testet; installera i stället
+conda-forges `python-eccodes` i samma miljö som kör `fetch_scenario`, och installera
+`h5py` och `eumdac` där med pip. Använd `conda run` så att GDAL:s DLL:er och verktyg finns
+på sökvägen. Exemplet förutsätter att Node, Mosquitto, TileServer GLs `node_modules` och
+PostgreSQL/PostGIS redan finns; ändra sökvägarna för datorn:
+
+```powershell
+$Scenario = "flen2019"
+$Conda = "$HOME\miniforge3\Scripts\conda.exe"
+$EnvPrefix = "C:\path\to\techseed-conda-env"
+$NodeModules = "$HOME\techseed-runtime\node_modules"
+$Node = "C:\Program Files\nodejs\node.exe"
+$Mosquitto = "C:\Program Files\Mosquitto\mosquitto.exe"
+$env:TECHSEED_PSQL_PATH = "C:\Program Files\PostgreSQL\16\bin\psql.exe"
+
+& $Conda run --prefix $EnvPrefix python -m tools.fetch_scenario $Scenario `
+  --list --tools native --services native --node-modules $NodeModules `
+  --node $Node --mosquitto $Mosquitto --mqtt-port 18830 --browser edge
+
+& $Conda run --prefix $EnvPrefix python -m tools.fetch_scenario $Scenario `
+  --tools native --services native --node-modules $NodeModules `
+  --node $Node --mosquitto $Mosquitto --mqtt-port 18830 --browser edge
+```
+
+`--tools native` väljer GDAL/osmium för datastegen. `--services native` väljer lokal
+PostGIS och gör att slutkontrollen använder samma native-tjänster; `--node-modules`,
+`--node`, `--mosquitto`, `--mqtt-port` och `--browser` skickas vidare till kontrollen.
+`--services native` kräver `--node-modules`; lägg till `--yes` för en körning utan fråga.
+
 Listan visar varje steg, om det redan är klart, vilka konton och Python-paket det behöver och om
 de finns, och en uppskattad storlek. Konton (Space-Track, Copernicus CDS, EUMETSAT, LSA SAF) och
 extra paket ordnas enligt avsnitt 2 och listans anvisningar; verktyget kontrollerar bara att
@@ -193,8 +224,13 @@ samma kommando körs igen (`--force` gör om stegen). MET Norways prognoser häm
 igång (D, eller G för Windows). Med `--tools native` körs GDAL- och osmium-stegen utan Docker
 (G6); utan tilemaker, som på Windows, säger verktyget att offlinekartan ska tas ur datapaketet.
 Vilka källor, konton och licenser varje scenario använder står i
-`reports/2026-10-22-datahamtning-per-scenario-claude-opus-5-5.md`. Ett helt prov från en ren klon
-är ännu inte gjort.
+`reports/2026-10-22-datahamtning-per-scenario-claude-opus-5-5.md`. Ett rent Windows-prov för
+`flen2019` gjordes 2026-10-23: datastegen, PostGIS-laddningen och de syntetiska givarna
+slutfördes. Den första körningens slutkontroll använde Docker/Chrome och returnerade fel;
+en separat kontroll med `--services native --browser edge` passerade. `fetch_scenario`
+skickar nu native-inställningarna vidare; en full VM-omkörning med den uppdaterade CLI:n
+återstår. I testet kördes 528 timvärden för Meteosats molnmask, och PostGIS laddades med
+5 304 targets, 1 201 terrain features och 166 flood areas.
 
 ### D. Kontrollera data och fyll PostGIS för valda scenarier
 
@@ -635,13 +671,19 @@ Två begränsningar:
 Terrängen jämfördes 2026-10-22 med ctb-tiles för `flen2024`: samma 278 tiles och samma
 `layer.json`; på den djupaste nivån låg den native-byggda ytan i medel 2,3 m från höjddatan
 (ctb-tiles 3,0 m) med färre hörn, och 3D-vyn såg likadan ut. De två ytorna skiljer sig i medel
-2,9 m från varandra eftersom de trianguleras olika. Den är inte provad på Windows.
+2,9 m från varandra eftersom de trianguleras olika. En native-byggd terräng för `flen2019`
+skapades på Windows 2026-10-23 (278 tiles); `quantized-mesh-encoder` gav en `RuntimeWarning`
+om ett ogiltigt värde i occlusion-beräkningen, men bygget slutfördes. Terrängens visuella
+jämförelse med ctb-tiles är inte gjord på Windows.
 
 Provat 2026-10-22 på Ubuntu med GDAL 3.13.3 och osmium 1.19.1 från conda-forge, mot Docker-vägen
 med samma indata: osmium-utdraget, EMS-konverteringen och kompositbilderna blev desamma. Höjddata
 som medelvärdesbildas (`-r average`, Sentinel-1:s havsmask) skiljer sig något, i Flens område i
 medel 0,9 m och som mest 10 m, eftersom containern har GDAL 2.4 och metoden ändrades i GDAL 3.
-Hämtning från Planetary Computer med native GDAL och körning på Windows är inte provade.
+Native GDAL för Sentinel-1/2-hämtning och bildbearbetning användes i Windows-provet för
+`flen2019`; en full jämförelse mot Docker för dessa steg är inte gjord där. Offlinekartan
+installerades ur ett lokalt paket, så Windows-bygget av kartan med osmium/tilemaker är inte
+verifierat.
 
 ## Vad demon är
 
