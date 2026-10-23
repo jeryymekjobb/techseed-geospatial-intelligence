@@ -167,6 +167,35 @@ Hämtningen av webbibliotek ersätter deras befintliga versionsmappar. Gör den 
 en pågående demo. På Windows krävs fungerande Piper och röstmodell för uppläsning;
 ingen annan systemröst väljs automatiskt. Saknat eller felande ljud loggas i backend.
 
+### C2. Hämta data själv i stället för ett paket
+
+Den som har egna konton kan hämta och bygga ett scenarios data från källorna i stället för att
+installera ett paket. `tools.fetch_scenario` kör de befintliga verktygen i rätt ordning, med
+argument ur scenariot. Visa först planen; den hämtar ingenting:
+
+```bash
+.venv/bin/python -m tools.fetch_scenario flen2019 --list
+```
+
+Listan visar varje steg, om det redan är klart, vilka konton och Python-paket det behöver och om
+de finns, och en uppskattad storlek. Konton (Space-Track, Copernicus CDS, EUMETSAT, LSA SAF) och
+extra paket ordnas enligt avsnitt 2 och listans anvisningar; verktyget kontrollerar bara att
+kontofilerna finns och visar aldrig deras innehåll. Kör sedan utan `--list`. Verktyget visar
+planen igen och frågar innan något hämtas (`--yes` svarar ja):
+
+```bash
+.venv/bin/python -m tools.fetch_scenario flen2019
+```
+
+Det hoppar över steg vars resultat redan finns, stannar vid första fel och fortsätter därifrån när
+samma kommando körs igen (`--force` gör om stegen). MET Norways prognoser hämtas bara med
+`--with-optional`. På slutet körs `startup_check`. Databassteget kräver PostgreSQL med PostGIS
+igång (D, eller G för Windows). Med `--tools native` körs GDAL- och osmium-stegen utan Docker
+(G6); utan tilemaker, som på Windows, säger verktyget att offlinekartan ska tas ur datapaketet.
+Vilka källor, konton och licenser varje scenario använder står i
+`reports/2026-10-22-datahamtning-per-scenario-claude-opus-5-5.md`. Ett helt prov från en ren klon
+är ännu inte gjort.
+
 ### D. Kontrollera data och fyll PostGIS för valda scenarier
 
 Exemplet väljer enbart Västmanland. Byt namnet till ett scenario som paketet faktiskt
