@@ -32,7 +32,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -108,8 +108,9 @@ def smhi_period(end: date, today: date | None = None) -> str:
 
 
 def radar_dates(settings) -> tuple[str, str, str]:
-    """The radar over the playback, every 10 minutes, or every 30 for a playback over two weeks."""
-    first, last = settings.PLAYBACK_START.date(), (settings.PLAYBACK_END - timedelta(days=1)).date()
+    """The radar over the playback, its last day included (the playback ends at its stop, often 00:00 UTC,
+    which has a frame of its own), every 10 minutes, or every 30 for a playback over two weeks."""
+    first, last = settings.PLAYBACK_START.date(), settings.PLAYBACK_END.date()
     return first.isoformat(), last.isoformat(), "30" if (last - first).days > 14 else "10"
 
 

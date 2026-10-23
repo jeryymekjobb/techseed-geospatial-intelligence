@@ -54,7 +54,9 @@ def test_smhi_s_recent_data_and_the_radar_s_step() -> None:
     assert fetch.smhi_period(date(2026, 8, 22), today=date(2026, 10, 22)) == "latest-months"
     assert fetch.smhi_period(date(2024, 3, 12), today=date(2026, 10, 22)) == "corrected-archive"
     sundsvall = fetch.module("sundsvall2026")
-    assert fetch.radar_dates(sundsvall) == ("2026-08-14", "2026-08-22", "10")
+    assert fetch.radar_dates(sundsvall) == ("2026-08-14", "2026-08-23", "10")
+    # A clean clone's flen2019 lacked the frame at the playback's stop, 29 December 00:00 UTC (2026-10-23).
+    assert fetch.radar_dates(fetch.module("flen2019")) == ("2019-12-07", "2019-12-29", "30")
 
 
 def step(tmp_path: Path, key: str, done: bool = False, **extra) -> fetch.Step:
