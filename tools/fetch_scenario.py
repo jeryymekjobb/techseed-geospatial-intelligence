@@ -57,6 +57,7 @@ PACKAGES = {
     "tools/requirements-era5.txt": ("cdsapi", "netCDF4"),
     "tools/requirements-meteosat.txt": ("h5py", "eumdac", "eccodes"),
     "tools/requirements-terrain.txt": ("pydelatin", "quantized_mesh_encoder"),
+    "tools/requirements-data.txt": ("PIL",),
     "netCDF4": ("netCDF4",),
 }
 # The fire scenarios' SMHI stations are not in their modules (the guide's sections 4 and 23).
@@ -84,6 +85,7 @@ class Step:
 
 
 GDAL = ("gdalwarp", "gdal_translate", "gdalbuildvrt")
+IMAGES = PACKAGES["tools/requirements-data.txt"]  # the steps that write images with Pillow
 
 
 def native(tools: str, *programs: str) -> tuple[str, ...]:
@@ -165,7 +167,7 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
         first, last, step = radar_dates(s)
         plan.append(Step("smhi-radar", "SMHI:s väderradar", tool(
             "fetch_smhi_radar", "--start", first, "--end", last, "--step", step, "--out", str(s.RADAR_DIR)),
-            Path(s.RADAR_DIR) / "SOURCE.json", size_mb=60))
+            Path(s.RADAR_DIR) / "SOURCE.json", packages=IMAGES, size_mb=60))
     if get("LIGHTNING_DIR"):
         plan.append(Step("lightning", "SMHI:s blixtar", tool("fetch_smhi_lightning"), Path(s.LIGHTNING_DIR) / "SOURCE.json", size_mb=5))
     area = f"{north},{west},{south},{east}"
@@ -192,10 +194,10 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
             plan.append(Step(key, title, None, target, note="spåras i git (osm_data/README.md)"))
     if get("LANDSAT_SCENES"):
         plan.append(Step("landsat", "Landsat-bilder", tool("fetch_landsat_scene", "--tools", tools),
-                         Path(s.LANDSAT_DIR) / "SOURCE.json", programs=native(tools, *GDAL), size_mb=100))
+                         Path(s.LANDSAT_DIR) / "SOURCE.json", programs=native(tools, *GDAL), packages=IMAGES, size_mb=100))
     if get("SENTINEL2_SCENES"):
         plan.append(Step("sentinel2", "Sentinel-2-bilder", tool("fetch_sentinel2_scene", "--tools", tools),
-                         Path(s.SENTINEL2_DIR) / "SOURCE.json", programs=native(tools, *GDAL), size_mb=60, note="det långsammaste steget"))
+                         Path(s.SENTINEL2_DIR) / "SOURCE.json", programs=native(tools, *GDAL), packages=IMAGES, size_mb=60, note="det långsammaste steget"))
     if get("EMS_AREA") and get("EMS_DIR"):
         plan.append(Step("ems", "Copernicus EMS-ytor", tool("fetch_ems_perimeters", "--tools", tools),
                          Path(s.EMS_DIR) / "perimeters.geojson", programs=native(tools, "ogr2ogr"), size_mb=5))
@@ -207,10 +209,10 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
                          Path(s.MCF_DIR) / "mcf-100ar.geojson", size_mb=5))
     if get("SENTINEL1_ACQUISITIONS"):
         plan.append(Step("sentinel1", "Sentinel-1-radarbilder (efter OSM och höjddata)", tool("fetch_sentinel1_scene", "--tools", tools),
-                         Path(s.SENTINEL1_DIR) / "SOURCE.json", programs=native(tools, *GDAL), size_mb=50))
+                         Path(s.SENTINEL1_DIR) / "SOURCE.json", programs=native(tools, *GDAL), packages=IMAGES, size_mb=50))
     if get("MUNICIPAL_BASEMAP") and get("MUNICIPAL_BASEMAP_DIR"):
         plan.append(Step("municipal-basemap", "Kommunens karta (Kartan)", tool("fetch_municipal_basemap"),
-                         Path(s.MUNICIPAL_BASEMAP_DIR) / "SOURCE.json", size_mb=1100, note="2–3 timmar; fortsätter där den stannade"))
+                         Path(s.MUNICIPAL_BASEMAP_DIR) / "SOURCE.json", packages=IMAGES, size_mb=1100, note="2–3 timmar; fortsätter där den stannade"))
     if get("MET_FORECAST_DIR"):
         plan.append(Step("met-forecasts", "MET Norways prognoser", tool("fetch_met_forecasts"), Path(s.MET_FORECAST_DIR) / "SOURCE.json",
                          packages=PACKAGES["netCDF4"], optional=True, size_mb=30, note="20–120 minuter"))
@@ -228,7 +230,7 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
                      note="kräver PostgreSQL med PostGIS igång; ersätter scenariots tabeller"))
     if get("ROUTE_EXPOSURE_FILE"):
         plan.append(Step("route-exposure", "Vägar och järnvägar under radarregnet", tool("derive_route_exposure"),
-                         Path(s.ROUTE_EXPOSURE_FILE), size_mb=5))
+                         Path(s.ROUTE_EXPOSURE_FILE), packages=IMAGES, size_mb=5))
     if get("RADAR_SENSOR_FILE"):
         plan.append(Step("radar-sensors", "Givare fyllda med radarregn", tool("derive_radar_sensor_points"), Path(s.RADAR_SENSOR_FILE), size_mb=1))
     if get("LEVEL_SENSOR_FILE"):

@@ -92,14 +92,14 @@ Ubuntu/Bash:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt -r app/requirements-speech.txt -r tools/requirements-record.txt
+.venv/bin/python -m pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt -r app/requirements-speech.txt -r tools/requirements-record.txt -r tools/requirements-data.txt
 ```
 
 Windows/PowerShell:
 
 ```powershell
 py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt -r app/requirements-speech.txt -r tools/requirements-record.txt
+.\.venv\Scripts\python.exe -m pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt -r app/requirements-speech.txt -r tools/requirements-record.txt -r tools/requirements-data.txt
 ```
 
 Avbryt vid installationsfel. Tillgängligheten av Piper och dess beroenden på vald
@@ -794,7 +794,7 @@ av datorn inte påverkas:
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r app/requirements-iot.txt -r app/requirements-orbits.txt \
-  -r app/requirements-speech.txt -r tools/requirements-record.txt
+  -r app/requirements-speech.txt -r tools/requirements-record.txt -r tools/requirements-data.txt
 ```
 
 Det tar någon minut. Sista raden ska börja med `Successfully installed`.

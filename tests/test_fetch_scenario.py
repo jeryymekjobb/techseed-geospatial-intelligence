@@ -156,3 +156,12 @@ def test_native_steps_need_their_programs_and_point_to_the_package_without_tilem
     tiles[0].marker = Path("/nonexistent/tiles.mbtiles")
     found = fetch.problems(tiles)
     assert len(found) == 1 and "tilemaker" in found[0] and "datapaket" in found[0]
+
+
+def test_the_image_steps_need_pillow_from_its_requirements_file() -> None:
+    # A clean clone lacked Pillow (2026-10-23): the steps that write images check it before fetching.
+    plan = {step.key: step for step in fetch.steps("sundsvall2026")}
+    for key in ("smhi-radar", "landsat", "sentinel2", "sentinel1", "municipal-basemap"):
+        assert "PIL" in plan[key].packages, key
+    assert fetch.requirements_for(("PIL",)) == "pip install -r tools/requirements-data.txt"
+    assert "Pillow==" in (REPO_ROOT / "tools" / "requirements-data.txt").read_text(encoding="utf-8")

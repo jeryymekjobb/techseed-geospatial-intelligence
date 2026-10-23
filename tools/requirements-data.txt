@@ -1,0 +1,5 @@
+# For fetching and building the scenarios' images and maps: Pillow writes the PNGs of tools/fetch_landsat_scene.py,
+# fetch_sentinel1_scene.py, fetch_sentinel2_scene.py, fetch_smhi_radar.py, fetch_municipal_basemap.py,
+# derive_route_exposure.py and weather_chart.py. A clean clone lacked it (Windows and Ubuntu, 2026-10-23).
+# .venv/bin/pip install -r tools/requirements-data.txt
+Pillow==12.3.0
