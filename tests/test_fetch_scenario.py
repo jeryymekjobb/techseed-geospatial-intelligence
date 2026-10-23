@@ -148,6 +148,39 @@ def test_a_run_asks_first_and_never_fetches_without_an_answer(monkeypatch, capsy
     assert fetch.main(["flen2019", "--yes"]) == 1 and len(ran) == 2
 
 
+def test_native_services_configure_postgis_and_the_final_startup_check(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(fetch, "problems", lambda plan, force=False: [])
+    plans = []
+    monkeypatch.setattr(fetch, "run", lambda plan, force=False: plans.append(plan) or 0)
+    calls = []
+
+    def startup_check(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(fetch.subprocess, "run", startup_check)
+    assert fetch.main([
+        "flen2019", "--yes", "--tools", "native", "--services", "native",
+        "--node-modules", str(tmp_path), "--node", "node.exe", "--mosquitto", "mosquitto.exe",
+        "--mqtt-port", "18830", "--browser", "edge",
+    ]) == 0
+
+    postgis = next(step for step in plans[0] if step.key == "postgis")
+    assert postgis.env["TECHSEED_DB_MODE"] == "native"
+    command, options = calls[0]
+    assert command[3:] == [
+        "flen2019", "--services", "native", "--browser", "edge", "--node-modules", str(tmp_path),
+        "--node", "node.exe", "--mosquitto", "mosquitto.exe", "--mqtt-port", "18830",
+    ]
+    assert options == {"cwd": REPO_ROOT, "check": False}
+
+
+def test_native_services_require_node_modules(monkeypatch) -> None:
+    monkeypatch.setattr(fetch, "problems", lambda plan, force=False: [])
+    with pytest.raises(SystemExit):
+        fetch.main(["flen2019", "--yes", "--services", "native"])
+
+
 def test_native_steps_need_their_programs_and_point_to_the_package_without_tilemaker(monkeypatch) -> None:
     plan = fetch.steps("flen2024", "native")
     assert next(s for s in plan if s.key == "tiles").programs == ("osmium", "tilemaker")

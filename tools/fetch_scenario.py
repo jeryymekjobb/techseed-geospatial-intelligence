@@ -339,10 +339,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--with-optional", action="store_true", help="also MET Norway's forecasts")
     parser.add_argument("--force", action="store_true", help="redo steps whose output is already there")
     parser.add_argument("--yes", action="store_true", help="fetch without asking first")
+    parser.add_argument("--services", choices=("docker", "native"), help="service mode for PostGIS and the final startup check")
+    parser.add_argument("--node-modules", type=Path, help="native mode: TileServer GL node_modules")
+    parser.add_argument("--node", help="native mode: Node.js executable")
+    parser.add_argument("--mosquitto", help="native mode: Mosquitto executable")
+    parser.add_argument("--mqtt-port", type=int, help="native mode: MQTT port for the startup check")
+    parser.add_argument("--browser", choices=("chrome", "edge"), help="browser used by the final startup check")
     geo_tools.add_argument(parser)
     args = parser.parse_args(argv)
     tools = geo_tools.choice(args.tools)
+    services = args.services or os.environ.get("TECHSEED_DB_MODE", "docker")
+    if services not in ("docker", "native"):
+        parser.error("TECHSEED_DB_MODE must be docker or native")
+    if services == "native" and args.node_modules is None:
+        parser.error("--services native requires --node-modules")
     plan = steps(args.scenario, tools)
+    postgis = next((step for step in plan if step.key == "postgis"), None)
+    if postgis:
+        postgis.env["TECHSEED_DB_MODE"] = services
     print(f"{args.scenario} ({'utan Docker' if tools == 'native' else 'med Docker'}):")
     for line in describe(plan, args.with_optional):
         print(line)
@@ -363,7 +377,18 @@ def main(argv: list[str] | None = None) -> int:
             return 1
     code = run(selected(plan, args.with_optional), args.force)
     if code == 0:
-        code = subprocess.run(tool("startup_check", args.scenario), cwd=REPO_ROOT, check=False).returncode
+        check = tool("startup_check", args.scenario) + ["--services", services]
+        if args.browser:
+            check += ["--browser", args.browser]
+        if services == "native":
+            check += ["--node-modules", str(args.node_modules)]
+            if args.node:
+                check += ["--node", args.node]
+            if args.mosquitto:
+                check += ["--mosquitto", args.mosquitto]
+            if args.mqtt_port:
+                check += ["--mqtt-port", str(args.mqtt_port)]
+        code = subprocess.run(check, cwd=REPO_ROOT, check=False).returncode
     return code
 
 
