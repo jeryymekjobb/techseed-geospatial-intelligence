@@ -66,8 +66,8 @@ def test_a_box_overpass_fails_on_is_split_and_the_answers_joined(monkeypatch) ->
         bbox = query.split("way[")[1].split("(")[1].split(")")[0]
         asked.append(bbox)
         south, west, north, east = (float(value) for value in bbox.split(","))
-        if north - south > 1.0:  # the whole box: a gateway error, as Overpass gave Västernorrland
-            raise HTTPError("https://overpass", 502, "Bad Gateway", None, None)
+        if north - south > 1.0:  # the whole box takes too long: 504 after the tries
+            raise HTTPError("https://overpass", 504, "Gateway Timeout", None, None)
         # Way 1 touches every part (it is given whole each time); way 2 lies only in the north-east.
         elements = [{"type": "way", "id": 1, "tags": {"natural": "water"}, "geometry": []}]
         if south >= 63.0 and west >= 18.0:
@@ -75,7 +75,10 @@ def test_a_box_overpass_fails_on_is_split_and_the_answers_joined(monkeypatch) ->
         return {"version": 0.6, "osm3s": {"timestamp_osm_base": "2026-10-22T00:00:00Z"}, "elements": elements}
 
     monkeypatch.setattr(terrain, "fetch_query", overpass)
+    pauses = []
+    monkeypatch.setattr(terrain, "sleep", pauses.append)
     payload = terrain.fetch((62.5, 17.2, 63.7, 18.9))
+    assert pauses == [terrain.PART_PAUSE_SECONDS] * 3  # a pause between the four parts
     assert len(asked) == 5 and asked[0] == "62.5,17.2,63.7,18.9"
     assert sorted((element["type"], element["id"]) for element in payload["elements"]) == [("way", 1), ("way", 2)]
     assert payload["osm3s"]["timestamp_osm_base"] == "2026-10-22T00:00:00Z"
@@ -107,3 +110,32 @@ def test_a_refused_query_or_a_box_that_keeps_failing_is_not_split_for_ever(monke
     with pytest.raises(TimeoutError):
         terrain.fetch((62.5, 17.2, 63.7, 18.9), depth=2)
     assert len(asked) == 3  # the box, its first part and that part's first part, where the splitting stops
+
+
+def test_a_busy_overpass_is_asked_again_after_a_growing_wait_and_never_split(monkeypatch) -> None:
+    # A clean clone on 2026-10-23: Overpass at capacity answered 502, and asking at once in parts got 429.
+    from urllib.error import HTTPError
+
+    import pytest
+
+    answers, waits = [], []
+    monkeypatch.setattr(terrain, "sleep", waits.append)
+
+    def urlopen(request, timeout):
+        code = answers.pop(0)
+        if code:
+            headers = {"Retry-After": "7"} if code == 429 else {}
+            raise HTTPError(request.full_url, code, "busy", headers, None)
+        import io
+        return io.BytesIO(b'{"elements": []}')
+
+    monkeypatch.setattr(terrain, "urlopen", urlopen)
+    answers[:] = [502, 429, 503, 0]
+    assert terrain.fetch_query("[out:json];") == {"elements": []}
+    assert waits == [30, 7, 120]  # growing waits, or the server's Retry-After
+    asked = []
+    monkeypatch.setattr(terrain, "fetch_query", lambda query: asked.append(query) or (_ for _ in ()).throw(
+        HTTPError("https://overpass", 429, "Too Many Requests", None, None)))
+    with pytest.raises(HTTPError):
+        terrain.fetch((62.5, 17.2, 63.7, 18.9))
+    assert len(asked) == 1  # a busy server is not asked more often in smaller parts

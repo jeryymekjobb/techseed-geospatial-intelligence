@@ -6,11 +6,14 @@ latitude/longitude box, joins multipolygon members into rings, maps OSM tags to
 a few terrain classes and writes a GeoJSON FeatureCollection with source,
 licence and fetch time. OSM shows the current state, not a historical one.
 
-The box is asked for in one query. When Overpass fails on it (a server error
-such as 502 or 504, or no answer in time), the box is split into four parts
-asked for one by one, and a part that fails is split again, SPLIT_DEPTH times
-at most. `out geom` gives every object that touches a part whole, so the parts'
-answers are joined by the objects' type and id into the same answer as one query.
+The box is asked for in one query. A busy Overpass (429 Too Many Requests, or 502, 503
+or 504 while it is at capacity, as its status page says) is asked again after a growing
+wait (RETRY_SECONDS, or the server's Retry-After), as Overpass asks. Only a query that
+takes too long (no answer in time, or 504 after those tries) is split into four parts
+asked for one by one with a pause between them, and a part that fails is split again,
+SPLIT_DEPTH times at most; asking more often while Overpass is busy got 429 in a clean
+clone on 2026-10-23. `out geom` gives every object that touches a part whole, so the
+parts' answers are joined by the objects' type and id into the same answer as one query.
 
 Only the Python standard library is used.
 """
@@ -19,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -31,6 +35,10 @@ USER_AGENT = "techseed-geospatial-intelligence/0.1 (exhibition demonstrator; one
 ATTRIBUTION = "© OpenStreetMap contributors, ODbL 1.0, https://www.openstreetmap.org/copyright"
 # How many times a box Overpass fails on is split into four (at most 4 ** 3 = 64 parts).
 SPLIT_DEPTH = 3
+# The waits before asking a busy Overpass again (exponential backoff), and between a split box's parts.
+RETRY_SECONDS = (30, 60, 120, 240)
+PART_PAUSE_SECONDS = 5
+sleep = time.sleep  # the tests stand in for it
 
 # (tag, value) -> terrain class shown in the GUI. The first matching tag wins.
 TERRAIN_CLASSES: dict[tuple[str, str], str] = {
@@ -208,9 +216,10 @@ def quarters(bbox: tuple[float, float, float, float]) -> list[tuple[float, float
 
 
 def overpass_failed(exc: Exception) -> bool:
-    """A server error or no answer in time, which a smaller box may get past; a refused query is not."""
+    """A query that took too long, which a smaller box may get past: no answer in time, or 504 after the tries.
+    A busy or refusing server (429, 502, 503, 4xx) is not helped by more, smaller queries."""
     if isinstance(exc, HTTPError):
-        return exc.code >= 500
+        return exc.code == 504
     return isinstance(exc, (URLError, TimeoutError))
 
 
@@ -229,15 +238,42 @@ def fetch(bbox: tuple[float, float, float, float], depth: int = SPLIT_DEPTH) -> 
     except (URLError, OSError) as exc:
         if depth <= 0 or not overpass_failed(exc):
             raise
-        print(f"Overpass svarade inte för {','.join(f'{value:g}' for value in bbox)} ({exc}) – delar området i fyra", flush=True)
-        return joined([fetch(part, depth - 1) for part in quarters(bbox)])
+        print(f"Overpass svarade inte i tid för {','.join(f'{value:g}' for value in bbox)} ({exc}) – delar området i fyra", flush=True)
+        parts = []
+        for number, part in enumerate(quarters(bbox)):
+            if number:
+                sleep(PART_PAUSE_SECONDS)
+            parts.append(fetch(part, depth - 1))
+        return joined(parts)
+
+
+def busy(exc: Exception) -> bool:
+    """Overpass at capacity or limiting this address: worth asking again after a wait."""
+    return isinstance(exc, HTTPError) and exc.code in (429, 502, 503, 504)
+
+
+def wait_for(exc: HTTPError, attempt: int) -> float:
+    """The server's Retry-After in seconds when it gives one, else the next growing wait."""
+    after = exc.headers.get("Retry-After") if exc.headers else None
+    return float(after) if after and after.isdigit() else RETRY_SECONDS[min(attempt, len(RETRY_SECONDS) - 1)]
 
 
 def fetch_query(query: str) -> dict[str, Any]:
     body = urlencode({"data": query}).encode("utf-8")
-    request = Request(OVERPASS_URL, data=body, headers={"User-Agent": USER_AGENT})
-    with urlopen(request, timeout=240) as response:
-        return json.load(response)
+    for attempt in range(len(RETRY_SECONDS) + 1):
+        request = Request(OVERPASS_URL, data=body, headers={"User-Agent": USER_AGENT})
+        try:
+            with urlopen(request, timeout=240) as response:
+                return json.load(response)
+        except HTTPError as exc:
+            if not busy(exc) or attempt == len(RETRY_SECONDS):
+                if busy(exc) and exc.code != 504:
+                    print("Overpass är överbelastat; försök igen senare", flush=True)
+                raise
+            seconds = wait_for(exc, attempt)
+            print(f"Overpass svarade {exc.code}; försöker igen om {seconds:g} s", flush=True)
+            sleep(seconds)
+    raise RuntimeError("unreachable")
 
 
 def main(argv: list[str] | None = None) -> int:
