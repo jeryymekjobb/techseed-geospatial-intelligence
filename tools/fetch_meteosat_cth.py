@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from app.backend import scenario
+from app.backend.meteosat_cth import ATTRIBUTION as PRODUCT_ATTRIBUTION
 
 COLLECTION = "EO:EUM:DAT:MSG:CTH"
 CREDENTIALS = Path.home() / ".eumdac" / "credentials"
@@ -174,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
     args.out.write_text(json.dumps({"cells": cells, "quarters": quarters}, separators=(",", ":")) + "\n", encoding="utf-8")
     (args.out.parent / "SOURCE.json").write_text(json.dumps({
         "source": "EUMETSAT Cloud Top Height - MSG - 0 degree", "collection": COLLECTION, "licence": LICENCE,
+        "attribution": PRODUCT_ATTRIBUTION,
         "satellites": sorted(satellites),
         "map_bbox_west_south_east_north": list(scenario.MAP_BBOX), "margin_deg_lat_lon": list(MARGIN_DEG),
         "period_utc": [scenario.PLAYBACK_START.strftime("%Y-%m-%dT%H:%MZ"), scenario.PLAYBACK_END.strftime("%Y-%m-%dT%H:%MZ")],

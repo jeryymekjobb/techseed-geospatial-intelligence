@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import math
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -144,6 +145,25 @@ def download(area: list[float], start: date, end: date, raw_dir: Path) -> list[P
     return paths
 
 
+def source_metadata(area: list[float], start: date, end: date, raw_files: list[Path], processed_utc: datetime | None = None) -> dict[str, Any]:
+    processed_utc = processed_utc or datetime.now(timezone.utc)
+    return {
+        "source": "Copernicus Climate Change Service (C3S), ERA5-Land reanalysis",
+        "dataset": DATASET,
+        "doi": "10.24381/cds.e2161bac",
+        "attribution": ATTRIBUTION,
+        "licence": "CC BY 4.0",
+        "area_north_west_south_east": area,
+        "output_period_utc": [start.isoformat(), end.isoformat()],
+        "request_period_utc": [(start - timedelta(days=1)).isoformat(), end.isoformat()],
+        "variables": VARIABLES,
+        "frequency": "hourly",
+        "grid_resolution_degrees": 0.1,
+        "raw_files": [path.name for path in raw_files],
+        "processed_utc": processed_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("--area", required=True, help="north,west,south,east in degrees")
@@ -161,6 +181,10 @@ def main(argv: list[str] | None = None) -> int:
         writer = csv.DictWriter(stream, fieldnames=COLUMNS, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
+    args.out.with_suffix(".SOURCE.json").write_text(
+        json.dumps(source_metadata(area, args.start, args.end, paths), indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     points = len({(row["latitude"], row["longitude"]) for row in rows})
     without = len({(record["latitude"], record["longitude"]) for record in records}) - points
     print(f"{len(rows)} rows, {points} grid points -> {args.out}"

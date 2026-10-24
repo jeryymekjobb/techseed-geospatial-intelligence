@@ -15,6 +15,10 @@ from tools import fetch_meteosat_cth as fetch
 SCRIPT = Path(__file__).resolve().parents[1] / "app" / "frontend" / "meteosat_cth.js"
 
 
+def test_the_fetch_source_uses_the_display_attribution() -> None:
+    assert fetch.PRODUCT_ATTRIBUTION == meteosat_cth.ATTRIBUTION
+
+
 def test_only_the_positions_are_turned_by_180_degrees() -> None:
     values = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     assert fetch.rows(values, 3) == [[1, 2, 3], [4, 5, 6], [7, 8, 9]]

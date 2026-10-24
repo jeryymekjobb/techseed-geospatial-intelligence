@@ -27,6 +27,7 @@ from typing import Any, Sequence
 from urllib.error import HTTPError
 
 from app.backend import scenario
+from app.backend.meteosat_frm import ATTRIBUTION as PRODUCT_ATTRIBUTION
 from tools.fetch_meteosat_frp import HOST, LICENCE, opener
 
 BASE_URL = f"https://{HOST}/PRODUCTS/MSG/FRMv3/NETCDF"
@@ -135,6 +136,7 @@ def main(argv: list[str] | None = None) -> int:
         "source": "LSA SAF Fire Risk Map v3 (FRMv3-ERA5), EUMETSAT",
         "url": BASE_URL,
         "licence": LICENCE,
+        "attribution": PRODUCT_ATTRIBUTION,
         "valid": f"{VALID_HOUR_UTC:02d}:00 UTC each day (LSA SAF map service)",
         "map_bbox_west_south_east_north": list(scenario.MAP_BBOX),
         "days": len(wanted),

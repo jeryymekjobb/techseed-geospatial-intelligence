@@ -176,8 +176,10 @@ ROUTE_IMPACTS = [
 # the road by the bridge towards Orrhammar and the road to Orrestaö in OSM. The path by
 # Lasarettssjön is left out, as the lake could not be placed.
 LEVEL_SENSOR_SITES = [
-    {"site": "Bron mot Orrhammar", "latitude": 59.08386, "longitude": 16.5733},
-    {"site": "Vägen till Orrestaö", "latitude": 59.0725, "longitude": 16.5865},
+    {"site": "Bron mot Orrhammar", "latitude": 59.08386, "longitude": 16.5733,
+     "source_label": "Katrineholms-Kuriren 18 december 2019"},
+    {"site": "Vägen till Orrestaö", "latitude": 59.0725, "longitude": 16.5865,
+     "source_label": "Katrineholms-Kuriren 18 december 2019"},
 ]
 # Synthetic level sensors (level_sensors.py), each following Hebylund Kvarnsjön. Its flow stayed below
 # its record (2.19 m³/s, May 2021), so they alarm when it has risen LEVEL_ALARM_RISE times above its

@@ -31,6 +31,7 @@ from urllib.error import HTTPError
 from urllib.request import HTTPBasicAuthHandler, HTTPPasswordMgrWithDefaultRealm, build_opener
 
 from app.backend import scenario
+from app.backend.meteosat import ATTRIBUTION as PRODUCT_ATTRIBUTION
 
 HOST = "datalsasaf.lsasvcs.ipma.pt"
 BASE_URL = f"https://{HOST}/PRODUCTS/MSG/FRP-PIXEL/HDF5"
@@ -140,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
         "source": "LSA SAF MSG FRP-Pixel (LSA-502; FRPPixel-R, LSA-550), EUMETSAT",
         "url": BASE_URL,
         "licence": LICENCE,
+        "attribution": PRODUCT_ATTRIBUTION,
         "map_bbox_west_south_east_north": list(scenario.MAP_BBOX),
         "compare": scenario.METEOSAT_FRP_COMPARE,
         "period_utc": [wanted[0].strftime("%Y-%m-%dT%H:%MZ"), (wanted[-1] + SLOT).strftime("%Y-%m-%dT%H:%MZ")],

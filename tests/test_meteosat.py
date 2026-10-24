@@ -66,6 +66,10 @@ def test_the_pixels_are_read_with_their_satellite_and_grouped_by_quarter(tmp_pat
         meteosat.pixels.cache_clear()
 
 
+def test_the_fetch_source_uses_the_display_attribution() -> None:
+    assert fetch.PRODUCT_ATTRIBUTION == meteosat.ATTRIBUTION
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_the_maps_show_a_pixel_from_its_quarter_on() -> None:
     code = (f"const m = require({json.dumps(str(SCRIPT))});"

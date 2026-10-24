@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from app.backend import landsat, scenario
+from app.backend.meteosat_clm import ATTRIBUTION as PRODUCT_ATTRIBUTION
 from tools.fetch_meteosat_cth import CREDENTIALS, download, time_of
 
 COLLECTION = "EO:EUM:DAT:MSG:CLM"
@@ -147,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
                                    ensure_ascii=False) + "\n", encoding="utf-8")
     (args.out.parent / "SOURCE.json").write_text(json.dumps({
         "source": "EUMETSAT Cloud Mask - MSG - 0 degree", "collection": COLLECTION, "licence": LICENCE,
+        "attribution": PRODUCT_ATTRIBUTION,
         "satellites": sorted(satellites), "map_bbox_west_south_east_north": list(scenario.MAP_BBOX),
         "times": len(times), "times_missing": missing,
         "classes": {"0": "clear over water", "1": "clear over land", "2": "cloud", "3": "no data"},

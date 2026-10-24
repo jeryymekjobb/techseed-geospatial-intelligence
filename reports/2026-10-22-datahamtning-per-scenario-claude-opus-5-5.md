@@ -85,3 +85,12 @@ annars `derive_impact_sensor_points`.
 
 Ingen ny hämtning är gjord för den här inventeringen. Ett helt prov från en ren klon (planens steg 6)
 återstår, först på Ubuntu och sedan på Windows.
+
+## Uppföljning (2026-10-24)
+
+Inventeringen ovan beskriver läget den 2026-10-22. Senare verifierat och genomfört:
+
+- En ren Windows-klon av `main` (`92d8f1d`) hämtade och byggde `flen2019` med native verktyg, laddade PostGIS och skapade syntetiska givare. `fetch_scenario` avslutades med kod 0 med `--services native`, Edge och de uttryckliga runtime-sökvägarna; MET Norway-prognoserna, som är valfria, hämtades inte. PostGIS laddades med 5 304 targets, 1 201 terrain features och 166 flood areas.
+- Källmetadata är implementerad på den lokala grenen `record-source-metadata` (ännu inte mergad/pushad) för framtida ERA5-Land/ERA5 sea CSV-sidecars, impact-baserade syntetiska nivågivare och Meteosats `SOURCE.json`-attribueringar. Befintliga oversionerade data skrivs inte om automatiskt.
+
+Fortfarande olöst: licensvillkoren för MCF:s och kommunens GeoJSON, MET Norway-arkivet för 2020–2023, scenarioargumenten som härletts för Kramfors/Flen och storleksuppskattningarna.

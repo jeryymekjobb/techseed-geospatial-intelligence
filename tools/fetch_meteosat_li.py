@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from app.backend import scenario
+from app.backend.meteosat_li import ATTRIBUTION as PRODUCT_ATTRIBUTION
 from tools.fetch_meteosat_cth import CREDENTIALS, MARGIN_DEG, download
 
 COLLECTION = "EO:EUM:DAT:0691"
@@ -110,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     args.out.write_text(json.dumps({"flashes": flashes}, separators=(",", ":")) + "\n", encoding="utf-8")
     (args.out.parent / "SOURCE.json").write_text(json.dumps({
         "source": "EUMETSAT LI Lightning Flashes - MTG - 0 degree", "collection": COLLECTION, "licence": LICENCE,
+        "attribution": PRODUCT_ATTRIBUTION,
         "map_bbox_west_south_east_north": list(scenario.MAP_BBOX), "margin_deg_lat_lon": list(MARGIN_DEG),
         "files": len(products), "flashes": len(flashes),
         "fields": ["epoch seconds (UTC)", "latitude", "longitude"],

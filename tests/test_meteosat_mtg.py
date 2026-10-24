@@ -14,6 +14,11 @@ from tools import fetch_meteosat_li as li_tool
 NAME = "W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+LI-2-LFL--FD--x-x--ARC-x_C_EUMT_20260815161025_L2PF_OPE_20260815160006_20260815161006_N__O_0098_0000"
 
 
+def test_the_fetch_sources_use_the_display_attributions() -> None:
+    assert li_tool.PRODUCT_ATTRIBUTION == meteosat_li.ATTRIBUTION
+    assert gii_tool.PRODUCT_ATTRIBUTION == meteosat_gii.ATTRIBUTION
+
+
 def test_the_lightning_tool_keeps_the_flashes_round_the_area_with_their_time() -> None:
     assert li_tool.sensing_start(NAME) == "2026-08-15T16:00:06Z"
     columns = {"latitude": [62.91, 40.0, None], "longitude": [17.5, 17.5, 17.5], "flash_time": [840124806.4, 840124807.0, 840124808.0]}

@@ -32,6 +32,10 @@ def test_the_tool_keeps_the_cells_inside_the_area_with_their_values() -> None:
     assert fetch.scaled([[3, -8000]], 1.0, -8000, 0) == [[3, None]]
 
 
+def test_the_fetch_source_uses_the_display_attribution() -> None:
+    assert fetch.PRODUCT_ATTRIBUTION == meteosat_frm.ATTRIBUTION
+
+
 def grid_file(tmp_path: Path) -> Path:
     def day(when: str, risks: list[list[int]], fwi: float) -> dict:
         return {"date": when, "valid_utc": f"{when}T12:00:00Z", "risk": risks, "fwi": [[fwi, fwi], [fwi, fwi]],

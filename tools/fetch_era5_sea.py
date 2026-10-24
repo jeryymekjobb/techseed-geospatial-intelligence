@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -110,6 +111,27 @@ def download(area: list[float], start: date, end: date, raw_dir: Path) -> list[P
     return paths
 
 
+def source_metadata(area: list[float], download_area: list[float], start: date, end: date,
+                    land_file: Path, raw_files: list[Path], processed_utc: datetime | None = None) -> dict[str, Any]:
+    processed_utc = processed_utc or datetime.now(timezone.utc)
+    return {
+        "source": "Copernicus Climate Change Service (C3S), ERA5 reanalysis interpolated over sea",
+        "dataset": DATASET,
+        "doi": "10.24381/cds.adbb2d47",
+        "attribution": ATTRIBUTION,
+        "licence": "CC BY 4.0",
+        "output_area_north_west_south_east": area,
+        "download_area_north_west_south_east": download_area,
+        "output_period_utc": [start.isoformat(), end.isoformat()],
+        "variables": VARIABLES,
+        "source_grid_degrees": 0.25,
+        "output_grid": "ERA5-Land 0.1-degree points missing from the land CSV",
+        "land_input": land_file.name,
+        "raw_files": [path.name for path in raw_files],
+        "processed_utc": processed_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("--area", required=True, help="north,west,south,east in degrees (the ERA5-Land area)")
@@ -121,7 +143,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     north, west, south, east = (float(value) for value in args.area.split(","))
     # A quarter degree around the area, so every point lies between four ERA5 grid points.
-    paths = download([north + 0.25, west - 0.25, south - 0.25, east + 0.25], args.start, args.end, args.raw_dir)
+    area = [north, west, south, east]
+    download_area = [north + 0.25, west - 0.25, south - 0.25, east + 0.25]
+    paths = download(download_area, args.start, args.end, args.raw_dir)
     have = land_points(args.land)
     missing = [point for point in grid_points(north, west, south, east) if point not in have]
     rows = [row for path in paths for row in rows_for(path, missing, args.start, args.end)]
@@ -130,6 +154,11 @@ def main(argv: list[str] | None = None) -> int:
         writer = csv.DictWriter(stream, fieldnames=[*COLUMNS, "source"], lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
+    args.out.with_suffix(".SOURCE.json").write_text(
+        json.dumps(source_metadata(area, download_area, args.start, args.end, args.land, paths),
+                   indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     print(f"{len(rows)} rows, {len(missing)} grid points without ERA5-Land values -> {args.out}")
     return 0
 

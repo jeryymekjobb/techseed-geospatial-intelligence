@@ -236,6 +236,12 @@ Testet använde conda-forges `python-eccodes`, eftersom pip inte kunde installer
 på Windows. Den native-byggda terrängen slutfördes med en icke-fatal `RuntimeWarning` i
 occlusion-beräkningen; visuell jämförelse med ctb-tile är inte gjord.
 
+Nya ERA5-Land/ERA5-utdata får en `.SOURCE.json` bredvid varje CSV; Meteosat-verktygen tar med
+skärmens attribution i sina `SOURCE.json`, och `derive_impact_sensor_points` märker ut källor
+och att givarna är syntetiska. Befintliga, oversionerade filer skrivs inte om automatiskt;
+kör om respektive verktyg om de äldre filerna ska få metadata. Licensvillkoren för MCF:s och
+kommunens GeoJSON är fortfarande inte fastställda och får inte antas.
+
 ### D. Kontrollera data och fyll PostGIS för valda scenarier
 
 Exemplet väljer enbart Västmanland. Byt namnet till ett scenario som paketet faktiskt

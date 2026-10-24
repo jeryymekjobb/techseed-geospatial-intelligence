@@ -21,7 +21,8 @@ from app.backend import hydro, scenario
 from app.backend.flood_sensors import distance_km
 
 
-def points(impacts: list[dict[str, Any]], stations: list[dict[str, Any]]) -> dict[str, Any]:
+def points(impacts: list[dict[str, Any]], stations: list[dict[str, Any]],
+           default_source: str | None = None) -> dict[str, Any]:
     """The sensors as a GeoJSON FeatureCollection, numbered in the order of the impacts."""
     stations = [station for station in stations if station.get("earlier_max")]
     features = []
@@ -30,10 +31,28 @@ def points(impacts: list[dict[str, Any]], stations: list[dict[str, Any]]) -> dic
             continue
         nearest = min(stations, key=lambda station: distance_km(item["latitude"], item["longitude"], station["latitude"], station["longitude"]))
         number = len(features) + 1
+        source = item.get("source_label") or default_source
         features.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [item["longitude"], item["latitude"]]},
                          "properties": {"id": f"ng-{number:02d}", "name": f"NG{number} {item['site']}", "river": None,
-                                        "road": item["site"], "station": nearest["id"]}})
-    return {"type": "FeatureCollection", "features": features}
+                                         "road": item["site"], "station": nearest["id"], "source": source}})
+    sources = sorted({feature["properties"]["source"] for feature in features if feature["properties"]["source"]})
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "sources": sources,
+        "synthetic": True,
+        "note": "Sensor locations are approximate; readings are simulated from each feature's listed flow station.",
+    }
+
+
+def with_measurement_provenance(collection: dict[str, Any], flow_source: str | None,
+                                derived_utc: datetime | None = None) -> dict[str, Any]:
+    derived_utc = derived_utc or datetime.now(timezone.utc)
+    return {
+        **collection,
+        "attribution": flow_source,
+        "derived_utc": derived_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,7 +62,9 @@ def main(argv: list[str] | None = None) -> int:
     data = hydro.stations()
     if args.out is None or data is None or not (scenario.ROUTE_IMPACTS or scenario.LEVEL_SENSOR_SITES):
         parser.exit(1, f"derive_impact_sensor_points: the scenario {scenario.NAME} has no damage sites, flows or LEVEL_SENSOR_FILE\n")
-    collection = points([*scenario.ROUTE_IMPACTS, *scenario.LEVEL_SENSOR_SITES], data["stations"])
+    default_source = getattr(scenario, "ROUTE_ATTRIBUTION", None) or getattr(scenario, "ROUTE_REPORT", "Scenario route impacts")
+    collection = points([*scenario.ROUTE_IMPACTS, *scenario.LEVEL_SENSOR_SITES], data["stations"], default_source)
+    collection = with_measurement_provenance(collection, data.get("source"))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(collection, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     for feature in collection["features"]:

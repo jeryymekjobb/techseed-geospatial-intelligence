@@ -65,6 +65,10 @@ def test_read_grib_decodes_zip_message_in_memory(monkeypatch: pytest.MonkeyPatch
     assert released == [handle]
 
 
+def test_the_fetch_source_uses_the_display_attribution() -> None:
+    assert fetch.PRODUCT_ATTRIBUTION == meteosat_clm.ATTRIBUTION
+
+
 def test_the_cloudy_share_leaves_out_pixels_without_data() -> None:
     # 0 clear water, 1 clear land, 2 cloud, 3 no data.
     assert fetch.cloud_pct(numpy.array([2, 2, 2, 0, 1, 3, 3])) == 60

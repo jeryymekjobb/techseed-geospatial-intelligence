@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from app.backend import scenario
+from app.backend.meteosat_gii import ATTRIBUTION as PRODUCT_ATTRIBUTION
 from tools.fetch_meteosat_cth import CREDENTIALS, MARGIN_DEG, download
 from tools.fetch_meteosat_li import sensing_start
 
@@ -105,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     args.out.write_text(json.dumps({"times": times}, separators=(",", ":")) + "\n", encoding="utf-8")
     (args.out.parent / "SOURCE.json").write_text(json.dumps({
         "source": "EUMETSAT Global Instability Indices - MTG - 0 degree", "collection": COLLECTION, "licence": LICENCE,
+        "attribution": PRODUCT_ATTRIBUTION,
         "map_bbox_west_south_east_north": list(scenario.MAP_BBOX), "margin_deg_lat_lon": list(MARGIN_DEG),
         "step_hours": STEP_HOURS, "times": len(times),
         "fields": ["latitude", "longitude", "K index", "lifted index"],

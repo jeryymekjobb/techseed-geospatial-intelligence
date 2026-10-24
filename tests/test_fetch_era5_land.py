@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import math
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 from tools import fetch_era5_land as era5
 
@@ -62,3 +64,22 @@ def test_a_point_at_sea_without_values_is_left_out() -> None:
     rows = era5.rows_from([land, sea], date(2026, 8, 16), date(2026, 8, 16))
 
     assert [(row["latitude"], row["longitude"]) for row in rows] == [(62.4, 17.3)]
+
+
+def test_main_writes_a_source_sidecar_for_the_derived_csv(tmp_path: Path, monkeypatch) -> None:
+    raw = tmp_path / "era5-land-2014-08.nc"
+    record = {"time": datetime(2014, 8, 4, 1, tzinfo=UTC), "latitude": 59.5, "longitude": 15.5,
+              "u10": 1.0, "v10": 0.0, "t2m": 293.15, "d2m": 288.15, "tp": 0.001}
+    monkeypatch.setattr(era5, "download", lambda area, start, end, raw_dir: [raw])
+    monkeypatch.setattr(era5, "read_netcdf", lambda path: [record])
+    output = tmp_path / "era5-land-test.csv"
+
+    assert era5.main(["--area", "60,15,59,16", "--start", "2014-08-04", "--end", "2014-08-04",
+                      "--raw-dir", str(tmp_path / "raw"), "--out", str(output)]) == 0
+
+    source = json.loads(output.with_suffix(".SOURCE.json").read_text(encoding="utf-8"))
+    assert source["dataset"] == "reanalysis-era5-land"
+    assert source["doi"] == "10.24381/cds.e2161bac"
+    assert source["licence"] == "CC BY 4.0" and "Copernicus Climate Change Service" in source["attribution"]
+    assert source["request_period_utc"] == ["2014-08-03", "2014-08-04"]
+    assert source["raw_files"] == [raw.name]
