@@ -202,6 +202,17 @@ def test_the_image_steps_need_pillow_from_its_requirements_file() -> None:
     assert "Pillow==" in (REPO_ROOT / "tools" / "requirements-data.txt").read_text(encoding="utf-8")
 
 
+def test_windows_meteosat_requirements_use_conda_for_eccodes(monkeypatch) -> None:
+    monkeypatch.setattr(fetch.sys, "platform", "win32")
+    assert fetch.requirements_for(("h5py", "eumdac", "eccodes")) == (
+        "conda install -c conda-forge python-eccodes=2.50.0; "
+        "pip install -r tools/requirements-meteosat.txt"
+    )
+    requirements = (REPO_ROOT / "tools" / "requirements-meteosat.txt").read_text(encoding="utf-8")
+    assert 'eccodes==2.50.0; platform_system != "Windows"' in requirements
+    assert 'eccodeslib==2.50.0.33; platform_system != "Windows"' in requirements
+
+
 # The pip project of each third-party module the code imports, and the requirements files that name them.
 PIP_NAMES = {"PIL": "pillow", "paho": "paho-mqtt", "piper": "piper-tts", "quantized_mesh_encoder": "quantized-mesh-encoder"}
 

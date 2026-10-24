@@ -248,6 +248,9 @@ def missing_packages(names: tuple[str, ...]) -> list[str]:
 
 
 def requirements_for(names: tuple[str, ...]) -> str:
+    if sys.platform == "win32" and "eccodes" in names:
+        return ("conda install -c conda-forge python-eccodes=2.50.0; "
+                "pip install -r tools/requirements-meteosat.txt")
     for path, packages in PACKAGES.items():
         if path.endswith(".txt") and set(names) <= set(packages):
             return f"pip install -r {path}"

@@ -178,12 +178,13 @@ argument ur scenariot. Visa först planen; den hämtar ingenting:
 ```
 
 Windows utan Docker använder en Conda-miljö som innehåller Python 3.12, GDAL, osmium-tool
-och ecCodes.
-Pip kunde inte installera `eccodeslib==2.50.0.33` i Windows-testet; installera i stället
-conda-forges `python-eccodes` i samma miljö som kör `fetch_scenario`, och installera
-`h5py` och `eumdac` där med pip. Använd `conda run` så att GDAL:s DLL:er och verktyg finns
-på sökvägen. Exemplet förutsätter att Node, Mosquitto, TileServer GLs `node_modules` och
-PostgreSQL/PostGIS redan finns; ändra sökvägarna för datorn:
+och ecCodes. `tools/requirements-meteosat.txt` använder plattformsmarkörer så att pip på
+Windows installerar `h5py` och `eumdac` men hoppar över ecCodes-paketen, eftersom pip saknar
+en Windows-version av `eccodeslib`. Installera i stället conda-forges `python-eccodes` i
+samma miljö som kör `fetch_scenario`. Om `--list` rapporterar ecCodes saknat visar det
+Condas kommandot och pip-kravfilen. Använd `conda run` så att GDAL:s DLL:er och verktyg
+finns på sökvägen. Exemplet förutsätter att Node, Mosquitto, TileServer GLs `node_modules`
+och PostgreSQL/PostGIS redan finns; ändra sökvägarna för datorn:
 
 ```powershell
 $Scenario = "flen2019"
