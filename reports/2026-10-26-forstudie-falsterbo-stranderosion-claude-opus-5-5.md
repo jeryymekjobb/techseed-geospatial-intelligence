@@ -30,8 +30,9 @@ deras villkor, och vad som måste simuleras.
   ortofoton med 0,08–0,5 m upplösning.
 - **Geodata finns och är avgiftsfria att visa.** SGU:s WMS *Stranderosion och
   geologi, kust* har bland annat dynfot, erosionskänslighet, stranddynamik och
-  skyddsåtgärder (`Fees` och `AccessConstraints` är `NONE`). Lantmäteriets öppna
-  geodata är CC0. Vilka produkter och år som ingår är inte kontrollerat.
+  skyddsåtgärder (`Fees` och `AccessConstraints` är `NONE`). Lantmäteriets
+  ortofoton över näset finns för varannat år 2012–2024 under CC BY 4.0, men
+  nedladdningen kräver ett Geotorget-konto (se [Datakontroll](#datakontroll-2026-10-26)).
 - **Det är en ny sorts händelse.** Demon har idag bara brand och översvämning.
   Erosion behöver en egen bedömning och egna sensorer. Översvämningsscenariernas
   vattenstånd, radar och PostGIS-frågor kan delvis återanvändas.
@@ -173,9 +174,9 @@ garanterar att näset är molnfritt.
 
 ### Lantmäteriet
 
-- Lantmäteriets öppna geodata är CC0 enligt myndighetens sida om öppna data.
-  Vilka ortofoton, historiska ortofoton, höjdmodeller och laserdata som ingår, och
-  hur de hämtas (Geotorget, STAC), är inte kontrollerat.
+- Lantmäteriets sida om öppna data anger CC0. Lantmäteriets STAC-katalog för
+  ortofoton anger däremot CC BY 4.0 och särskilda användningsvillkor. Vilka
+  ortofoton som finns över näset står i [Datakontroll](#datakontroll-2026-10-26).
 - LU-uppsatsen använde Lantmäteriets ortofoton från 1939, 1960, 2004, 2007, 2009,
   2012, 2014, 2016, 2018 och 2024 (0,16–1,0 m).
 
@@ -235,14 +236,8 @@ Användaren valde följande efter förstudien:
 | Händelsetyp | Översvämningsscenario med erosionslager, ingen ny typ |
 | Geodata | SGU:s erosionslager visas först när villkoren är klarlagda |
 
-Om vågåterberäkningen enligt Copernicus Marines produktsida, inte kontrollerat i
-data: WAM 4.7 med ERA5-vind, timvärden, ungefär 1 nautisk mil (1,85 km), från 1980.
-Slutdatumet anges olika på olika sidor (augusti 2025 eller maj 2026), och produkten
-är märkt som arkiverad. Det behöver kontrolleras.
-
-Om Lantmäteriets historiska ortofoton enligt produktsidan: CC0, avgiftsfria, och de
-beställs i Geotorget. Hur ortofotona 2012–2024 över näset hämtas är inte
-kontrollerat.
+Vågåterberäkningen och Lantmäteriets ortofoton är kontrollerade i
+[Datakontroll](#datakontroll-2026-10-26).
 
 **Tidsskalan.** Motorn går som snabbast 4 dygn per sekund (`MAX_SPEED` i
 `scenario_engine.py`). Då tar 2012–2026 ungefär 21 minuter. Demon ska vara 2–3
@@ -272,6 +267,118 @@ Varje steg får en egen commit och ett eget GO.
 Användaren skaffar ett konto hos Copernicus Marine, som förvaras utanför repot, och
 frågar SGU (kundservice@sgu.se) om erosionslagren får visas på mässan och sparas
 lokalt.
+
+## Datakontroll 2026-10-26
+
+Steg 2 i planen. Bara metadata och öppna mätserier lästes. Ingenting hämtades till
+repot.
+
+### Vattenstånd vid Skanör sedan 2012
+
+SMHI:s timvärden för Skanör (30488, RH2000), 2012-01-01 till 2026-10-22: 128 957
+timvärden, varav 127 232 med kvalitetskod G och 1 725 med O. Toppar över 100 cm,
+minst tre dygn isär:
+
+| Tid (UTC) | cm, RH2000 |
+|---|---|
+| 2012-01-06 06:00 | 109,6 |
+| 2012-01-14 09:00 | 123,8 |
+| 2013-12-02 03:00 | 130,9 |
+| 2017-01-04 17:00 | 168,6 (Axel) |
+| 2018-10-29 08:00 | 101,1 |
+| 2019-01-02 08:00 | 124,1 |
+| 2022-01-30 17:00 | 122,6 |
+| 2022-02-22 07:00 | 102,3 |
+| 2023-10-21 00:00 | 149,5 (Babet) |
+| 2024-01-03 10:00 | 114,8 |
+| 2024-02-09 18:00 | 106,8 |
+| 2025-01-12 07:00 | 106,2 |
+| 2025-12-28 04:00 | 104,0 |
+
+Åren 2014–2016, 2020, 2021 och 2026 hittills nådde inte 100 cm. Stormarnas namn,
+utom Axel och Babet, är inte kontrollerade.
+
+### Lantmäteriets ortofoton
+
+Lantmäteriets STAC-katalog (`https://api.lantmateriet.se/stac-bild/v1`) har 735
+samlingar. Följande täcker rutan 12,78–12,99° O, 55,37–55,45° N:
+
+| Samling | Datum (första rutan) | Upplösning | Rutor |
+|---|---|---|---|
+| `orto-a2-2012` | 2012-05-01 | 0,25 m | 44 |
+| `orto-a2-2014` | 2014-04-27 | 0,25 m | 44 |
+| `orto-a2-2016` | 2016-05-09 | 0,25 m | 44 |
+| `orto-a2-2018` | 2018-04-12 | 0,25 m | 44 |
+| `orto-a2-2020` | 2020-06-02 | 0,16 m | 22 |
+| `orto-a2-2022` | 2022-04-16 | 0,16 m | 22 |
+| `orto-a2-2024` | 2024-05-21 | 0,16 m | 22 |
+
+Upplösningen är läst ur filsökvägarna (`se0_25`, `se0_16`). Det finns också äldre
+samlingar: `orto-skanor-falsterbo-hollviken-2009`, `orto-a-2007`, `orto-a-2010`
+och historiska ortofoton från 1940–1959, 1960–1969, 1970–1979, 1990–1999 och
+2000–2004. Laserdata och Markhöjdmodell finns i `https://api.lantmateriet.se/stac-hojd/v1`.
+
+- **Licens:** katalogen och varje samling anger CC BY 4.0. Katalogen säger också att
+  användningen prövas enligt GDPR och att särskilda användningsvillkor måste
+  godkännas. Det stämmer inte med Lantmäteriets sida om öppna data, som anger CC0.
+  Vi bör följa det som gäller för nedladdningen, alltså CC BY 4.0 och villkoren.
+- **Åtkomst:** filerna på `dl1.lantmateriet.se` svarar 401 utan inloggning (HTTP
+  Basic). Det behövs ett Geotorget-konto. Repot har redan stöd för Geotorget-
+  inloggning med `LM_USERNAME` och `LM_PASSWORD` (`app/backend/lantmateriet.py`),
+  men inte för nedladdning av ortofoton.
+- Varje ortofoto är ett vårfoto. Babet (oktober 2023) syns först i 2024 års bild.
+
+### Klara Sentinel-2- och Landsat-bilder per år
+
+Planetary Computer, samma ruta, mindre än 10 % moln i hela scenen. Molnen över
+just näset är inte kontrollerade.
+
+| År | Antal | Exempel |
+|---|---|---|
+| 2012 | 3 (bara Landsat 7) | 2 maj, 25 maj, 13 aug |
+| 2013 | 12 (Landsat 7/8) | 1 apr, 7 jul, 23 jul |
+| 2014 | 8 (Landsat 8, en Landsat 7) | 13 mar, 29 mar, 19 jul |
+| 2015 | 4 Sentinel-2, 12 Landsat | S2: 9 aug, 19 aug, 8 sep, 28 sep |
+| 2016 | 10 | 12 maj, 4 jun, 12 sep |
+| 2017 | 9 | 11 mar, 27 maj, 9 okt |
+| 2018 | 26 | 20 apr, 4 jul, 14 okt |
+| 2019 | 18 | 2 apr, 29 jun, 25 aug |
+| 2020 | 15 | 9 apr, 15 jun, 23 sep |
+| 2021 | 15 | 30 mar, 8 jun, 3 sep |
+| 2022 | 13 | 7 mar, 12 aug, 16 okt |
+| 2023 | 8 | 19 apr, 13 jun, 21 sep, 30 dec |
+| 2024 | 10 | 18 maj, 5 sep, 17 okt, 4 dec |
+| 2025 | 24 | 21 mar, 20 maj, 18 aug |
+| 2026 | 17 | 6 mar, 25 maj, 22 sep |
+
+Landsat 7 har haft luckor i bilden sedan 2003 (SLC-off), så 2012 års bilder har
+ränder. Från 2013 finns Landsat 8. Sentinel-2 finns från 2015.
+
+### Copernicus Marines vågåterberäkning
+
+Lästes ur Copernicus Marines öppna STAC-metadata, utan konto:
+
+- Produkt `BALTICSEA_MULTIYEAR_WAV_003_015`, dataset
+  `cmems_mod_bal_wav_my_PT1H-i_202411`, från FMI (`FMI-WAM_CMEMS`).
+- Timvärden 1980-01-01 01:00 – 2026-08-01 00:00 UTC. Datasetet släpptes 2024-11-26,
+  har inget datum för när det dras tillbaka, och data uppdaterades senast 2026-10-15.
+  Uppgiften om att produkten är arkiverad gäller alltså inte detta dataset.
+- Rutnät 0,0278° × 0,0167° (1 nautisk mil). Över näsets ruta blir det ungefär 8 × 5
+  celler, varav en del på land.
+- Variablerna omfattar bland annat signifikant våghöjd (`VHM0`), största våghöjd
+  (`VCMX`), medelriktning (`VMDR`) och toppperiod (`VTPK`).
+- Licensen anges som `proprietary` med en länk till Copernicus Marines
+  licensvillkor. Data är avgiftsfria med konto. Villkoren för att visa och spara dem
+  lokalt är inte lästa.
+- Datan slutar 2026-08-01, före uppspelningens slut i oktober 2026.
+
+### Följder för planen
+
+- **Steg 5 (bildserien):** ortofotona kräver ett Geotorget-konto och att
+  Lantmäteriets villkor för nedladdningen godkänns. Utan konto blir bildserien bara
+  Sentinel-2 och Landsat, och de visar inte dynfoten.
+- **Steg 7 (vågorna):** vågdatan slutar i augusti 2026.
+- **Steg 4:** de 13 topparna ovan räcker för att visa stormarna i loggen.
 
 ## Källor
 
@@ -305,6 +412,9 @@ Kontrollerade 2026-10-26.
   https://www.svt.se/nyheter/lokalt/skane/stormen-babet-har-annu-inte-natt-kulmen
 - Copernicus Marine, *Baltic Sea Wave Hindcast*:
   https://data.marine.copernicus.eu/product/BALTICSEA_MULTIYEAR_WAV_003_015/description
+- Copernicus Marine, STAC-metadata för datasetet:
+  https://stac.marine.copernicus.eu/metadata/BALTICSEA_MULTIYEAR_WAV_003_015/cmems_mod_bal_wav_my_PT1H-i_202411/dataset.stac.json
+- Lantmäteriet, STAC-katalog för ortofoton: https://api.lantmateriet.se/stac-bild/v1/
 - Lantmäteriet, historiska ortofoton:
   https://lantmateriet.se/en/geodata/geodata-products/product-list/historical-orthophotos
 - Microsoft Planetary Computer, STAC-sökning (Sentinel-1 GRD, Sentinel-2 L2A,
