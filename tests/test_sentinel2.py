@@ -91,3 +91,11 @@ def test_a_scene_can_have_its_own_natural_colour_stretch() -> None:
     assert s2.composites_for("WINTER", stretches)["natural"]["reflectance"] == (0.0, 0.12)
     assert s2.composites_for("SUMMER", stretches)["natural"]["reflectance"] == (0.0, 0.25)
     assert s2.NATURAL["reflectance"] == (0.0, 0.25)
+
+
+def test_the_credit_names_the_years_the_scenes_were_taken() -> None:
+    # Falsterbo 2012-2026 has images from 2015 on; the credit named the period's first year, 2012.
+    one = [{"acquired_utc": "2024-01-16T10:22:59Z"}, {"acquired_utc": "2024-03-04T10:29:21Z"}]
+    many = [{"acquired_utc": "2015-08-19T10:30:26Z"}, {"acquired_utc": "2026-05-25T10:27:01Z"}, {"acquired_utc": "2019-06-29T10:30:31Z"}]
+    assert s2.notice(one).startswith("Contains modified Copernicus Sentinel data 2024, processed by Techseed")
+    assert s2.notice(many).startswith("Contains modified Copernicus Sentinel data 2015–2026, processed by Techseed")

@@ -1988,13 +1988,19 @@ här finns nu:
 - **Loggen:** en rad för varje storm då havet vid Skanör nådde minst 100 cm i RH2000, 13 stycken
   2012–2026, till exempel "Högt vattenstånd vid Skanör: 168,6 centimeter i RH2000, det högsta sedan
   mätningarna började 1992" (stormen Axel, 4 januari 2017). Loggens tider har årtal.
+- **Satellitbilderna:** en klar bild om året, Landsat 8 för 2013 och 2014 och Sentinel-2 från 2015,
+  och en före (21 september 2023) och en efter Babet (30 december 2023). Kartan visar den senaste
+  bilden fram till klockan, så bilden byts medan åren spelas upp; bildtexten säger till exempel
+  "Årsbild 2019: Sentinel-2A, 2019-06-29". Naturliga färger visas om inget annat väljs. Bilden efter
+  Babet är en vinterbild med låg sol och lite moln väster om näset. 2012 saknas, eftersom bara
+  Landsat 7 med randiga bilder finns det året.
 - **Inga satellitbanor och ingen vind.** Satellitmonitorn visar bara loggen, och kartan har inga
-  vindpilar. Satelliternas läge när de tog bilderna kommer med bildserien.
+  vindpilar. Satelliternas läge när de tog bilderna kommer i ett senare steg.
 
 Det som återstår enligt förstudien
-(`reports/2026-10-26-forstudie-falsterbo-stranderosion-claude-opus-5-5.md`): bildserien med
-Lantmäteriets ortofoton och satellitbilder (kräver ett Geotorget-konto), SGU:s erosionslager,
-vågor från Copernicus Marine och syntetiska sensorer vid stränderna.
+(`reports/2026-10-26-forstudie-falsterbo-stranderosion-claude-opus-5-5.md`): satelliternas läge vid
+bilderna, Lantmäteriets ortofoton (kräver ett Geotorget-konto), SGU:s erosionslager, vågor från
+Copernicus Marine och syntetiska sensorer vid stränderna.
 
 Offlinekartan har havsytor från OSM:s vattenpolygoner (`data/osm/water-polygons-split-4326.zip`,
 cirka 910 MB, ODbL), klippta till kartområdet. Kartorna för de andra scenarierna vid kusten

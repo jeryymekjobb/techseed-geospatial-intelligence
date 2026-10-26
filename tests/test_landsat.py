@@ -283,6 +283,8 @@ def test_auto_follows_the_latest_image_of_the_ticked_types_and_the_list_holds_on
     assert listed == ["S1A_1|radar"]
     assert landsat_js(f"[m.defaultImageTypes('wildfire', {{natural: 1, swir: 1}}), m.defaultImageTypes('flood', {json.dumps(names)}),"
                       " m.defaultImageTypes('flood', {natural: 1}), m.defaultImageTypes('flood', {})]") == [["swir"], ["radar"], ["natural"], []]
+    # A flood without radar shows natural colour, though Landsat's SWIR comes first (Falsterbo 2012-2026).
+    assert landsat_js("m.defaultImageTypes('flood', {swir: 1, natural: 1, ndmi: 1, water: 1})") == ["natural"]
     # The status's ticks in the scenario's order, or the default when none are set.
     assert landsat_js(f"[m.imageTypesShown(['radar', 'natural'], 'flood', {json.dumps(names)}), m.imageTypesShown(null, 'flood', {json.dumps(names)})]") == [
         ["natural", "radar"], ["radar"]]

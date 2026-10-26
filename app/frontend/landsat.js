@@ -9,10 +9,12 @@
 "use strict";
 
 // The image types "auto" follows when mission control has ticked none: SWIR in the fire,
-// radar in the flood, which sees through the clouds; the first type the scenario has otherwise.
+// radar in the flood, which sees through the clouds, else natural colour (Falsterbo's yearly
+// images, where Landsat's SWIR would hold the series at its last Landsat year); the first type
+// the scenario has otherwise.
 function defaultImageTypes(incident, names) {
   const kinds = Object.keys(names || {});
-  const wanted = incident === "wildfire" ? ["swir", "natural"] : ["radar"];
+  const wanted = incident === "wildfire" ? ["swir", "natural"] : ["radar", "natural"];
   const found = wanted.find((kind) => kinds.includes(kind)) || kinds[0];
   return found ? [found] : [];
 }

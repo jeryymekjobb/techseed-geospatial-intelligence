@@ -162,3 +162,19 @@ def test_every_scenario_has_a_summary_that_says_what_is_real() -> None:
         if name == "ljusdal2018":
             assert "Landsats bilder från de veckorna är för molniga över branden och är inte med." in lines
     assert server.config(lantmateriet.Settings(None, None, None, None, None))["summary"] == scenario.SUMMARY
+
+
+def test_falsterbo_has_a_clear_image_a_year_and_one_on_each_side_of_babet() -> None:
+    import importlib
+    import re
+
+    falsterbo = importlib.import_module("app.backend.scenarios.falsterbo")
+    scenes = {**falsterbo.LANDSAT_SCENES, **falsterbo.SENTINEL2_SCENES}
+    dates = {role: re.search(r"_(\d{8})", scene).group(1) for role, scene in scenes.items()}
+    # Every year of the playback but 2012 (only Landsat 7, with gaps), 2023 through the pair round Babet.
+    assert {date[:4] for date in dates.values()} == {str(year) for year in range(2013, 2027)}
+    assert dates["before-babet"] < "20231020" < dates["after-babet"]
+    assert all(dates[role].startswith(role) for role in scenes if role.isdigit())
+    assert all(role in falsterbo.LANDSAT_ROLES for role in scenes)
+    assert falsterbo.LANDSAT_ROLES["2019"] == "Årsbild 2019" and falsterbo.LANDSAT_ROLES["after-babet"] == "Efter Babet"
+    assert all(falsterbo.PLAYBACK_START.strftime("%Y%m%d") <= date <= falsterbo.PLAYBACK_END.strftime("%Y%m%d") for date in dates.values())

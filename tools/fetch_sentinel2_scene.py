@@ -67,8 +67,13 @@ SCL_NO_DATA = (0, 1)
 SCL_CLOUDY = (3, 8, 9, 10)
 SCL_WATER = 6
 WATER_RGBA = (30, 120, 220, 210)
-NOTICE = (f"Contains modified Copernicus Sentinel data {scenario.PERIOD_START.year}, processed by Techseed "
-          "(Planetary Computer, sentinel-2-l2a)")
+def notice(records: list[dict]) -> str:
+    """The credit with the years the scenes were taken, "2024" or "2015–2026" for a scenario of many years."""
+    years = sorted({record["acquired_utc"][:4] for record in records}) or [str(scenario.PERIOD_START.year)]
+    span = years[0] if len(years) == 1 else f"{years[0]}–{years[-1]}"
+    return f"Contains modified Copernicus Sentinel data {span}, processed by Techseed (Planetary Computer, sentinel-2-l2a)"
+
+
 LICENCE = "https://sentinels.copernicus.eu/documents/247904/690755/Sentinel_Data_Legal_Notice (free and open)"
 
 
@@ -236,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
         "processing": "gdalwarp to EPSG:4326 (bilinear; SCL nearest), a linear stretch to 8 bit; NDWI"
                       + (" and NDMI" if WILDFIRE else "") + " with numpy",
         **({"ndmi_colours": [[stop, list(rgb)] for stop, rgb in NDMI_COLOURS]} if WILDFIRE else {}),
-        "notice": NOTICE,
+        "notice": notice(records),
         "licence": LICENCE,
     }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return 0
