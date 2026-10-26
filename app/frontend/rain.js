@@ -32,6 +32,28 @@ function hourlyRain(observations, startMs, endMs) {
   return values;
 }
 
+// The chart's bars: the hourly values summed over as many whole hours a bar as keep the bars at
+// most maxBars (a playback of years would otherwise have a bar an hour), in whole days beyond a day,
+// with that number of hours.
+function rainBars(values, maxBars = 300) {
+  const needed = Math.max(1, Math.ceil(values.length / maxBars));
+  const hours = needed > 24 ? Math.ceil(needed / 24) * 24 : needed;  // whole days beyond a day
+  const bars = [];
+  for (let index = 0; index < values.length; index += hours) {
+    let sum = 0;
+    for (let hour = index; hour < Math.min(index + hours, values.length); hour += 1) sum += values[hour];
+    bars.push(Math.round(sum * 10) / 10);
+  }
+  return { bars, hours };
+}
+
+// The unit of a bar of so many hours: "mm/h", "mm per dygn", "mm per 18 dygn" or "mm per 5 h".
+function rainBarUnit(hours) {
+  if (hours === 1) return "mm/h";
+  if (hours % 24 === 0) return hours === 24 ? "mm per dygn" : `mm per ${hours / 24} dygn`;
+  return `mm per ${hours} h`;
+}
+
 // SMHI's classes of rain by the hour's sum (smhi.se, Kunskapsbanken: Nederbördsintensitet):
 // light at most 0.5 mm, moderate 0.5–4 mm, heavy more than 4 mm, a cloudburst at least 50 mm.
 // An hourly sum cannot tell showers from steady rain, so the classes of rain are used.
@@ -78,4 +100,4 @@ function dailyRainText(mm) {
   return `${String(Math.round(mm * 10) / 10).replace(".", ",")} mm`;
 }
 
-if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainClass, radarFrameAt, dailyRainAt, dailyRainText, RAIN_CLASSES, HOUR_MS };
+if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainBars, rainBarUnit, rainClass, radarFrameAt, dailyRainAt, dailyRainText, RAIN_CLASSES, HOUR_MS };

@@ -224,36 +224,71 @@ function decimal(value) {
   return String(value).replace(".", ",");
 }
 
+// A playback longer than this has years under the time charts instead of dates.
+const CHART_YEARS_AFTER_DAYS = 400;
+
+// A year at each New Year (UTC) under a time chart, every few years in a long period, so they do not overlap.
+function chartYears(start, end, xOf, height) {
+  const first = new Date(start).getUTCFullYear() + 1;
+  const last = new Date(end).getUTCFullYear();
+  const every = Math.max(1, Math.ceil((last - first + 1) / 7));
+  const parts = [];
+  for (let year = first; year <= last; year += every) {
+    parts.push(`<text x="${xOf(Date.UTC(year, 0, 1)) + 1}" y="${height - 3}">${year}</text>`);
+  }
+  return parts;
+}
+
+// A time chart's dates (UTC), about nine of them, or its years in a playback over CHART_YEARS_AFTER_DAYS.
+function chartDates(start, end, xOf, height) {
+  if ((end - start) / 86400000 > CHART_YEARS_AFTER_DAYS) return chartYears(start, end, xOf, height);
+  const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
+  const parts = [];
+  for (let day = start; day < end; day += every * 86400000) {
+    parts.push(`<text x="${xOf(day) + 1}" y="${height - 3}">${new Date(day).toISOString().slice(5, 10)}</text>`);
+  }
+  return parts;
+}
+
 function drawRain(station, clock) {
   const start = Date.parse(state.config.playback.start_utc);
   const end = Date.parse(state.config.playback.end_utc);
-  const values = hourlyRain(station.observations, start, end);
   const width = 300;
   const height = CHART_HEIGHT;
-  const step = width / values.length;
-  const max = Math.max(5, ...values);
-  const parts = values.map((value, index) => {
-    const barHeight = (value / max) * (height - 20);
-    const at = new Date(start + (index + 1) * HOUR_MS).toISOString();
-    return `<rect class="rain-bar" x="${index * step}" y="${height - 14 - barHeight}" width="${Math.max(1, step - 0.5)}" height="${barHeight}">`
-      + `<title>${formatLocal(at)}: ${decimal(value)} mm</title></rect>`;
-  });
-  // A date at every Swedish midnight, or every few days in a long period, so the dates do not overlap.
-  const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
-  let midnights = 0;
-  for (let at = start; at < end; at += HOUR_MS) {
-    const local = Object.fromEntries(chartDay.formatToParts(new Date(at)).map((part) => [part.type, part.value]));
-    if (local.hour !== "00") continue;
-    if (midnights++ % every === 0) {
-      parts.push(`<text x="${((at - start) / HOUR_MS) * step + 1}" y="${height - 3}">${local.month}-${local.day}</text>`);
+  const hourWidth = width / Math.max(1, Math.round((end - start) / HOUR_MS));
+  // The bars and dates change only with the station or the demo's start and stop; the clock's line every time.
+  const key = `${station.id} ${start} ${end}`;
+  if (state.rainChart?.key !== key) {
+    const { bars, hours } = rainBars(hourlyRain(station.observations, start, end));
+    const step = hours * hourWidth;
+    const max = bars.reduce((most, value) => Math.max(most, value), 5);
+    const parts = bars.map((value, index) => {
+      const barHeight = (value / max) * (height - 20);
+      const at = new Date(start + (index + 1) * hours * HOUR_MS).toISOString();
+      return `<rect class="rain-bar" x="${index * step}" y="${height - 14 - barHeight}" width="${Math.max(1, step - 0.5)}" height="${barHeight}">`
+        + `<title>${formatLocal(at)}: ${decimal(value)} ${hours === 1 ? "mm" : `mm på ${rainBarUnit(hours).replace("mm per ", "")}`}</title></rect>`;
+    });
+    if ((end - start) / 86400000 > CHART_YEARS_AFTER_DAYS) {
+      parts.push(...chartYears(start, end, (at) => ((at - start) / HOUR_MS) * hourWidth, height));
+    } else {
+      // A date at every Swedish midnight, or every few days in a long period, so the dates do not overlap.
+      const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
+      let midnights = 0;
+      for (let at = start; at < end; at += HOUR_MS) {
+        const local = Object.fromEntries(chartDay.formatToParts(new Date(at)).map((part) => [part.type, part.value]));
+        if (local.hour !== "00") continue;
+        if (midnights++ % every === 0) {
+          parts.push(`<text x="${((at - start) / HOUR_MS) * hourWidth + 1}" y="${height - 3}">${local.month}-${local.day}</text>`);
+        }
+      }
     }
+    parts.push(`<text x="${width - 2}" y="10" text-anchor="end">max ${decimal(max)} ${rainBarUnit(hours)}</text>`);
+    state.rainChart = { key, svg: parts.join("") };
   }
-  const x = ((clock.getTime() - start) / HOUR_MS) * step;
-  parts.push(`<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`);
-  parts.push(`<text x="${width - 2}" y="10" text-anchor="end">max ${decimal(max)} mm/h</text>`);
+  const x = ((clock.getTime() - start) / HOUR_MS) * hourWidth;
   const svg = $("rain-chart");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.innerHTML = parts.join("");
+  svg.innerHTML = `${state.rainChart.svg}<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`;
 }
 
 function setupRain(config) {
@@ -518,10 +553,7 @@ function drawMeteosatCth(info, clock) {
     const y = yOf(km);
     parts.push(`<line class="hydro-record" x1="0" x2="${width}" y1="${y}" y2="${y}"></line>`, `<text x="2" y="${y - 2}">${km} km</text>`);
   }
-  const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
-  for (let day = start; day < end; day += every * 86400000) {
-    parts.push(`<text x="${xOf(day) + 1}" y="${height - 3}">${new Date(day).toISOString().slice(5, 10)}</text>`);
-  }
+  parts.push(...chartDates(start, end, xOf, height));
   const x = xOf(clock.getTime());
   parts.push(`<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`);
   const svg = $("cth-chart");
@@ -589,10 +621,7 @@ function showMeteosatClm(clock) {
   const points = info.hours.filter((hour) => hour.cloud_pct !== null);
   const path = points.map((hour, i) => `${i ? "L" : "M"}${xOf(Date.parse(hour.time_utc)).toFixed(1)},${yOf(hour.cloud_pct).toFixed(1)}`).join(" ");
   const parts = [`<path class="clm-line" d="${path}"></path>`, `<text x="2" y="${yOf(100) + 8}">100 %</text>`];
-  const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
-  for (let day = start; day < end; day += every * 86400000) {
-    parts.push(`<text x="${xOf(day) + 1}" y="${height - 3}">${new Date(day).toISOString().slice(5, 10)}</text>`);
-  }
+  parts.push(...chartDates(start, end, xOf, height));
   const x = xOf(clock.getTime());
   parts.push(`<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`);
   $("clm-chart").setAttribute("viewBox", `0 0 ${width} ${height}`);
@@ -749,10 +778,7 @@ function drawHydro(station, clock) {
     parts.push(`<line class="hydro-record" x1="0" x2="${width}" y1="${y}" y2="${y}"></line>`,
       `<text x="2" y="${y - 2}">tidigare högsta ${station.earlier_max.time_utc.slice(0, 4)}</text>`);
   }
-  const every = Math.max(1, Math.ceil((end - start) / 86400000 / 9));
-  for (let day = start; day < end; day += every * 86400000) {
-    parts.push(`<text x="${xOf(day) + 1}" y="${height - 3}">${new Date(day).toISOString().slice(5, 10)}</text>`);
-  }
+  parts.push(...chartDates(start, end, xOf, height));
   const x = xOf(clock.getTime());
   parts.push(`<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`);
   const svg = $("hydro-chart");
@@ -1856,7 +1882,8 @@ async function startApp(createMap) {
   if (!wildfire) setupFloodMaps(config);
   if (!wildfire) setupDepthLegend();
   // The fire's wind field and spread forecast.
-  state.wind = await loadOptional("/api/wind", (error) => { $("wind-note").textContent = `Vinddata kunde inte laddas: ${error.message}.`; });
+  // A scenario without wind (Falsterbo's erosion over many years) is not asked.
+  state.wind = !config.layers.wind ? null : await loadOptional("/api/wind", (error) => { $("wind-note").textContent = `Vinddata kunde inte laddas: ${error.message}.`; });
   if (state.wind) {
     state.map.setupWind(state.wind, () => { state.windHour = null; showWind(state.clock); });
     state.map.addAttribution(config.attribution.era5_land);

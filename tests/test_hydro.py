@@ -82,3 +82,42 @@ def test_the_screens_show_the_value_up_to_the_clock_and_a_record() -> None:
     result = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
     # A level is a daily value: its date only, not 01:00 Swedish time.
     assert result == [24.0, False, 29.0, 30.2, True, "30,2 m³/s", "54,94 m", "–", "10 feb 2024", "tid"]
+
+
+def write_sea_level(folder: Path) -> None:
+    """SYNTHETIC hourly sea levels at a Skanör-like station, in fetch_smhi_sea_level's layout."""
+    rows = [("2017-01-04T16:00:00Z", 163.2, "G"), ("2017-01-04T17:00:00Z", 168.6, "G"), ("2017-01-05T03:00:00Z", 101.0, "G"),
+            ("2019-01-02T08:00:00Z", 124.1, "G"), ("2023-10-20T23:00:00Z", 146.5, "G"), ("2023-10-21T00:00:00Z", 149.5, "O")]
+    (folder / "sea-level-30488.csv").write_text("time_utc,value,quality\n" + "".join(f"{t},{v},{q}\n" for t, v, q in rows), encoding="utf-8")
+    (folder / "SOURCE.json").write_text(json.dumps({"source": "SMHI havsvattenstånd", "stations": [{
+        "station": "30488", "name": "Skanör", "unit": "cm", "height_system": "RH2000", "file": "sea-level-30488.csv",
+        "latitude": 55.4168, "longitude": 12.8296, "measured_since": "1992-02-17",
+        "earlier_max": {"value": 146.1, "time_utc": "1997-04-11T16:00:00Z"}}]}), encoding="utf-8")
+
+
+def test_the_sea_level_is_a_level_station_with_each_day_s_highest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.backend import hydro
+    monkeypatch.setattr(hydro, "HYDRO_DIR", None)
+    monkeypatch.setattr(hydro, "SEA_LEVEL_DIR", tmp_path)
+    monkeypatch.setattr(hydro.scenario, "SEA_LEVEL_STATIONS", {"30488": "Skanör"})
+    write_sea_level(tmp_path)
+    hydro.stations.cache_clear(), hydro.sea_levels.cache_clear()
+    [station] = hydro.stations()["stations"]
+    assert (station["id"], station["name"], station["kind"], station["sea"], station["unchecked"]) == ("sea-30488", "Skanör (havet)", "level", True, True)
+    assert station["observations"][:2] == [{"time_utc": "2017-01-04T00:00:00Z", "value": 168.6}, {"time_utc": "2017-01-05T00:00:00Z", "value": 101.0}]
+    hydro.stations.cache_clear(), hydro.sea_levels.cache_clear()
+
+
+def test_storms_are_the_peaks_three_days_apart_with_the_records(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.backend import hydro
+    monkeypatch.setattr(hydro, "SEA_LEVEL_DIR", tmp_path)
+    monkeypatch.setattr(hydro.scenario, "SEA_LEVEL_STATIONS", {"30488": "Skanör"})
+    monkeypatch.setattr(hydro.scenario, "SEA_LEVEL_STORM_CM", 100.0)
+    write_sea_level(tmp_path)
+    hydro.storms.cache_clear()
+    storms = hydro.storms()
+    # 2017-01-05 03:00 is within three days of Axel's peak; Babet's two hours are one storm.
+    assert [(s["time_utc"], s["value_cm"], s["record"]) for s in storms] == [
+        ("2017-01-04T17:00:00Z", 168.6, True), ("2019-01-02T08:00:00Z", 124.1, False), ("2023-10-21T00:00:00Z", 149.5, False)]
+    assert storms[0]["station"] == "Skanör" and storms[0]["height_system"] == "RH2000"
+    hydro.storms.cache_clear()

@@ -101,10 +101,13 @@ def tool(name: str, *args: str) -> list[str]:
     return [PYTHON, "-m", f"tools.{name}", *args]
 
 
-def smhi_period(end: date, today: date | None = None) -> str:
-    """SMHI's corrected archive lags some months behind; recent data come from the latest months."""
+def smhi_period(end: date, today: date | None = None, start: date | None = None) -> str:
+    """SMHI's corrected archive lags some months behind; recent data come from the latest months, and a
+    long period that ends in them from both (fetch_smhi_weather's --period both)."""
     today = today or datetime.now(timezone.utc).date()
-    return "latest-months" if (today - end).days < 120 else "corrected-archive"
+    if (today - end).days >= 120:
+        return "corrected-archive"
+    return "both" if start is not None and (today - start).days >= 120 else "latest-months"
 
 
 def radar_dates(settings) -> tuple[str, str, str]:
@@ -138,14 +141,15 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
         Step("tiles", "Offlinekarta", tool("build_offline_tiles", "--tools", tools), tiles, size_mb=15,
              programs=native(tools, "osmium", "tilemaker"),
              note="--tools native kräver tilemaker; på Windows tas kartan ur datapaketet" if tools == "native" else ""),
-        Step("tle", "Satellitbanor (Space-Track)", tool("fetch_tle_history"), Path(s.TLE_DIR) / s.TLE_FILE_NAME,
-             account="space-track", size_mb=1),
     ]
+    if s.TLE_SATELLITES:
+        plan.append(Step("tle", "Satellitbanor (Space-Track)", tool("fetch_tle_history"), Path(s.TLE_DIR) / s.TLE_FILE_NAME,
+                         account="space-track", size_mb=1))
     weather = Path(s.WEATHER_DIR)
     stations = list((get("RAIN_STATIONS") or {}).keys())
     if stations:
         plan.append(Step("smhi-weather", "SMHI:s regnmätare", tool(
-            "fetch_smhi_weather", *stations, "--period", smhi_period(s.PERIOD_END), "--parameters", "7",
+            "fetch_smhi_weather", *stations, "--period", smhi_period(s.PERIOD_END, start=s.PERIOD_START), "--parameters", "7",
             "--start", period[0], "--end", period[1], "--out", str(weather)), weather / "stations.json", size_mb=1))
     elif name in FIRE_WEATHER:
         fire = FIRE_WEATHER[name]
@@ -164,6 +168,9 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
                          Path(s.DAILY_RAIN_DIR) / "stations.json", size_mb=1))
     if get("HYDRO_STATIONS") and get("HYDRO_DIR"):
         plan.append(Step("smhi-hydro", "SMHI:s vattenföring", tool("fetch_smhi_hydro"), Path(s.HYDRO_DIR) / "stations.json", size_mb=2))
+    if get("SEA_LEVEL_STATIONS") and get("SEA_LEVEL_DIR"):
+        plan.append(Step("smhi-sea-level", "SMHI:s havsvattenstånd", tool("fetch_smhi_sea_level"),
+                         Path(s.SEA_LEVEL_DIR) / "SOURCE.json", size_mb=5))
     if get("RADAR_DIR"):
         first, last, step = radar_dates(s)
         plan.append(Step("smhi-radar", "SMHI:s väderradar", tool(
@@ -172,13 +179,14 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
     if get("LIGHTNING_DIR"):
         plan.append(Step("lightning", "SMHI:s blixtar", tool("fetch_smhi_lightning"), Path(s.LIGHTNING_DIR) / "SOURCE.json", size_mb=5))
     area = f"{north},{west},{south},{east}"
-    era5_raw = Path(s.WIND_FILE).parent / "raw"
-    if str(s.WIND_FILE).startswith(str(DATA)):
+    # A scenario without wind (WIND_FILE None) has no ERA5-Land step.
+    era5_raw = Path(s.WIND_FILE).parent / "raw" if s.WIND_FILE else None
+    if s.WIND_FILE and str(s.WIND_FILE).startswith(str(DATA)):
         plan.append(Step("era5-land", "Vind (ERA5-Land)", tool(
             "fetch_era5_land", "--area", area, "--start", period[0], "--end", period[1],
             "--raw-dir", str(era5_raw), "--out", str(s.WIND_FILE)),
             Path(s.WIND_FILE), account="copernicus-cds", packages=PACKAGES["tools/requirements-era5.txt"], size_mb=20))
-    else:
+    elif s.WIND_FILE:
         plan.append(Step("era5-land", "Vind (ERA5-Land)", None, Path(s.WIND_FILE), note="spåras i git (weather_data/era5-land/README.md)"))
     if get("WIND_SEA_FILE"):
         plan.append(Step("era5-sea", "Vind över havet (ERA5)", tool(

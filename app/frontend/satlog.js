@@ -17,6 +17,7 @@ const SATLOG_SOURCES = {
   lightning: "SMHI, observerat",
   meteosat: "LSA SAF",
   report: "Länsstyrelsen, utredning",
+  sea_level: "SMHI, uppmätt",
 };
 // How many of a pass's newly threatened places the line names; the rest are counted.
 const SATLOG_PLACES_NAMED = 4;
@@ -111,7 +112,7 @@ function satlogWhole(value) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null, lightningImagerEvents = [], instabilityEvents = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null, lightningImagerEvents = [], instabilityEvents = [], seaLevelStorms = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -239,6 +240,14 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     lines.push({ atMs: Date.parse(event.time_utc), source: "meteosat", kind: "cloud_tops", sourceText: `Meteosat ${event.time_utc.slice(0, 4)}`,
                  text: event.kind === "up" ? `Molntopparna över ${place} når ${km} kilometer enligt Meteosat – åskmolnen växer`
                    : `Molntopparna över ${place} sjunker under ${km} kilometer enligt Meteosat` });
+  }
+  // SMHI's sea level at its peaks above the storm threshold (hydro.storms), and whether each was the highest yet.
+  for (const storm of seaLevelStorms) {
+    const record = storm.record ? `, det högsta sedan mätningarna började ${storm.measured_since.slice(0, 4)}` : "";
+    const said = `Högt vattenstånd vid ${storm.station}:`;
+    lines.push({ atMs: Date.parse(storm.time_utc), source: "sea_level", kind: "storm_surge",
+                 text: `${said} ${satlogDecimal(storm.value_cm)} centimeter i ${storm.height_system}${record}`,
+                 spoken: `${said} ${satlogWhole(storm.value_cm)} centimeter i ${storm.height_system}${record}` });
   }
   // SMHI's observed flashes to the ground near the incident, at the end of each hour with any (lightning.py events).
   for (const item of lightningEvents) {

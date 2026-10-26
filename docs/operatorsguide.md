@@ -1968,3 +1968,38 @@ TECHSEED_SCENARIO=<scenario> .venv/bin/python -m tools.fetch_meteosat_clm   # mo
 TECHSEED_SCENARIO=<scenario> .venv/bin/python -m tools.fetch_meteosat_li    # blixtarna, 2025–2026
 TECHSEED_SCENARIO=<scenario> .venv/bin/python -m tools.fetch_meteosat_gii   # åskpotentialen, 2025–2026
 ```
+
+# Del 10 – Stranderosionen på Falsterbonäset 2012–2026 (under uppbyggnad)
+
+Scenariot `falsterbo` visar stränderna på Falsterbonäset under 14 år, inte en enskild händelse.
+Enligt en studentuppsats från LTH (2026) slutade stränderna växa ut mot havet omkring 2012, och
+efter stormen Babet i oktober 2023 backade dynerna kraftigt. Scenariot är under uppbyggnad. Det
+här finns nu:
+
+- **Uppspelningen** går 1 månad per sekund från start, så de 14 åren tar cirka tre minuter. Den
+  bromsar inte vid satellitpassager. Hastigheten går att ändra som vanligt (avsnitt 10), upp till
+  1 år/s.
+- **Panelen:** **Regn (SMHI)** vid Falsterbo A, summerat i staplar på några dygn, och SMHI:s
+  havsvattenstånd vid Skanör under **Vattenföring och vattenstånd (SMHI)**, som dygnets högsta
+  värde i RH2000 med det högsta som mätts före 2012 (1,46 m, april 1997) streckat. Båda
+  diagrammen har årtal i stället för datum.
+- **Loggen:** en rad för varje storm då havet vid Skanör nådde minst 100 cm i RH2000, 13 stycken
+  2012–2026, till exempel "Högt vattenstånd vid Skanör: 168,6 centimeter i RH2000, det högsta sedan
+  mätningarna började 1992" (stormen Axel, 4 januari 2017). Loggens tider har årtal.
+- **Inga satellitbanor och ingen vind.** Satellitmonitorn visar bara loggen, och kartan har inga
+  vindpilar. Satelliternas läge när de tog bilderna kommer med bildserien.
+
+Det som återstår enligt förstudien
+(`reports/2026-10-26-forstudie-falsterbo-stranderosion-claude-opus-5-5.md`): bildserien med
+Lantmäteriets ortofoton och satellitbilder (kräver ett Geotorget-konto), SGU:s erosionslager,
+vågor från Copernicus Marine och syntetiska sensorer vid stränderna.
+
+Offlinekartan saknar havsytor: havet runt näset ritas som land. Det gäller sannolikt alla
+scenarier vid kusten och är inte åtgärdat.
+
+Data hämtas med:
+
+```bash
+.venv/bin/python -m tools.fetch_scenario falsterbo --list   # visa stegen
+.venv/bin/python -m tools.fetch_scenario falsterbo          # hämta och bygg (frågar först)
+```

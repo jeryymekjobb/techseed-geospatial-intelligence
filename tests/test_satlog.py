@@ -426,3 +426,21 @@ def test_the_kiosk_s_loop_says_when_it_plays_or_starts_again() -> None:
     panel = (SCRIPT.parent / "panel.js").read_text(encoding="utf-8")
     assert 'showCountdown(element, loopCountdown(scenarioState, "summary"));' in panel
     assert 'showCountdown(element, loopCountdown(scenarioState, "closing"));' in panel
+
+
+def test_a_storm_surge_is_a_log_line_and_a_record_says_so() -> None:
+    storms = [{"time_utc": "2017-01-04T17:00:00Z", "station": "Skanör", "value_cm": 168.6, "height_system": "RH2000",
+               "record": True, "measured_since": "1992-02-17"},
+              {"time_utc": "2023-10-21T00:00:00Z", "station": "Skanör", "value_cm": 149.5, "height_system": "RH2000",
+               "record": False, "measured_since": "1992-02-17"}]
+    lines = node(f"satelliteLog({{ seaLevelStorms: {json.dumps(storms)} }}, Date.parse('2024-01-01T00:00:00Z'), Infinity)")
+    assert [line["text"] for line in lines] == [
+        "Högt vattenstånd vid Skanör: 149,5 centimeter i RH2000",
+        "Högt vattenstånd vid Skanör: 168,6 centimeter i RH2000, det högsta sedan mätningarna började 1992",
+    ]
+    # The voice rounds to whole centimetres, a half up.
+    assert [line["spoken"] for line in lines] == [
+        "Högt vattenstånd vid Skanör: 150 centimeter i RH2000",
+        "Högt vattenstånd vid Skanör: 169 centimeter i RH2000, det högsta sedan mätningarna började 1992",
+    ]
+    assert {line["source"] for line in lines} == {"sea_level"} and node("SATLOG_SOURCES.sea_level") == "SMHI, uppmätt"

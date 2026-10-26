@@ -113,3 +113,15 @@ def test_met_norway_forecasts_are_reported_but_optional(tmp_path, monkeypatch, c
     monkeypatch.setattr(startup_check, "installation_checks", lambda name: checks)
     assert startup_check.main(["flen2019"]) == 0
     assert "OPTIONAL/MISSING" in capsys.readouterr().out
+
+
+def test_a_scenario_without_wind_or_satellites_needs_neither_file(tmp_path):
+    # Falsterbo's erosion over 2012-2026: no ERA5-Land wind and no satellite orbits.
+    settings = SimpleNamespace(TERRAIN_FILE=tmp_path / "terrain.json", TARGETS_FILE=tmp_path / "targets.json",
+                               WIND_FILE=None, TLE_DIR=tmp_path / "tle", TLE_FILE_NAME="tle.json", TLE_SATELLITES={},
+                               TILES_FILE="demo.mbtiles", FIRMS_FILES=[])
+    names = [check.name for check in startup_check.data_checks(settings, tmp_path)]
+    assert str(tmp_path / "wind.csv") not in names and str(tmp_path / "tle" / "tle.json") not in names
+    with_both = SimpleNamespace(**{**vars(settings), "WIND_FILE": tmp_path / "wind.csv", "TLE_SATELLITES": {"40697": "Sentinel-2A"}})
+    names = [check.name for check in startup_check.data_checks(with_both, tmp_path)]
+    assert str(tmp_path / "wind.csv") in names and str(tmp_path / "tle" / "tle.json") in names

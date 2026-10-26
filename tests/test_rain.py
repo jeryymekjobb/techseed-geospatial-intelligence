@@ -49,3 +49,12 @@ def test_one_value_per_playback_hour_for_the_chart() -> None:
 def test_the_markers_follow_smhi_s_classes_of_rain_by_the_hour() -> None:
     classes = node("[0, 0.3, 0.5, 0.6, 4, 4.1, 49.9, 50].map((mm) => rainClass(mm).key)")
     assert classes == ["none", "light", "light", "moderate", "moderate", "heavy", "heavy", "cloudburst"]
+
+
+def test_a_long_playback_s_rain_is_summed_into_at_most_300_bars_of_whole_days() -> None:
+    # Hourly rain over 14 years (Falsterbo 2012-2026) would be 129 000 bars, which overflowed the chart.
+    assert node("rainBars([1, 2, 3, 4, 5], 300)") == {"bars": [1, 2, 3, 4, 5], "hours": 1}
+    assert node("rainBars([1, 2, 3, 4, 5], 2)") == {"bars": [6, 9], "hours": 3}
+    long = node("rainBars(Array(129000).fill(0.1), 300)")
+    assert long["hours"] == 432 and len(long["bars"]) == 299 and long["bars"][0] == 43.2
+    assert [node(f"rainBarUnit({hours})") for hours in (1, 5, 24, 432)] == ["mm/h", "mm per 5 h", "mm per dygn", "mm per 18 dygn"]

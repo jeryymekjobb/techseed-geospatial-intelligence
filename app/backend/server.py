@@ -469,7 +469,7 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
     if scenario.WILDFIRE:
         items += [item("Hotspots", True, True), item("FIRMS-urval", False, None), item("Prognos (modell)", True, True),
                   item("Syntetiska sensorer", True, True)]
-    if scenario.WIND_FILE.exists():
+    if scenario.WIND_FILE and scenario.WIND_FILE.exists():
         items.append(item("Vind (ERA5-Land)", True, True))
     if radar.layer() is not None:
         items.append(item("Nederbörd (SMHI radar)", True, True))
@@ -606,7 +606,10 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             # The images, each with Meteosat's cloudy share at its time where fetched (meteosat_clm.py).
             "landsat": meteosat_clm.with_cloud(landsat.layer()),
             "radar": radar.layer(),
-            "hydro": hydro.stations() is not None,  # SMHI's flows and lake levels at /api/hydro
+            "wind": bool(scenario.WIND_FILE and scenario.WIND_FILE.exists()),  # ERA5-Land's wind at /api/wind
+            "hydro": hydro.stations() is not None,  # SMHI's flows, lake levels and sea levels at /api/hydro
+            # SMHI's sea level: the log's storm surges (hydro.storms).
+            "sea_level": {"storms": hydro.storms()} if hydro.storms() else None,
             "ems": ems.perimeters() is not None,  # Copernicus EMS's perimeters of the fire at /api/ems
             # MET Norway's archived weather forecasts at /api/met-forecast (met_forecast.py), with their credit.
             "met_forecast": {"label": met_forecast.LABEL, "attribution": met_forecast.ATTRIBUTION,
@@ -647,7 +650,7 @@ class Handler(BaseHTTPRequestHandler):
     settings = lantmateriet.Settings.from_environment()
     # One shared scenario for every screen; tests give their handler its own engine.
     engine = ScenarioEngine(scenario.PLAYBACK_START, scenario.PLAYBACK_END, area=scenario.VIEW_BBOX,
-                            profile=scenario_profile)
+                            speed=scenario.PLAYBACK_SPEED, profile=scenario_profile)
     # Reads the satellite monitor's new log lines aloud through this computer's speakers.
     speaker = speech.Speaker()
     # The prepared spatial questions run through one psql in the postgis service.
@@ -699,7 +702,7 @@ class Handler(BaseHTTPRequestHandler):
                 "features": [feature(item) for item in items],
                 "daily": daily_summary(items),
             })
-        elif (path == "/api/forecast" and not scenario.WILDFIRE) or (path == "/api/wind" and not scenario.WIND_FILE.exists()):
+        elif (path == "/api/forecast" and not scenario.WILDFIRE) or (path == "/api/wind" and not (scenario.WIND_FILE and scenario.WIND_FILE.exists())):
             self.send_json({"error": "not_in_scenario"}, HTTPStatus.NOT_FOUND)
         elif path == "/api/forecast":
             self.send_json(forecast.forecasts())

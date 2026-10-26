@@ -585,3 +585,12 @@ def test_kiosk_mode_switches_the_loop_on_when_the_backend_starts(monkeypatch: py
         server.start_kiosk_loop()
         assert server.Handler.engine.snapshot()["loop"]["on"] is on
     assert started == ["scenario-tick", "scenario-tick"]
+
+
+def test_a_scenario_without_satellites_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.backend import satellites
+    monkeypatch.setattr(satellites.scenario, "TLE_SATELLITES", {})
+    satellites.satellites.cache_clear()
+    assert satellites.satellites() == {"available": False, "label": satellites.LABEL, "satellites": [],
+                                       "note": "Scenariot visar inga satellitbanor."}
+    satellites.satellites.cache_clear()

@@ -60,3 +60,20 @@ def test_the_period_and_the_parameters_can_be_chosen() -> None:
     archives = {7: smhi.parse_archive(archive("Nederbördsmängd", "millimeter", ["2026-08-16;08:00:00;10.6;Y"]))}
     rows = smhi.merge(archives, date(2026, 8, 14), date(2026, 8, 22))
     assert (rows[0]["precip_mm"], rows[0]["precip_mm_quality"], rows[0]["temp_c"]) == ("10.6", "Y", "")
+
+
+def test_both_periods_are_read_and_the_latest_months_win_an_hour_they_share(tmp_path, monkeypatch) -> None:
+    texts = {
+        smhi.archive_url(7, "99999", "corrected-archive"): archive("Nederbördsmängd", "millimeter",
+                                                                    ["2012-01-01;00:00:00;0.2;G", "2026-07-01;00:00:00;1.0;G"]),
+        smhi.archive_url(7, "99999", "latest-months"): archive("Nederbördsmängd", "millimeter",
+                                                                ["2026-07-01;00:00:00;1.4;Y", "2026-10-20;12:00:00;3.0;Y"]),
+    }
+    monkeypatch.setattr(smhi, "download", lambda url: texts[url])
+    assert smhi.main(["99999", "--start", "2012-01-01", "--end", "2026-10-21", "--out", str(tmp_path),
+                      "--period", "both", "--parameters", "7"]) == 0
+    import csv
+    with (tmp_path / "test-a-99999.csv").open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert [[row["time_utc"], row["precip_mm"], row["precip_mm_quality"]] for row in rows] == [
+        ["2012-01-01T00:00:00Z", "0.2", "G"], ["2026-07-01T00:00:00Z", "1.4", "Y"], ["2026-10-20T12:00:00Z", "3.0", "Y"]]

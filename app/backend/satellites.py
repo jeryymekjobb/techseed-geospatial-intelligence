@@ -44,6 +44,9 @@ def meteosat_data() -> bool:
 
 @lru_cache(maxsize=1)
 def satellites() -> dict[str, Any]:
+    if not scenario.TLE_SATELLITES:
+        return {"available": False, "label": LABEL, "satellites": [],
+                "note": "Scenariot visar inga satellitbanor."}
     if not TLE_FILE.is_file():
         return {"available": False, "label": LABEL, "satellites": [],
                 "note": "Banelementen är inte hämtade (tools/fetch_tle_history.py); globen visar inga satelliter."}

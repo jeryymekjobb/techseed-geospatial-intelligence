@@ -53,6 +53,9 @@ def test_the_steps_follow_each_scenario_s_data() -> None:
 def test_smhi_s_recent_data_and_the_radar_s_step() -> None:
     assert fetch.smhi_period(date(2026, 8, 22), today=date(2026, 10, 22)) == "latest-months"
     assert fetch.smhi_period(date(2024, 3, 12), today=date(2026, 10, 22)) == "corrected-archive"
+    # A long period that ends in the latest months (Falsterbo 2012-2026) reads both.
+    assert fetch.smhi_period(date(2026, 10, 21), today=date(2026, 10, 26), start=date(2012, 1, 1)) == "both"
+    assert fetch.smhi_period(date(2026, 8, 22), today=date(2026, 10, 22), start=date(2026, 8, 10)) == "latest-months"
     sundsvall = fetch.module("sundsvall2026")
     assert fetch.radar_dates(sundsvall) == ("2026-08-14", "2026-08-23", "10")
     # A clean clone's flen2019 lacked the frame at the playback's stop, 29 December 00:00 UTC (2026-10-23).
@@ -240,3 +243,10 @@ def test_every_third_party_module_the_code_imports_is_in_a_requirements_file() -
                     imported.setdefault(top, path.name)
     missing = {top: where for top, where in imported.items() if PIP_NAMES.get(top, top).lower().replace("_", "-") not in required}
     assert not missing, missing
+
+
+def test_falsterbo_fetches_its_sea_level_and_neither_wind_nor_orbits() -> None:
+    keys = [step.key for step in fetch.steps("falsterbo")]
+    assert "smhi-sea-level" in keys and "smhi-weather" in keys
+    assert "era5-land" not in keys and "tle" not in keys
+    assert "era5-land" in [step.key for step in fetch.steps("flen2019")]

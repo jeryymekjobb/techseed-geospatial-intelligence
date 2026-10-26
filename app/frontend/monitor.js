@@ -8,6 +8,9 @@ const passCache = new Map();
 const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
 const dayTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const dayShort = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short" });
+const dayYear = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", year: "numeric" });
+// A playback longer than this (days) gives the log's lines their year too.
+const LOG_YEARS_AFTER_DAYS = 300;
 
 async function getJson(path) {
   const response = await fetch(path);
@@ -27,17 +30,16 @@ async function start() {
   const note = document.getElementById("monitor-note");
   const config = await getJson("/api/config");
   document.title = `Satellitbevakning – ${config.title}`;
-  document.getElementById("monitor-label").textContent =
-    `Satelliternas läge ${config.playback.start_utc.slice(0, 4)}, beräknat ur banelement – inte live`;
   const data = await getJson("/api/satellites");
-  if (!data.available) {
-    note.textContent = data.note;
-    return;
-  }
+  // Without satellites (a scenario that shows none, or element sets not fetched) the log still runs.
+  document.getElementById("monitor-label").textContent = data.available
+    ? `Satelliternas läge ${config.playback.start_utc.slice(0, 4)}, beräknat ur banelement – inte live` : config.data_label;
   const lib = await import("/vendor/satellite.js-7.1.0/index.js");
   // The read-aloud voices' credit (speech.py; alma is CC BY 4.0) after the satellites' source.
-  note.textContent = `${data.label}. Källa: ${data.source}.${config.speech_credit ? ` ${config.speech_credit}.` : ""}`;
+  const credit = config.speech_credit ? ` ${config.speech_credit}.` : "";
+  note.textContent = data.available ? `${data.label}. Källa: ${data.source}.${credit}` : `${data.note}${credit}`;
   const centre = config.fire_centre;
+  const longPlayback = (Date.parse(config.playback.data_end_utc) - Date.parse(config.playback.data_start_utc)) / DAY > LOG_YEARS_AFTER_DAYS;
   const place = config.incident_place;
   // The log of satellite and IoT events: FIRMS passes, Landsat scenes and the synthetic sensors' changes
   // once (each line shows when the clock reaches it), the computed passes per day from passCache.
@@ -102,7 +104,8 @@ async function start() {
       lightningKm: config.layers.lightning?.near_km || 30, routeImpacts: config.layers.routes?.impacts || [],
       meteosatQuarters: config.layers.meteosat?.quarters || [], fireRiskChanges: config.layers.meteosat_frm?.changes || [],
       cloudTopEvents: config.layers.meteosat_cth?.events || [], meteosatCompare: config.layers.meteosat?.compare || null,
-      lightningImagerEvents: config.layers.meteosat_li?.events || [], instabilityEvents: config.layers.meteosat_gii?.events || [] }, clock.getTime(),
+      lightningImagerEvents: config.layers.meteosat_li?.events || [], instabilityEvents: config.layers.meteosat_gii?.events || [],
+      seaLevelStorms: config.layers.sea_level?.storms || [] }, clock.getTime(),
       clock.getTime() - startMs + 1, Infinity, place);
     if (scenarioState.jump !== heardJump) {
       heardJump = scenarioState.jump;
@@ -149,7 +152,8 @@ async function start() {
       const row = document.createElement("li");
       row.className = `${index === 0 ? "latest " : ""}${line.source}`;
       const time = document.createElement("time");
-      time.textContent = `${dayShort.format(new Date(line.atMs))} ${hourMinute.format(new Date(line.atMs))}`;
+      const day = longPlayback ? dayYear : dayShort;
+      time.textContent = `${day.format(new Date(line.atMs))} ${hourMinute.format(new Date(line.atMs))}`;
       const source = document.createElement("span");
       source.className = "monitor-log-source";
       source.textContent = line.sourceText || SATLOG_SOURCES[line.source];

@@ -26,6 +26,7 @@ FIRMS_FILES = _module.FIRMS_FILES
 TERRAIN_FILE = _module.TERRAIN_FILE
 TARGETS_FILE = _module.TARGETS_FILE
 WEATHER_DIR = _module.WEATHER_DIR
+# None in a scenario without wind (Falsterbo's erosion over many years, where the arrows would only flicker).
 WIND_FILE = _module.WIND_FILE
 DEM_DIR = _module.DEM_DIR
 TERRAIN_DIR = _module.TERRAIN_DIR
@@ -43,6 +44,8 @@ PLAYBACK_END = _module.PLAYBACK_END
 # Whether the clock slows down round satellite passes and images (server.slow_windows); off for a
 # scenario of many years, whose playback would otherwise mostly stand still.
 SLOW_AT_PASSES = getattr(_module, "SLOW_AT_PASSES", True)
+# The speed (scenario seconds a second) the demo starts at without one saved in its profile.
+PLAYBACK_SPEED = getattr(_module, "PLAYBACK_SPEED", 600.0)
 CHECK_START_UTC = _module.CHECK_START_UTC
 # The satellite image tools/check_demo.py waits for in the fire's playback, by the start of its text.
 CHECK_IMAGE = getattr(_module, "CHECK_IMAGE", "Under branden: Landsat 8")
@@ -102,6 +105,8 @@ HYDRO_STATIONS = getattr(_module, "HYDRO_STATIONS", {})
 # SMHI's sea-level stations by id, with the hourly sea level (tools/fetch_smhi_sea_level.py).
 SEA_LEVEL_DIR = getattr(_module, "SEA_LEVEL_DIR", None)
 SEA_LEVEL_STATIONS = getattr(_module, "SEA_LEVEL_STATIONS", {})
+# A sea level at least this high (cm) is a storm in the log (hydro.storms).
+SEA_LEVEL_STORM_CM = getattr(_module, "SEA_LEVEL_STORM_CM", 100.0)
 # The flood's words: the land the radar's water is counted on, and who runs the rain gauges.
 FOCUS_LAND = getattr(_module, "FOCUS_LAND", "fokusområdets land")
 RAIN_GAUGES = getattr(_module, "RAIN_GAUGES", "SMHI:s mätare")
