@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, daily_rain, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_clm, meteosat_cth, meteosat_frm, meteosat_gii, meteosat_li, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, sensor_sim, spatial, speech, wms
+from app.backend import assessment, daily_rain, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_clm, meteosat_cth, meteosat_frm, meteosat_gii, meteosat_li, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, scene_satellites, sensor_sim, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -604,7 +604,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "terrain3d": (TERRAIN_DIR / "layer.json").is_file(),
             "satellites": satellites.satellites()["available"],
             # The images, each with Meteosat's cloudy share at its time where fetched (meteosat_clm.py).
-            "landsat": meteosat_clm.with_cloud(landsat.layer()),
+            # Where each image's satellite was when it took it, in a scenario without orbits (scene_satellites.py).
+            "landsat": scene_satellites.with_positions(meteosat_clm.with_cloud(landsat.layer())),
             "radar": radar.layer(),
             "wind": bool(scenario.WIND_FILE and scenario.WIND_FILE.exists()),  # ERA5-Land's wind at /api/wind
             "hydro": hydro.stations() is not None,  # SMHI's flows, lake levels and sea levels at /api/hydro

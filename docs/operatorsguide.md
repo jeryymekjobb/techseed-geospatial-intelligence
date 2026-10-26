@@ -1994,12 +1994,18 @@ här finns nu:
   "Årsbild 2019: Sentinel-2A, 2019-06-29". Naturliga färger visas om inget annat väljs. Bilden efter
   Babet är en vinterbild med låg sol och lite moln väster om näset. 2012 saknas, eftersom bara
   Landsat 7 med randiga bilder finns det året.
-- **Inga satellitbanor och ingen vind.** Satellitmonitorn visar bara loggen, och kartan har inga
-  vindpilar. Satelliternas läge när de tog bilderna kommer i ett senare steg.
+- **Satelliten som tog bilden:** i stället för banor visas den senaste bildens satellit där den var när
+  den tog bilden, som en punkt utan bana på 3D-globen (syns i SPACE VIEW) och på satellitmonitorns
+  karta, med höjd och avstånd i bildtexten och monitorns lista, till exempel "Sentinel-2A (MSI): 798 km,
+  7,5 km/s · tog bilden 29 juni 2019 12:35, 104 km väster om Falsterbonäset (beräknat)". Läget är beräknat
+  ur det banelement från Space-Track som gällde närmast bilden (`tools.fetch_scene_elements`, kräver
+  ~/.spacetrackrc), vid det ögonblick satelliten var närmast näset. Sentinel-2-katalogens tid är när hela
+  överflygningen började långt norrut, så bildtexten och loggen anger i stället det beräknade
+  ögonblicket, några minuter senare.
+- **Ingen vind.** Kartan har inga vindpilar.
 
 Det som återstår enligt förstudien
-(`reports/2026-10-26-forstudie-falsterbo-stranderosion-claude-opus-5-5.md`): satelliternas läge vid
-bilderna, Lantmäteriets ortofoton (kräver ett Geotorget-konto), SGU:s erosionslager, vågor från
+(`reports/2026-10-26-forstudie-falsterbo-stranderosion-claude-opus-5-5.md`): Lantmäteriets ortofoton (kräver ett Geotorget-konto), SGU:s erosionslager, vågor från
 Copernicus Marine och syntetiska sensorer vid stränderna.
 
 Offlinekartan har havsytor från OSM:s vattenpolygoner (`data/osm/water-polygons-split-4326.zip`,

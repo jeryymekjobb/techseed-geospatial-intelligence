@@ -94,10 +94,18 @@ function mapText(baseMap, mapData, offlineTiles, formatDate) {
     : "Karta – Natural Earth II (offline-kartan är inte igång)";
 }
 
-function viewCaption({ scene, image, reason, choice, mapData, offlineTiles, formatTime, formatDate, detection, baseMap }) {
+// Where the image's satellite was when it took the image (scene_satellites.py `satellite_at`), for the caption.
+function satelliteAtText(at, place) {
+  return at ? ` – satelliten ${Math.round(at.height_km)} km upp, ${at.distance_km} km ${at.direction} om ${place || "platsen"} (beräknat)` : "";
+}
+
+function viewCaption({ scene, image, reason, choice, mapData, offlineTiles, formatTime, formatDate, detection, baseMap, place }) {
   let shown;
   if (scene && image) {
-    shown = `Satellitbild – ${scene.satellite}, ${IMAGE_KINDS[image] || image}, tagen ${formatTime(scene.acquired_utc)}`
+    // Where the satellite's position is computed, the moment it was over the place; Sentinel-2's catalogue
+    // time is the start of its whole datatake, minutes earlier and far north.
+    shown = `Satellitbild – ${scene.satellite}, ${IMAGE_KINDS[image] || image}, tagen ${formatTime(scene.satellite_at?.time_utc || scene.acquired_utc)}`
+      + satelliteAtText(scene.satellite_at, place)
       + (scene.meteosat_cloud_pct === undefined ? "" : ` – Meteosat: ${scene.meteosat_cloud_pct} % moln över kartan`);
   } else {
     shown = mapText(baseMap, mapData, offlineTiles, formatDate)
@@ -113,6 +121,24 @@ function typeNames(types) {
   return (typeof types === "string" ? [types] : types).map((kind) => IMAGE_KINDS[kind] || kind).join(" eller ");
 }
 
+// In a scenario without orbits, the satellite of the latest image taken up to the clock where it was when it
+// took it (scene_satellites.py `satellite_at`), as an item for drawSatellites and the monitor; null before the first.
+const IMAGE_INSTRUMENTS = { "Landsat 8": "OLI", "Landsat 9": "OLI", "Sentinel-2A": "MSI", "Sentinel-2B": "MSI" };
+
+function imageSatellite(scenes, clockMs) {
+  let scene = null;
+  for (const item of scenes || []) {
+    if (item.satellite_at && Date.parse(item.acquired_utc) <= clockMs && (!scene || item.acquired_utc > scene.acquired_utc)) scene = item;
+  }
+  if (!scene) return null;
+  const at = scene.satellite_at;
+  return {
+    norad: at.norad, name: scene.satellite, instrument: IMAGE_INSTRUMENTS[scene.satellite] || null, firms: null,
+    role: "tog bilden", track: [], passes: null, time_utc: at.time_utc, distance_km: at.distance_km, direction: at.direction,
+    point: { latitude: at.latitude, longitude: at.longitude, height_km: at.height_km, speed_km_s: at.speed_km_s },
+  };
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { landsatSelection, imageOptions, viewCaption, IMAGE_KINDS, defaultImageTypes, imageTypesShown, imageTypeCounts, typeNames };
+  module.exports = { landsatSelection, imageOptions, viewCaption, satelliteAtText, imageSatellite, IMAGE_KINDS, defaultImageTypes, imageTypesShown, imageTypeCounts, typeNames };
 }

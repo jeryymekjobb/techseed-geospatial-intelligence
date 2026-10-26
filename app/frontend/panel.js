@@ -934,7 +934,21 @@ function setClock(clock) {
   showWind(clock);
   drawForecast(clock);
   showSatellites(clock);
+  showImageSatellite(clock);
   showLandsatAt(clock);
+}
+
+// In a scenario without orbits, the latest image's satellite where it was when it took the image
+// (landsat.js imageSatellite), drawn only when it changes.
+function showImageSatellite(clock) {
+  if (state.satellites?.available || !state.landsat || !clock) return;
+  const item = imageSatellite(state.landsat.scenes, clock.getTime());
+  const key = item ? `${item.norad} ${item.time_utc}` : "";
+  if (key === state.imageSatelliteKey) return;
+  state.imageSatelliteKey = key;
+  state.map.drawSatellites(item ? [{ ...item, description: `${item.name} tog bilden ${formatLocal(item.time_utc)} från `
+    + `${Math.round(item.point.height_km)} km höjd, ${item.distance_km} km ${item.direction} om ${state.config.incident_place}. `
+    + `${state.landsat.satellite_label || ""}.` }] : []);
 }
 
 async function setupLandsat(config) {
@@ -975,7 +989,7 @@ async function setupLandsat(config) {
 function showViewCaption(scene, image, reason) {
   $("view-caption").textContent = viewCaption({
     scene, image, reason, choice: state.imageTypes, baseMap: state.baseMap, mapData: state.config.layers.map_data, offlineTiles: state.config.layers.offline_tiles,
-    formatTime: formatLocal, formatDate: (isoUtc) => localDate.format(new Date(isoUtc)),
+    formatTime: formatLocal, formatDate: (isoUtc) => localDate.format(new Date(isoUtc)), place: state.config.incident_place,
     // The fire's detection sequence: its FIRMS pass over the image or map (the flood's image is the detection).
     detection: state.detection && state.detection.pass.kind !== "flood" ? state.detection.pass : null,
   });

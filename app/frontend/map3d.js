@@ -835,6 +835,9 @@ async function createCesiumMap(config) {
     // sends the scenario no data: an empty track).
     drawSatellites(items) {
       wideSpaceView = hasGeostationary(items);
+      // A satellite left out is hidden (a scenario without orbits draws only the latest image's satellite).
+      const drawn = new Set(items.map((item) => item.norad));
+      for (const [norad, entry] of satelliteEntities) entry.point.show = entry.track.show = drawn.has(norad);
       for (const item of items) {
         const color = cesiumColor(SATELLITE_COLORS[item.instrument] || "#d0d0d0");
         const position = Cesium.Cartesian3.fromDegrees(item.point.longitude, item.point.latitude, item.point.height_km * 1000);
@@ -844,7 +847,7 @@ async function createCesiumMap(config) {
           entry = {
             point: satelliteLayer.entities.add({
               name: escapeText(`${item.name} – ${item.role}`),
-              description: escapeText(`${item.name}${item.instrument ? ` (${item.instrument})` : ""}: position ${config.playback.start_utc.slice(0, 4)}, beräknad ur banelement (SGP4) – inte en observation.`),
+              description: escapeText(item.description || `${item.name}${item.instrument ? ` (${item.instrument})` : ""}: position ${config.playback.start_utc.slice(0, 4)}, beräknad ur banelement (SGP4) – inte en observation.`),
               position,
               point: { pixelSize: 9, color, outlineColor: cesiumColor("#ffffff"), outlineWidth: 2 },
               label: {
@@ -867,6 +870,7 @@ async function createCesiumMap(config) {
         } else {
           entry.point.position = position;
           entry.trackPositions = track;
+          if (item.description) entry.point.description = escapeText(item.description);
         }
       }
     },

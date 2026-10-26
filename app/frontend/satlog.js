@@ -135,8 +135,9 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
   for (const scene of scenes) {
     const satellite = scene.satellite || "Landsat 8";
     lines.push({
-      // With Meteosat's cloudy share over the map area at the image's time, where fetched (meteosat_clm.py).
-      atMs: Date.parse(scene.acquired_utc), source: "landsat", kind: "landsat",
+      // With Meteosat's cloudy share over the map area at the image's time, where fetched (meteosat_clm.py); at
+      // the moment the satellite was over the place where it is computed (scene_satellites.py), as in the caption.
+      atMs: Date.parse(scene.satellite_at?.time_utc || scene.acquired_utc), source: "landsat", kind: "landsat",
       text: `${satellite} tar bild över ${place}${scene.meteosat_cloud_pct === undefined ? "" : ` – Meteosat: ${scene.meteosat_cloud_pct} procent moln`}`,
       // "Landsat 2014", "Sentinel-2 2026": the mission without the unit.
       sourceText: `${satellite.replace(/(Sentinel-\d)[A-Z]$/, "$1").replace(/ \d$/, "")} ${scene.acquired_utc.slice(0, 4)}`,

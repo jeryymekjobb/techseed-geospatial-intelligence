@@ -189,19 +189,23 @@ async function start() {
     drawnAt = clock.getTime();
     const first = Math.floor((clock.getTime() - MONITOR_WINDOW.beforeMs) / DAY);
     const last = Math.floor((clock.getTime() + MONITOR_WINDOW.afterMs) / DAY) + 1;
-    const items = data.satellites.map((satellite) => ({
+    // Without orbits, the latest image's satellite where it was when it took the image (landsat.js imageSatellite).
+    const imaged = data.available ? null : imageSatellite(config.layers.landsat?.scenes, clock.getTime());
+    const items = data.available ? data.satellites.map((satellite) => ({
       ...satellite,
       point: subpoint(lib, satellite.elements, clock),
       track: contributing.has(satellite.name) ? orbitTrack(lib, satellite.elements, clock, 50, 2) : [],
       passes: hasPasses(satellite)
         ? Array.from({ length: last - first + 1 }, (_, i) => passesOn(lib, satellite, first + i, centre)).flat() : null,
-    })).filter((item) => item.point);
+    })).filter((item) => item.point) : imaged ? [imaged] : [];
     monitor.draw(items, clock);
     const list = document.getElementById("monitor-list");
     list.innerHTML = "";
     for (const item of items) {
       const next = item.passes?.find((pass) => pass.end > clock.getTime());
-      const pass = item.geostationary ? ` · geostationär, ser ${place} hela tiden` : !item.passes ? "" : !next ? ` · ingen passage över ${place} närmaste dygnet`
+      const pass = item.time_utc ? ` · tog bilden ${dayYear.format(new Date(item.time_utc))} ${hourMinute.format(new Date(item.time_utc))}, `
+          + `${item.distance_km} km ${item.direction} om ${place} (beräknat)`
+        : item.geostationary ? ` · geostationär, ser ${place} hela tiden` : !item.passes ? "" : !next ? ` · ingen passage över ${place} närmaste dygnet`
         : next.start <= clock.getTime() ? ` · ÖVER ${place.toUpperCase()} NU` : ` · nästa passage över ${place} ${hourMinute.format(new Date(next.start))}`;
       const row = document.createElement("li");
       const swatch = document.createElement("span");

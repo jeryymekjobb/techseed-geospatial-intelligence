@@ -214,6 +214,9 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
     if get("SENTINEL2_SCENES"):
         plan.append(Step("sentinel2", "Sentinel-2-bilder", tool("fetch_sentinel2_scene", "--tools", tools),
                          Path(s.SENTINEL2_DIR) / "SOURCE.json", programs=native(tools, *GDAL), packages=IMAGES, size_mb=60, note="det långsammaste steget"))
+    if get("SCENE_ELEMENTS_FILE") and (get("LANDSAT_SCENES") or get("SENTINEL2_SCENES")):
+        plan.append(Step("scene-elements", "Satelliternas banelement vid bilderna (efter bilderna)", tool("fetch_scene_elements"),
+                         Path(s.SCENE_ELEMENTS_FILE), account="space-track", size_mb=1))
     if get("EMS_AREA") and get("EMS_DIR"):
         plan.append(Step("ems", "Copernicus EMS-ytor", tool("fetch_ems_perimeters", "--tools", tools),
                          Path(s.EMS_DIR) / "perimeters.geojson", programs=native(tools, "ogr2ogr"), size_mb=5))

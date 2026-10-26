@@ -52,6 +52,9 @@ TERRAIN_DIR = DATA / "terrain"
 LANDSAT_DIR = DATA / "landsat"
 TLE_DIR = DATA / "tle"
 TLE_FILE_NAME = "tle-2012-2026.json"
+# The element set each image's satellite had when it took it (tools/fetch_scene_elements.py), so the
+# screens show the satellite where it was then, without an orbit (the user's choice, 2026-10-26).
+SCENE_ELEMENTS_FILE = TLE_DIR / "scene-elements.json"
 # SMHI's hourly sea level (tools/fetch_smhi_sea_level.py), shown as each day's highest (hydro.py).
 SEA_LEVEL_DIR = DATA / "sea-level"
 SEA_LEVEL_STATIONS = {"30488": "Skanör"}

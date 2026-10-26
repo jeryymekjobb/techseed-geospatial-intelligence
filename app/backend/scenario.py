@@ -107,6 +107,9 @@ SEA_LEVEL_DIR = getattr(_module, "SEA_LEVEL_DIR", None)
 SEA_LEVEL_STATIONS = getattr(_module, "SEA_LEVEL_STATIONS", {})
 # A sea level at least this high (cm) is a storm in the log (hydro.storms).
 SEA_LEVEL_STORM_CM = getattr(_module, "SEA_LEVEL_STORM_CM", 100.0)
+# The element set each image's satellite had when it took the image (tools/fetch_scene_elements.py,
+# scene_satellites.py), for a scenario that shows each image's satellite instead of orbits.
+SCENE_ELEMENTS_FILE = getattr(_module, "SCENE_ELEMENTS_FILE", None)
 # The flood's words: the land the radar's water is counted on, and who runs the rain gauges.
 FOCUS_LAND = getattr(_module, "FOCUS_LAND", "fokusområdets land")
 RAIN_GAUGES = getattr(_module, "RAIN_GAUGES", "SMHI:s mätare")
