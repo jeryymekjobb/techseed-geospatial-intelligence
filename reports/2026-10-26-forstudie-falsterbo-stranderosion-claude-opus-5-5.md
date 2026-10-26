@@ -222,6 +222,57 @@ Det som skulle vara syntetiskt och märkt som det:
    översvämningsscenario med erosionslager. Det första är tydligare men kräver mer
    arbete.
 
+## Beslut 2026-10-26
+
+Användaren valde följande efter förstudien:
+
+| Fråga | Val |
+|---|---|
+| Händelse | Långsiktig trend, inte Babet ensam |
+| Period | 2012–2026, med Axel 2017 och Babet 2023 som händelser |
+| Kartområde | Bara Falsterbonäset, ungefär 12,78–12,99° O, 55,37–55,45° N |
+| Vågor | Copernicus Marine, Östersjöns vågåterberäkning (`BALTICSEA_MULTIYEAR_WAV_003_015`) |
+| Händelsetyp | Översvämningsscenario med erosionslager, ingen ny typ |
+| Geodata | SGU:s erosionslager visas först när villkoren är klarlagda |
+
+Om vågåterberäkningen enligt Copernicus Marines produktsida, inte kontrollerat i
+data: WAM 4.7 med ERA5-vind, timvärden, ungefär 1 nautisk mil (1,85 km), från 1980.
+Slutdatumet anges olika på olika sidor (augusti 2025 eller maj 2026), och produkten
+är märkt som arkiverad. Det behöver kontrolleras.
+
+Om Lantmäteriets historiska ortofoton enligt produktsidan: CC0, avgiftsfria, och de
+beställs i Geotorget. Hur ortofotona 2012–2024 över näset hämtas är inte
+kontrollerat.
+
+**Tidsskalan.** Motorn går som snabbast 4 dygn per sekund (`MAX_SPEED` i
+`scenario_engine.py`). Då tar 2012–2026 ungefär 21 minuter. Demon ska vara 2–3
+minuter, så scenariot behöver snabbare uppspelning, och det får inte bromsas vid
+satellitpassager.
+
+### Plan
+
+Varje steg får en egen commit och ett eget GO.
+
+1. Dokumentera besluten (den här ändringen).
+2. Kontrollera datan, utan att bygga något: Lantmäteriets ortofoton över näset
+   2012–2024, klara Sentinel-2-bilder per år 2015–2026, stormarna med högst
+   vattenstånd vid Skanör sedan 2012, och Copernicus Marines vågdata för näset.
+3. Snabbare uppspelning i motorn: högre `MAX_SPEED`, hastigheter som "1 månad/s"
+   och "1 år/s", och en inställning per scenario som stänger av inbromsningen vid
+   passager. Med tester.
+4. Grunden för scenariot: en scenariomodul av typen översvämning med kartområdet och
+   en offlinekarta, Skanörs vattenstånd som diagram och de största stormarna i
+   loggen.
+5. En bildserie över tid: ortofoton och Sentinel-2 efter datum.
+6. SGU:s erosionslager, när villkoren är klarlagda.
+7. Vågor från Copernicus Marine.
+8. Syntetiska sensorer vid Falsterbo, Ljunghusen och Kämpinge som följer vattenstånd
+   och vågor, märkta som syntetiska.
+
+Användaren skaffar ett konto hos Copernicus Marine, som förvaras utanför repot, och
+frågar SGU (kundservice@sgu.se) om erosionslagren får visas på mässan och sparas
+lokalt.
+
 ## Källor
 
 Kontrollerade 2026-10-26.
@@ -252,5 +303,9 @@ Kontrollerade 2026-10-26.
 - SVT, om domen för skyddsvallen: https://www.svt.se/nyheter/lokalt/skane/dom-idag
 - SVT, om Babet i Skanör–Falsterbo:
   https://www.svt.se/nyheter/lokalt/skane/stormen-babet-har-annu-inte-natt-kulmen
+- Copernicus Marine, *Baltic Sea Wave Hindcast*:
+  https://data.marine.copernicus.eu/product/BALTICSEA_MULTIYEAR_WAV_003_015/description
+- Lantmäteriet, historiska ortofoton:
+  https://lantmateriet.se/en/geodata/geodata-products/product-list/historical-orthophotos
 - Microsoft Planetary Computer, STAC-sökning (Sentinel-1 GRD, Sentinel-2 L2A,
   Landsat C2 L2).
