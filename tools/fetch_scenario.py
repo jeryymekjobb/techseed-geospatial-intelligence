@@ -43,6 +43,11 @@ PYTHON = sys.executable
 DATA = REPO_ROOT / "data"
 OSM_EXTRACT = DATA / "osm" / "sweden-latest.osm.pbf"
 OSM_EXTRACT_URL = "https://download.openstreetmap.fr/extracts/europe/sweden-latest.osm.pbf"
+# OSM's sea for the offline map, where tools/build_offline_tiles.py looks for it; without it the sea is drawn as land.
+WATER_POLYGONS = DATA / "osm" / "water-polygons-split-4326.zip"
+WATER_POLYGONS_URL = "https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip"
+# The steps that download a file themselves instead of running a tool.
+DOWNLOADS = {"osm-extract": (OSM_EXTRACT_URL, OSM_EXTRACT), "water-polygons": (WATER_POLYGONS_URL, WATER_POLYGONS)}
 USER_AGENT = "techseed-geospatial-intelligence/0.1 (demo installation)"
 
 # The users' own accounts, by the files the tools read (never read here, only found).
@@ -134,6 +139,8 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
     if not (tiles.is_file() and tiles.stat().st_size > 0):
         plan.append(Step("osm-extract", "OpenStreetMap-utdrag för Sverige", None, OSM_EXTRACT, size_mb=930,
                          note="behövs bara för att bygga offlinekartan"))
+        plan.append(Step("water-polygons", "Havsytor för offlinekartan (OSM)", None, WATER_POLYGONS, size_mb=907, optional=True,
+                         note="utan dem ritas havet som land"))
     plan += [
         Step("dem", "Höjddata (Copernicus DEM GLO-30)", tool("fetch_copernicus_dem"), Path(s.DEM_DIR) / "SOURCE.json", size_mb=100),
         Step("terrain", "3D-terräng", tool("build_terrain", "--tools", tools), Path(s.TERRAIN_DIR) / "layer.json",
@@ -285,7 +292,7 @@ def problems(plan: list[Step], force: bool = False) -> list[str]:
             hint = "ta kartan ur scenariots datapaket (guiden C och G6)" if "tilemaker" in absent else \
                 "installera GDAL/osmium, till exempel från conda-forge (guiden G6), eller kör med --tools docker"
             found.append(f"{step.key}: programmen {', '.join(absent)} saknas på PATH; {hint}")
-        if step.command is None and step.key != "osm-extract":
+        if step.command is None and step.key not in DOWNLOADS:
             found.append(f"{step.key}: {step.marker} saknas och hämtas inte av verktyget ({step.note})")
     return found
 
@@ -329,8 +336,8 @@ def run(plan: list[Step], force: bool = False, runner=subprocess.run) -> int:
             print(f"– {step.title}: klart, hoppas över", flush=True)
             continue
         print(f"→ {step.title} …", flush=True)
-        if step.key == "osm-extract":
-            download(OSM_EXTRACT_URL, OSM_EXTRACT)
+        if step.key in DOWNLOADS:
+            download(*DOWNLOADS[step.key])
             continue
         result = runner(step.command, cwd=REPO_ROOT, env={**os.environ, **step.env})
         if result.returncode != 0:

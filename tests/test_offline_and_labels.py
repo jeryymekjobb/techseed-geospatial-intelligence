@@ -86,3 +86,35 @@ def test_offline_tile_build_commands() -> None:
     assert f"{build.REPO_ROOT / 'tiles'}:/techseed:ro" in tilemaker
     lua = (build.REPO_ROOT / "tiles" / "process-techseed.lua").read_text(encoding="utf-8")
     assert 'dofile("resources/process-openmaptiles.lua")' in lua and "RAILWAY_MINZOOM = 8" in lua
+
+
+def test_the_sea_comes_from_osm_s_water_polygons_clipped_to_the_area() -> None:
+    from tools import build_offline_tiles as build
+
+    [step] = build.coastline_steps("/osm/water-polygons-split-4326.zip", "12.76,55.36,13.02,55.46")
+    assert step[:3] == ["ogr2ogr", "-f", "ESRI Shapefile"]
+    assert step[step.index("-clipsrc") + 1:step.index("-clipsrc") + 5] == ["12.76", "55.36", "13.02", "55.46"]
+    assert step[-2:] == ["water_polygons.shp", "/vsizip//osm/water-polygons-split-4326.zip/water-polygons-split-4326/water_polygons.shp"]
+    # Only the ocean layer's source changes in tilemaker's configuration.
+    config = {"settings": {"maxzoom": 14}, "layers": {"ocean": {"minzoom": 0, "source": "coastline/water_polygons.shp"},
+                                                       "water": {"minzoom": 6}}}
+    changed = build.with_coastline(config, "/data/osm/falsterbo-coastline/water_polygons.shp")
+    assert changed["layers"]["ocean"] == {"minzoom": 0, "source": "/data/osm/falsterbo-coastline/water_polygons.shp"}
+    assert changed["layers"]["water"] == {"minzoom": 6} and changed["settings"] == {"maxzoom": 14}
+    assert config["layers"]["ocean"]["source"] == "coastline/water_polygons.shp"  # the original is untouched
+    tilemaker = build.tilemaker_command(build.DATA / "osm" / "falsterbo-area.osm.pbf", build.DATA / "tiles" / "falsterbo.mbtiles",
+                                        "12.76,55.36,13.02,55.46", build.DATA / "osm" / "falsterbo-tilemaker-config.json")
+    assert tilemaker[tilemaker.index("--config") + 1] == "/data/osm/falsterbo-tilemaker-config.json"
+    plain = build.tilemaker_command(build.DATA / "osm" / "falsterbo-area.osm.pbf", build.DATA / "tiles" / "falsterbo.mbtiles", "12.76,55.36,13.02,55.46")
+    assert plain[plain.index("--config") + 1] == "resources/config-openmaptiles.json"
+
+
+def test_the_water_polygons_are_an_optional_download_beside_the_country_extract(monkeypatch) -> None:
+    from tools import fetch_scenario as fetch
+
+    monkeypatch.setattr(fetch.Path, "is_file", lambda self: False)  # no map built yet
+    plan = fetch.steps("falsterbo")
+    water = next(step for step in plan if step.key == "water-polygons")
+    assert water.optional and water.command is None and water.marker == fetch.WATER_POLYGONS
+    assert fetch.DOWNLOADS["water-polygons"] == (fetch.WATER_POLYGONS_URL, fetch.WATER_POLYGONS)
+    assert not any(problem.startswith("water-polygons") for problem in fetch.problems(plan))

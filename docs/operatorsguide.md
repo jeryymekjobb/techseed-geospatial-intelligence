@@ -878,6 +878,8 @@ python3 -m tools.build_terrain
 # 5.3 Kartutdraget för Sverige (cirka 930 MB) och offline-kartan som byggs av det
 mkdir -p data/osm
 curl -L -o data/osm/sweden-latest.osm.pbf https://download.openstreetmap.fr/extracts/europe/sweden-latest.osm.pbf
+# Havsytorna (cirka 910 MB, valfritt): utan dem ritas havet som land i scenarierna vid kusten
+curl -L -o data/osm/water-polygons-split-4326.zip https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip
 python3 -m tools.build_offline_tiles
 
 # 5.4 Starta tjänsterna: databasen, kartan och meddelandetjänsten för sensorerna
@@ -1994,8 +1996,10 @@ Det som återstår enligt förstudien
 Lantmäteriets ortofoton och satellitbilder (kräver ett Geotorget-konto), SGU:s erosionslager,
 vågor från Copernicus Marine och syntetiska sensorer vid stränderna.
 
-Offlinekartan saknar havsytor: havet runt näset ritas som land. Det gäller sannolikt alla
-scenarier vid kusten och är inte åtgärdat.
+Offlinekartan har havsytor från OSM:s vattenpolygoner (`data/osm/water-polygons-split-4326.zip`,
+cirka 910 MB, ODbL), klippta till kartområdet. Kartorna för de andra scenarierna vid kusten
+(Sundsvall, Kramfors, Västernorrland, Skåne) är byggda före det och ritar fortfarande havet som
+land; de får havet om de byggs om med `TECHSEED_SCENARIO=<scenario> python3 -m tools.build_offline_tiles`.
 
 Data hämtas med:
 

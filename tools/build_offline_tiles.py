@@ -10,6 +10,13 @@
 3. `data/tiles/<tiles>.SOURCE.json`, for example `vastmanland.SOURCE.json`, records the input
    file, its SHA-256 and the area, so the scenarios' tiles can share the directory.
 
+The sea: tilemaker's OpenMapTiles configuration draws it from OSM's water polygons
+(`coastline/water_polygons.shp`), which are not in the country extract. When
+`data/osm/water-polygons-split-4326.zip` (osmdata.openstreetmap.de, ODbL; fetch_scenario's
+`water-polygons` step) is there, GDAL clips it to the area into `data/osm/<scenario>-coastline/`
+and tilemaker gets a copy of its configuration whose `ocean` source is that file. Without it the
+map is built as before, with the sea drawn as land.
+
 The `tiles` service of docker-compose.yml (tileserver-gl) then renders them as
 map images, and the backend serves those at /tiles/{z}/{x}/{y}.png. Map data
 © OpenStreetMap contributors, ODbL. Only Docker and the Python standard library
@@ -44,6 +51,12 @@ TILEMAKER_IMAGE = "ghcr.io/systemed/tilemaker:master"
 PROCESS_DIR = REPO_ROOT / "tiles"
 PROCESS_FILE = "process-techseed.lua"
 OSMIUM_IMAGE = "debian:stable-slim"
+# OSM's sea as polygons split into tiles, WGS 84 (osmdata.openstreetmap.de, ODbL).
+WATER_POLYGONS = DATA / "osm" / "water-polygons-split-4326.zip"
+WATER_POLYGONS_URL = "https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip"
+WATER_LAYER = "water-polygons-split-4326/water_polygons.shp"  # inside the zip
+# tilemaker's own configuration, inside its image and in a native install's resources directory.
+TILEMAKER_CONFIG = "resources/config-openmaptiles.json"
 
 
 def sha256_of(path: Path) -> str:
@@ -72,22 +85,64 @@ def extract_step(source: Path, area: Path, bbox: str) -> list[str]:
     return ["osmium", "extract", "-b", bbox, "--strategy", "smart", "--overwrite", str(source), "-o", str(area)]
 
 
-def tilemaker_step(area: Path, output: Path, bbox: str, resources: Path) -> list[str]:
+def tilemaker_step(area: Path, output: Path, bbox: str, resources: Path, config: Path | None = None) -> list[str]:
     """tilemaker from PATH (--tools native), run in the parent of its resources directory, since
-    process-techseed.lua loads resources/process-openmaptiles.lua from there."""
+    process-techseed.lua loads resources/process-openmaptiles.lua from there; `config` is a copy
+    with the sea, else tilemaker's own."""
     return ["tilemaker", "--input", str(area), "--output", str(output), "--bbox", bbox,
-            "--config", str(resources / "config-openmaptiles.json"), "--process", str(PROCESS_DIR / PROCESS_FILE), "--skip-integrity"]
+            "--config", str(config or resources / "config-openmaptiles.json"), "--process", str(PROCESS_DIR / PROCESS_FILE), "--skip-integrity"]
 
 
-def tilemaker_command(area: Path, output: Path, bbox: str) -> list[str]:
+def tilemaker_command(area: Path, output: Path, bbox: str, config: Path | None = None) -> list[str]:
+    """tilemaker in its image; `config`, under data/, is a copy with the sea, else tilemaker's own."""
     return [
         "docker", "run", "--rm", "-u", user(), "-v", f"{DATA}:/data", "-v", f"{PROCESS_DIR}:/techseed:ro", TILEMAKER_IMAGE,
         "--input", f"/data/{area.relative_to(DATA)}", "--output", f"/data/{output.relative_to(DATA)}",
-        "--bbox", bbox, "--config", "resources/config-openmaptiles.json", "--process", f"/techseed/{PROCESS_FILE}",
+        "--bbox", bbox, "--config", f"/data/{config.relative_to(DATA)}" if config else TILEMAKER_CONFIG,
+        "--process", f"/techseed/{PROCESS_FILE}",
         # Skip ways whose nodes are missing instead of crashing: Sundsvall's area grown north to
         # Kramfors (2026-10-15) holds a way whose node is missing in the country extract.
         "--skip-integrity",
     ]
+
+
+def coastline_steps(zip_path: str, bbox: str) -> list[list[str]]:
+    """The OGR step (geo_tools) that clips the water polygons to the area into water_polygons.shp."""
+    west, south, east, north = bbox.split(",")
+    return [["ogr2ogr", "-f", "ESRI Shapefile", "-spat", west, south, east, north, "-clipsrc", west, south, east, north,
+             "water_polygons.shp", f"/vsizip/{zip_path}/{WATER_LAYER}"]]
+
+
+def clip_coastline(zip_file: Path, folder: Path, bbox: str, tools: str) -> Path:
+    """The water polygons inside the area, as folder/water_polygons.shp."""
+    from tools.fetch_landsat_scene import GDAL_IMAGE  # the GDAL container the other tools use
+
+    if folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True)
+    if tools == "native":
+        result = geo_tools.run_native(coastline_steps(str(zip_file), bbox), folder)
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
+    else:
+        subprocess.run(["docker", "run", "--rm", "-u", user(), "-v", f"{folder}:/data", "-v", f"{zip_file.parent}:/osm:ro", GDAL_IMAGE,
+                        "sh", "-c", geo_tools.shell_script(coastline_steps(f"/osm/{zip_file.name}", bbox))], check=True)
+    return folder / "water_polygons.shp"
+
+
+def with_coastline(config: dict, shapefile: str) -> dict:
+    """tilemaker's configuration with its `ocean` layer drawn from the clipped water polygons."""
+    layers = {**config["layers"], "ocean": {**config["layers"]["ocean"], "source": shapefile}}
+    return {**config, "layers": layers}
+
+
+def tilemaker_config(tools: str, resources: Path | None) -> dict:
+    """tilemaker's own OpenMapTiles configuration, from a native install or its image."""
+    if tools == "native":
+        return json.loads((resources / "config-openmaptiles.json").read_text(encoding="utf-8"))
+    shown = subprocess.run(["docker", "run", "--rm", "--entrypoint", "cat", TILEMAKER_IMAGE, TILEMAKER_CONFIG],
+                           check=True, capture_output=True, text=True)
+    return json.loads(shown.stdout)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -98,6 +153,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bbox", default=DEFAULT_BBOX, help="west,south,east,north")
     geo_tools.add_argument(parser)
     parser.add_argument("--tilemaker-resources", type=Path, help="with --tools native: tilemaker's resources directory")
+    parser.add_argument("--water-polygons", type=Path, default=WATER_POLYGONS,
+                        help="OSM's water polygons (water-polygons-split-4326.zip) for the sea; without it no sea is drawn")
     args = parser.parse_args(argv)
     tools = geo_tools.choice(args.tools)
     resources = args.tilemaker_resources.resolve() if args.tilemaker_resources else None
@@ -116,10 +173,19 @@ def main(argv: list[str] | None = None) -> int:
         subprocess.run(extract_command(source, area, args.bbox), check=True)
     if output.exists():
         output.unlink()
-    if tools == "native":
-        subprocess.run(tilemaker_step(area, output, args.bbox, resources), cwd=resources.parent, check=True, stdout=subprocess.DEVNULL)
+    config = None
+    if args.water_polygons.is_file():
+        water = args.water_polygons.resolve()
+        shapefile = clip_coastline(water, source.parent / f"{scenario.NAME}-coastline", args.bbox, tools)
+        config = source.parent / f"{scenario.NAME}-tilemaker-config.json"
+        inside = str(shapefile) if tools == "native" else f"/data/{shapefile.relative_to(DATA)}"
+        config.write_text(json.dumps(with_coastline(tilemaker_config(tools, resources), inside), indent=1) + "\n", encoding="utf-8")
     else:
-        subprocess.run(tilemaker_command(area, output, args.bbox), check=True, stdout=subprocess.DEVNULL)
+        print(f"build_offline_tiles: {args.water_polygons} saknas; kartan byggs utan havsytor", flush=True)
+    if tools == "native":
+        subprocess.run(tilemaker_step(area, output, args.bbox, resources, config), cwd=resources.parent, check=True, stdout=subprocess.DEVNULL)
+    else:
+        subprocess.run(tilemaker_command(area, output, args.bbox, config), check=True, stdout=subprocess.DEVNULL)
     (output.parent / f"{output.stem}.SOURCE.json").write_text(json.dumps({
         "source_file": source.name,
         "source_url": args.source_url,
@@ -132,6 +198,9 @@ def main(argv: list[str] | None = None) -> int:
         "built_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "schema": "OpenMapTiles (tilemaker resources/config-openmaptiles.json)",
         "processing": f"tiles/{PROCESS_FILE}: tilemaker's process-openmaptiles.lua, railways from zoom 8, road numbers from zoom 9",
+        "sea": {"source_file": args.water_polygons.name, "source_url": WATER_POLYGONS_URL,
+                "source_downloaded_utc": datetime.fromtimestamp(args.water_polygons.stat().st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+               if config else None,
         "attribution": "© OpenStreetMap contributors, ODbL",
     }, indent=2) + "\n", encoding="utf-8")
     print(f"Tiles: {output} ({output.stat().st_size // (1 << 20)} MB)")
