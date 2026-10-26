@@ -21,6 +21,9 @@ function parseKioskOptions(search) {
 }
 
 function speedLabel(seconds) {
+  if (seconds === 365 * 86400) return "1 år/s";
+  if (seconds === 30 * 86400) return "1 månad/s";
+  if (seconds === 7 * 86400) return "1 vecka/s";
   if (seconds % 86400 === 0) return `${seconds / 86400} dygn/s`;
   if (seconds % 3600 === 0) return `${seconds / 3600} ${seconds === 3600 ? "timme" : "timmar"}/s`;
   const minutes = Math.round(seconds / 60);

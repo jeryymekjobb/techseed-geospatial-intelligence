@@ -63,7 +63,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
-MIN_SPEED, MAX_SPEED = 60.0, 4 * 86400.0
+# Up to a year a second, for a scenario of many years (Falsterbo's erosion 2012–2026).
+MIN_SPEED, MAX_SPEED = 60.0, 365 * 86400.0
 # Ten scenario minutes per second: slow enough to follow, a scenario day in under 2.5 minutes.
 DEFAULT_SPEED = 600.0
 SLOW_SPEED = 60.0

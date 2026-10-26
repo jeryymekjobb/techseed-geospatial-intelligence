@@ -337,6 +337,16 @@ def test_the_summary_says_how_long_the_playback_takes_at_the_speed() -> None:
     assert node(f"summaryDuration({json.dumps({**state, 'speed': 60, 'playback_seconds': 40320})})") == \
         "Uppspelningen tar cirka 11 timmar och 12 minuter med 1 minut per sekund."
     assert node("summaryDuration({})") is None
+    # Speeds of days, weeks, months and years are said in those words, not as thousands of hours.
+    years = {"start_utc": "2012-01-01T00:00:00Z", "end_utc": "2026-10-01T00:00:00Z"}
+    assert node(f"summaryDuration({json.dumps({**years, 'speed': 30 * 86400, 'playback_seconds': 180})})") == \
+        "Uppspelningen tar cirka 3 minuter med 1 månad per sekund."
+    assert node(f"summaryDuration({json.dumps({**years, 'speed': 365 * 86400, 'playback_seconds': 15})})") == \
+        "Uppspelningen tar cirka 15 sekunder med 1 år per sekund."
+    assert node(f"summaryDuration({json.dumps({**state, 'speed': 7 * 86400, 'playback_seconds': 4})})") == \
+        "Uppspelningen tar cirka 4 sekunder med 1 vecka per sekund."
+    assert node(f"summaryDuration({json.dumps({**state, 'speed': 86400, 'playback_seconds': 28})})") == \
+        "Uppspelningen tar cirka 28 sekunder med 1 dygn per sekund."
 
 
 def test_meteosat_has_a_line_for_each_quarter_with_pixels_and_no_passes() -> None:

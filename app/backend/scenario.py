@@ -40,6 +40,9 @@ PERIOD_START = _module.PERIOD_START
 PERIOD_END = _module.PERIOD_END
 PLAYBACK_START = _module.PLAYBACK_START
 PLAYBACK_END = _module.PLAYBACK_END
+# Whether the clock slows down round satellite passes and images (server.slow_windows); off for a
+# scenario of many years, whose playback would otherwise mostly stand still.
+SLOW_AT_PASSES = getattr(_module, "SLOW_AT_PASSES", True)
 CHECK_START_UTC = _module.CHECK_START_UTC
 # The satellite image tools/check_demo.py waits for in the fire's playback, by the start of its text.
 CHECK_IMAGE = getattr(_module, "CHECK_IMAGE", "Under branden: Landsat 8")

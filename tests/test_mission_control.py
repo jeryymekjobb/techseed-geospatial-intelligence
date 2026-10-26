@@ -39,7 +39,7 @@ def test_the_buttons_send_only_commands_the_engine_knows() -> None:
     assert 'send("filter", input.dataset.category)' in control
     # The speeds are a list with ANVÄND (control.js), as on the main screen.
     speeds = [float(value) for value in re.findall(r'<option value="([0-9.]+)">', html.split('id="speed-pick"', 1)[1].split("</select>", 1)[0])]
-    assert speeds == [60.0, 600.0, 1800.0, 3600.0, 10800.0] and all(MIN_SPEED <= value <= MAX_SPEED for value in speeds)
+    assert speeds == [60.0, 600.0, 1800.0, 3600.0, 10800.0, 86400.0, 604800.0, 2592000.0, 31536000.0] and all(MIN_SPEED <= value <= MAX_SPEED for value in speeds)
 
 
 def test_every_event_kind_has_a_text() -> None:

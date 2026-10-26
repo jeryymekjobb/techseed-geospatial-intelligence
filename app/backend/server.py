@@ -46,7 +46,7 @@ TILES_DIR = REPO_DIR / "data" / "tiles"
 # Cesium terrain built by tools/build_terrain.py (not versioned).
 TERRAIN_DIR = scenario.TERRAIN_DIR
 TICK_SECONDS = 0.25
-MIN_SPEED, MAX_SPEED = 60.0, 4 * 86400.0  # simulated seconds per real second
+MIN_SPEED, MAX_SPEED = 60.0, 365 * 86400.0  # simulated seconds per real second
 
 
 @lru_cache(maxsize=1)
@@ -273,7 +273,10 @@ SLOW_BEFORE, SLOW_AFTER = timedelta(minutes=2), timedelta(minutes=6)
 def slow_windows() -> list[tuple[datetime, datetime]]:
     """Two minutes before to six after each FIRMS pass (a granule lasts up to five) and each satellite image
     in the playback; for the flood, round every pass of a satellite over the incident (passes.py), as the
-    satellite monitor shows them, since it has no detections to slow down for."""
+    satellite monitor shows them, since it has no detections to slow down for. None when the scenario's
+    SLOW_AT_PASSES is off."""
+    if not scenario.SLOW_AT_PASSES:
+        return []
     moments = {parse_utc(item["acq_datetime_utc"]) for item in detections()}
     moments |= {parse_utc(item["time_utc"]) for item in scenario.SENTINEL1_ACQUISITIONS}
     windows: list[tuple[datetime, datetime]] = []

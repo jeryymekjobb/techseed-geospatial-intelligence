@@ -194,6 +194,14 @@ def test_a_high_speed_cannot_jump_over_a_slow_window() -> None:
     assert scenario.snapshot()["clock_utc"] == "2014-08-01T00:00:45Z"
 
 
+def test_a_year_a_second_is_the_highest_speed() -> None:
+    scenario = ScenarioEngine(datetime(2012, 1, 1, tzinfo=timezone.utc), datetime(2026, 10, 1, tzinfo=timezone.utc),
+                              monotonic=FakeTime())
+    assert scenario.command("speed", speed=365 * 86400)["speed"] == 365 * 86400.0
+    with pytest.raises(CommandError):
+        scenario.command("speed", speed=366 * 86400)
+
+
 def test_iot_is_switched_off_and_on_and_back_on_after_reset() -> None:
     scenario, _ = engine()
 
@@ -376,6 +384,12 @@ def test_the_backend_slows_down_around_every_firms_pass_and_the_landsat_scene() 
     assert all(end - start == timedelta(minutes=8) for start, end in windows)
     first = min(passes)
     assert (first - timedelta(minutes=2), first + timedelta(minutes=6)) in windows
+
+
+def test_a_scenario_without_slowing_at_passes_has_no_slow_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert server.slow_windows()
+    monkeypatch.setattr(server.scenario, "SLOW_AT_PASSES", False)
+    assert server.slow_windows() == []
 
 
 def test_with_iot_off_no_sensor_reaches_the_screens_or_the_assessment() -> None:

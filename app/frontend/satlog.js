@@ -405,7 +405,12 @@ function summaryDuration(scenarioState) {
     : minutes < 90 ? `${minutes} ${minutes === 1 ? "minut" : "minuter"}`
     : `${Math.floor(minutes / 60)} timmar och ${minutes % 60} minuter`;
   const hours = speed / 3600;
-  const pace = Number.isInteger(hours) ? `${hours} ${hours === 1 ? "timme" : "timmar"} per sekund`
+  const days = speed / 86400;
+  const pace = speed === 365 * 86400 ? "1 år per sekund"
+    : speed === 30 * 86400 ? "1 månad per sekund"
+    : speed === 7 * 86400 ? "1 vecka per sekund"
+    : Number.isInteger(days) ? `${days} dygn per sekund`
+    : Number.isInteger(hours) ? `${hours} ${hours === 1 ? "timme" : "timmar"} per sekund`
     : `${Math.round(speed / 60)} ${Math.round(speed / 60) === 1 ? "minut" : "minuter"} per sekund`;
   const plain = (Date.parse(scenarioState.end_utc) - Date.parse(scenarioState.start_utc)) / 1000 / speed;
   const slowed = seconds > plain + 1 ? ", med inbromsning vid satellitpassager" : "";

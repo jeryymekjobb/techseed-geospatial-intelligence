@@ -62,7 +62,8 @@ def test_the_speed_is_saved_and_one_outside_the_limits_is_not_kept(tmp_path: Pat
     path = tmp_path / "profiles.json"
     assert profiles.save("sundsvall2026", None, None, path, speed=1800)["speed"] == 1800.0
     assert profiles.save("skane2024", None, None, path)["speed"] is None  # not saved: the default
-    for speed in [5, 10 * 86400, "fast", True]:
+    assert profiles.save("sundsvall2026", None, None, path, speed=365 * 86400)["speed"] == 365 * 86400.0  # a year a second
+    for speed in [5, 400 * 86400, "fast", True]:
         assert profiles.save("sundsvall2026", None, None, path, speed=speed)["speed"] is None
 
 

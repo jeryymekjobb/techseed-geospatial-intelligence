@@ -36,13 +36,14 @@ def test_kiosk_options_are_parsed_and_validated() -> None:
         "console.log(JSON.stringify(["
         "k.parseKioskOptions('?at=2014-08-04T06:00:00Z&autoplay=1&speed=10800&horizon=6'),"
         "k.parseKioskOptions('?at=nonsense&speed=5&horizon=7&show=all'),"
-        "[k.speedLabel(3600), k.speedLabel(10800), k.speedLabel(86400), k.speedLabel(1800)]]));"
+        "[k.speedLabel(3600), k.speedLabel(10800), k.speedLabel(86400), k.speedLabel(1800),"
+        " k.speedLabel(604800), k.speedLabel(2592000), k.speedLabel(31536000), k.speedLabel(172800)]]));"
     )
     valid, invalid, labels = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
 
     assert valid == {"showAll": False, "at": "2014-08-04T06:00:00.000Z", "autoplay": True, "speed": 10800, "horizon": "6"}
     assert invalid == {"showAll": True, "at": None, "autoplay": False, "speed": None, "horizon": None}
-    assert labels == ["1 timme/s", "3 timmar/s", "1 dygn/s", "30 minuter/s"]
+    assert labels == ["1 timme/s", "3 timmar/s", "1 dygn/s", "30 minuter/s", "1 vecka/s", "1 månad/s", "1 år/s", "2 dygn/s"]
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")

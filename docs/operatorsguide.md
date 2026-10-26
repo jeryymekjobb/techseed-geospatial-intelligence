@@ -1253,8 +1253,10 @@ behöver `&token=din-token` i slutet.
 ## 10. Manuset, cirka tre minuter
 
 Knapparna i **fetstil** finns i mission control. Hastigheten väljer du i listan **Hastighet**
-under PLAY, PAUSE och RESET – 1 minut/s, 10 minuter/s, 30 minuter/s, 1 timme/s eller 3
-timmar/s – och tar i bruk med **ANVÄND** till vänster om listan. Listan visar den hastighet som
+under PLAY, PAUSE och RESET – 1 minut/s, 10 minuter/s, 30 minuter/s, 1 timme/s, 3
+timmar/s, 1 dygn/s, 1 vecka/s, 1 månad/s (30 dygn) eller 1 år/s (365 dygn) – och tar i bruk
+med **ANVÄND** till vänster om listan. De fyra sista är till för scenarier som spänner över
+många år; i en storm eller brand hoppar de över det mesta. Listan visar den hastighet som
 gäller. Knapparna som tar ett val i bruk – **ANVÄND**, **ANVÄND TIDER** och **VISA VALD BILD** –
 är röda så länge du har valt något som ännu inte gäller på skärmarna. **RESET** ändrar inte hastigheten. Spara den med **SPARA PROFIL FÖR SCENARIOT** så
 startar demon med den; utan sparad hastighet startar den på 10 minuter/s.
