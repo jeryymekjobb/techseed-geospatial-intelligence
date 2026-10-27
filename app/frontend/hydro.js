@@ -22,9 +22,13 @@ function hydroText(kind, value) {
   return `${text.replace(".", ",")} ${kind === "level" ? "m" : "m³/s"}`;
 }
 
-// Whether the period's highest so far exceeds every value measured before it.
-function hydroRecord(station, highest) {
-  return Boolean(highest && station.earlier_max && highest.value > station.earlier_max.value);
+// Whether the period's highest so far exceeds every value measured before it; given the clock and the
+// station's record_hold_days, also whether it was measured at most that many days before (the map's label).
+function hydroRecord(station, highest, clockMs) {
+  if (!highest || !station.earlier_max || highest.value <= station.earlier_max.value) return false;
+  const hold = station.record_hold_days;
+  if (clockMs === undefined || hold === null || hold === undefined) return true;
+  return clockMs - Date.parse(highest.time_utc) <= hold * 86_400_000;
 }
 
 // When a value was measured: a level is SMHI's value for the day, stamped at 00:00 UTC, so only its

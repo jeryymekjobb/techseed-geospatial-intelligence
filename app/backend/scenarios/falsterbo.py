@@ -73,6 +73,9 @@ LEVEL_SENSOR_SITES = [
 LEVEL_SENSOR_FILE = DATA / "sensors" / "level-points.geojson"
 LEVEL_ALARM_LEVEL = SEA_LEVEL_STORM_CM
 LEVEL_ALARM_HOLD_DAYS = 30
+# Skanör's record from storm Axel (January 2017) is named on the map as long as the beach sensors' alarm,
+# not for the nine years after it.
+HYDRO_RECORD_HOLD_DAYS = LEVEL_ALARM_HOLD_DAYS
 SENSOR_WORDS = {"sensors": "nivågivare", "the_sensors": "nivågivarna", "alarming": "larmande"}
 # The sea level is a value a day (hydro.py), so the log samples the sensors once a day.
 SENSOR_EVENT_MINUTES = 24 * 60

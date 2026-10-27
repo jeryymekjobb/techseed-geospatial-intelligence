@@ -84,6 +84,22 @@ def test_the_screens_show_the_value_up_to_the_clock_and_a_record() -> None:
     assert result == [24.0, False, 29.0, 30.2, True, "30,2 m³/s", "54,94 m", "–", "10 feb 2024", "tid"]
 
 
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_a_record_is_named_only_for_the_hold_days_after_it() -> None:
+    # SYNTHETIC daily levels: a record above the earlier highest in January 2017, a lower peak in 2023.
+    station = {"earlier_max": {"value": 146.1}, "record_hold_days": 30, "observations": [
+        {"time_utc": "2017-01-04T00:00:00Z", "value": 168.6}, {"time_utc": "2023-10-21T00:00:00Z", "value": 149.5}]}
+    code = (f"const m = require({json.dumps(str(HYDRO_JS))}); const s = {json.dumps(station)};"
+            "const at = (t) => m.hydroRecord(s, m.hydroAt(s.observations, Date.parse(t)).highest, Date.parse(t));"
+            "const forever = {...s, record_hold_days: null};"
+            "const later = Date.parse('2023-10-21T12:00:00Z'), highest = m.hydroAt(s.observations, later).highest;"
+            "console.log(JSON.stringify([at('2017-01-04T12:00:00Z'), at('2017-02-03T00:00:00Z'), at('2017-02-04T00:00:01Z'),"
+            " at('2023-10-21T12:00:00Z'), m.hydroRecord(forever, highest, later), m.hydroRecord(s, highest)]));")
+    result = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+    # Without the clock (the panel's note under the period's highest) the hold does not apply.
+    assert result == [True, True, False, False, True, True]
+
+
 def write_sea_level(folder: Path) -> None:
     """SYNTHETIC hourly sea levels at a Skanör-like station, in fetch_smhi_sea_level's layout."""
     rows = [("2017-01-04T16:00:00Z", 163.2, "G"), ("2017-01-04T17:00:00Z", 168.6, "G"), ("2017-01-05T03:00:00Z", 101.0, "G"),
@@ -100,10 +116,12 @@ def test_the_sea_level_is_a_level_station_with_each_day_s_highest(tmp_path: Path
     monkeypatch.setattr(hydro, "HYDRO_DIR", None)
     monkeypatch.setattr(hydro, "SEA_LEVEL_DIR", tmp_path)
     monkeypatch.setattr(hydro.scenario, "SEA_LEVEL_STATIONS", {"30488": "Skanör"})
+    monkeypatch.setattr(hydro.scenario, "HYDRO_RECORD_HOLD_DAYS", 30)
     write_sea_level(tmp_path)
     hydro.stations.cache_clear(), hydro.sea_levels.cache_clear()
     [station] = hydro.stations()["stations"]
     assert (station["id"], station["name"], station["kind"], station["sea"], station["unchecked"]) == ("sea-30488", "Skanör (havet)", "level", True, True)
+    assert station["record_hold_days"] == 30
     assert station["observations"][:2] == [{"time_utc": "2017-01-04T00:00:00Z", "value": 168.6}, {"time_utc": "2017-01-05T00:00:00Z", "value": 101.0}]
     hydro.stations.cache_clear(), hydro.sea_levels.cache_clear()
 

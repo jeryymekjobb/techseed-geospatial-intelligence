@@ -1984,7 +1984,8 @@ här finns nu:
 - **Panelen:** **Regn (SMHI)** vid Falsterbo A, summerat i staplar på några dygn, och SMHI:s
   havsvattenstånd vid Skanör under **Vattenföring och vattenstånd (SMHI)**, som dygnets högsta
   värde i RH2000 med det högsta som mätts före 2012 (1,46 m, april 1997) streckat. Båda
-  diagrammen har årtal i stället för datum.
+  diagrammen har årtal i stället för datum. Kartans etikett vid Skanör säger "– rekord" i 30 dygn
+  efter stormen Axel (januari 2017), då det tidigare högsta slogs.
 - **Loggen:** en rad för varje storm då havet vid Skanör nådde minst 100 cm i RH2000, 13 stycken
   2012–2026, till exempel "Högt vattenstånd vid Skanör: 168,6 centimeter i RH2000, det högsta sedan
   mätningarna började 1992" (stormen Axel, 4 januari 2017). Loggens tider har årtal.

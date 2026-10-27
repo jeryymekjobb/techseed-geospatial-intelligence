@@ -169,6 +169,9 @@ LEVEL_ALARM_RISE = getattr(_module, "LEVEL_ALARM_RISE", None)
 # LEVEL_ALARM_HOLD_DAYS after it; and how often the sensors are sampled for the log of their changes.
 LEVEL_ALARM_LEVEL = getattr(_module, "LEVEL_ALARM_LEVEL", None)
 LEVEL_ALARM_HOLD_DAYS = getattr(_module, "LEVEL_ALARM_HOLD_DAYS", None)
+# How many days after a station's new record the map's label says "rekord" (hydro.js); None for the
+# whole period, as a playback of days needs.
+HYDRO_RECORD_HOLD_DAYS = getattr(_module, "HYDRO_RECORD_HOLD_DAYS", None)
 SENSOR_EVENT_MINUTES = getattr(_module, "SENSOR_EVENT_MINUTES", 10)
 # A coastal erosion scenario's yearly shoreline lines (tools/derive_shorelines.py, shorelines.py): the
 # file, the south-facing stretches of coast ({"name", "west", "east"}), the area and its UTM grid.

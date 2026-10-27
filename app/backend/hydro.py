@@ -1,7 +1,8 @@
 """SMHI's measured flows and lake levels for the flood scenarios that have them (tools/fetch_smhi_hydro.py).
 
 /api/hydro gives each station's series over the period with the highest value measured
-before it, so the screens can say when the water is the highest since measuring began.
+before it, so the screens can say when the water is the highest since measuring began, and
+for how many days after (HYDRO_RECORD_HOLD_DAYS, None for the whole period).
 
 A scenario's SMHI sea-level stations (tools/fetch_smhi_sea_level.py) are given the same way, as
 levels with each day's highest hourly value at 00 UTC, since a playback of many years cannot show
@@ -39,7 +40,7 @@ def stations() -> dict[str, Any] | None:
         result.append({
             **{key: station[key] for key in ("id", "name", "kind", "unit", "latitude", "longitude", "measured_since", "earlier_max")},
             # SMHI's quality code: G checked and approved, anything else not yet checked.
-            "unchecked": any(row["quality"] != "G" for row in rows),
+            "unchecked": any(row["quality"] != "G" for row in rows), "record_hold_days": scenario.HYDRO_RECORD_HOLD_DAYS,
             "observations": [{"time_utc": row["time_utc"], "value": float(row["value"])} for row in rows],
         })
     if sea is not None:
@@ -70,7 +71,7 @@ def sea_levels() -> dict[str, Any] | None:
             "id": f"sea-{station['station']}", "name": f"{scenario.SEA_LEVEL_STATIONS.get(station['station']) or station['name']} (havet)",
             "kind": "level", "unit": station["unit"], "sea": True, "height_system": station["height_system"],
             **{key: station[key] for key in ("latitude", "longitude", "measured_since", "earlier_max")},
-            "unchecked": any(row["quality"] != "G" for row in rows),
+            "unchecked": any(row["quality"] != "G" for row in rows), "record_hold_days": scenario.HYDRO_RECORD_HOLD_DAYS,
             "observations": [{"time_utc": f"{day}T00:00:00Z", "value": value} for day, value in sorted(days.items())],
         })
     return {"source": source["source"], "stations": result}

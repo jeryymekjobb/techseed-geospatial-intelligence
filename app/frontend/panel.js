@@ -776,7 +776,7 @@ function showHydro(clock) {
   const labels = {};
   for (const station of state.hydro.stations) {
     const { latest, highest } = hydroAt(station.observations, clock.getTime());
-    labels[`hydro-${station.id}`] = `${station.name}: ${hydroText(station.kind, latest?.value)}${hydroRecord(station, highest) ? " – rekord" : ""}`;
+    labels[`hydro-${station.id}`] = `${station.name}: ${hydroText(station.kind, latest?.value)}${hydroRecord(station, highest, clock.getTime()) ? " – rekord" : ""}`;
   }
   state.map.labelStations(labels);
   const station = state.hydro.stations.find((item) => item.id === state.hydroStation);
