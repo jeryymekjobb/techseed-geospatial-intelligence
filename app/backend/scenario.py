@@ -165,6 +165,11 @@ ROUTE_EXPOSURE_FILE = getattr(_module, "ROUTE_EXPOSURE_FILE", None)
 # The level sensors' alarm as a rise over the flow at the playback's start, instead of above the
 # station's record (level_sensors.py); and SMHI's stations that report the rain by the day (daily_rain.py).
 LEVEL_ALARM_RISE = getattr(_module, "LEVEL_ALARM_RISE", None)
+# Or as a level the station's value reaches (a sea's beach: cm in the station's height system), held for
+# LEVEL_ALARM_HOLD_DAYS after it; and how often the sensors are sampled for the log of their changes.
+LEVEL_ALARM_LEVEL = getattr(_module, "LEVEL_ALARM_LEVEL", None)
+LEVEL_ALARM_HOLD_DAYS = getattr(_module, "LEVEL_ALARM_HOLD_DAYS", None)
+SENSOR_EVENT_MINUTES = getattr(_module, "SENSOR_EVENT_MINUTES", 10)
 # Further places for the synthetic level sensors at reported damage, with a "site", latitude and
 # longitude, where the scenario's own reports name too few (tools/derive_impact_sensor_points.py).
 LEVEL_SENSOR_SITES = getattr(_module, "LEVEL_SENSOR_SITES", [])

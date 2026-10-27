@@ -30,3 +30,8 @@ def test_sensor_collection_records_the_flow_attribution_and_derivation_time() ->
 
     assert derived["attribution"] == "SMHI open data, CC BY 4.0 SE"
     assert derived["derived_utc"] == "2026-10-24T00:00:00Z"
+
+
+def test_sensor_collection_is_stamped_with_the_time_of_deriving_by_default() -> None:
+    derived = with_measurement_provenance({"features": []}, "SMHI")
+    assert datetime.fromisoformat(derived["derived_utc"].replace("Z", "+00:00")) <= datetime.now(timezone.utc)

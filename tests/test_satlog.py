@@ -239,6 +239,9 @@ def test_the_level_sensors_are_reported_once_per_scenario_day_while_any_alarms()
         "Nivålarm från 3 nivågivare: Ringsjödammen övre 3 centimeter över tidigare högsta nivå. "
         "Heåkra 112 procent av tidigare högsta flöde.")
     assert node(f"levelReport({json.dumps(sensors[3:])})") is None
+    beach = {"kind": "level", "status": "ok", "confirms": True, "station": "Skanör (havet)", "station_kind": "level",
+             "alarm_cm": 100, "hold_days": 30, "peak": 150}
+    assert node(f"levelReport({json.dumps([beach, beach])})") == "Nivålarm från 2 nivågivare: Skanör (havet) högst 150 centimeter de senaste 30 dygnen."
     day = 24 * HOUR
     steps = node(f"""(() => {{ let next = null; const out = [];
         for (const [clock, alarming, jumped] of [[0, true, false], [{day - 1}, true, false], [{day}, true, false],

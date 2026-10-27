@@ -10,9 +10,10 @@ come back, most at Falsterbo and least at Kämpinge. SMHI's Skanör gauge gives 
 
 Unlike the other floods this scenario spans many years: it starts at a month a second, does
 not slow down at satellite passes and shows no satellite orbits or wind. It shows a clear satellite image
-a year, Landsat 8 in 2013-2014 and Sentinel-2 from 2015, and one before and one after Babet. The
-orthophotos (with a Geotorget account), each satellite's position when it took its image, SGU's
-erosion layers, Copernicus Marine's waves and synthetic beach sensors are later steps of the study's plan.
+a year, Landsat 8 in 2013-2014 and Sentinel-2 from 2015, and one before and one after Babet, each with
+its satellite where it was when it took the image. Three synthetic level sensors on the beaches follow
+Skanör's sea level and alarm for 30 days after each storm. The orthophotos (with a Geotorget account),
+SGU's erosion layers and Copernicus Marine's waves are later steps of the study's plan.
 
 Its data live in the unversioned data/falsterbo/.
 """
@@ -38,6 +39,7 @@ SUMMARY = [
     "Stränderna växte ut mot havet i många år. Omkring 2012 stannade det, och efter stormen Babet i oktober 2023 backade dynerna kraftigt.",
     "SMHI:s havsvattenstånd vid Skanör och nederbörd vid Falsterbo A. Varje storm med högt vattenstånd står i loggen.",
     "En klar satellitbild varje år från 2013, Landsat 8 och sedan Sentinel-2, och en före och en efter Babet.",
+    "Tre syntetiska nivågivare på stränderna följer vattenståndet vid Skanör och larmar i 30 dygn efter varje storm.",
     "Uppspelningen går en månad per sekund och visar inga satellitbanor eller vindpilar.",
 ]
 
@@ -59,6 +61,21 @@ SCENE_ELEMENTS_FILE = TLE_DIR / "scene-elements.json"
 SEA_LEVEL_DIR = DATA / "sea-level"
 SEA_LEVEL_STATIONS = {"30488": "Skanör"}
 SEA_LEVEL_STORM_CM = 100.0
+# Synthetic level sensors on the beaches (tools/derive_impact_sensor_points.py, level_sensors.py), each
+# following Skanör's sea level, the nearest station. They alarm when it reaches SEA_LEVEL_STORM_CM, as the
+# log's storms, and hold the alarm 30 days, about a second at a month a second (the user's choice,
+# 2026-10-26). The places are approximate: about 60-90 m inland of OpenStreetMap's coastline, at the dunes.
+LEVEL_SENSOR_SITES = [
+    {"site": "Falsterbo strand", "latitude": 55.3870, "longitude": 12.835, "source_label": "Syntetisk plats vid dynerna (ungefärlig)"},
+    {"site": "Ljunghusens strand", "latitude": 55.3870, "longitude": 12.915, "source_label": "Syntetisk plats vid dynerna (ungefärlig)"},
+    {"site": "Kämpinge strand", "latitude": 55.4027, "longitude": 12.965, "source_label": "Syntetisk plats vid dynerna (ungefärlig)"},
+]
+LEVEL_SENSOR_FILE = DATA / "sensors" / "level-points.geojson"
+LEVEL_ALARM_LEVEL = SEA_LEVEL_STORM_CM
+LEVEL_ALARM_HOLD_DAYS = 30
+SENSOR_WORDS = {"sensors": "nivågivare", "the_sensors": "nivågivarna", "alarming": "larmande"}
+# The sea level is a value a day (hydro.py), so the log samples the sensors once a day.
+SENSOR_EVENT_MINUTES = 24 * 60
 
 # Ljunghusen's beach, between Falsterbo in the west and Kämpinge in the east (approximate).
 FIRE_CENTRE = (55.393, 12.915)

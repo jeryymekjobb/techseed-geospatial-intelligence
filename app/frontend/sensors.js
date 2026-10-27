@@ -45,8 +45,11 @@ function sewerSensorText(sensor, kind) {
 }
 
 // The river flood's level sensors (level_sensors.py): the alarm and the station's value against its record.
+// A sensor with an alarm level (a sea's beach) gives the value, the level and how long the alarm is held,
+// and the highest value it holds the alarm for once the water has gone down.
 function levelSensorText(sensor, kind) {
   if (sensor.status === "failed") return `${sensor.name}: SENSOR FAILURE (${kind})`;
+  if (sensor.alarm_cm !== undefined && sensor.alarm_cm !== null) return levelAlarmText(sensor, kind);
   const state = sensor.confirms ? "LARMAR" : "inget larm";
   let value = `inga värden från ${sensor.station} ännu`;
   if (sensor.value !== null && sensor.rise_rule) {
@@ -56,6 +59,13 @@ function levelSensorText(sensor, kind) {
     value = `${sensor.station} ${Math.abs(sensor.from_record_cm)} cm ${sensor.from_record_cm > 0 ? "över" : "under"} tidigare högsta nivå`;
   }
   return `${sensor.name}: ${state}, ${value} (${kind})`;
+}
+
+function levelAlarmText(sensor, kind) {
+  const system = sensor.height_system ? ` i ${sensor.height_system}` : "";
+  const state = !sensor.confirms ? "inget larm" : sensor.held ? `LARMAR, hålls kvar efter ${sensor.peak} cm den ${sensor.peak_utc.slice(0, 10)}` : "LARMAR";
+  const value = sensor.value === null ? `inga värden från ${sensor.station} ännu` : `${sensor.station} ${sensor.value} cm${system}`;
+  return `${sensor.name}: ${state}, ${value}, larm vid ${sensor.alarm_cm} cm, hålls ${sensor.hold_days} dygn (${kind})`;
 }
 
 function syntheticSensorText(sensor) {

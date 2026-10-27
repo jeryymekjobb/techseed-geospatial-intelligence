@@ -2002,11 +2002,21 @@ här finns nu:
   ~/.spacetrackrc), vid det ögonblick satelliten var närmast näset. Sentinel-2-katalogens tid är när hela
   överflygningen började långt norrut, så bildtexten och loggen anger i stället det beräknade
   ögonblicket, några minuter senare.
+- **Nivågivare vid stränderna (syntetiska):** tre givare, NG1 Falsterbo strand, NG2 Ljunghusens strand
+  och NG3 Kämpinge strand, vid dynerna på ungefärliga platser cirka 60–90 m innanför OSM:s
+  strandlinje. De mäter ingenting själva utan följer SMHI:s vattenstånd vid Skanör. De larmar när
+  dygnets högsta vattenstånd når 100 cm i RH2000, samma gräns som loggens stormrader, och håller
+  larmet i 30 dygn, så att en storm på några timmar syns i cirka en sekund vid 1 månad/s. Panelen
+  och kartan säger till exempel "NG2 Ljunghusens strand: LARMAR, hålls kvar efter 150 cm den
+  2023-10-21, Skanör (havet) 43 cm i RH2000, larm vid 100 cm, hålls 30 dygn (syntetisk)". Loggen
+  säger när de börjar och slutar larma. Eftersom vattenståndet visas per dygn räknas larmet från
+  midnatt (UTC) det dygnet, inte från stormens timme. Givarfilen skapas av steget `level-sensors` i
+  `fetch_scenario`.
 - **Ingen vind.** Kartan har inga vindpilar.
 
 Det som återstår enligt förstudien
 (`reports/2026-10-26-forstudie-falsterbo-stranderosion-claude-opus-5-5.md`): Lantmäteriets ortofoton (kräver ett Geotorget-konto), SGU:s erosionslager, vågor från
-Copernicus Marine och syntetiska sensorer vid stränderna.
+Copernicus Marine.
 
 Offlinekartan har havsytor från OSM:s vattenpolygoner (`data/osm/water-polygons-split-4326.zip`,
 cirka 910 MB, ODbL), klippta till kartområdet. Kartorna för de andra scenarierna vid kusten

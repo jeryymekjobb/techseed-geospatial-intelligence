@@ -162,7 +162,8 @@ def synthetic_sensors() -> sensor_sim.SyntheticSensors | flood_sensors.FloodSens
     or levels where roads cross a river flood's mapped area."""
     if not scenario.WILDFIRE and scenario.LEVEL_SENSOR_FILE:
         return level_sensors.LevelSensors(scenario.LEVEL_SENSOR_FILE, (hydro.stations() or {}).get("stations", ()),
-                                          rise=scenario.LEVEL_ALARM_RISE, start=scenario.PLAYBACK_START)
+                                          rise=scenario.LEVEL_ALARM_RISE, start=scenario.PLAYBACK_START,
+                                          alarm=scenario.LEVEL_ALARM_LEVEL, hold_days=scenario.LEVEL_ALARM_HOLD_DAYS)
     if not scenario.WILDFIRE:
         # The municipality's stormwater points, where the scenario has them; none otherwise.
         points = scenario.MUNICIPAL_DIR / "critical-stormwater.geojson" if scenario.MUNICIPAL_DIR else None
@@ -172,8 +173,9 @@ def synthetic_sensors() -> sensor_sim.SyntheticSensors | flood_sensors.FloodSens
     return sensor_sim.SyntheticSensors(items, wind_field(), scenario.FIRE_CENTRE)
 
 
-# How often the synthetic sensors are sampled for the log of their changes.
-SENSOR_EVENT_STEP = timedelta(minutes=10)
+# How often the synthetic sensors are sampled for the log of their changes: a scenario of many years
+# with daily values (Falsterbo) samples them once a day.
+SENSOR_EVENT_STEP = timedelta(minutes=scenario.SENSOR_EVENT_MINUTES)
 
 
 @lru_cache(maxsize=1)
@@ -192,8 +194,9 @@ def synthetic_sensor_events() -> dict[str, Any]:
                 continue
             confirming[item["id"]] = item["confirms"]
             events.append({"clock_utc": utc_text(moment), "sensor": item["id"], "name": item["name"],
-                           # A level sensor that alarms on a rise says so in the log (satlog.js).
-                           "kind": "level_rise" if item.get("rise_rule") else item.get("kind", "fire"), "confirms": item["confirms"]})
+                           # A level sensor that alarms on a rise or at a level says so in the log (satlog.js).
+                           "kind": "level_rise" if item.get("rise_rule") else "level_alarm" if item.get("alarm_cm") is not None
+                           else item.get("kind", "fire"), "confirms": item["confirms"]})
         moment += SENSOR_EVENT_STEP
     return {"step_minutes": SENSOR_EVENT_STEP.total_seconds() / 60, "events": events}
 

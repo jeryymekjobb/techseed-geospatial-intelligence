@@ -330,6 +330,48 @@ def test_level_sensors_alarm_when_their_station_is_above_its_record(tmp_path: Pa
 
 
 
+SEA = {"id": "sea-30488", "name": "Skanör (havet)", "kind": "level", "sea": True, "height_system": "RH2000", "latitude": 55.42, "longitude": 12.83,
+       "earlier_max": {"value": 146.1, "time_utc": "2007-01-14T00:00:00Z"},
+       "observations": [{"time_utc": "2023-10-19T00:00:00Z", "value": 104.0}, {"time_utc": "2023-10-20T00:00:00Z", "value": 120.0},
+                        {"time_utc": "2023-10-21T00:00:00Z", "value": 149.5}, {"time_utc": "2023-10-22T00:00:00Z", "value": 80.0},
+                        {"time_utc": "2023-11-20T00:00:00Z", "value": 40.0}, {"time_utc": "2023-11-21T00:00:00Z", "value": 42.0}]}
+
+
+def test_beach_sensors_alarm_at_a_sea_level_and_hold_the_alarm_after_the_storm(tmp_path: Path) -> None:
+    from app.backend import level_sensors as lsen
+    points = tmp_path / "beach.geojson"
+    points.write_text(json.dumps({"features": [{"geometry": {"type": "Point", "coordinates": [12.915, 55.387]},
+                                                "properties": {"id": "ng-02", "name": "NG2 Ljunghusens strand", "station": "sea-30488"}}]}), encoding="utf-8")
+    sensors = lsen.LevelSensors(points, [SEA], alarm=100.0, hold_days=30)
+    state = lambda text: sensors.at(at(text))["sensors"][0]
+    assert (state("2023-10-18T12:00:00Z")["value"], state("2023-10-18T12:00:00Z")["confirms"]) == (None, False)  # no values yet
+    storm = state("2023-10-21T06:00:00Z")
+    assert (storm["value"], storm["peak"], storm["peak_utc"], storm["confirms"], storm["held"]) == (150, 150, "2023-10-21T00:00:00Z", True, False)
+    held = state("2023-11-19T23:00:00Z")  # the last hour of the 30 days from Babet's 21 October
+    assert (held["value"], held["peak"], held["confirms"], held["held"], held["alarm_cm"], held["hold_days"]) == (80, 150, True, True, 100, 30)
+    over = state("2023-11-20T00:00:00Z")  # the hold leaves out Babet's 21 October, 30 days before
+    assert (over["value"], over["peak"], over["confirms"], over["held"]) == (40, 80, False, False)
+    keys = {item["key"]: item for item in fa.FloodAssessor([RIVER_RAIN], [], [], (55.39, 12.9), hydro=[SEA]).at(
+        at("2023-11-01T00:00:00Z"), sensors.at(at("2023-11-01T00:00:00Z")))["evidence"]}
+    assert keys["iot:ng-02"]["text"] == ("IoT NG2 Ljunghusens strand: larmar, Skanör (havet) 80 cm, högst 150 cm de senaste 30 dygnen "
+                                        "(regel ≥ 100 cm) (syntetisk)")
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_screens_say_a_beach_sensor_s_level_and_that_its_alarm_is_held() -> None:
+    sensor = {"kind": "level", "name": "NG2 Ljunghusens strand", "status": "ok", "confirms": True, "held": True, "station": "Skanör (havet)",
+              "station_kind": "level", "value": 80, "peak": 150, "peak_utc": "2023-10-21T00:00:00Z", "alarm_cm": 100, "hold_days": 30,
+              "height_system": "RH2000", "placed": False}
+    assert node("sensors.js", f"syntheticSensorText({json.dumps(sensor)})") == (
+        "NG2 Ljunghusens strand: LARMAR, hålls kvar efter 150 cm den 2023-10-21, Skanör (havet) 80 cm i RH2000, "
+        "larm vid 100 cm, hålls 30 dygn (syntetisk)")
+    storm = {**sensor, "held": False, "value": 150}
+    assert node("sensors.js", f"syntheticSensorText({json.dumps(storm)})").startswith("NG2 Ljunghusens strand: LARMAR, Skanör (havet) 150 cm")
+    calm = {**sensor, "confirms": False, "held": False, "value": 42}
+    assert node("sensors.js", f"syntheticSensorText({json.dumps(calm)})") == (
+        "NG2 Ljunghusens strand: inget larm, Skanör (havet) 42 cm i RH2000, larm vid 100 cm, hålls 30 dygn (syntetisk)")
+
+
 def test_the_level_sensors_round_a_half_away_from_zero_as_said_aloud() -> None:
     from app.backend import level_sensors as lsen
     assert [lsen.round_half_up(value) for value in (0.5, 1.5, 2.5, 12.5, -2.5, 2.49, 112.5, 0.0)] == [1, 2, 3, 13, -3, 2, 113, 0]
