@@ -673,6 +673,40 @@ async function showMeteosatMtg(clock) {
   $("mtg-values").innerHTML = rows.map(chartValue).join("");
 }
 
+// A coastal erosion scenario's yearly shoreline lines (shorelines.py, shorelines.js): the maps' layer,
+// the panel's key and a button to the close view where the change shows, the lines fetched once.
+async function setupShorelines(info) {
+  state.shorelines = await loadOptional(info.url, () => {});
+  if (!state.shorelines) return;
+  state.map.setupShorelines(info.label);
+  state.map.addAttribution(info.attribution);
+  $("shoreline-legend").innerHTML = shorelineLegend(state.shorelines).map((item) => `<li><span class="swatch" `
+    + `style="background:${item.colour};height:4px"></span>${item.text}</li>`).join("");
+  $("shoreline-note").textContent = `Kanten där växtligheten börjar bakom stranden, ungefär dynfoten, i varje bild fram till klockan; `
+    + `den senaste kraftig. Härledd ur satellitbilder med 10 m pixlar, inte uppmätt: osäkerhet ±${info.uncertainty_m[0]}–${info.uncertainty_m[1]} m.`;
+  if (info.view) {
+    const button = $("shoreline-view");
+    button.textContent = `Zooma in ${info.view.name}`;
+    button.hidden = false;
+    button.addEventListener("click", showShorelineView);
+  }
+  $("shoreline-section").hidden = false;
+}
+
+function showShorelineView() {
+  const view = state.config.layers.shorelines?.view;
+  if (view) state.map.showArea(view.west, view.south, view.east, view.north);
+}
+
+// Redrawn when the clock passes an image's time.
+function showShorelines(clock) {
+  if (!state.shorelines || !clock) return;
+  const lines = shorelinesAt(state.shorelines, clock.getTime());
+  if (lines.length === state.shorelinesShown) return;
+  state.shorelinesShown = lines.length;
+  state.map.drawShorelines(lines);
+}
+
 // Redrawn when a damage is reached or the computed rain passes into a new hour.
 function showRoutes(clock) {
   if (!state.routes || !clock) return;
@@ -926,6 +960,7 @@ function setClock(clock) {
   showMeteosatClm(clock);
   showMeteosatMtg(clock);
   showRoutes(clock);
+  showShorelines(clock);
   showDailyRain(clock);
   showRain(clock);
   showHydro(clock);
@@ -1468,10 +1503,12 @@ function applyStatus(status) {
     }
   }
   if (status.god_view !== Boolean(previous?.god_view)) state.map.showGodView(status.god_view);
-  // FLYG TILL and ÖVERSIKT in mission control: only a new request, not the one a screen finds when it connects.
+  // FLYG TILL, ÖVERSIKT and STRANDLINJER in mission control: only a new request, not the one a screen finds
+  // when it connects.
   if (previous && status.camera && status.camera.seq !== previous.camera?.seq) {
     if (status.camera.target === "incident") state.map.flyToIncident();
     else if (status.camera.target === "home") state.map.flyHome();
+    else if (status.camera.target === "shorelines") showShorelineView();
   }
   if (status.space_view !== Boolean(previous?.space_view)) {
     state.map.showSpaceView(status.space_view);
@@ -1940,6 +1977,7 @@ async function startApp(createMap) {
     state.map.addAttribution(config.layers.meteosat.attribution);
   }
   if (config.layers.routes) await setupRoutes(config.layers.routes);
+  if (config.layers.shorelines) await setupShorelines(config.layers.shorelines);
   if (config.layers.daily_rain) {
     state.map.setupDailyRain(config.layers.daily_rain);
     state.map.addAttribution(config.layers.daily_rain.attribution);

@@ -37,6 +37,9 @@ def test_the_steps_follow_each_scenario_s_data() -> None:
     assert "landsat" in keys("vastmanland2014") and "landsat" not in keys("flen2019") and "ems" in keys("ljusdal2018")
     assert "municipal-basemap" in keys("sundsvall2026") and "municipal-basemap" not in keys("kramfors2026")
     assert "smhi-spinup" in keys("ljusdal2018") and "era5-sea" in keys("vasternorrland2025")
+    # Only a coastal erosion scenario derives shoreline lines, after its Sentinel-2 images.
+    assert "shorelines" in keys("falsterbo") and "shorelines" not in keys("skane2024")
+    assert keys("falsterbo").index("sentinel2") < keys("falsterbo").index("shorelines")
     # Two tools write the level sensors: by the rivers where the scenario names them, else at the damage.
     tool_of = lambda name: next(step.command[2] for step in fetch.steps(name) if step.key == "level-sensors")  # noqa: E731
     assert tool_of("skane2024") == tool_of("flenkommun2024") == "tools.derive_level_sensor_points"

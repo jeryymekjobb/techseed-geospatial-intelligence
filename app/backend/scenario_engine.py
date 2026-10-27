@@ -20,8 +20,9 @@ taken up to the clock, `off` the map, or a scene's image as "scene|image" - and 
 in the status as `image`; it is a setting, not an event. `image_types` ticks the image
 types "auto" follows (comma-separated, for example "radar,natural"; empty for none) and is
 in the status as `image_types`, None until ticked, when the screens use their default.
-`camera` sends every main screen's camera to the incident or the overview ("incident" or
-"home"); the status's `camera` counts the requests, so a screen flies only on a new one.
+`camera` sends every main screen's camera to the incident, the overview or the shoreline layer's
+close view ("incident", "home" or "shorelines"); the status's `camera` counts the requests, so a
+screen flies only on a new one.
 `ask` puts a prepared question (spatial.py) to every main screen, which shows the answer, and
 `clear_answer` takes it away; the status's `question` counts them, so a screen asks only anew.
 `choose` sets one of the main screen's panel choices for every screen ("key=value", for example
@@ -477,8 +478,8 @@ class ScenarioEngine:
                     raise CommandError(f"{name} needs a layer name")
                 self._map_layers[target] = name == "map_layer_on"
             elif name == "camera":
-                if target not in ("incident", "home"):
-                    raise CommandError('camera needs "incident" or "home"')
+                if target not in ("incident", "home", "shorelines"):
+                    raise CommandError('camera needs "incident", "home" or "shorelines"')
                 self._camera = {"target": target, "seq": self._camera["seq"] + 1}
             elif name == "speech":
                 if target not in ("on", "off"):

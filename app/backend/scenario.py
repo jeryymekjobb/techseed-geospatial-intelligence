@@ -170,6 +170,13 @@ LEVEL_ALARM_RISE = getattr(_module, "LEVEL_ALARM_RISE", None)
 LEVEL_ALARM_LEVEL = getattr(_module, "LEVEL_ALARM_LEVEL", None)
 LEVEL_ALARM_HOLD_DAYS = getattr(_module, "LEVEL_ALARM_HOLD_DAYS", None)
 SENSOR_EVENT_MINUTES = getattr(_module, "SENSOR_EVENT_MINUTES", 10)
+# A coastal erosion scenario's yearly shoreline lines (tools/derive_shorelines.py, shorelines.py): the
+# file, the south-facing stretches of coast ({"name", "west", "east"}), the area and its UTM grid.
+SHORELINE_FILE = getattr(_module, "SHORELINE_FILE", None)
+SHORELINE_SECTIONS = getattr(_module, "SHORELINE_SECTIONS", [])
+SHORELINE_AREA = getattr(_module, "SHORELINE_AREA", None)
+SHORELINE_EPSG = getattr(_module, "SHORELINE_EPSG", None)
+SHORELINE_VIEW = getattr(_module, "SHORELINE_VIEW", None)
 # Further places for the synthetic level sensors at reported damage, with a "site", latitude and
 # longitude, where the scenario's own reports name too few (tools/derive_impact_sensor_points.py).
 LEVEL_SENSOR_SITES = getattr(_module, "LEVEL_SENSOR_SITES", [])

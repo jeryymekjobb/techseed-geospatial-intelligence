@@ -77,6 +77,12 @@
         </ul>
         <div id="forecast-places" class="status"></div>
       </section>
+      <section id="shoreline-section" hidden>
+        <h2>Strandlinjer (härledda ur Sentinel-2)</h2>
+        <ul id="shoreline-legend" class="legend"></ul>
+        <div id="shoreline-note" class="status"></div>
+        <button id="shoreline-view" type="button" hidden></button>
+      </section>
       <section data-incident="flood">
         <h2>Regn på kartan (SMHI)</h2>
         <ul id="rain-legend" class="legend"></ul>
@@ -142,6 +148,7 @@
   <script src="/ems.js"></script>
   <script src="/satlog.js"></script>
   <script src="/routes.js"></script>
+  <script src="/shorelines.js"></script>
   <script src="/meteosat.js"></script>
   <script src="/meteosat_frm.js"></script>
   <script src="/meteosat_cth.js"></script>

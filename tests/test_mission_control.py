@@ -26,7 +26,7 @@ def test_the_buttons_send_only_commands_the_engine_knows() -> None:
     html = (FRONTEND / "control.html").read_text(encoding="utf-8")
     commands = set(re.findall(r'data-command="(\w+)"', html)) | set(re.findall(r'data-toggle-off="(\w+)"', html))
     # place_sensor comes from the main screen's map, not from a button.
-    # seek is VISA ALLA, camera FLYG TILL and ÖVERSIKT, clear_answer RENSA SVARET (the questions are made from
+    # seek is VISA ALLA, camera FLYG TILL, ÖVERSIKT and STRANDLINJER, clear_answer RENSA SVARET (the questions are made from
     # /api/questions); speed is sent by ANVÄND with the list's value (control.js).
     assert commands == set(EVENT_KINDS) - {"place_sensor", "filter"} | CLOCK_COMMANDS - {"speed"} | {"seek", "camera", "clear_answer"}
     for target in re.findall(r'data-target="([^"]+)"', html):

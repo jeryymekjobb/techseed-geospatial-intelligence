@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, daily_rain, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_clm, meteosat_cth, meteosat_frm, meteosat_gii, meteosat_li, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, scene_satellites, sensor_sim, spatial, speech, wms
+from app.backend import assessment, daily_rain, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_clm, meteosat_cth, meteosat_frm, meteosat_gii, meteosat_li, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, scene_satellites, sensor_sim, shorelines, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -634,6 +634,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "meteosat_gii": meteosat_gii.layer(),
             # Roads and railways the incident damaged (documented) and those under heavy rain (computed; routes.py).
             "routes": routes.layer(),
+            # A coastal erosion scenario's yearly shoreline lines, derived from Sentinel-2 (shorelines.py).
+            "shorelines": shorelines.layer(),
             # SMHI's rain by the day at the stations that report so (daily_rain.py).
             "daily_rain": daily_rain.layer(),
             "wms": wms.sources(),
@@ -736,6 +738,11 @@ class Handler(BaseHTTPRequestHandler):
             computed = routes.exposure()
             self.send_json(computed if computed is not None else {"error": "not_in_scenario"},
                            HTTPStatus.OK if computed is not None else HTTPStatus.NOT_FOUND)
+        elif path == "/api/shorelines":
+            # The dune vegetation edge in each Sentinel-2 image (shorelines.py).
+            data = shorelines.lines()
+            self.send_json(data if data is not None else {"error": "not_in_scenario"},
+                           HTTPStatus.OK if data is not None else HTTPStatus.NOT_FOUND)
         elif path == "/api/lightning":
             # SMHI's flashes to the ground in the hour before the clock (`at`, UTC), or the shared clock.
             try:

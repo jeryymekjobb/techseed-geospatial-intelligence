@@ -464,6 +464,7 @@ def test_the_camera_requests_are_counted_so_screens_fly_only_on_a_new_one() -> N
     assert scenario.command("camera", target="incident")["status"]["camera"] == {"target": "incident", "seq": 1}
     assert scenario.command("camera", target="incident")["status"]["camera"] == {"target": "incident", "seq": 2}
     assert scenario.command("camera", target="home")["status"]["camera"] == {"target": "home", "seq": 3}
+    assert scenario.command("camera", target="shorelines")["status"]["camera"] == {"target": "shorelines", "seq": 4}
     with pytest.raises(CommandError):
         scenario.command("camera", target="moon")
     assert scenario.snapshot()["events"] == []  # a camera move, not an event with a banner

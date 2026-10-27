@@ -217,6 +217,11 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
     if get("SCENE_ELEMENTS_FILE") and (get("LANDSAT_SCENES") or get("SENTINEL2_SCENES")):
         plan.append(Step("scene-elements", "Satelliternas banelement vid bilderna (efter bilderna)", tool("fetch_scene_elements"),
                          Path(s.SCENE_ELEMENTS_FILE), account="space-track", size_mb=1))
+    if get("SHORELINE_FILE") and get("SENTINEL2_SCENES"):
+        # The coast comes from the offline map's water polygons (the tiles step with water-polygons).
+        plan.append(Step("shorelines", "Strandlinjer ur Sentinel-2 (efter offlinekartan med havsytorna)",
+                         tool("derive_shorelines", "--tools", tools), Path(s.SHORELINE_FILE), programs=native(tools, *GDAL),
+                         packages=IMAGES, size_mb=1))
     if get("EMS_AREA") and get("EMS_DIR"):
         plan.append(Step("ems", "Copernicus EMS-ytor", tool("fetch_ems_perimeters", "--tools", tools),
                          Path(s.EMS_DIR) / "perimeters.geojson", programs=native(tools, "ogr2ogr"), size_mb=5))

@@ -192,6 +192,7 @@ async function createCesiumMap(config) {
   let dailyRainVisible = true;
   const routeExposureLayer = group("route-exposure");  // roads and railways under heavy rain, computed (routes.py)
   const routeImpactLayer = group("route-impacts");  // roads and railways the incident damaged, documented
+  const shorelineLayer = group("shorelines");  // a coastal erosion scenario's yearly shoreline lines (shorelines.py)
   const meteosatLayer = group("meteosat");  // Meteosat's fire pixels (meteosat.py)
   const frmLayer = group("fire-risk");  // LSA SAF's fire risk (meteosat_frm.py), off until ticked
   frmLayer.show = false;
@@ -514,6 +515,25 @@ async function createCesiumMap(config) {
         layers.push([info.exposure_label, (visible) => { routeExposureLayer.show = visible; }, () => routeExposureLayer.show]);
       }
       layers.push([info.impact_label, (visible) => { routeImpactLayer.show = visible; }, () => routeImpactLayer.show]);
+    },
+
+    // The yearly shoreline lines (shorelines.py), on from the start.
+    setupShorelines(label) {
+      layers.push([label, (visible) => { shorelineLayer.show = visible; }, () => shorelineLayer.show]);
+    },
+
+    // Each image's line on the ground in its year's colour, the latest heavy.
+    drawShorelines(items) {
+      shorelineLayer.entities.removeAll();
+      for (const item of items) {
+        for (const line of item.lines) {
+          shorelineLayer.entities.add({
+            name: item.text, description: escapeText(item.text),
+            polyline: { positions: Cesium.Cartesian3.fromDegreesArray(line.flat()), width: item.latest ? 5 : 2,
+                        material: cesiumColor(item.colour, item.latest ? 1 : 0.75), clampToGround: true },
+          });
+        }
+      }
     },
 
     // Meteosat's fire pixels: a purple rectangle of each pixel's area on the ground, with its edge.
@@ -1054,6 +1074,11 @@ async function createCesiumMap(config) {
     // Show an evidence object from the assessment.
     focusOn(lat, lon) {
       return flyToFire(lon, lat);
+    },
+
+    // A close view over an area, such as the shoreline layer's, from straight above.
+    showArea(west, south, east, north) {
+      viewer.camera.flyTo({ destination: Cesium.Rectangle.fromDegrees(west, south, east, north), duration: 2 });
     },
 
     // The weather chart: the flat map (2D) over Scandinavia when its layer is ticked, and back to the

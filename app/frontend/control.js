@@ -637,6 +637,10 @@ fetch("/api/config").then((response) => response.json()).then((loaded) => {
   // VISA ALLA: the end of the playback, every detection; FLYG TILL names the incident's place.
   $("show-all").dataset.at = config.playback.end_utc;
   $("fly-incident").textContent = `FLYG TILL ${config.incident_place.toUpperCase()}`;
+  // STRANDLINJER: the shoreline layer's close view, in a scenario that has one.
+  const shorelineView = config.layers.shorelines?.view;
+  if (shorelineView) $("fly-shorelines").textContent = `STRANDLINJER ${shorelineView.name.toUpperCase()}`;
+  $("fly-shorelines").hidden = !shorelineView;
   showProfile(config.layers.display_profile);
   setupWindow();
   $("control-label").textContent = config.control_label;

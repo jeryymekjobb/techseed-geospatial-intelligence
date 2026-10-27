@@ -134,6 +134,7 @@ function createLeafletMap(config) {
   let dailyRainLayer = null;  // SMHI's rain by the day (daily_rain.py)
   let dailyRainVisible = true;
   let routeExposureLayer = null;  // roads and railways under heavy rain, computed from the radar
+  let shorelineLayer = null;  // a coastal erosion scenario's yearly shoreline lines (shorelines.py)
   let isobarVisible = false;
 
   // Fewer wind arrows further out (windMinZoom in wind_barbs.js); `visibility` is the hour's.
@@ -430,6 +431,23 @@ function createLeafletMap(config) {
       overlays[info.impact_label] = routeImpactLayer;
     },
 
+    // The yearly shoreline lines (shorelines.py), on from the start.
+    setupShorelines(label) {
+      shorelineLayer = L.layerGroup().addTo(map);
+      overlays[label] = shorelineLayer;
+    },
+
+    // Each image's line in its year's colour, the latest heavy and on top.
+    drawShorelines(items) {
+      shorelineLayer.clearLayers();
+      for (const item of items) {
+        L.polyline(item.lines.map((line) => line.map(([lon, lat]) => [lat, lon])),
+          { color: item.colour, weight: item.latest ? 5 : 2, opacity: item.latest ? 1 : 0.75 })
+          .bindTooltip(item.text, { sticky: true })
+          .addTo(shorelineLayer);
+      }
+    },
+
     // Meteosat's fire pixels: a purple rectangle of each pixel's area, under FIRMS's points.
     setupMeteosat(label) {
       meteosatLayer = L.layerGroup().addTo(map);
@@ -694,6 +712,11 @@ function createLeafletMap(config) {
     // Show an evidence object from the assessment.
     focusOn(lat, lon) {
       map.flyTo([lat, lon], Math.max(map.getZoom(), 12), { duration: 2 });
+    },
+
+    // A close view over an area, such as the shoreline layer's.
+    showArea(west, south, east, north) {
+      map.flyToBounds([[south, west], [north, east]], { duration: 2 });
     },
 
     // Mission control's GOD VIEW: out to Europe (OSM online; the offline tiles cover the

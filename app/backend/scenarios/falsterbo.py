@@ -91,6 +91,20 @@ PLAYBACK_END = datetime(2026, 10, 21, 0, 0, tzinfo=timezone.utc)
 # A month a second: the 14 years in about three minutes, without slowing down at passes.
 PLAYBACK_SPEED = 30 * 86400.0
 SLOW_AT_PASSES = False
+# The dune vegetation edge in each Sentinel-2 image as the shoreline's line a year (tools/derive_shorelines.py),
+# as the user decided on 2026-10-27; erosion, not flooded land. Only where the check of 2026-10-27 found the edge
+# follows the beach: western Ljunghusen follows the lagoon behind it and Kämpinge's eastern end is unclear.
+SHORELINE_FILE = DATA / "shorelines" / "shorelines.geojson"
+SHORELINE_SECTIONS = [
+    {"name": "Falsterbo", "west": 12.818, "east": 12.865},
+    {"name": "Ljunghusens östra strand", "west": 12.906, "east": 12.928},
+    {"name": "Kämpinge", "west": 12.950, "east": 12.978},
+]
+SHORELINE_AREA = (12.79, 55.365, 12.995, 55.42)  # west, south, east, north
+SHORELINE_EPSG = 32633  # Sentinel-2's tile T33UUB: UTM zone 33N
+# The panel's close view: at Kämpinge the edge moved clearly inland after Babet; over the whole peninsula
+# the lines lie on top of each other.
+SHORELINE_VIEW = {"name": "Kämpinge", "west": 12.946, "south": 55.395, "east": 12.982, "north": 55.407}
 # Babet's peak at Skanör.
 CHECK_START_UTC = "2023-10-21T00:00:00Z"
 
