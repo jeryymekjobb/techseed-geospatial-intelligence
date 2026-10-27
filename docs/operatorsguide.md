@@ -2016,8 +2016,11 @@ här finns nu:
 - **Strandlinjer (härledda ur Sentinel-2):** ett lager med en linje för varje Sentinel-2-bild,
   2015–2026 och före och efter Babet, där växtligheten börjar bakom stranden, ungefär dynfoten.
   Linjerna fram till klockan visas, färgade från blått (tidigast) till rött (senast), och den
-  senaste är kraftigast. Panelen har en förklaring under **Strandlinjer (härledda ur Sentinel-2)**,
-  och lagret kan släckas i kartans lagerlista. Linjerna är härledda ur bilder med 10 m pixlar, inte
+  senaste är kraftigast. En rödare linje innanför de blå betyder att dynfoten flyttat inåt land.
+  Panelen har en förklaring under **Strandlinjer (härledda ur Sentinel-2)**, direkt under
+  vattenståndet. Den listar varje bild med datum och färg, till exempel "2023-12-30, efter Babet".
+  Bilder som ännu inte tagits vid klockan är nedtonade och den senaste är fet. Lagret kan släckas i
+  kartans lagerlista. Linjerna är härledda ur bilder med 10 m pixlar, inte
   uppmätta på plats, och osäkerheten är ±10–20 m, lika stor som förändringen. De finns bara på tre
   avsnitt: Falsterbo, Ljunghusens östra strand och Kämpinge. Västra Ljunghusen följer lagunen
   bakom stranden och är utelämnat.

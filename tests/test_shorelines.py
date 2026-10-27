@@ -70,13 +70,19 @@ def test_the_layer_gives_the_lines_label_credit_uncertainty_and_view(tmp_path: P
     from app.backend import scenario, shorelines
 
     path = tmp_path / "shorelines.geojson"
-    path.write_text(json.dumps({"type": "FeatureCollection", "features": [], "label": "Strandlinje", "attribution": "Sentinel",
+    path.write_text(json.dumps({"type": "FeatureCollection", "features": [
+                                    {"type": "Feature", "geometry": None, "properties": {"role": "before-babet"}},
+                                    {"type": "Feature", "geometry": None, "properties": {"role": "2099"}}],
+                                "label": "Strandlinje", "attribution": "Sentinel",
                                 "uncertainty_m": [10, 20]}), encoding="utf-8")
     view = {"name": "Kämpinge", "west": 12.946, "south": 55.395, "east": 12.982, "north": 55.407}
     monkeypatch.setattr(scenario, "SHORELINE_FILE", path)
     monkeypatch.setattr(scenario, "SHORELINE_VIEW", view)
+    monkeypatch.setattr(scenario, "LANDSAT_ROLES", {"before-babet": "Före Babet"})
     shorelines.lines.cache_clear()
     try:
+        # Each line carries its image's role label, its role when the scenario names none.
+        assert [feature["properties"]["label"] for feature in shorelines.lines()["features"]] == ["Före Babet", "2099"]
         assert shorelines.layer() == {"label": "Strandlinje", "attribution": "Sentinel", "uncertainty_m": [10, 20],
                                       "url": "/api/shorelines", "view": view}
         monkeypatch.setattr(scenario, "SHORELINE_FILE", tmp_path / "missing.geojson")
@@ -88,17 +94,22 @@ def test_the_layer_gives_the_lines_label_credit_uncertainty_and_view(tmp_path: P
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_the_maps_draw_the_lines_up_to_the_clock_from_blue_to_red() -> None:
-    feature = lambda day, satellite: {"geometry": {"coordinates": [[[12.8, 55.39], [12.81, 55.39]]]},  # noqa: E731
-                                      "properties": {"acquired_utc": f"{day}T10:30:00Z", "satellite": satellite}}
-    collection = {"features": [feature("2015-08-19", "Sentinel-2A"), feature("2020-06-15", "Sentinel-2B"), feature("2026-05-25", "Sentinel-2A")],
+    feature = lambda day, satellite, role, label: {"geometry": {"coordinates": [[[12.8, 55.39], [12.81, 55.39]]]},  # noqa: E731
+                                                   "properties": {"acquired_utc": f"{day}T10:30:00Z", "satellite": satellite,
+                                                                  "role": role, "label": label}}
+    collection = {"features": [feature("2015-08-19", "Sentinel-2A", "2015", "Årsbild 2015"),
+                               feature("2020-06-15", "Sentinel-2B", "before-babet", "Före Babet"),
+                               feature("2026-05-25", "Sentinel-2A", "2026", "Årsbild 2026")],
                   "uncertainty_m": [10, 20]}
     shown = node(f"shorelinesAt({json.dumps(collection)}, Date.parse('2021-01-01T00:00:00Z'))")
     assert [(item["colour"], item["latest"]) for item in shown] == [("#1f5fbf", False), ("#7b4474", True)]
     assert shown[1]["text"] == "Vegetationskant 2020-06-15, Sentinel-2B, härledd ur Sentinel-2, ±10–20 m"
     assert node(f"shorelinesAt({json.dumps(collection)}, Date.parse('2015-01-01T00:00:00Z'))") == []
     assert node("shorelineColour(2, 3)") == "#d62828"
-    assert node(f"shorelineLegend({json.dumps(collection)})") == [
-        {"colour": "#1f5fbf", "text": "tidigaste bilden (2015)"}, {"colour": "#d62828", "text": "senaste bilden (2026)"}]
+    assert node(f"shorelineLegend({json.dumps(collection)}, Date.parse('2021-01-01T00:00:00Z'))") == [
+        {"colour": "#1f5fbf", "text": "2015-08-19", "shown": True, "latest": False},
+        {"colour": "#7b4474", "text": "2020-06-15, före Babet", "shown": True, "latest": True},
+        {"colour": "#d62828", "text": "2026-05-25", "shown": False, "latest": False}]
 
 
 def test_a_point_far_from_its_transect_s_median_over_the_images_is_left_out() -> None:

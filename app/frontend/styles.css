@@ -301,3 +301,8 @@ body[data-incident="flood"] [data-incident="wildfire"], body[data-incident="wild
 .frm-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 2px; opacity: 0.8; vertical-align: -1px; }
 .met-forecast-notices { margin: 4px 0; padding-left: 1.1em; font-size: 0.85rem; font-weight: 600; }
 .legend .alert { color: var(--accent); font-weight: 600; }
+/* The shoreline key in two columns, so it shows without scrolling: the images not yet taken at the clock faint,
+   the latest bold. */
+#shoreline-legend { columns: 2; column-gap: 12px; }
+.legend .shoreline-pending { opacity: 0.35; }
+.legend .shoreline-latest { font-weight: 600; }

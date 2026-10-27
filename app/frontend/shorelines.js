@@ -32,15 +32,18 @@ function shorelinesAt(collection, clockMs) {
   }));
 }
 
-// The panel's key: the first and the last image's year and colour.
-function shorelineLegend(collection) {
+// The panel's key: every image's date and colour, an image of a year by its date only and one
+// such as "Före Babet" also by its label; `shown` for those taken up to the clock, `latest` for
+// the last of them (drawn heavy).
+function shorelineLegend(collection, clockMs) {
   const features = collection?.features || [];
-  if (!features.length) return [];
-  const year = (feature) => feature.properties.acquired_utc.slice(0, 4);
-  return [
-    { colour: shorelineColour(0, features.length), text: `tidigaste bilden (${year(features[0])})` },
-    { colour: shorelineColour(features.length - 1, features.length), text: `senaste bilden (${year(features[features.length - 1])})` },
-  ];
+  const shown = features.filter((feature) => Date.parse(feature.properties.acquired_utc) <= clockMs).length;
+  return features.map((feature, index) => {
+    const { role, label, acquired_utc: acquired } = feature.properties;
+    const named = label && !/^\d{4}$/.test(role) ? `, ${label[0].toLowerCase()}${label.slice(1)}` : "";
+    return { colour: shorelineColour(index, features.length), text: `${acquired.slice(0, 10)}${named}`,
+             shown: index < shown, latest: index === shown - 1 };
+  });
 }
 
 if (typeof module !== "undefined") {
