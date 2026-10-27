@@ -380,6 +380,68 @@ Lästes ur Copernicus Marines öppna STAC-metadata, utan konto:
 - **Steg 7 (vågorna):** vågdatan slutar i augusti 2026.
 - **Steg 4:** de 13 topparna ovan räcker för att visa stormarna i loggen.
 
+## Strandlinjekontroll 2026-10-27
+
+Användaren beslutade 2026-10-27 att inte blanda erosion och översvämning (alternativ A):
+scenariot behåller grunden av typen översvämning, men visar bara erosionen. Stormarna,
+vattenståndet och de syntetiska strandgivarna står kvar som orsak. Inget lager för
+översvämmad mark läggs till. Erosionen ska visas som strandlinjens förändring år för år,
+med linjer. Kontrollen nedan prövar om Sentinel-2 räcker för det. Inget är byggt.
+
+### Metod
+
+- De råa banden B03, B04, B08 och SCL i alla 13 Sentinel-2-bilder 2015–2026 hämtades i
+  bildernas eget UTM-rutnät (zon 33N, 10 m), utan omsampling.
+- Sydkusten delades i 209 tvärprofiler, ungefär var 50:e meter, vinkelräta mot
+  OpenStreetMaps strandlinje.
+- Längs varje profil söktes två linjer:
+  - **Vattenlinjen:** där NDWI, (B03 − B08)/(B03 + B08), korsar ett tröskelvärde enligt
+    Otsu, med minst 40 m land innanför, så att sandrevlar utanför hoppas över.
+  - **Vegetationskanten:** där NDVI, (B08 − B04)/(B08 + B04), når 0,3 innanför vattenlinjen.
+    Den motsvarar ungefär dynfoten.
+- Vattenståndet vid Skanör i bildögonblicket var −9 till +50 cm (RH2000).
+- Skripten låg utanför repot. Banden sparades i den oversionerade
+  `data/falsterbo/shoreline-check/`.
+
+### Resultat
+
+- 197–206 av 209 profiler gav en linje i varje bild.
+- Linjerna följer stranden vid Falsterbo, Kämpinge och Ljunghusens östra strand.
+- Vid Ljunghusens västra del följer de lagunen och våtmarken bakom stranden, inte havet.
+- Kämpinges östligaste profiler är oanvändbara.
+
+Vegetationskantens median, i meter innanför OSM:s strandlinje:
+
+| Bild | Falsterbo | Kämpinge |
+|---|---|---|
+| 2015–2022 | 21–38 | 15–33 |
+| Före Babet (21 sep 2023) | 18 | −1 |
+| Efter Babet (30 dec 2023) | 43 | 36 |
+| 2024–2026 | 43–52 | 34–41 |
+
+- **Vegetationskanten** ligger 10–20 m längre inåt land efter Babet och förblir där 2024–2026.
+  Det är 1–2 pixlar, ungefär lika mycket som skillnaden mellan åren före Babet.
+  - Bilden efter Babet är en vinterbild, och vissnad vegetation flyttar i sig kanten
+    inåt land.
+  - Majbilderna 2024–2026 visar ändå samma läge.
+- **Vattenlinjen** ändras inte tydligt (5–10 m). Det ligger inom vad vattenståndet och
+  pixelstorleken ensamma ger. Bilden före Babet lägger vattenlinjen vid Kämpinge 55 m ut i
+  havet, troligen på grund av klart grunt vatten över sandrevlar.
+- **Jämfört med Sennmark (2026):**
+  - Riktningen stämmer: dynerna backade efter Babet.
+  - Återhämtningen vid Falsterbo syns inte. Uppsatsen mäter sandvolym i ortofoton, och
+    vegetationen växer tillbaka långsammare. Sentinel-2 kan därför inte bekräfta
+    återhämtningen.
+
+### Följder för planen
+
+- Vegetationskanten ur Sentinel-2 kan visas som linjer år för år, om de märks som härledda
+  ur Sentinel-2 med osäkerheten ±10–20 m och bara visas vid Falsterbo, Kämpinge och
+  Ljunghusens östra strand.
+- Vattenlinjen bör inte visas, eftersom den mer speglar vattenståndet än erosionen.
+- Ortofotona (0,16–0,25 m) gör förändringen till 50–100 pixlar. Med samma metod kan de
+  ersätta satellitlinjerna när ett Geotorget-konto finns (steg 5c).
+
 ## Källor
 
 Kontrollerade 2026-10-26.
