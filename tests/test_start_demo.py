@@ -58,6 +58,7 @@ def test_the_menu_lists_the_demos_with_their_titles_and_labels() -> None:
         ("flen2019", "Höga flöden i Flen 2019"),
         ("falsterbo", "Stranderosionen på Falsterbonäset 2012–2026"),
         ("ljungan-aug2023", "Höga flöden i Ljungan och Sundsvall, augusti 2023"),
+        ("sundsvall-nov2023", "Regnet i Sundsvall, november 2023"),
     ]
     assert all(demo["label"] for demo in start_demo.demos())
 
