@@ -111,3 +111,21 @@ def test_the_radar_s_red_water_is_explained_while_it_is_shown() -> None:
     panel = (FRONTEND / "panel.js").read_text(encoding="utf-8")
     assert "vatten '\n    + 'i radarbilden utanför sjöar och hav, beräknat med en enkel tröskel – inte en kartlagd översvämning." in panel
     assert '$("radarwater-legend").hidden = !(key && image === "radarwater");' in panel
+
+
+def test_both_main_screens_can_take_the_panel_and_the_closing_view_away_and_bring_them_back() -> None:
+    for page in ("index.html", "3d.html"):
+        html = (FRONTEND / page).read_text(encoding="utf-8")
+        # VISA PANEL in the top bar, hidden until [×] at the top of the panel is clicked.
+        assert html.index('id="panel-show"') < html.index("</header>") < html.index('<aside class="panel">') < html.index('id="panel-close"')
+        assert '<button id="panel-show" class="panel-show" type="button" hidden>VISA PANEL</button>' in html
+        assert html.index('id="closing-show"') < html.index('id="panel-show"')
+    styles = (FRONTEND / "styles.css").read_text(encoding="utf-8")
+    # Shown also on the display-only main screen, whose panel buttons are hidden.
+    assert ".display-only .panel .panel-close { display: block; }" in styles
+    assert ".panel-hidden .layout { grid-template-columns: minmax(0, 1fr); }" in styles and ".panel-hidden .panel { display: none; }" in styles
+    panel = (FRONTEND / "panel.js").read_text(encoding="utf-8")
+    assert 'window.dispatchEvent(new Event("resize"));' in panel and "  setupPanelToggle();\n" in panel
+    # The closing view's [×] hides it until VISA SLUTBILD or the end of the stop, when it is shown again next time.
+    assert "if (!shown) state.closingDismissed = false;" in panel
+    assert '$("closing-show").hidden = !(shown && state.closingDismissed);' in panel

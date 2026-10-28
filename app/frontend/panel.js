@@ -1746,11 +1746,20 @@ function showCountdown(element, text) {
 }
 
 // The closing view at the demo's stop (satlog.js closingShown): the one-pager's closing lines, then
-// the scenario's title and what its data are, so the end too says it is not live.
+// the scenario's title and what its data are, so the end too says it is not live. Its [×] takes it
+// away on this screen and VISA SLUTBILD in the top bar brings it back, until the stop ends.
 function showClosing(scenarioState) {
   const element = $("closing-view");
   const shown = closingShown(scenarioState);
+  if (!shown) state.closingDismissed = false;
   if (shown && !element.childElementCount) {
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "closing-close";
+    close.textContent = "×";
+    close.title = close.ariaLabel = "Stäng slutbilden";
+    close.addEventListener("click", () => dismissClosing(true));
+    element.append(close);
     const [name, slogan, motto] = CLOSING_LINES;
     const heading = document.createElement("h2");
     heading.textContent = name;
@@ -1767,7 +1776,14 @@ function showClosing(scenarioState) {
     element.append(countdown);
   }
   showCountdown(element, loopCountdown(scenarioState, "closing"));
-  element.hidden = !shown;
+  element.hidden = !shown || state.closingDismissed;
+  $("closing-show").hidden = !(shown && state.closingDismissed);
+}
+
+function dismissClosing(dismissed) {
+  state.closingDismissed = dismissed;
+  $("closing-view").hidden = dismissed;
+  $("closing-show").hidden = !dismissed;
 }
 
 function applyState(scenarioState) {
@@ -1883,10 +1899,25 @@ function setupMapMenu() {
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
 }
 
+// [×] takes the panel away so one can study the map at full width, VISA PANEL in the top bar brings it
+// back; for this screen only, not kept on a reload. The maps follow the new width on the window's resize.
+// VISA SLUTBILD brings back the closing view (showClosing).
+function setupPanelToggle() {
+  const show = (shown) => {
+    document.body.classList.toggle("panel-hidden", !shown);
+    $("panel-show").hidden = shown;
+    window.dispatchEvent(new Event("resize"));
+  };
+  $("panel-close").addEventListener("click", () => show(false));
+  $("panel-show").addEventListener("click", () => show(true));
+  $("closing-show").addEventListener("click", () => dismissClosing(false));
+}
+
 async function startApp(createMap) {
   // The main screen only shows: mission control has every button, list and tick (styles.css).
   // ?controls=1 keeps them here for troubleshooting.
   document.body.classList.toggle("display-only", !showControls());
+  setupPanelToggle();
   const config = await getJson("/api/config");
   state.config = config;
   $("title").textContent = config.title;

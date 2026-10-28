@@ -1189,6 +1189,14 @@ kartan kan du fortfarande zooma, dra och högerklicka. Lägg till `?controls=1` 
 att få tillbaka huvudskärmens egna knappar och lagerlistor vid felsökning. Uppspelningsknapparna
 där styr alla skärmar, medan lagerlistan och stationslistorna bara gäller den skärmen.
 
+**Kartan i hela bredden.** **×** överst till höger i panelen tar bort panelen, så att kartan
+eller globen fyller hela fönstret när du vill studera detaljer. **VISA PANEL** längst till
+höger i det svarta fältet överst tar tillbaka den. På samma sätt tar **×** i slutbilden (TECHSEED
+GEOSPATIAL INTELLIGENCE …, när uppspelningen är klar) bort den och **VISA SLUTBILD** tar tillbaka
+den. Slutbilden visas igen nästa gång demon når slutet, och i kioskläget börjar demon om som
+vanligt även när den är dold. Det gäller bara skärmen du klickar på, och allt kommer tillbaka när
+sidan laddas om.
+
 **VISA 2D / VISA 3D.** Knappen bredvid **UPPLÄSNING** i mission control byter huvudskärmen mellan
 3D-globen och 2D-kartan; den heter efter den vy du byter till. Klockan, lagren och händelserna följer
 med, och RESET behåller vyn. STARTA OM DEMO och BYT SCENARIO börjar i 3D. Innan någon har tryckt
