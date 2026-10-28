@@ -202,3 +202,18 @@ def test_storms_are_the_peaks_three_days_apart_with_the_records(tmp_path: Path, 
         ("2017-01-04T17:00:00Z", 168.6, True), ("2019-01-02T08:00:00Z", 124.1, False), ("2023-10-21T00:00:00Z", 149.5, False)]
     assert storms[0]["station"] == "Skanör" and storms[0]["height_system"] == "RH2000"
     hydro.storms.cache_clear()
+
+
+def test_a_renumbered_station_takes_its_record_from_its_earlier_numbers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Åkesta kvarn: 2773 from August 2023, earlier 2771 (2021-2023) and 2216 (1980-2021, 42.9 m³/s in 1983).
+    flows = FLOW_CSV.replace("2005-03-18 10:30:00;25.8", "2023-08-29 15:15:00;23.9")
+    old = DAILY_FLOW_CSV.replace("1995-06-01;180.0", "1983-04-20;42.9")
+    pages = {fetch.archive_url("2773", 2): flows, fetch.archive_url("2773", 1): DAILY_FLOW_CSV.replace("1995-06-01;180.0", "2023-08-30;24.0"),
+             fetch.archive_url("2771", 1): DAILY_FLOW_CSV.replace("1995-06-01;180.0", "2022-04-01;30.1"), fetch.archive_url("2216", 1): old}
+    monkeypatch.setattr(fetch, "download", pages.__getitem__)
+    monkeypatch.setattr(fetch.scenario, "HYDRO_STATIONS", {"2773:2": "Åkesta kvarn"})
+    monkeypatch.setattr(fetch.scenario, "HYDRO_EARLIER_STATIONS", {"2773:2": ("2771", "2216")})
+    assert fetch.main(["--start", "2023-08-01", "--end", "2024-02-25", "--out", str(tmp_path)]) == 0
+    station = json.loads((tmp_path / "stations.json").read_text(encoding="utf-8"))["stations"][0]
+    assert station["earlier_max"] == {"value": 42.9, "time_utc": "1983-04-20T00:00:00Z"}
+    assert station["measured_since"] == "1983-04-20" and station["earlier_stations"] == ["2771", "2216"]

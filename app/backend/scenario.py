@@ -110,6 +110,9 @@ RADAR_DIR = getattr(_module, "RADAR_DIR", None)
 # SMHI's measured flows and lake levels (tools/fetch_smhi_hydro.py) and their stations.
 HYDRO_DIR = getattr(_module, "HYDRO_DIR", None)
 HYDRO_STATIONS = getattr(_module, "HYDRO_STATIONS", {})
+# Earlier numbers of a station at the same place ("station:parameter" -> (number, ...)), whose daily flows give
+# its highest before the period and the start of measuring (SMHI renumbers a station when it is rebuilt).
+HYDRO_EARLIER_STATIONS = getattr(_module, "HYDRO_EARLIER_STATIONS", {})
 # SMHI's sea-level stations by id, with the hourly sea level (tools/fetch_smhi_sea_level.py).
 SEA_LEVEL_DIR = getattr(_module, "SEA_LEVEL_DIR", None)
 SEA_LEVEL_STATIONS = getattr(_module, "SEA_LEVEL_STATIONS", {})

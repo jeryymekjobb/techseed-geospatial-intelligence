@@ -8,8 +8,9 @@ station's height system). For each of the scenario's HYDRO_STATIONS
 ("station:parameter") this tool reads the quality-controlled archive, keeps the
 scenario's period - the flows as hourly means, the levels by the day at 00 UTC - and
 notes the highest value before the period with its date, so the screens can say when a
-value is the highest since measuring began. It writes one CSV per series and
-stations.json.
+value is the highest since measuring began; where SMHI has renumbered the station
+(HYDRO_EARLIER_STATIONS), the earlier numbers' daily flows count too. It writes one CSV per
+series and stations.json.
 
     TECHSEED_SCENARIO=skane2024 .venv/bin/python -m tools.fetch_smhi_hydro
 
@@ -116,6 +117,9 @@ def main(argv: list[str] | None = None) -> int:
         result = series(parsed, int(parameter), args.start, args.end)
         if int(parameter) == 2:
             result = with_daily_record(result, parse(download(archive_url(station, 1))), args.start)
+        earlier = list(scenario.HYDRO_EARLIER_STATIONS.get(key, ()))
+        for number in earlier:
+            result = with_daily_record(result, parse(download(archive_url(number, 1))), args.start)
         file = f"{kind}-{station}.csv"
         with (args.out / file).open("w", newline="", encoding="utf-8") as stream:
             writer = csv.writer(stream, lineterminator="\n")
@@ -123,7 +127,8 @@ def main(argv: list[str] | None = None) -> int:
             writer.writerows((moment.strftime("%Y-%m-%dT%H:%M:%SZ"), value, quality) for moment, value, quality in result["rows"])
         stations.append({"id": key, "station": station, "name": name, "kind": kind, "unit": unit, "file": file,
                          "latitude": parsed["latitude"], "longitude": parsed["longitude"],
-                         "measured_since": result["since"], "earlier_max": result["earlier_max"], "values": len(result["rows"])})
+                         "measured_since": result["since"], "earlier_max": result["earlier_max"], "values": len(result["rows"]),
+                         **({"earlier_stations": earlier} if earlier else {})})
         print(f"{name} ({kind}): {len(result['rows'])} values, earlier highest {result['earlier_max']}", flush=True)
     (args.out / "stations.json").write_text(json.dumps({
         "source": ATTRIBUTION, "api": API, "period": {"start": args.start.isoformat(), "end": args.end.isoformat()},
