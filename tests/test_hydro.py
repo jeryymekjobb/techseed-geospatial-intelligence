@@ -53,6 +53,28 @@ def test_levels_are_by_the_day() -> None:
     assert result["earlier_max"]["value"] == 5478.0
 
 
+DAILY_FLOW_CSV = """Stationsnamn;StationsId;Stationsnät;Stationens latitud;Stationens longitud
+LÄNNÄSSJÖN;20035;SMHIs stationsnät;62.6289;14.1294
+
+Parameternamn;Enhet
+Vattenföring (Dygn);m³/s
+
+Datum (svensk sommartid);Vattenföring (Dygn);Kvalitet;;
+1995-06-01;180.0;G;;;Tidsperiod (fr.o.m.) = 1973-01-01
+2023-08-09;208.0;O;
+2023-08-10;205.0;O;
+"""
+
+
+def test_daily_flows_stay_by_the_day() -> None:
+    # Where SMHI has no flow every 15 minutes for the period, the day's flow (parameter 1) at 00 UTC.
+    assert fetch.KINDS[1] == ("flow", "m³/s")
+    result = fetch.series(fetch.parse(DAILY_FLOW_CSV), 1, date(2023, 8, 1), date(2023, 8, 21))
+    assert [(moment.isoformat(), value) for moment, value, _ in result["rows"]] == [
+        ("2023-08-09T00:00:00+00:00", 208.0), ("2023-08-10T00:00:00+00:00", 205.0)]
+    assert result["earlier_max"]["value"] == 180.0
+
+
 def test_the_backend_lists_the_stations_with_their_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from app.backend import hydro
     monkeypatch.setattr(hydro, "HYDRO_DIR", tmp_path)

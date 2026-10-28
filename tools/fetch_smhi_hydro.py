@@ -2,8 +2,9 @@
 """Fetch SMHI's measured flows and lake levels for the scenario's hydrological stations.
 
 SMHI's open hydrological observations (https://opendata-download-hydroobs.smhi.se) give
-the flow every 15 minutes (parameter 2, m³/s) and the water level by the day (parameter
-3, cm in the station's height system). For each of the scenario's HYDRO_STATIONS
+the flow every 15 minutes (parameter 2, m³/s) or, where a station has no such series, by the
+day (parameter 1, m³/s, at 00 UTC), and the water level by the day (parameter 3, cm in the
+station's height system). For each of the scenario's HYDRO_STATIONS
 ("station:parameter") this tool reads the quality-controlled archive, keeps the
 scenario's period - the flows as hourly means, the levels by the day at 00 UTC - and
 notes the highest value before the period with its date, so the screens can say when a
@@ -33,7 +34,7 @@ from app.backend import scenario
 API = "https://opendata-download-hydroobs.smhi.se/api/version/latest"
 USER_AGENT = "techseed-geospatial-intelligence/0.1 (exhibition demonstrator)"
 ATTRIBUTION = "SMHI öppna data, hydrologiska observationer (CC BY 4.0 SE); urval av period, timmedelvärden"
-KINDS = {2: ("flow", "m³/s"), 3: ("level", "cm")}
+KINDS = {1: ("flow", "m³/s"), 2: ("flow", "m³/s"), 3: ("level", "cm")}
 
 
 def archive_url(station: str, parameter: int) -> str:
