@@ -37,7 +37,7 @@ SUMMARY = [
     "Flödet i Ljungan steg först i fjällen och nådde Sundsvall fem dygn senare, den 14 augusti.",
     "Regn och flöden från SMHI, SMHI:s väderradar och havsvattenståndet vid Spikarna. Flödena i Selångersån och Sidsjöbäcken är beräknade i SMHI:s modell, inte uppmätta.",
     "Radarbilder från Sentinel-1, som ser genom moln, och bilder från Sentinel-2 och Landsat 9.",
-    "Bräddgivarna DV1–DV8 är simulerade och beräknade ur det verkliga regnet.",
+    "Bräddgivarna DV1–DV8 är simulerade och beräknade ur det verkliga regnet. Nivågivarna NG1–NG3 är simulerade och larmar när flödet de följer har fördubblats.",
 ]
 
 FIRMS_FILES: list = []
@@ -139,6 +139,24 @@ HYDRO_STATIONS = {
 # and Sidsjöbäcken (27 km²), which have no SMHI station.
 MODEL_FLOW_DIR = DATA / "s-hype"
 MODEL_FLOW_STATIONS = {"12849": "Selångersån", "12794": "Sidsjöbäcken"}
+
+# Three synthetic level sensors (level_sensors.py; tools/derive_impact_sensor_points.py, the `level-sensors`
+# step of fetch_scenario), each following its nearest flow station: Öhns Campingplats in Matfors by Ljungan,
+# where SVT reported water on 15 August 2023 (OSM's camp site; Skallböle), Himlabadet by Sidsjöbäcken (OSM's
+# building; Sidsjöbäcken, computed) and the Selånger river's outlet (S-HYPE's outlet point; computed). No
+# station passed its record and the computed flows stayed below the 2-year flow, so, as the user chose on
+# 2026-10-28, they alarm when their station's flow is twice its flow at the playback's start: Himlabadet
+# 10-13 August, the outlet 8-16 August, Öhns camping from 20 UTC on 11 August to 15 August.
+LEVEL_SENSOR_SITES = [
+    {"site": "Öhns camping, Matfors", "latitude": 62.32671, "longitude": 17.05924, "source_label": "SVT 15 augusti 2023 (vatten vid campingen)"},
+    {"site": "Himlabadet, Sidsjöbäcken", "latitude": 62.39404, "longitude": 17.28916, "source_label": "Syntetisk plats vid Sidsjöbäcken"},
+    {"site": "Selångersåns utlopp", "latitude": 62.39309, "longitude": 17.3151, "source_label": "Syntetisk plats vid S-HYPE:s utloppspunkt"},
+]
+LEVEL_SENSOR_FILE = DATA / "sensors" / "level-points.geojson"
+LEVEL_ALARM_RISE = 2.0
+# The overflow sensors DV1-DV8 stay beside the level sensors (level_sensors.BothSensors), as the user chose.
+OVERFLOW_WITH_LEVEL_SENSORS = True
+SENSOR_WORDS = {"sensors": "givare", "the_sensors": "givarna", "alarming": "larmande"}
 
 # The satellites that imaged Sundsvall in the period (Planetary Computer catalogue, checked
 # 2026-10-28; Sentinel-1B ended in December 2021) and the ISS, by NORAD number; element sets

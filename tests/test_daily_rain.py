@@ -92,6 +92,40 @@ def test_a_level_sensor_can_alarm_on_a_rise_over_the_flow_at_the_start(tmp_path:
     assert level_sensors.LevelSensors(points, [station]).at(utc("2025-09-07T20:00:00Z"))["confirms"] == 0
 
 
+class StubOverflow:
+    """Stands in for flood_sensors.FloodSensors: one overflow sensor that confirms, and any placed sensor."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+
+    def at(self, clock, failed=(), placed=()):
+        self.calls.append((clock, tuple(failed), tuple(placed)))
+        sensors = [{"id": "dv-01", "kind": "sewer", "status": "ok", "confirms": True},
+                   *({"id": item["id"], "kind": "sewer", "status": "ok", "confirms": False, "placed": True} for item in placed)]
+        return {"label": "bräddgivare", "sensors": sensors, "confirms": 1, "operating": len(sensors)}
+
+
+def test_overflow_and_level_sensors_together_are_one_set(tmp_path: Path) -> None:
+    # Ljungan 2023 keeps sundsvall2026's overflow sensors beside its level sensors (OVERFLOW_WITH_LEVEL_SENSORS).
+    points = tmp_path / "points.geojson"
+    points.write_text(json.dumps({"type": "FeatureCollection", "features": [
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [17.059, 62.327]},
+         "properties": {"id": "ng-01", "name": "NG1 Öhns camping, Matfors", "station": "1650:2"}}]}), encoding="utf-8")
+    station = {"id": "1650:2", "name": "Skallböle", "kind": "flow", "latitude": 62.36, "longitude": 16.96,
+               "earlier_max": {"value": 1050.0, "time_utc": "2000-07-22T00:00:00Z"},
+               "observations": [{"time_utc": "2023-08-05T00:00:00Z", "value": 204.8}, {"time_utc": "2023-08-11T20:00:00Z", "value": 410.0}]}
+    level = level_sensors.LevelSensors(points, [station], rise=2.0, start=utc("2023-08-05T00:00:00Z"))
+    overflow = StubOverflow()
+    both = level_sensors.BothSensors(overflow, level)
+    placed = [{"id": "placed-1", "name": "Placerad", "latitude": 62.39, "longitude": 17.3}]
+    result = both.at(utc("2023-08-12T00:00:00Z"), ["dv-02"], placed)
+    assert [item["id"] for item in result["sensors"]] == ["dv-01", "placed-1", "ng-01"]
+    assert (result["confirms"], result["operating"], result["label"]) == (2, 3, level_sensors.BOTH_LABEL)
+    # The failures reach both kinds; a placed sensor goes among the overflow sensors, which follow rain.
+    assert overflow.calls == [(utc("2023-08-12T00:00:00Z"), ("dv-02",), tuple(placed))]
+    assert both.at(utc("2023-08-12T00:00:00Z"), ["ng-01"])["sensors"][-1]["status"] == "failed"
+
+
 def test_without_a_level_station_the_river_flood_s_classification_counts_the_level_sensors() -> None:
     flow = {"id": "2604:2", "name": "Stugusjön", "kind": "flow", "latitude": 63.38, "longitude": 17.77,
             "earlier_max": {"value": 24.7, "time_utc": "2013-09-21T05:15:00Z"},

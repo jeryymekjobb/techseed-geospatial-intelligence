@@ -66,6 +66,9 @@ FLOOD_MODELS = getattr(_module, "FLOOD_MODELS", "Kommunens och MCF:s modeller")
 # and the words the screens use for the flood's sensors.
 LEVEL_SENSOR_FILE = getattr(_module, "LEVEL_SENSOR_FILE", None)
 LEVEL_SENSOR_RIVERS = getattr(_module, "LEVEL_SENSOR_RIVERS", {})
+# Whether the overflow sensors at the municipality's stormwater points stay beside the level sensors
+# (level_sensors.BothSensors); otherwise a scenario with level sensors has only those.
+OVERFLOW_WITH_LEVEL_SENSORS = getattr(_module, "OVERFLOW_WITH_LEVEL_SENSORS", False)
 # The cloudburst's synthetic overflow sensors at its reported damage, with the radar's rain at each
 # (tools/derive_radar_sensor_points.py, flood_sensors.py).
 RADAR_SENSOR_FILE = getattr(_module, "RADAR_SENSOR_FILE", None)

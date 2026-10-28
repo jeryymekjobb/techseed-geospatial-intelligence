@@ -12,7 +12,8 @@ has reached the level, so a storm of a few hours still shows at a month a second
 alarm is only held. A sensor the operator places takes the nearest station.
 
 The sensors are shaped as the overflow sensors (flood_sensors.py), so failures, IOT ON/OFF and
-placed sensors work the same, and the screens mark every value synthetic.
+placed sensors work the same, and the screens mark every value synthetic. A scenario can keep its
+overflow sensors beside its level sensors (BothSensors, OVERFLOW_WITH_LEVEL_SENSORS).
 """
 
 from __future__ import annotations
@@ -27,6 +28,8 @@ from typing import Any, Sequence
 from app.backend.flood_sensors import distance_km, parse_utc
 
 LABEL = "Syntetiska nivågivare – larmet härleds ur SMHI:s uppmätta flöde eller nivå, inte mätningar"
+BOTH_LABEL = ("Syntetiska bräddgivare och nivågivare – beräknade ur verkligt regn och SMHI:s flöden, "
+              "inte mätningar")
 
 
 def round_half_up(value: float) -> int:
@@ -112,3 +115,16 @@ class LevelSensors:
                             "from_record_cm": from_record_cm, "confirms": value is not None and value > record})
         operating = [item for item in sensors if item["status"] == "ok"]
         return {"label": LABEL, "sensors": sensors, "confirms": sum(1 for item in operating if item["confirms"]), "operating": len(operating)}
+
+
+class BothSensors:
+    """The overflow sensors at the stormwater points (flood_sensors.FloodSensors) and the level sensors by the
+    rivers together, as one set: the overflow sensors first, and a placed sensor among them, as it follows rain."""
+
+    def __init__(self, overflow: Any, level: LevelSensors) -> None:
+        self.overflow, self.level = overflow, level
+
+    def at(self, clock: datetime, failed: Sequence[str | None] = (), placed: Sequence[dict[str, Any]] = ()) -> dict[str, Any]:
+        parts = (self.overflow.at(clock, failed, placed), self.level.at(clock, failed))
+        return {"label": BOTH_LABEL, "sensors": [item for part in parts for item in part["sensors"]],
+                "confirms": sum(part["confirms"] for part in parts), "operating": sum(part["operating"] for part in parts)}
