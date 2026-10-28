@@ -23,9 +23,10 @@ om villkoren (se [Bilaga](#bilaga-mejlutkast-till-västerås-stad)).
   maximalt vattendjup vid 100-årsregn och maximalt ytvattenflöde (l/s/m). Djuplagret ritades i
   webbprojektionen (EPSG:3857) över centrala Västerås utan problem. Översiktsplanerna har lagret
   *Skyfallsled*.
-- **Villkor anges inte.** Tjänsterna har ingen upphovsrätts- eller licenstext. Som för
-  Sundsvall behöver staden godkänna att demon visar och sparar lagren. Ett mejlutkast finns i
-  bilagan.
+- **Villkor anges inte.** Tjänsterna har ingen upphovsrätts- eller licenstext. Användaren
+  meddelade 2026-10-28 att Techseed har ok att använda Västerås stads data för internt bruk
+  och att inga offentliga visningar är planerade. Mejlutkastet i bilagan behövs bara om
+  demon ska visas offentligt.
 - **En väldokumenterad översvämning finns: Svartån i september 2023.** SMHI:s station Åkesta
   kvarn mätte **56,4 m³/s den 2 september 2023, det högsta sedan mätningarna började 1980**
   (tidigare 42,9 m³/s 1983). Skultuna fick 59,7 mm på ett dygn efter en augusti med 254 mm.
@@ -37,11 +38,12 @@ om villkoren (se [Bilaga](#bilaga-mejlutkast-till-västerås-stad)).
 - **Erosion:** SGI har en översiktlig erosionskarta för Svartån (2012) och skred- och
   erosionsunderlag för Mälaren, men SGI:s GeoServer svarade "403 – access denied" utan
   inloggning. Underlaget måste fås från SGI eller Länsstyrelsens geodatakatalog.
-- **Skogsbrand:** staden har inga brandlager. Ett brandscenario bygger på nationella och
-  europeiska källor, som demons Västmanland 2014, vars brand låg norr och nordväst om Västerås.
-- Rekommendation, att beslutas: börja med **översvämningen i Svartån i september 2023**.
-  Erosion och brand kräver först ett beslut om vad som menas och vilka källor som får
-  användas (se [Beslut som behövs](#beslut-som-behövs)).
+- **Skogsbrand:** staden har inga brandlager. NASA FIRMS 2001–2025 visar ingen skogsbrand i
+  Västerås kommun, bara enstaka små detektioner (se [Brandsökning](#brandsökning-2026-10-28)).
+  Närmast ligger branden i Västmanland 2014, som demon redan visar, strax norr om
+  kommungränsen.
+- Beslutat 2026-10-28 (se [Beslut](#beslut)): första scenariot är **översvämningen i Svartån i
+  september 2023** (`vasteras-sep2023`); erosion väntar.
 
 ## Västerås stads karttjänster
 
@@ -148,8 +150,27 @@ brandscenarier: NASA FIRMS, Sentinel-2 och Landsat, SMHI:s väder, brandrisk fr�
 MET Norways prognoser. Branden i Västmanland 2014, som demon redan visar, låg i Sala,
 Surahammar, Fagersta och Norberg, alltså inte i Västerås kommun.
 
-Inga skogsbränder i Västerås kommun har sökts fram än. Nästa steg är att söka FIRMS-arkivet
-och MSB:s eller MCF:s insatsstatistik efter bränder i kommunen.
+### Brandsökning 2026-10-28
+
+NASA FIRMS årsfiler för Sverige (MODIS Collection 6.1 2001–2025, VIIRS S-NPP 2012–2025)
+söktes inom Västerås kommuns gräns i OpenStreetMap (relation 935588), med bara detektioner
+som FIRMS antar är vegetationsbränder (`type` 0) och med minst nominell konfidens (VIIRS `n`
+eller `h`, MODIS 30).
+
+- **Ingen skogsbrand syns i kommunen.** Där finns 34 detektioner från 26 dagar, högst två
+  passager samma dygn och 29 av dem under 10 MW.
+- Flera ligger vid 59,61 N 16,46 Ö, där Mälarenergis kraftvärmeverk ligger. De är troligen
+  värme från anläggningen trots att de räknas som vegetation; det är inte kontrollerat.
+- Den största, två MODIS-detektioner på 116–128 MW kl. 02:27 UTC den 24 september 2003 vid
+  59,63 N 16,58 Ö öster om staden, är inte identifierad.
+- I närområdet är branden i Västmanland 2014 den enda stora; dess sydligaste detektioner
+  ligger strax norr om kommungränsen. Övriga grupper inom cirka 20 km har högst 7 detektioner.
+- Pressen ger bara småbränder, till exempel 10 × 25 m vid Fäbodängen nära Skultuna
+  ([SVT](https://www.svt.se/nyheter/lokalt/vastmanland/raddningstjansten-har-larmats-till-flera-brander-i-lanet),
+  datum inte bekräftat). MSB:s eller MCF:s insatsstatistik är inte sökt.
+
+Ett brandscenario i Västerås har alltså ingen händelse som satelliterna sett. Alternativen är
+branden 2014 sedd från Västerås eller att vänta med brand.
 
 ## Erosion
 
@@ -174,16 +195,18 @@ Som i övriga scenarier: nivågivare där det inte finns mätningar, till exempe
 i Biskopsängen och vid Svartåns mynning, märkta syntetiska; och, om användaren vill, vallarna
 vid stadshuset som ett märkt objekt på kartan, inte som en modell.
 
-## Beslut som behövs
+## Beslut
 
-1. **Fråga staden om villkoren.** Mejlutkastet i bilagan. Utan godkännande kan demon bara visa
-   nationella och europeiska data.
-2. **Första scenariot.** Rekommendation: Svartån i september 2023 (`vasteras-sep2023`), med
-   SMHI:s flöden och regn, skyfallskarteringen om staden godkänner det, Sentinel-1 på toppdagen
-   och klara bilder efteråt.
-3. **Erosion.** Erosion längs vattendrag och stränder (SGI) eller på åkermark? För SGI:s data
-   behöver SGI tillfrågas om tillgång och villkor.
-4. **Skogsbrand.** En brand i Västerås kommun eller närområdet ska först sökas fram.
+Beslutat av användaren 2026-10-28:
+
+1. **Stadens data.** Techseed har ok att använda Västerås stads data för internt bruk, och
+   inga offentliga visningar är planerade. Mejlutkastet i bilagan används bara om demon ska
+   visas offentligt.
+2. **Första scenariot** är Svartån i september 2023 (`vasteras-sep2023`), med SMHI:s flöden
+   och regn, stadens skyfallskartering, Sentinel-1 på toppdagen och klara bilder efteråt.
+3. **Erosion** väntar: längs vattendrag och stränder (SGI) eller på åkermark är inte bestämt.
+4. **Skogsbrand:** sökningen är gjord (se [Brandsökning](#brandsökning-2026-10-28)); hur brand
+   ska visas för Västerås är inte bestämt.
 
 ## Källor
 
@@ -206,10 +229,15 @@ vid stadshuset som ett märkt objekt på kartan, inte som en modell.
 - [Länsstyrelsernas geodatakatalog: SGI Erosionsförutsättningar](https://ext-geodatakatalog.lansstyrelsen.se/GeodataKatalogen/srv/api/records/GetMetaDataById?id=f735c3f3-56e5-46d4-b78e-00a319357ece)
 - Satellitscener: Microsoft Planetary Computer STAC (`sentinel-1-grd`, `sentinel-2-l2a`,
   `landsat-c2-l2`) och Copernicus Data Space Ecosystem (Sentinel-1 OCN), sökta 2026-10-28.
+- NASA FIRMS, årsfiler per land (`https://firms.modaps.eosdis.nasa.gov/data/country/`, MODIS
+  C6.1 2001–2025 och VIIRS S-NPP 2012–2025, Sverige), hämtade 2026-10-28.
+- OpenStreetMap, Västerås kommuns gräns (relation 935588) via Nominatim, hämtad 2026-10-28.
+- [SVT Västmanland: Räddningstjänsten har larmats till flera bränder i länet](https://www.svt.se/nyheter/lokalt/vastmanland/raddningstjansten-har-larmats-till-flera-brander-i-lanet)
 
 ## Bilaga: mejlutkast till Västerås stad
 
-Utkastet är skrivet för att skickas av Techseed. Mottagare: stadens GIS- eller
+Utkastet är skrivet för att skickas av Techseed om demon ska visas offentligt; för internt
+bruk har Techseed redan ok (se [Beslut](#beslut)). Mottagare: stadens GIS- eller
 kartfunktion, via stadens kontaktcenter om ingen direktadress finns. Namn och kontaktuppgifter
 fylls i av avsändaren.
 
@@ -218,9 +246,9 @@ fylls i av avsändaren.
 > Hej,
 >
 > Vi på Techseed bygger en demonstrator som visar hur satellitdata, geodata, sensorer och AI
-> kan ge en gemensam lägesbild vid översvämning, skogsbrand och erosion. Demonstratorn visas
-> på mässor och för kunder. Den spelar upp historiska händelser med verkliga data och är
-> tydligt märkt som en uppspelning, inte en levande tjänst.
+> kan ge en gemensam lägesbild vid översvämning, skogsbrand och erosion. Vi använder den i
+> dag internt och vill kunna visa den för kunder och vid möten. Den spelar upp historiska
+> händelser med verkliga data och är tydligt märkt som en uppspelning, inte en levande tjänst.
 >
 > Vi vill gärna bygga ett scenario om Svartåns höga flöden i september 2023 och har sett att
 > staden publicerar kartlager på kartor.vasteras.se. Vi undrar om vi får använda följande:
@@ -234,7 +262,7 @@ fylls i av avsändaren.
 >
 > - Får vi visa lagren i demonstratorn, med Västerås stad angiven som källa?
 > - Får vi spara en lokal kopia av kartbilderna för det område och den tid scenariot gäller,
->   så att demonstratorn fungerar utan internet på en mässa? Kopian används bara i
+>   så att demonstratorn fungerar utan internet? Kopian används bara i
 >   demonstratorn och lämnas inte vidare.
 > - Hur vill ni att källan anges, och finns det andra villkor eller rättigheter vi ska känna
 >   till, till exempel för Lantmäteriets underlag i bakgrundskartorna?
