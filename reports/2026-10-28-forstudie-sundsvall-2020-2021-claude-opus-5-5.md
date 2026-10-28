@@ -129,7 +129,7 @@ riktning runt 90–180° kommer från havet.
 
 | Dygn | Regn Sidsjö D | Hav Spikarna (dag före, dag, dag efter) | Vind Brämön | Kommentar |
 |---|---|---|---|---|
-| 2020-02-22 | 12,9 mm | 82, 98, 74 cm | syd 11–12 m/s 20–21 feb | Plus 5,0 mm 20 feb. +3–6 °C, regn på snö. **Högsta havet 2020, i pressen.** |
+| 2020-02-22 | 12,9 mm | 83, 98, 83 cm | syd 11–12 m/s 20–21 feb | Plus 5,0 mm 20 feb. +3–6 °C, regn på snö. **Högsta havet 2020, i pressen.** |
 | 2020-09-26 | 48,3 mm | 12, 12, 6 cm | nordlig 10–11 m/s | Mest regn 2020, lågt hav |
 | 2020-12-28 | 30,0 mm | 57, 59, 28 cm | **sydost 12–15 m/s** | Plus 25,0 mm 29 dec. +3–4 °C. **Regn, hav och vind från havet samtidigt.** |
 | 2021-01-11 | 62,8 mm | −0, 51, 63 cm | sydost upp till 18 m/s | −13 till 0 °C, alltså troligen mest snö |
