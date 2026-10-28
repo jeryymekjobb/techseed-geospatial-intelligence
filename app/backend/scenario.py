@@ -108,6 +108,11 @@ SEA_LEVEL_STATIONS = getattr(_module, "SEA_LEVEL_STATIONS", {})
 # SMHI's modelled daily flows (S-HYPE) by SUBID, for rivers without a station (tools/read_vattenwebb.py).
 MODEL_FLOW_DIR = getattr(_module, "MODEL_FLOW_DIR", None)
 MODEL_FLOW_STATIONS = getattr(_module, "MODEL_FLOW_STATIONS", {})
+# A playback of days can show the sea level by the hour (SEA_LEVEL_HOURLY) instead of each day's highest;
+# and the screens can mark the sea level of the hours after the clock (SEA_LEVEL_AHEAD_HOURS), measured
+# afterwards, since no forecast of the sea level as issued then is archived.
+SEA_LEVEL_HOURLY = getattr(_module, "SEA_LEVEL_HOURLY", False)
+SEA_LEVEL_AHEAD_HOURS = getattr(_module, "SEA_LEVEL_AHEAD_HOURS", None)
 # A sea level at least this high (cm) is a storm in the log (hydro.storms).
 SEA_LEVEL_STORM_CM = getattr(_module, "SEA_LEVEL_STORM_CM", 100.0)
 # The element set each image's satellite had when it took the image (tools/fetch_scene_elements.py,

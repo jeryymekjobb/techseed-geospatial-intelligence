@@ -79,6 +79,11 @@ SEA_LEVEL_DIR = DATA / "sea-level"
 SEA_LEVEL_STATIONS = {"2061": "Spikarna"}
 # No hourly value at Spikarna reached 100 cm in the period (76.7 cm on 8 August), so no storm lines.
 SEA_LEVEL_STORM_CM = 100.0
+# Thirteen days: the sea level by the hour. No forecast of it as issued in 2023 is archived (SMHI's
+# NEMO-Nordic only in real time, Copernicus Marine's analyses), so, as the user chose on 2026-10-28, the
+# screens mark the 72 hours after the clock as measured afterwards, not a forecast.
+SEA_LEVEL_HOURLY = True
+SEA_LEVEL_AHEAD_HOURS = 72
 
 # Sundsvall's centre, where the Selånger river meets the sea.
 FIRE_CENTRE = (62.391, 17.307)

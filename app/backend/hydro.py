@@ -6,7 +6,8 @@ for how many days after (HYDRO_RECORD_HOLD_DAYS, None for the whole period).
 
 A scenario's SMHI sea-level stations (tools/fetch_smhi_sea_level.py) are given the same way, as
 levels with each day's highest hourly value at 00 UTC, since a playback of many years cannot show
-the hours; `storms` gives the hourly peaks above SEA_LEVEL_STORM_CM for the log.
+the hours, or by the hour (SEA_LEVEL_HOURLY), with the hours after the clock the screens mark as
+measured afterwards (SEA_LEVEL_AHEAD_HOURS); `storms` gives the hourly peaks above SEA_LEVEL_STORM_CM for the log.
 
 A scenario's modelled flows (SMHI's S-HYPE, tools/read_vattenwebb.py) are given as flows by the day,
 marked modelled, with SMHI's flow statistics (MHQ, HQ2-HQ50) for the screens' return period.
@@ -85,7 +86,7 @@ def _sea_rows(station: dict[str, Any]) -> list[dict[str, Any]]:
 
 @lru_cache(maxsize=1)
 def sea_levels() -> dict[str, Any] | None:
-    """The sea-level stations as levels, each day's highest hourly value at 00 UTC, or None."""
+    """The sea-level stations as levels, each day's highest hourly value at 00 UTC or every hour, or None."""
     source_file = SEA_LEVEL_DIR / "SOURCE.json" if SEA_LEVEL_DIR else None
     if source_file is None or not source_file.is_file():
         return None
@@ -97,12 +98,17 @@ def sea_levels() -> dict[str, Any] | None:
         for row in rows:
             day = row["time_utc"][:10]
             days[day] = max(days.get(day, row["value"]), row["value"])
+        if scenario.SEA_LEVEL_HOURLY:
+            observations = [{"time_utc": row["time_utc"], "value": row["value"]} for row in rows]
+        else:
+            observations = [{"time_utc": f"{day}T00:00:00Z", "value": value} for day, value in sorted(days.items())]
         result.append({
             "id": f"sea-{station['station']}", "name": f"{scenario.SEA_LEVEL_STATIONS.get(station['station']) or station['name']} (havet)",
             "kind": "level", "unit": station["unit"], "sea": True, "height_system": station["height_system"],
             **{key: station[key] for key in ("latitude", "longitude", "measured_since", "earlier_max")},
             "unchecked": any(row["quality"] != "G" for row in rows), "record_hold_days": scenario.HYDRO_RECORD_HOLD_DAYS,
-            "observations": [{"time_utc": f"{day}T00:00:00Z", "value": value} for day, value in sorted(days.items())],
+            "daily": not scenario.SEA_LEVEL_HOURLY, "ahead_hours": scenario.SEA_LEVEL_AHEAD_HOURS,
+            "observations": observations,
         })
     return {"source": source["source"], "stations": result}
 

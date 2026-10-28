@@ -158,6 +158,37 @@ def test_the_sea_level_is_a_level_station_with_each_day_s_highest(tmp_path: Path
     hydro.stations.cache_clear(), hydro.sea_levels.cache_clear()
 
 
+def test_a_short_scenario_shows_the_sea_level_by_the_hour_with_hours_ahead(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.backend import hydro
+    monkeypatch.setattr(hydro, "HYDRO_DIR", None)
+    monkeypatch.setattr(hydro, "MODEL_FLOW_DIR", None)
+    monkeypatch.setattr(hydro, "SEA_LEVEL_DIR", tmp_path)
+    monkeypatch.setattr(hydro.scenario, "SEA_LEVEL_STATIONS", {"30488": "Skanör"})
+    monkeypatch.setattr(hydro.scenario, "SEA_LEVEL_HOURLY", True)
+    monkeypatch.setattr(hydro.scenario, "SEA_LEVEL_AHEAD_HOURS", 72)
+    write_sea_level(tmp_path)
+    hydro.stations.cache_clear(), hydro.sea_levels.cache_clear()
+    [station] = hydro.stations()["stations"]
+    hydro.stations.cache_clear(), hydro.sea_levels.cache_clear()
+    assert (station["daily"], station["ahead_hours"]) == (False, 72)
+    assert station["observations"][:2] == [{"time_utc": "2017-01-04T16:00:00Z", "value": 163.2}, {"time_utc": "2017-01-04T17:00:00Z", "value": 168.6}]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_screens_find_the_highest_sea_level_in_the_hours_ahead() -> None:
+    # SYNTHETIC hourly sea levels round Spikarna's 76.7 cm of 8 August 2023.
+    observations = [{"time_utc": "2023-08-07T12:00:00Z", "value": 40.3}, {"time_utc": "2023-08-08T15:00:00Z", "value": 76.7},
+                    {"time_utc": "2023-08-10T13:00:00Z", "value": 54.2}, {"time_utc": "2023-08-12T00:00:00Z", "value": 90.0}]
+    code = (f"const m = require({json.dumps(str(HYDRO_JS))}); const o = {json.dumps(observations)};"
+            "const at = (t, h) => m.hydroAhead(o, Date.parse(t), h);"
+            "console.log(JSON.stringify([at('2023-08-07T12:00:00Z', 72).value, at('2023-08-08T15:00:00Z', 72).value,"
+            " at('2023-08-12T00:00:00Z', 72), m.hydroWhen('level', '2023-08-08T15:00:00Z', () => 'tid', false),"
+            " m.hydroWhen('level', '2023-08-08T00:00:00Z', () => 'tid')]));")
+    result = json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+    # The clock's own hour is not ahead; 90 cm lies more than 72 hours after the second clock.
+    assert result == [76.7, 54.2, None, "tid", "8 aug 2023"]
+
+
 def test_storms_are_the_peaks_three_days_apart_with_the_records(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from app.backend import hydro
     monkeypatch.setattr(hydro, "SEA_LEVEL_DIR", tmp_path)

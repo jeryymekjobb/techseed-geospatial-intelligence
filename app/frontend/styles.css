@@ -108,6 +108,9 @@ body:not(.display-only) .view-switch ~ .panel-show, .panel-show:not([hidden]) ~ 
 .cth-line { fill: none; stroke: #5b3fb0; stroke-width: 1.6; }
 .clm-line { fill: none; stroke: #6b7280; stroke-width: 1.6; }
 .hydro-record { stroke: #b3261e; stroke-width: 1; stroke-dasharray: 4 3; }
+/* The hours after the clock that a sea level shows measured afterwards, not forecast (panel.js drawHydro). */
+.hydro-ahead { fill: #f2e6c4; }
+.hydro-ahead-label { font-size: 9px; fill: #6b5a2a; }
 .legend-arrow { width: 28px; height: 14px; flex: none; }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid #0003; flex: none; }
 .scenario-status { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }

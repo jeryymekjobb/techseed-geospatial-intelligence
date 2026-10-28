@@ -60,9 +60,9 @@ def test_the_backend_gives_the_modelled_flows_as_daily_modelled_stations(tmp_pat
     monkeypatch.setattr(hydro, "MODEL_FLOW_DIR", tmp_path)
     monkeypatch.setattr(hydro, "HYDRO_DIR", None)
     monkeypatch.setattr(hydro, "SEA_LEVEL_DIR", None)
-    hydro.stations.cache_clear()
+    hydro.stations.cache_clear(), hydro.sea_levels.cache_clear()
     result = hydro.stations()
-    hydro.stations.cache_clear()
+    hydro.stations.cache_clear(), hydro.sea_levels.cache_clear()
     station = result["stations"][0]
     assert result["source"] == "SMHI Vattenwebb"
     assert (station["id"], station["modelled"], station["daily"], station["measured_since"]) == ("model-12849", True, True, "2010-01-01")

@@ -31,13 +31,13 @@ function hydroRecord(station, highest, clockMs) {
   return clockMs - Date.parse(highest.time_utc) <= hold * 86_400_000;
 }
 
-// When a value was measured: a level, or a flow by the day (`daily`), is SMHI's value for the day,
-// stamped at 00:00 UTC, so only its date ("10 feb 2024"); a flow is an hourly mean, given with
+// When a value was measured: a value by the day (`daily`, a level unless said otherwise) is SMHI's value
+// for the day, stamped at 00:00 UTC, so only its date ("10 feb 2024"); an hourly value is given with
 // `formatTime` (local time).
 const MONTHS = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
-function hydroWhen(kind, isoUtc, formatTime, daily = false) {
-  if (kind !== "level" && !daily) return formatTime(isoUtc);
+function hydroWhen(kind, isoUtc, formatTime, daily = kind === "level") {
+  if (!daily) return formatTime(isoUtc);
   const [year, month, day] = isoUtc.slice(0, 10).split("-").map(Number);
   return `${day} ${MONTHS[month - 1]} ${year}`;
 }
@@ -54,4 +54,15 @@ function hydroReturnPeriod(statistics, value) {
   return years;
 }
 
-if (typeof module !== "undefined") module.exports = { hydroAt, hydroText, hydroRecord, hydroWhen, hydroReturnPeriod };
+// The highest value in the `hours` after the clock (a sea level measured afterwards, not a forecast), or null.
+function hydroAhead(observations, clockMs, hours) {
+  const until = clockMs + hours * 3_600_000;
+  let highest = null;
+  for (const item of observations) {
+    const ms = Date.parse(item.time_utc);
+    if (ms > clockMs && ms <= until && (!highest || item.value > highest.value)) highest = item;
+  }
+  return highest;
+}
+
+if (typeof module !== "undefined") module.exports = { hydroAt, hydroText, hydroRecord, hydroWhen, hydroReturnPeriod, hydroAhead };

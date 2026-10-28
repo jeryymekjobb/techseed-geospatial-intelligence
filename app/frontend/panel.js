@@ -798,14 +798,27 @@ function showHydro(clock) {
     ["Högst i perioden", highest ? `${hydroText(station.kind, highest.value)} (${when(highest)})` : "–"],
     ["Tidigare högsta", earlier ? `${hydroText(station.kind, earlier.value)} (${earlier.time_utc.slice(0, 4)}, ${since})` : "–"],
     ...(station.modelled ? [["Återkomsttid", years ? `minst ${years}-årsflöde` : "under 2-årsflödet"]] : []),
+    ...(station.ahead_hours ? [aheadValue(station, clock)] : []),
   ].map(chartValue).join("");
   $("hydro-note").textContent = station.modelled
     ? `${hydroRecord(station, highest) ? `Högre än allt modellen gett här sedan ${station.measured_since.slice(0, 4)}. ` : ""}`
       + "Beräknad vattenföring per dygn i SMHI:s modell S-HYPE, inte uppmätt. Återkomsttiden enligt SMHI:s flödesstatistik för 1991–2020."
     : (hydroRecord(station, highest) ? "Högre än allt som mätts här tidigare. " : "")
-      + (station.kind === "level" ? "Vattenstånd per dygn i stationens höjdsystem. " : station.daily ? "Vattenföring, dygnsmedelvärden. " : "Vattenföring, timmedelvärden. ")
-      + (station.unchecked ? "SMHI har ännu inte kvalitetsgranskat alla värden." : "Kvalitetsgranskade värden från SMHI.");
+      + (station.kind === "level"
+        ? `Vattenstånd per ${station.daily === false ? "timme" : "dygn"} i ${station.height_system || "stationens höjdsystem"}. `
+        : station.daily ? "Vattenföring, dygnsmedelvärden. " : "Vattenföring, timmedelvärden. ")
+      + (station.unchecked ? "SMHI har ännu inte kvalitetsgranskat alla värden." : "Kvalitetsgranskade värden från SMHI.")
+      + (station.ahead_hours ? ` De kommande ${station.ahead_hours / 24} dygnen är uppmätta i efterhand, inte en prognos: `
+        + "ingen prognos av havet från då finns sparad." : "");
   drawHydro(station, clock);
+}
+
+// A sea level's highest in the hours after the clock, marked as measured afterwards (hydroAhead).
+function aheadValue(station, clock) {
+  const highest = hydroAhead(station.observations, clock.getTime(), station.ahead_hours);
+  const label = `Högst kommande ${station.ahead_hours / 24} dygn`;
+  if (!highest) return [label, "–"];
+  return [label, `${hydroText(station.kind, highest.value)} (${hydroWhen(station.kind, highest.time_utc, formatLocal, station.daily)}, uppmätt i efterhand)`];
 }
 
 function drawHydro(station, clock) {
@@ -825,6 +838,15 @@ function drawHydro(station, clock) {
     const y = yOf(station.earlier_max.value);
     parts.push(`<line class="hydro-record" x1="0" x2="${width}" y1="${y}" y2="${y}"></line>`,
       `<text x="2" y="${y - 2}">tidigare högsta ${station.earlier_max.time_utc.slice(0, 4)}</text>`);
+  }
+  if (station.ahead_hours) {
+    // The hours after the clock, measured afterwards: a band behind the line.
+    const from = xOf(clock.getTime());
+    const to = Math.min(width, xOf(clock.getTime() + station.ahead_hours * HOUR_MS));
+    if (to > from) {
+      parts.unshift(`<rect class="hydro-ahead" x="${from.toFixed(1)}" y="0" width="${(to - from).toFixed(1)}" height="${height - 14}"></rect>`);
+      parts.push(`<text class="hydro-ahead-label" x="${Math.min(from + 3, width - 90).toFixed(1)}" y="${height - 17}">uppmätt i efterhand</text>`);
+    }
   }
   parts.push(...chartDates(start, end, xOf, height));
   const x = xOf(clock.getTime());
