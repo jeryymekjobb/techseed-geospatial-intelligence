@@ -75,6 +75,16 @@ def test_daily_flows_stay_by_the_day() -> None:
     assert result["earlier_max"]["value"] == 180.0
 
 
+def test_a_15_minute_series_takes_its_record_from_the_longer_daily_series() -> None:
+    # Skallböle: 15-minute flows from 2006 (highest 407 m³/s), daily flows from 1956 (1050 m³/s in 2000).
+    result = {"rows": [], "earlier_max": {"value": 407.0, "time_utc": "2006-10-29T14:45:00Z"}, "since": "2006-01-01"}
+    daily = fetch.parse(DAILY_FLOW_CSV.replace("1995-06-01;180.0", "2000-07-22;1050.0"))
+    merged = fetch.with_daily_record(result, daily, date(2023, 8, 1))
+    assert merged["earlier_max"] == {"value": 1050.0, "time_utc": "2000-07-22T00:00:00Z"} and merged["since"] == "2000-07-22"
+    # A lower daily record leaves the 15-minute one.
+    assert fetch.with_daily_record(result, fetch.parse(DAILY_FLOW_CSV), date(2023, 8, 1))["earlier_max"]["value"] == 407.0
+
+
 def test_the_backend_lists_the_stations_with_their_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from app.backend import hydro
     monkeypatch.setattr(hydro, "HYDRO_DIR", tmp_path)

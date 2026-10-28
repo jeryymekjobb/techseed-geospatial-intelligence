@@ -87,6 +87,18 @@ def series(parsed: dict[str, Any], parameter: int, start: date, end: date) -> di
     }
 
 
+def with_daily_record(result: dict[str, Any], daily: dict[str, Any], start: date) -> dict[str, Any]:
+    """A 15-minute series often starts long after the station's daily flows (Skallböle 2006, against
+    1956), so the highest before the period and the start of measuring come from both."""
+    before = [row for row in daily["rows"] if row[0].date() < start]
+    record = max(before, key=lambda row: row[1]) if before else None
+    if record is not None and (result["earlier_max"] is None or record[1] > result["earlier_max"]["value"]):
+        result = {**result, "earlier_max": {"value": record[1], "time_utc": record[0].strftime("%Y-%m-%dT%H:%M:%SZ")}}
+    if daily["rows"] and (result["since"] is None or daily["rows"][0][0].strftime("%Y-%m-%d") < result["since"]):
+        result = {**result, "since": daily["rows"][0][0].strftime("%Y-%m-%d")}
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("--start", type=date.fromisoformat, default=scenario.PERIOD_START)
@@ -102,6 +114,8 @@ def main(argv: list[str] | None = None) -> int:
         kind, unit = KINDS[int(parameter)]
         parsed = parse(download(archive_url(station, int(parameter))))
         result = series(parsed, int(parameter), args.start, args.end)
+        if int(parameter) == 2:
+            result = with_daily_record(result, parse(download(archive_url(station, 1))), args.start)
         file = f"{kind}-{station}.csv"
         with (args.out / file).open("w", newline="", encoding="utf-8") as stream:
             writer = csv.writer(stream, lineterminator="\n")
