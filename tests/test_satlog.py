@@ -447,3 +447,24 @@ def test_a_storm_surge_is_a_log_line_and_a_record_says_so() -> None:
         "Högt vattenstånd vid Skanör: 169 centimeter i RH2000, det högsta sedan mätningarna började 1992",
     ]
     assert {line["source"] for line in lines} == {"sea_level"} and node("SATLOG_SOURCES.sea_level") == "SMHI, uppmätt"
+
+
+def test_a_dam_is_said_as_an_if_with_triangles_when_its_sensor_alarms() -> None:
+    # SYNTHETIC values in the layout of dam.py's layer (Sidsjödammen, Ljungan 2023).
+    dam = {"name": "Sidsjödammen", "latitude": 62.3796, "longitude": 17.2823, "stream": "Sidsjöbäcken", "distance_m": 100,
+           "buildings": 256, "trigger_sensor": "ng-02",
+           "places": [{"name": "Himlabadet", "latitude": 62.394, "longitude": 17.2892, "from_stream_m": 360}]}
+    sensor_events = (
+        f"[{{clock_utc: new Date({CLOCK} - 60 * {MINUTE}).toISOString(), sensor: 'ng-02', name: 'NG2 Himlabadet, Sidsjöbäcken', kind: 'level_rise', confirms: true}},"
+        f" {{clock_utc: new Date({CLOCK} - 30 * {MINUTE}).toISOString(), sensor: 'ng-01', name: 'NG1 Öhns camping', kind: 'level_rise', confirms: true}}]"
+    )
+    log = f"satelliteLog({{ sensorEvents: {sensor_events}, threats: {json.dumps({'dam': dam})} }}, {CLOCK})"
+    lines = node(log)
+    [line] = [line for line in lines if line["source"] == "dam"]
+    assert line["text"] == ("Om Sidsjödammen brister: 256 byggnader inom 100 meter från Sidsjöbäcken nedströms dammen; "
+                            "Himlabadet 360 meter från bäcken")
+    assert line["kind"] == "threat" and node("SATLOG_SOURCES.dam") == "illustrativt, ingen dammbrottsmodell"
+    # Only the trigger sensor's alarm says it, at its time.
+    assert line["atMs"] == CLOCK - 60 * MINUTE
+    marks = node(f"(() => {{ const lines = {log}; return threatMarks(lines, new Set(lines.filter((line) => line.source === 'dam').map(satlogKey))); }})()")
+    assert [mark["name"] for mark in marks] == ["Sidsjödammen", "Himlabadet"]

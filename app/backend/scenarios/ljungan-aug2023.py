@@ -158,6 +158,19 @@ LEVEL_ALARM_RISE = 2.0
 OVERFLOW_WITH_LEVEL_SENSORS = True
 SENSOR_WORDS = {"sensors": "givare", "the_sensors": "givarna", "alarming": "larmande"}
 
+# Sidsjödammen as a marked "if", as the user chose on 2026-10-28: no open dam-break mapping exists and
+# one may be classified. When NG2 Himlabadet alarms (Sidsjöbäcken's flow doubled, 10 August), the log
+# says how many buildings lie within 100 m of Sidsjöbäcken below the dam (OSM's dam line, waterway=dam)
+# and marks the dam and Himlabadet, where the user's meeting reported water, about 360 m from the
+# stream (tools/derive_dam_exposure.py). The municipality's cloudburst plan (2018) names a dam failure
+# there "katastrofala konsekvenser för nedströms bebyggelse".
+DAM = {
+    "name": "Sidsjödammen", "latitude": 62.3796, "longitude": 17.2823, "stream": "Sidsjöbäcken", "distance_m": 100,
+    "places": [{"name": "Himlabadet", "latitude": 62.39404, "longitude": 17.28916}],
+    "trigger_sensor": "ng-02", "osm_extract": REPO_ROOT / "data" / "osm" / "sundsvall2026-area.osm.pbf",
+}
+DAM_FILE = DATA / "dam" / "dam.json"
+
 # The satellites that imaged Sundsvall in the period (Planetary Computer catalogue, checked
 # 2026-10-28; Sentinel-1B ended in December 2021) and the ISS, by NORAD number; element sets
 # a few days around the playback.

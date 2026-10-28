@@ -261,6 +261,9 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
                          Path(s.ROUTE_EXPOSURE_FILE), packages=IMAGES, size_mb=5))
     if get("RADAR_SENSOR_FILE"):
         plan.append(Step("radar-sensors", "Givare fyllda med radarregn", tool("derive_radar_sensor_points"), Path(s.RADAR_SENSOR_FILE), size_mb=1))
+    if get("DAM") and get("DAM_FILE"):
+        plan.append(Step("dam", "Dammen som ett märkt \"om\": byggnader vid bäcken nedströms (efter databasen)",
+                         tool("derive_dam_exposure", "--tools", tools), Path(s.DAM_FILE), programs=native(tools, "ogr2ogr"), size_mb=1))
     if get("LEVEL_SENSOR_FILE"):
         # Two tools write the same file: by the rivers where the scenario names them, else at the reported damage.
         derive = "derive_level_sensor_points" if get("LEVEL_SENSOR_RIVERS") else "derive_impact_sensor_points"

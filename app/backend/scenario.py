@@ -66,6 +66,11 @@ FLOOD_MODELS = getattr(_module, "FLOOD_MODELS", "Kommunens och MCF:s modeller")
 # and the words the screens use for the flood's sensors.
 LEVEL_SENSOR_FILE = getattr(_module, "LEVEL_SENSOR_FILE", None)
 LEVEL_SENSOR_RIVERS = getattr(_module, "LEVEL_SENSOR_RIVERS", {})
+# A dam shown as a marked "if" (dam.py, tools/derive_dam_exposure.py): its name, place, the stream below it,
+# the distance within which buildings are counted, the places named, the sensor whose alarm says it, and
+# the OSM extract the stream comes from; DAM_FILE holds the result.
+DAM = getattr(_module, "DAM", None)
+DAM_FILE = getattr(_module, "DAM_FILE", None)
 # Whether the overflow sensors at the municipality's stormwater points stay beside the level sensors
 # (level_sensors.BothSensors); otherwise a scenario with level sensors has only those.
 OVERFLOW_WITH_LEVEL_SENSORS = getattr(_module, "OVERFLOW_WITH_LEVEL_SENSORS", False)

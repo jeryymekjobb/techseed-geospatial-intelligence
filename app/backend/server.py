@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, daily_rain, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_clm, meteosat_cth, meteosat_frm, meteosat_gii, meteosat_li, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, scene_satellites, sensor_sim, shorelines, spatial, speech, wms
+from app.backend import assessment, daily_rain, dam, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_clm, meteosat_cth, meteosat_frm, meteosat_gii, meteosat_li, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, scene_satellites, sensor_sim, shorelines, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -232,7 +232,8 @@ def threats(psql: spatial.Psql) -> dict[str, Any]:
     the nearest named place (spatial.buildings_near; asked once;
     `unavailable` says why when PostGIS cannot answer, and it is asked again next time)."""
     global _buildings_near
-    result: dict[str, Any] = {"places": list(threatened_places()), "buildings_near": {}, "distance_m": spatial.NEAR_OVERFLOW_M}
+    result: dict[str, Any] = {"places": list(threatened_places()), "buildings_near": {}, "distance_m": spatial.NEAR_OVERFLOW_M,
+                              "dam": dam.layer()}
     if scenario.WILDFIRE:
         return result
     if _buildings_near is None:

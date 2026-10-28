@@ -18,6 +18,7 @@ const SATLOG_SOURCES = {
   meteosat: "LSA SAF",
   report: "Länsstyrelsen, utredning",
   sea_level: "SMHI, uppmätt",
+  dam: "illustrativt, ingen dammbrottsmodell",
 };
 // How many of a pass's newly threatened places the line names; the rest are counted.
 const SATLOG_PLACES_NAMED = 4;
@@ -106,7 +107,8 @@ function satlogWhole(value) {
 // `firms`: firmsPasses(); `scenes`: config.layers.landsat.scenes; `events`: the scenario's events;
 // `sensorEvents`: the synthetic sensors' changes, { clock_utc, sensor, name, kind, confirms };
 // `threats`: /api/threats, { places: [{ clock_utc, places: [{ name, span, latitude, longitude }] }],
-// buildings_near: { sensor: { count, latitude, longitude, place } }, distance_m }.
+// buildings_near: { sensor: { count, latitude, longitude, place } }, distance_m, dam: { name, latitude, longitude,
+// stream, distance_m, buildings, places: [{ name, latitude, longitude, from_stream_m }], trigger_sensor } }.
 // A sensor that starts confirming adds the buildings near it, under the same conditions as its own line.
 // A threat line carries `marks`, the threatened places to show on the map (threatMarks).
 // A sensor's changes are left out after mission control's SENSOR FAILURE for it, and every
@@ -187,6 +189,10 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
           : [{ name: near.place || names.get(item.sensor), latitude: near.latitude, longitude: near.longitude }],
       });
     }
+    // A dam as a marked "if" (dam.py): said when its trigger sensor starts alarming, with a triangle at the
+    // dam and at each place it names.
+    const dam = threats.dam;
+    if (item.confirms && dam && dam.trigger_sensor === item.sensor) lines.push(damLine(dam, atMs));
   }
   // A new MET Norway weather forecast with news for the next 24 hours (met_forecast.py issues: only
   // kinds the run before did not have, so "no rain" is not said every six hours).
@@ -282,6 +288,20 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     .sort((a, b) => b.atMs - a.atMs || b.order - a.order)
     .slice(0, limit)
     .map(({ order, ...line }) => line);
+}
+
+// "If Sidsjödammen failed: 265 buildings within 100 metres of Sidsjöbäcken below the dam; Himlabadet 359 metres
+// from the stream."
+function damLine(dam, atMs) {
+  const places = (dam.places || []).map((place) => place.from_stream_m === null || place.from_stream_m === undefined ? place.name
+    : `${place.name} ${Math.round(place.from_stream_m)} meter från bäcken`);
+  return {
+    atMs, source: "dam", kind: "threat",
+    text: `Om ${dam.name} brister: ${dam.buildings} ${dam.buildings === 1 ? "byggnad" : "byggnader"} inom ${dam.distance_m} meter`
+      + ` från ${dam.stream} nedströms dammen${places.length ? `; ${places.join(", ")}` : ""}`,
+    marks: [{ name: dam.name, latitude: dam.latitude, longitude: dam.longitude },
+      ...(dam.places || []).map((place) => ({ name: place.name, latitude: place.latitude, longitude: place.longitude }))],
+  };
 }
 
 // The threatened place's icon on both maps: a red warning triangle.
