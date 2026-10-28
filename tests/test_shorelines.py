@@ -102,7 +102,11 @@ def test_the_maps_draw_the_lines_up_to_the_clock_from_blue_to_red() -> None:
                                feature("2026-05-25", "Sentinel-2A", "2026", "Årsbild 2026")],
                   "uncertainty_m": [10, 20]}
     shown = node(f"shorelinesAt({json.dumps(collection)}, Date.parse('2021-01-01T00:00:00Z'))")
-    assert [(item["colour"], item["latest"]) for item in shown] == [("#1f5fbf", False), ("#7b4474", True)]
+    assert [(item["id"], item["colour"], item["latest"]) for item in shown] == [(0, "#1f5fbf", False), (1, "#7b4474", True)]
+    # A click shows a title that fits the info box's line and the details under it.
+    assert (shown[1]["title"], shown[1]["details"]) == ("Vegetationskant 2020-06-15", [
+        "Sentinel-2B, före Babet", "Härledd ur Sentinel-2 (10 m pixlar), inte uppmätt", "Osäkerhet ±10–20 m"])
+    assert shown[0]["details"][0] == "Sentinel-2A, årsbild 2015"
     assert shown[1]["text"] == "Vegetationskant 2020-06-15, Sentinel-2B, härledd ur Sentinel-2, ±10–20 m"
     assert node(f"shorelinesAt({json.dumps(collection)}, Date.parse('2015-01-01T00:00:00Z'))") == []
     assert node("shorelineColour(2, 3)") == "#d62828"

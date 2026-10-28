@@ -18,17 +18,31 @@ function shorelineText(properties, uncertainty) {
     + `±${uncertainty[0]}–${uncertainty[1]} m`;
 }
 
-// The lines of the images taken up to the clock, oldest first, each with its colour among all the
-// images, its text and whether it is the latest (drawn heavy).
+// What a clicked line says: a title short enough for the info box's one line ("Vegetationskant
+// 2026-05-25") and the details under it, the image's satellite and role ("årsbild 2026", "efter Babet").
+function shorelineInfo(properties, uncertainty) {
+  const label = properties.label ? `, ${properties.label[0].toLowerCase()}${properties.label.slice(1)}` : "";
+  return {
+    title: `Vegetationskant ${properties.acquired_utc.slice(0, 10)}`,
+    details: [`${properties.satellite}${label}`, "Härledd ur Sentinel-2 (10 m pixlar), inte uppmätt",
+      `Osäkerhet ±${uncertainty[0]}–${uncertainty[1]} m`],
+  };
+}
+
+// The lines of the images taken up to the clock, oldest first, each with its image's index among all
+// the images (the same at every clock, so a clicked line can be found again), its colour, its text,
+// what a click shows and whether it is the latest (drawn heavy).
 function shorelinesAt(collection, clockMs) {
   if (!collection) return [];
   const features = collection.features;
   const shown = features.filter((feature) => Date.parse(feature.properties.acquired_utc) <= clockMs);
   return shown.map((feature, index) => ({
+    id: features.indexOf(feature),
     lines: feature.geometry.coordinates,
     colour: shorelineColour(features.indexOf(feature), features.length),
     latest: index === shown.length - 1,
     text: shorelineText(feature.properties, collection.uncertainty_m),
+    ...shorelineInfo(feature.properties, collection.uncertainty_m),
   }));
 }
 
@@ -47,5 +61,5 @@ function shorelineLegend(collection, clockMs) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { shorelineColour, shorelineText, shorelinesAt, shorelineLegend };
+  module.exports = { shorelineColour, shorelineText, shorelineInfo, shorelinesAt, shorelineLegend };
 }

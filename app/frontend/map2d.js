@@ -437,14 +437,32 @@ function createLeafletMap(config) {
       overlays[label] = shorelineLayer;
     },
 
-    // Each image's line in its year's colour, the latest heavy and on top.
+    // Each image's line in its year's colour, the latest heavy and on top. A click opens its details
+    // and accentuates it: thick, with a white edge, on top, the other lines faint until it closes.
     drawShorelines(items) {
       shorelineLayer.clearLayers();
+      const drawn = [];
+      const style = (item, chosen) => chosen === undefined
+        ? { color: item.colour, weight: item.latest ? 5 : 2, opacity: item.latest ? 1 : 0.75 }
+        : { color: item.colour, weight: item === chosen ? 6 : 2, opacity: item === chosen ? 1 : 0.25 };
+      let halo = null;
+      const choose = (chosen) => {
+        if (halo) shorelineLayer.removeLayer(halo);
+        halo = null;
+        for (const { item, line } of drawn) line.setStyle(style(item, chosen));
+        if (!chosen) return;
+        const line = drawn.find((entry) => entry.item === chosen).line;
+        halo = L.polyline(line.getLatLngs(), { color: "#fff", weight: 11, opacity: 0.9, interactive: false }).addTo(shorelineLayer);
+        line.bringToFront();
+      };
       for (const item of items) {
-        L.polyline(item.lines.map((line) => line.map(([lon, lat]) => [lat, lon])),
-          { color: item.colour, weight: item.latest ? 5 : 2, opacity: item.latest ? 1 : 0.75 })
+        const line = L.polyline(item.lines.map((piece) => piece.map(([lon, lat]) => [lat, lon])), style(item))
           .bindTooltip(item.text, { sticky: true })
+          .bindPopup(`<strong>${item.title}</strong><br>${item.details.join("<br>")}`, { maxWidth: 340, autoPanPadding: [24, 24] })
+          .on("popupopen", () => { line.closeTooltip(); choose(item); })
+          .on("popupclose", () => choose(undefined))
           .addTo(shorelineLayer);
+        drawn.push({ item, line });
       }
     },
 

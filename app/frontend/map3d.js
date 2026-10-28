@@ -193,6 +193,35 @@ async function createCesiumMap(config) {
   const routeExposureLayer = group("route-exposure");  // roads and railways under heavy rain, computed (routes.py)
   const routeImpactLayer = group("route-impacts");  // roads and railways the incident damaged, documented
   const shorelineLayer = group("shorelines");  // a coastal erosion scenario's yearly shoreline lines (shorelines.py)
+  let shorelineItems = [];
+  // The clicked shoreline thick with a white edge under it and on top, the others faint; all as drawn
+  // when none is chosen.
+  const accentShoreline = (chosen) => {
+    for (const entity of shorelineLayer.entities.values) {
+      const item = entity.shoreline;
+      if (!item) continue;
+      const accent = chosen === undefined ? null : item === chosen;
+      entity.polyline.width = accent ? 6 : (accent === null && item.latest ? 5 : 2);
+      entity.polyline.material = cesiumColor(item.colour, accent === false ? 0.25 : (accent || item.latest ? 1 : 0.75));
+      entity.polyline.zIndex = accent ? 2 : 0;
+    }
+    for (const entity of shorelineLayer.entities.values.filter((value) => value.kind === "shoreline-halo")) {
+      shorelineLayer.entities.remove(entity);
+    }
+    if (!chosen) return;
+    for (const entity of shorelineLayer.entities.values.filter((value) => value.shoreline === chosen)) {
+      const halo = shorelineLayer.entities.add({
+        polyline: { positions: entity.polyline.positions, width: 11, material: cesiumColor("#ffffff", 0.9), clampToGround: true, zIndex: 1 },
+      });
+      halo.kind = "shoreline-halo";
+      halo.line = entity;
+    }
+  };
+  viewer.selectedEntityChanged.addEventListener((entity) => {
+    // A click on the white edge chooses its line.
+    if (entity?.kind === "shoreline-halo") viewer.selectedEntity = entity.line;
+    else accentShoreline(entity?.kind === "shoreline" ? entity.shoreline : undefined);
+  });
   const meteosatLayer = group("meteosat");  // Meteosat's fire pixels (meteosat.py)
   const frmLayer = group("fire-risk");  // LSA SAF's fire risk (meteosat_frm.py), off until ticked
   frmLayer.show = false;
@@ -522,18 +551,24 @@ async function createCesiumMap(config) {
       layers.push([label, (visible) => { shorelineLayer.show = visible; }, () => shorelineLayer.show]);
     },
 
-    // Each image's line on the ground in its year's colour, the latest heavy.
+    // Each image's line on the ground in its year's colour, the latest heavy. A click shows its details
+    // in the info box above or below it and accentuates it (accentShoreline).
     drawShorelines(items) {
+      if (viewer.selectedEntity?.kind === "shoreline") viewer.selectedEntity = undefined;
       shorelineLayer.entities.removeAll();
+      shorelineItems = items;
       for (const item of items) {
-        for (const line of item.lines) {
-          shorelineLayer.entities.add({
-            name: item.text, description: escapeText(item.text),
-            polyline: { positions: Cesium.Cartesian3.fromDegreesArray(line.flat()), width: item.latest ? 5 : 2,
-                        material: cesiumColor(item.colour, item.latest ? 1 : 0.75), clampToGround: true },
+        item.lines.forEach((line, piece) => {
+          const entity = shorelineLayer.entities.add({
+            id: `shoreline-${item.id}-${piece}`, name: item.title,
+            description: item.details.map(escapeText).join("<br>"),
+            polyline: { positions: Cesium.Cartesian3.fromDegreesArray(line.flat()), clampToGround: true },
           });
-        }
+          entity.kind = "shoreline";
+          entity.shoreline = item;
+        });
       }
+      accentShoreline(undefined);
     },
 
     // Meteosat's fire pixels: a purple rectangle of each pixel's area on the ground, with its edge.
@@ -1169,6 +1204,16 @@ async function createCesiumMap(config) {
     const height = viewer.container.clientHeight;
     const boxWidth = box.offsetWidth;
     const boxHeight = box.offsetHeight;
+    if (entity.kind === "shoreline") {
+      // A shoreline runs across the view: above the click, or below it where there is no room.
+      const above = at.y - gap - boxHeight >= margin;
+      const left = Math.min(Math.max(at.x - boxWidth / 2, margin), Math.max(margin, width - boxWidth - margin));
+      box.style.left = `${left}px`;
+      box.style.top = `${above ? at.y - gap - boxHeight : at.y + gap}px`;
+      box.dataset.side = above ? "above" : "below";
+      box.style.setProperty("--pointer-x", `${Math.min(Math.max(at.x - left, 14), boxWidth - 14)}px`);
+      return;
+    }
     const top = Math.min(Math.max(at.y - boxHeight / 2, margin), Math.max(margin, height - boxHeight - margin));
     const panel = viewer.container.querySelector(".layer-panel");
     const overlapsPanel = (left) => panel && panel.offsetParent !== null
