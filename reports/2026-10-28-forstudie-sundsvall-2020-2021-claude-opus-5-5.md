@@ -27,6 +27,14 @@ bekräfta i öppna källor (se [Händelserna](#händelserna-2020-och-2021)).
 
 ## Sammanfattning
 
+- **Tillägg efter användarens möte 2026-10-28: händelserna är troligen 2023.** På mötet
+  beskrev deltagare, bland dem några som byggde vallarna, en översvämning driven av regn i
+  fjällen och en av regn lokalt vid Sundsvall, och att man behövt veta hur flödet skulle bli
+  för att veta hur höga vallarna skulle vara. Att händelserna inträffat är inte ifrågasatt,
+  bara när. Mätdata sätter tidpunkterna: **augusti 2023** (lågtrycket Hans) har både
+  fjällflödet i Ljungan och lokalt regn och högt hav, och **3–4 november 2023** har det
+  kraftigaste lokala regnet 2023 och räddningstjänstens barriärer. EFAS sparar sina
+  flödesprognoser (se [Två typer av händelser](#två-typer-av-händelser-vallar-och-flödesprognoser)).
 - **Händelserna 2020 och 2021 är inte bekräftade i öppna källor.** Sökningar i SVT, Sveriges
   Radio, ST, SMHI och MSB gav dokumenterade översvämningar i Sundsvall 2001 (då Sidsjödammen
   hotade att brista), 2015 (skyfall i centrum), 2018 (vårflod i Selångersån) och 2023, men
@@ -78,8 +86,8 @@ bekräfta i öppna källor (se [Händelserna](#händelserna-2020-och-2021)).
 - **Dammbrott kan bara visas som ett tydligt märkt "om".** Det finns inget öppet underlag
   för hur vattnet skulle gå vid ett dammbrott. Dammbrottskarteringar kan omfattas av
   sekretess. Det måste kontrolleras.
-- Rekommendation, att beslutas: ett **nytt scenario `sundsvall2020`** kring 20–23 februari
-  eller 27–28 december 2020, om användaren inte anger en annan händelse, med Spikarnas vattenstånd, vind från
+- Rekommendation, att beslutas: ett **nytt scenario** kring augusti 2023, efter mötet (se
+  första punkten), annars kring 20–23 februari eller 27–28 december 2020, med Spikarnas vattenstånd, vind från
   Brämön, MEPS regnprognos och Sidsjö D. Se [Beslut som behövs](#beslut-som-behövs).
 
 ## Händelserna 2020 och 2021
@@ -151,6 +159,65 @@ Selångersån har ingen SMHI-station för flöde, och det har inte heller Sidsj�
 | Sporthallen, Sporthallsbadet | 62,3943 N, 17,2901 E | Intill Himlabadet |
 | Sidsjö D (regn) | 62,3808 N, 17,2852 E | Vid dammen |
 | Spikarna (vattenstånd) | 62,3633 N, 17,5311 E | Utanför Sundsvallsfjärden |
+
+## Två typer av händelser, vallar och flödesprognoser
+
+Användaren återgav 2026-10-28 ett möte där deltagare, bland dem några som byggde vallarna,
+beskrev två översvämningar: en där mycket nederbörd i fjällen ökade flödet i vattendragen
+vid Sundsvall, och en där mycket nederbörd lokalt gjorde det. I det ena fallet hade man
+velat veta hur flödet skulle bli för att veta hur höga vallarna skulle byggas. Användaren
+tvivlar inte på att det hänt, men på när. Tidpunkterna nedan kommer ur mätdata.
+
+### Regn i fjällen: augusti 2023
+
+Ljungan börjar i Härjedalens fjäll. Flödestoppen vandrade nedför älven:
+
+| Station | Topp | Datum | Rang |
+|---|---|---|---|
+| Lännässjön (20035), fjällen | 208 m³/s (144 % av MHQ) | 9 aug | 10:e högsta sedan 1973 |
+| Östavallselet (20036) | 308 m³/s (161 %) | 13 aug | 10:e högsta sedan 1976 |
+| Skallböle KRV (1650), nära Sundsvall | 449 m³/s (133 %) | 14 aug | 16:e högsta sedan 1956 |
+
+- Från fjällen till kusten tog det cirka fem dygn, den tid då vallar hinner byggas om man
+  vet vad som kommer.
+- Vid mynningen gick cirka 500 m³/s ut i havet den 15 augusti, mot normalt 138 m³/s, och
+  vattnet ställde till problem vid Öhns camping i Matfors (SVT). SMHI hade gul varning för
+  höga flöden i Ljungan från Holmsjön till Kvissleby 2–16 augusti (ST, SR). SMHI räknar
+  Ljungan till vattendragen med flöden av lång återkomsttid i augusti 2023.
+- Samtidigt **lokalt**: Sidsjö D mätte 22,4 mm den 6 augusti och 48,0 mm den 10 augusti,
+  och **havet stod 76,7 cm vid Spikarna den 8 augusti**. Augusti 2023 har alltså högt hav,
+  lokalt regn och fjällflödet efter varandra.
+- Indalsälven var inte särskilt hög (Bergeforsen 80 % av MHQ). Vårfloden 2018 var högre i
+  Ljungan, men den var snösmältning.
+- Inget om vallbygge längs Ljungan 2023 hittades i pressen. SMHI skriver att militären
+  byggde vallar där biflödena mynnar i nedre Ljungan **2001**.
+
+### Regn lokalt: 3–4 november 2023
+
+- Sidsjö D mätte 27,0 mm den 3 november och **50,7 mm den 4 november**, det högsta dygnet
+  2023. Havet var lågt, cirka 20 cm vid Spikarna.
+- [ST 4 november 2023](https://www.st.nu/2023-11-04/hart-regn-har-orsakat-manga-oversvamningar-i-medelpad):
+  räddningstjänsten "satt ut barriärer" på Östermovägen i Skönsmon för att leda om vatten
+  som strömmade från Södra bergets sluttningar och prioriterade viktig infrastruktur. SR och
+  SVT rapporterade vatten i källare i Sundsvall, Timrå och Härnösand.
+- Sidsjöbäcken hade 3,3 m³/s den 6 november enligt S-HYPE, 133 % av MHQ. Himlabadet,
+  Sporthallen och Sidsjöbäcken nämns inte i pressen. Skönsmon ligger på andra sidan centrum.
+
+Vilken plats vallarna stod på kan mötets deltagare avgöra.
+
+### Flödesprognoser som de såg ut
+
+- **EFAS** (Copernicus översvämningsvarning för Europa, modellen LISFLOOD, cirka 1,5 km
+  rutor) sparar sina operativa prognoser för vattenföring. Data äldre än 30 dagar är fritt
+  tillgängliga i Copernicus Early Warning Data Store (`efas-forecast`), som kräver ett
+  konto. Från vilket datum arkivet börjar och hur väl Ljungan och Selångersån följs i
+  modellen är inte kontrollerat.
+- Demon skulle då kunna visa vad prognosen sa till exempel den 9 augusti 2023 om flödet vid
+  Skallböle den 14 augusti, jämfört med vad som kom.
+- SMHI:s egna flödesprognoser (HYPE) har inget öppet arkiv.
+- En vallhöjd kräver en vattennivå, inte ett flöde. Kopplingen kan göras med kommunens och
+  MSB:s karteringar av 100-årsflöden i Ljungan och Selångersån, som visar hur långt vattnet
+  når vid ett givet flöde. Det är en tolkning och ska sägas vara det.
 
 ## Mätdata
 
@@ -422,8 +489,10 @@ något om effekten:
 
 ## Beslut som behövs
 
-1. **Händelsen.** Användaren anger datum eller en källa för 2020 och 2021 vid Himlabadet.
-   Annars står valet mellan **20–23 februari 2020**, det högsta havet 2020, beskrivet i
+1. **Händelsen.** Efter mötet rekommenderas **augusti 2023** (fjällflödet i Ljungan, lokalt
+   regn och högt hav efter varandra, EFAS-prognoser, klara satellitbilder efteråt), med
+   **3–4 november 2023** som rent lokalt fall med barriärer. Som jämförelse står 2020 kvar,
+   där valet stod mellan **20–23 februari 2020**, det högsta havet 2020, beskrivet i
    pressen och med radar, havsvind och klara bilder efteråt men ett måttligt flöde i ån,
    och **27–28 december 2020**, med årets högsta flöde i ån, regn och vind från havet men
    lägre hav, ingen notis i pressen och radar men inget synligt ljus. **Vårfloden 2018** har flest sensorer och klara optiska
@@ -465,6 +534,14 @@ station 1650). Värdena ovan räknades ur dem.
 - [SVT: Historiskt skyfall i Sundsvall (2015)](https://www.svt.se/nyheter/lokalt/vasternorrland/askovader-slog-till)
 - [SVT: Selångersån svämmar över sina bräddar](https://www.svt.se/nyheter/lokalt/vasternorrland/selangersan-svammar-over-sina-braddar)
 - [ST: Femtio blöta år på Parkgatan](https://www.st.nu/sundsvall/bildextra-femtio-blota-ar-pa-parkgatan-i-sundsvall-se-bilderna-ur-sts-arkiv/)
+- [ST: Höga vattenflöden i Ljungan (11 augusti 2023)](https://st.nu/2023-08-11/hoga-vattenfloden-i-ljungan)
+- [SVT: Översvämningar längs Ljungan](https://www.svt.se/nyheter/lokalt/vasternorrland/oversvamningar-i-ljungan-ljusare-prognos-framat)
+- [SR: Högt vattenflöde i Ljungan](https://www.sverigesradio.se/artikel/hogt-vattenflode-i-ljungan-kommunen-varnar-batagare)
+- [SMHI: Augusti 2023, en blöt månad med höga flöden](https://www.smhi.se/klimat/klimatet-da-och-nu/manadens-vader-och-vatten-i-sverige/manadens-vader-och-vatten-i-sverige/2023-09-06-augusti-2023-hyd-en-blot-manad-med-hoga-floden-och-manga-oversvamningar)
+- [ST: Hårt regn har orsakat många översvämningar i Medelpad (4 november 2023)](https://www.st.nu/2023-11-04/hart-regn-har-orsakat-manga-oversvamningar-i-medelpad)
+- [Copernicus EWDS: EFAS forecasts](https://ewds.climate.copernicus.eu/datasets/efas-forecast)
+- SMHI:s flöden för Lännässjön (20035), Östavallselet (20036), Järpströmmen (1495) och
+  Bergeforsen (2185), hämtade 2026-10-28 som Skallböle.
 - [ST: Spöregn, snöväder och ovanligt högt vattenstånd (22 februari 2020)](https://www.st.nu/2020-02-22/bildextra-sporegn-snovader-och-ovanligt-hogt-vattenstand-se-bilderna-fran-den-gra-lordagen/)
 - [SMHI: Havsvattenstånd 2020](https://www.smhi.se/klimat/klimatet-da-och-nu/arets-vatten/vattenaret/2021-09-03-havsvattenstand-2020)
 - [SVT: Många översvämningar efter regnet över Västernorrland (5 november 2023)](https://www.svt.se/nyheter/lokalt/vasternorrland/manga-oversvamningar-efter-regnet-over-vasternorrland--5yucih)
