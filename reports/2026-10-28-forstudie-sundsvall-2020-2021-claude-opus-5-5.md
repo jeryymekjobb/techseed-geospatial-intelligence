@@ -32,6 +32,12 @@ bekräfta i öppna källor (se [Händelserna](#händelserna-2020-och-2021)).
   hotade att brista), 2015 (skyfall i centrum), 2018 (vårflod i Selångersån) och 2023, men
   inget om Himlabadet eller Sidsjöbäcken 2020–2021. Användaren behöver ange datum eller en
   källa. SMHI:s mätningar ger kandidatdagar (nedan).
+- **Riktade sökningar i pressen gav en händelse 2020: 20–23 februari.** ST skrev den 22
+  februari 2020 om "spöregn, snöväder och ovanligt högt vattenstånd" med SMHI:s klass
+  1-varning för högt vattenstånd i norra Bottenhavet och bilder från Selångersån. Spikarna
+  nådde 97,7 cm kl. 15 UTC den dagen, det högsta 2020, och Sentinel-1 passerade 16:05. För
+  december 2020 och augusti 2021 hittades inga notiser (se
+  [Pressen](#pressen-riktade-sökningar-2026-10-28)).
 - **Platsen stämmer.** Enligt OSM ligger Himlabadet och Sporthallen (62,394 N, 17,289 E)
   cirka 1,7 km nedströms Sidsjödammen (62,379 N, 17,281 E) längs Sidsjöbäcken. Kommunens
   skyfallsplan (2018) säger att "ett dammbrott vid Sidsjön kan få katastrofala konsekvenser
@@ -72,8 +78,8 @@ bekräfta i öppna källor (se [Händelserna](#händelserna-2020-och-2021)).
 - **Dammbrott kan bara visas som ett tydligt märkt "om".** Det finns inget öppet underlag
   för hur vattnet skulle gå vid ett dammbrott. Dammbrottskarteringar kan omfattas av
   sekretess. Det måste kontrolleras.
-- Rekommendation, att beslutas: ett **nytt scenario `sundsvall2020`** kring 27–28 december
-  2020, om användaren inte anger en annan händelse, med Spikarnas vattenstånd, vind från
+- Rekommendation, att beslutas: ett **nytt scenario `sundsvall2020`** kring 20–23 februari
+  eller 27–28 december 2020, om användaren inte anger en annan händelse, med Spikarnas vattenstånd, vind från
   Brämön, MEPS regnprognos och Sidsjö D. Se [Beslut som behövs](#beslut-som-behövs).
 
 ## Händelserna 2020 och 2021
@@ -86,12 +92,34 @@ bekräfta i öppna källor (se [Händelserna](#händelserna-2020-och-2021)).
 | 2001 | 146,5 mm på tio timmar den 27 augusti. Sidsjödammen hotade att brista. Bron över Sidsjöbäcken förstördes 11 september. Selångersån hade ett hundraårsflöde, 90 m³/s. | SMHI, ST |
 | 2015 | Skyfall och hagel i centrum. Parkgatan stod en halv meter under vatten. | SVT |
 | 2018 | Vårflod i Selångersån och Sättnaån. Ånäsparken i Kovland delvis översvämmad. | SVT, SR |
+| 2020 | 22 februari: spöregn, snöväder och ovanligt högt vattenstånd. SMHI:s klass 1-varning för högt vattenstånd i norra Bottenhavet, 80–100 cm över medelvattenståndet. Bilder från Selångersån. | ST (22 februari 2020) |
 | 2020 | Parkgatans viadukt översvämmades igen en måndag i början av november. | ST (2 november 2020) |
 | 2023 | Ihållande regn den 4 november och källaröversvämningar i Sundsvall, Timrå och Härnösand. | SR |
 
 Inget av detta nämner Himlabadet eller idrottshallen, och inget beskriver ett dammhot 2020
 eller 2021. Händelserna kan ändå ha inträffat. Lokala nyheter ligger delvis bakom betalvägg
 och räddningstjänstens insatsrapporter är inte öppna.
+
+### Pressen, riktade sökningar 2026-10-28
+
+Efter att kandidatdagarna hittats i mätdata söktes pressen för just de perioderna (SVT,
+Sveriges Radio, ST, GP, SMHI:s månads- och årssammanfattningar):
+
+- **20–23 februari 2020:** [ST 22 februari 2020](https://www.st.nu/2020-02-22/bildextra-sporegn-snovader-och-ovanligt-hogt-vattenstand-se-bilderna-fran-den-gra-lordagen/)
+  beskriver "spöregn följt av snöväder" i Medelpad och att SMHI:s klass 1-varning för
+  högt vattenstånd i norra Bottenhavet uppdaterades på morgonen, med 80–100 cm över årets
+  medelvattenstånd. Bildtexten nämner Selångersån. Himlabadet, dammen och skador nämns inte.
+- **27–30 december 2020:** ingen notis om Sundsvall. SMHI:s sammanfattning av
+  havsvattenståndet 2020 säger att december saknade extrema vattenstånd, och SVT:s
+  december-krönika nämner översvämningar och höga flöden bara i södra Sverige.
+- **Augusti 2021:** ingen notis om Sundsvall, Sidsjön eller Himlabadet. SMHI:s
+  månadssammanfattning nämner andra orter.
+- **November 2023:** [SVT 5 november 2023](https://www.svt.se/nyheter/lokalt/vasternorrland/manga-oversvamningar-efter-regnet-over-vasternorrland--5yucih)
+  bekräftar vatten i källare i Sundsvall och Härnösand efter helgens regn.
+
+ST ligger delvis bakom betalvägg och sökmotorerna når inte hela lokalpressens arkiv. Att
+inget hittats om Himlabadet betyder inte att inget hänt. ST:s arkiv och Räddningstjänsten
+Medelpad är de säkraste källorna.
 
 ### Kandidatdagar i SMHI:s mätningar
 
@@ -101,6 +129,7 @@ riktning runt 90–180° kommer från havet.
 
 | Dygn | Regn Sidsjö D | Hav Spikarna (dag före, dag, dag efter) | Vind Brämön | Kommentar |
 |---|---|---|---|---|
+| 2020-02-22 | 12,9 mm | 82, 98, 74 cm | syd 11–12 m/s 20–21 feb | Plus 5,0 mm 20 feb. +3–6 °C, regn på snö. **Högsta havet 2020, i pressen.** |
 | 2020-09-26 | 48,3 mm | 12, 12, 6 cm | nordlig 10–11 m/s | Mest regn 2020, lågt hav |
 | 2020-12-28 | 30,0 mm | 57, 59, 28 cm | **sydost 12–15 m/s** | Plus 25,0 mm 29 dec. +3–4 °C. **Regn, hav och vind från havet samtidigt.** |
 | 2021-01-11 | 62,8 mm | −0, 51, 63 cm | sydost upp till 18 m/s | −13 till 0 °C, alltså troligen mest snö |
@@ -209,6 +238,7 @@ någon mätning. MHQ är här medel för 2010–2025, alltså bara 16 år.
 |---|---|---|
 | Sep 2015 (skyfall i centrum) | 0,9 m³/s | 0,1 m³/s |
 | Vårfloden 2018 | **64,3 m³/s, 7 maj** (221 % av MHQ, högst sedan 2010) | **4,7 m³/s** (192 %, högst sedan 2010) |
+| Feb 2020 | 16,8 m³/s, 23 feb (58 %) | 1,3 m³/s (52 %) |
 | Sep 2020 | 11,7 m³/s (40 %) | 1,6 m³/s (64 %) |
 | Nov 2020 | 16,0 m³/s (55 %) | 1,1 m³/s (46 %) |
 | **Dec 2020** | **32,0 m³/s, 30 dec** (110 %, årets högsta) | **3,0 m³/s, 30 dec** (121 %, årets högsta) |
@@ -276,6 +306,7 @@ Allmänt gäller:
 
 | Period | Sentinel-1 | Sentinel-2, bästa | Landsat, bästa |
 |---|---|---|---|
+| 17–27 feb 2020 (hav 98 cm 22 feb) | 13 passager, bl.a. **22 feb 16:05** (en timme efter havets topp), 23 feb 05:30 | 24 feb 12 %, 26 feb 20 % | **L7 27 feb 0 %**, L8 26 feb 3 %, L7 25 feb 6 % |
 | 19 sep – 3 okt 2020 (48 mm 26 sep) | 10 passager, bl.a. 27 sep 05:22 (dagen efter) | 23 sep 9 % (före), 3 okt 31 % | Inga under 70 % |
 | 20 dec 2020 – 4 jan 2021 (regn, sydoststorm, hav 59 cm) | 17 passager, bl.a. 27 dec 05:14 och 16:30, 28 dec 05:06 och 16:21 | **Inga** (mörker) | **Inga** |
 | 5–19 jan 2021 (sydoststorm, snö) | 14 passager, bl.a. 11 jan 16:05, 12 jan 05:30 | 14 jan 78 % | Inga |
@@ -305,6 +336,7 @@ Sentinel-3 OLCI 2023, i Copernicus Data Spaces katalog.
 | 25 aug – 12 sep 2001 | Fanns inte | Fanns inte | Fanns inte | Varje dag |
 | 4–7 sep 2015 | Ingen | Fanns inte | Fanns inte | Varje dag |
 | 25 apr – 15 maj 2018 | 22 passager | OLCI nästan varje dag, SLSTR flera gånger om dagen | 28 apr, 6 maj | Varje dag |
+| 20–24 feb 2020 | 20 feb 05 och 16, 22 feb 16, 23 feb 05, 24 feb 05 | Varje dag | 23 feb 19:28 | Varje dag |
 | 25–28 sep 2020 | 27 sep 05, 28 sep 05 och 16 | Varje dag | 26 sep 19:28 | Varje dag |
 | 1–4 nov 2020 | 2 nov 05, 3 nov 05 och 16, 4 nov 05 och 16 | Varje dag | Ingen | Varje dag |
 | 26–30 dec 2020 | **26 dec 05 och 16, 27 dec 05 och 16, 28 dec 05 och 16, 30 dec 16** | SLSTR (termisk) varje dag, OLCI inte (mörker) | Ingen | Varje dag |
@@ -333,6 +365,11 @@ Sentinel-3 OLCI 2023, i Copernicus Data Spaces katalog.
   - Om Copernicus krishanteringstjänst (EMS) kartlade någon av händelserna.
 
 ### Vad det betyder för valet av händelse
+
+- **20–23 februari 2020** har radar över land och vind över havet den 22 februari kl. 16,
+  en timme efter havets topp, ett altimeterspår den 23 februari och klara Landsat- och
+  Sentinel-2-bilder 24–27 februari. Den är också den enda kandidaten 2020–2021 som pressen
+  beskriver.
 
 - **27–28 december 2020** har radar över både land och hav. Sentinel-1 passerade två gånger
   om dygnet, och dess vindprodukt visar sydoststormen över havet vid varje passage. SLSTR
@@ -386,8 +423,10 @@ något om effekten:
 ## Beslut som behövs
 
 1. **Händelsen.** Användaren anger datum eller en källa för 2020 och 2021 vid Himlabadet.
-   Annars rekommenderas **27–28 december 2020** för hav och vind, med radar över land och
-   hav men inget synligt ljus. **Vårfloden 2018** har flest sensorer och klara optiska
+   Annars står valet mellan **20–23 februari 2020**, det högsta havet 2020, beskrivet i
+   pressen och med radar, havsvind och klara bilder efteråt men ett måttligt flöde i ån,
+   och **27–28 december 2020**, med årets högsta flöde i ån, regn och vind från havet men
+   lägre hav, ingen notis i pressen och radar men inget synligt ljus. **Vårfloden 2018** har flest sensorer och klara optiska
    bilder. **Augusti 2023** är också väl täckt.
    2021-08-16–18 är ett sommaralternativ med lågt hav.
 2. **Nytt scenario eller tillägg.** Rekommendation: ett nytt scenario `sundsvall2020`
@@ -426,6 +465,9 @@ station 1650). Värdena ovan räknades ur dem.
 - [SVT: Historiskt skyfall i Sundsvall (2015)](https://www.svt.se/nyheter/lokalt/vasternorrland/askovader-slog-till)
 - [SVT: Selångersån svämmar över sina bräddar](https://www.svt.se/nyheter/lokalt/vasternorrland/selangersan-svammar-over-sina-braddar)
 - [ST: Femtio blöta år på Parkgatan](https://www.st.nu/sundsvall/bildextra-femtio-blota-ar-pa-parkgatan-i-sundsvall-se-bilderna-ur-sts-arkiv/)
+- [ST: Spöregn, snöväder och ovanligt högt vattenstånd (22 februari 2020)](https://www.st.nu/2020-02-22/bildextra-sporegn-snovader-och-ovanligt-hogt-vattenstand-se-bilderna-fran-den-gra-lordagen/)
+- [SMHI: Havsvattenstånd 2020](https://www.smhi.se/klimat/klimatet-da-och-nu/arets-vatten/vattenaret/2021-09-03-havsvattenstand-2020)
+- [SVT: Många översvämningar efter regnet över Västernorrland (5 november 2023)](https://www.svt.se/nyheter/lokalt/vasternorrland/manga-oversvamningar-efter-regnet-over-vasternorrland--5yucih)
 - [P4 Västernorrland: Ihållande regn orsakade översvämningar (4 november 2023)](https://www.sverigesradio.se/artikel/ihallande-regn-orsakar-oversvamningar)
 - Satellitscener: Microsoft Planetary Computer STAC
   (`planetarycomputer.microsoft.com/api/stac/v1`), samlingarna `sentinel-1-grd`,
