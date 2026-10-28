@@ -62,7 +62,7 @@ PACKAGES = {
     "tools/requirements-era5.txt": ("cdsapi", "netCDF4"),
     "tools/requirements-meteosat.txt": ("h5py", "eumdac", "eccodes"),
     "tools/requirements-terrain.txt": ("pydelatin", "quantized_mesh_encoder"),
-    "tools/requirements-data.txt": ("PIL", "numpy"),
+    "tools/requirements-data.txt": ("PIL", "numpy", "xlrd"),
     "netCDF4": ("netCDF4",),
 }
 # The fire scenarios' SMHI stations are not in their modules (the guide's sections 4 and 23).
@@ -90,7 +90,7 @@ class Step:
 
 
 GDAL = ("gdalwarp", "gdal_translate", "gdalbuildvrt")
-IMAGES = PACKAGES["tools/requirements-data.txt"]  # the steps that write images with Pillow
+IMAGES = ("PIL", "numpy")  # the steps that write images with Pillow (tools/requirements-data.txt)
 
 
 def native(tools: str, *programs: str) -> tuple[str, ...]:
@@ -175,6 +175,10 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
                          Path(s.DAILY_RAIN_DIR) / "stations.json", size_mb=1))
     if get("HYDRO_STATIONS") and get("HYDRO_DIR"):
         plan.append(Step("smhi-hydro", "SMHI:s vattenföring", tool("fetch_smhi_hydro"), Path(s.HYDRO_DIR) / "stations.json", size_mb=2))
+    if get("MODEL_FLOW_STATIONS") and get("MODEL_FLOW_DIR"):
+        plan.append(Step("model-flows", "Modellerade flöden (SMHI S-HYPE, filer hämtade för hand)", tool("read_vattenwebb"),
+                         Path(s.MODEL_FLOW_DIR) / "stations.json", packages=("xlrd",), size_mb=2,
+                         note="ladda ner Vattenwebbs Excel-fil per SUBID till " + str(Path(s.MODEL_FLOW_DIR) / "raw") + " först"))
     if get("SEA_LEVEL_STATIONS") and get("SEA_LEVEL_DIR"):
         plan.append(Step("smhi-sea-level", "SMHI:s havsvattenstånd", tool("fetch_smhi_sea_level"),
                          Path(s.SEA_LEVEL_DIR) / "SOURCE.json", size_mb=5))

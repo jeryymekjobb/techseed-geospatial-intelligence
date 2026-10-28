@@ -31,14 +31,27 @@ function hydroRecord(station, highest, clockMs) {
   return clockMs - Date.parse(highest.time_utc) <= hold * 86_400_000;
 }
 
-// When a value was measured: a level is SMHI's value for the day, stamped at 00:00 UTC, so only its
-// date ("10 feb 2024"); a flow is an hourly mean, given with `formatTime` (local time).
+// When a value was measured: a level, or a flow by the day (`daily`), is SMHI's value for the day,
+// stamped at 00:00 UTC, so only its date ("10 feb 2024"); a flow is an hourly mean, given with
+// `formatTime` (local time).
 const MONTHS = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
-function hydroWhen(kind, isoUtc, formatTime) {
-  if (kind !== "level") return formatTime(isoUtc);
+function hydroWhen(kind, isoUtc, formatTime, daily = false) {
+  if (kind !== "level" && !daily) return formatTime(isoUtc);
   const [year, month, day] = isoUtc.slice(0, 10).split("-").map(Number);
   return `${day} ${MONTHS[month - 1]} ${year}`;
 }
 
-if (typeof module !== "undefined") module.exports = { hydroAt, hydroText, hydroRecord, hydroWhen };
+// The longest return period of SMHI's flow statistics (HQ2-HQ50, a modelled station's `statistics`) that a
+// flow reaches: 5 for a flow at or above HQ5 but below HQ10, null below HQ2 or without statistics.
+function hydroReturnPeriod(statistics, value) {
+  if (!statistics || value === null || value === undefined) return null;
+  let years = null;
+  for (const period of [2, 5, 10, 25, 50]) {
+    const limit = statistics[`HQ${period}`];
+    if (limit !== undefined && value >= limit) years = period;
+  }
+  return years;
+}
+
+if (typeof module !== "undefined") module.exports = { hydroAt, hydroText, hydroRecord, hydroWhen, hydroReturnPeriod };

@@ -35,7 +35,7 @@ SUMMARY = [
     "Lågtrycket Hans gav mycket regn i fjällen och vid kusten i augusti 2023. Det här är uppmätta data, inte i realtid.",
     "Havet vid Spikarna stod högt den 8 augusti, och vid Sidsjön föll 48 millimeter regn den 10 augusti.",
     "Flödet i Ljungan steg först i fjällen och nådde Sundsvall fem dygn senare, den 14 augusti.",
-    "Regn och flöden från SMHI, SMHI:s väderradar och havsvattenståndet vid Spikarna.",
+    "Regn och flöden från SMHI, SMHI:s väderradar och havsvattenståndet vid Spikarna. Flödena i Selångersån och Sidsjöbäcken är beräknade i SMHI:s modell, inte uppmätta.",
     "Radarbilder från Sentinel-1, som ser genom moln, och bilder från Sentinel-2 och Landsat 9.",
     "Bräddgivarna DV1–DV8 är simulerade och beräknade ur det verkliga regnet.",
 ]
@@ -129,6 +129,12 @@ HYDRO_STATIONS = {
     "1650:2": "Skallböle",
 }
 
+# SMHI's modelled daily flows (S-HYPE) by SUBID, from Vattenwebb's files downloaded by hand into
+# MODEL_FLOW_DIR/raw/ (tools/read_vattenwebb.py): the Selånger river at its outlet in the sea (449 km²)
+# and Sidsjöbäcken (27 km²), which have no SMHI station.
+MODEL_FLOW_DIR = DATA / "s-hype"
+MODEL_FLOW_STATIONS = {"12849": "Selångersån", "12794": "Sidsjöbäcken"}
+
 # The satellites that imaged Sundsvall in the period (Planetary Computer catalogue, checked
 # 2026-10-28; Sentinel-1B ended in December 2021) and the ISS, by NORAD number; element sets
 # a few days around the playback.
@@ -219,7 +225,7 @@ ATTRIBUTION = {
     "osm": "© OpenStreetMap contributors (ODbL)",
     "lantmateriet": "© Lantmäteriet",
     "smhi": ("SMHI öppna data (CC BY 4.0 SE): nederbörd vid kommunens mätare, Brämön A, Sidsjö D och Stordalen-Midlanda D, "
-             "väderradar, vattenföring i Ljungan och havsvattenstånd vid Spikarna"),
+             "väderradar, vattenföring i Ljungan och havsvattenstånd vid Spikarna; modellerad vattenföring (S-HYPE) i Vattenwebb"),
     "sentinel": "Innehåller bearbetade Copernicus Sentinel-data 2023",
     "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land och ERA5 över havet), CC BY 4.0",
     "mcf": "Översvämningskartering © MCF (tidigare MSB)",

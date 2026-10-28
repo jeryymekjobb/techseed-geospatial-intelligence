@@ -5,3 +5,5 @@
 Pillow==12.3.0
 # numpy reads the bands and DEMs and draws the masks; it came only through Piper's onnxruntime before.
 numpy==2.5.3
+# xlrd reads Vattenwebb's Excel files of modelled flows (tools/read_vattenwebb.py).
+xlrd==2.0.1

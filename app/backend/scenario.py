@@ -105,6 +105,9 @@ HYDRO_STATIONS = getattr(_module, "HYDRO_STATIONS", {})
 # SMHI's sea-level stations by id, with the hourly sea level (tools/fetch_smhi_sea_level.py).
 SEA_LEVEL_DIR = getattr(_module, "SEA_LEVEL_DIR", None)
 SEA_LEVEL_STATIONS = getattr(_module, "SEA_LEVEL_STATIONS", {})
+# SMHI's modelled daily flows (S-HYPE) by SUBID, for rivers without a station (tools/read_vattenwebb.py).
+MODEL_FLOW_DIR = getattr(_module, "MODEL_FLOW_DIR", None)
+MODEL_FLOW_STATIONS = getattr(_module, "MODEL_FLOW_STATIONS", {})
 # A sea level at least this high (cm) is a storm in the log (hydro.storms).
 SEA_LEVEL_STORM_CM = getattr(_module, "SEA_LEVEL_STORM_CM", 100.0)
 # The element set each image's satellite had when it took the image (tools/fetch_scene_elements.py,

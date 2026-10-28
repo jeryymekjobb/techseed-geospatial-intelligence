@@ -746,8 +746,8 @@ function showEms(clock) {
   $("ems-note").textContent = product ? emsText(product, (day) => localDate.format(new Date(`${day}T12:00:00Z`))) : "ingen karta ännu";
 }
 
-// SMHI's measured flows and lake levels (/api/hydro, hydro.js): a section after the rain with a
-// chart of the chosen station, and a label on the map for each station.
+// SMHI's measured flows and lake levels (/api/hydro, hydro.js), and its modelled flows where a river has
+// no station: a section after the rain with a chart of the chosen station, and a label on the map for each.
 const HYDRO_STYLE = { color: "#0b6e4f", fill: "#d8f3e8" };
 
 function setupHydro(config) {
@@ -761,7 +761,7 @@ function setupHydro(config) {
     + '<dl id="hydro-values" class="forecast-values"></dl><div id="hydro-note" class="status"></div>';
   $("rain-station").closest("section").after(section);
   for (const station of state.hydro.stations) {
-    $("hydro-station").append(new Option(`${station.name} (${station.kind === "level" ? "vattenstånd" : "vattenföring"})`, station.id));
+    $("hydro-station").append(new Option(`${station.name} (${station.kind === "level" ? "vattenstånd" : "vattenföring"}${station.modelled ? ", beräknad" : ""})`, station.id));
   }
   state.map.addStations(state.hydro.stations.map((station) => ({ ...station, id: `hydro-${station.id}` })), HYDRO_STYLE);
   state.hydroStation = state.hydro.stations[0]?.id || null;
@@ -782,21 +782,29 @@ function showHydro(clock) {
   const labels = {};
   for (const station of state.hydro.stations) {
     const { latest, highest } = hydroAt(station.observations, clock.getTime());
-    labels[`hydro-${station.id}`] = `${station.name}: ${hydroText(station.kind, latest?.value)}${hydroRecord(station, highest, clock.getTime()) ? " – rekord" : ""}`;
+    labels[`hydro-${station.id}`] = `${station.name}${station.modelled ? " (beräknat)" : ""}: ${hydroText(station.kind, latest?.value)}`
+      + (hydroRecord(station, highest, clock.getTime()) ? " – rekord" : "");
   }
   state.map.labelStations(labels);
   const station = state.hydro.stations.find((item) => item.id === state.hydroStation);
   if (!station) return;
   const { latest, highest } = hydroAt(station.observations, clock.getTime());
   const earlier = station.earlier_max;
+  const when = (item) => hydroWhen(station.kind, item.time_utc, formatLocal, station.daily);
+  const since = `${station.modelled ? "beräknat" : "mätt"} sedan ${station.measured_since.slice(0, 4)}`;
+  const years = station.modelled ? hydroReturnPeriod(station.statistics, highest?.value) : null;
   $("hydro-values").innerHTML = [
-    ["Nu", latest ? `${hydroText(station.kind, latest.value)} (${hydroWhen(station.kind, latest.time_utc, formatLocal)})` : "inga värden ännu"],
-    ["Högst i perioden", highest ? `${hydroText(station.kind, highest.value)} (${hydroWhen(station.kind, highest.time_utc, formatLocal)})` : "–"],
-    ["Tidigare högsta", earlier ? `${hydroText(station.kind, earlier.value)} (${earlier.time_utc.slice(0, 4)}, mätt sedan ${station.measured_since.slice(0, 4)})` : "–"],
+    ["Nu", latest ? `${hydroText(station.kind, latest.value)} (${when(latest)})` : "inga värden ännu"],
+    ["Högst i perioden", highest ? `${hydroText(station.kind, highest.value)} (${when(highest)})` : "–"],
+    ["Tidigare högsta", earlier ? `${hydroText(station.kind, earlier.value)} (${earlier.time_utc.slice(0, 4)}, ${since})` : "–"],
+    ...(station.modelled ? [["Återkomsttid", years ? `minst ${years}-årsflöde` : "under 2-årsflödet"]] : []),
   ].map(chartValue).join("");
-  $("hydro-note").textContent = (hydroRecord(station, highest) ? "Högre än allt som mätts här tidigare. " : "")
-    + (station.kind === "level" ? "Vattenstånd per dygn i stationens höjdsystem. " : "Vattenföring, timmedelvärden. ")
-    + (station.unchecked ? "SMHI har ännu inte kvalitetsgranskat alla värden." : "Kvalitetsgranskade värden från SMHI.");
+  $("hydro-note").textContent = station.modelled
+    ? `${hydroRecord(station, highest) ? `Högre än allt modellen gett här sedan ${station.measured_since.slice(0, 4)}. ` : ""}`
+      + "Beräknad vattenföring per dygn i SMHI:s modell S-HYPE, inte uppmätt. Återkomsttiden enligt SMHI:s flödesstatistik för 1991–2020."
+    : (hydroRecord(station, highest) ? "Högre än allt som mätts här tidigare. " : "")
+      + (station.kind === "level" ? "Vattenstånd per dygn i stationens höjdsystem. " : station.daily ? "Vattenföring, dygnsmedelvärden. " : "Vattenföring, timmedelvärden. ")
+      + (station.unchecked ? "SMHI har ännu inte kvalitetsgranskat alla värden." : "Kvalitetsgranskade värden från SMHI.");
   drawHydro(station, clock);
 }
 

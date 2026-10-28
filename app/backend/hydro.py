@@ -7,6 +7,9 @@ for how many days after (HYDRO_RECORD_HOLD_DAYS, None for the whole period).
 A scenario's SMHI sea-level stations (tools/fetch_smhi_sea_level.py) are given the same way, as
 levels with each day's highest hourly value at 00 UTC, since a playback of many years cannot show
 the hours; `storms` gives the hourly peaks above SEA_LEVEL_STORM_CM for the log.
+
+A scenario's modelled flows (SMHI's S-HYPE, tools/read_vattenwebb.py) are given as flows by the day,
+marked modelled, with SMHI's flow statistics (MHQ, HQ2-HQ50) for the screens' return period.
 """
 
 from __future__ import annotations
@@ -21,17 +24,25 @@ from app.backend import scenario
 
 HYDRO_DIR = scenario.HYDRO_DIR
 SEA_LEVEL_DIR = scenario.SEA_LEVEL_DIR
+MODEL_FLOW_DIR = scenario.MODEL_FLOW_DIR
 # Peaks at least this far apart are separate storms.
 STORM_GAP_HOURS = 72
 
 
 @lru_cache(maxsize=1)
 def stations() -> dict[str, Any] | None:
-    """The stations with their observations, or None when the scenario has none."""
+    """The stations with their observations, or None when the scenario has none: SMHI's measured ones,
+    the modelled flows and the sea levels, in that order."""
+    parts = [part for part in (measured(), model_flows(), sea_levels()) if part is not None]
+    if not parts:
+        return None
+    return {"source": "; ".join(part["source"] for part in parts), "stations": [item for part in parts for item in part["stations"]]}
+
+
+def measured() -> dict[str, Any] | None:
     catalogue_file = HYDRO_DIR / "stations.json" if HYDRO_DIR else None
-    sea = sea_levels()
     if catalogue_file is None or not catalogue_file.is_file():
-        return None if sea is None else {"source": sea["source"], "stations": sea["stations"]}
+        return None
     catalogue = json.loads(catalogue_file.read_text(encoding="utf-8"))
     result = []
     for station in catalogue["stations"]:
@@ -41,10 +52,29 @@ def stations() -> dict[str, Any] | None:
             **{key: station[key] for key in ("id", "name", "kind", "unit", "latitude", "longitude", "measured_since", "earlier_max")},
             # SMHI's quality code: G checked and approved, anything else not yet checked.
             "unchecked": any(row["quality"] != "G" for row in rows), "record_hold_days": scenario.HYDRO_RECORD_HOLD_DAYS,
+            # A flow by the day (parameter 1) rather than every 15 minutes.
+            "daily": station["id"].endswith(":1"),
             "observations": [{"time_utc": row["time_utc"], "value": float(row["value"])} for row in rows],
         })
-    if sea is not None:
-        return {"source": f"{catalogue['source']}; {sea['source']}", "stations": result + sea["stations"]}
+    return {"source": catalogue["source"], "stations": result}
+
+
+def model_flows() -> dict[str, Any] | None:
+    """The modelled flows by the day, or None."""
+    catalogue_file = MODEL_FLOW_DIR / "stations.json" if MODEL_FLOW_DIR else None
+    if catalogue_file is None or not catalogue_file.is_file():
+        return None
+    catalogue = json.loads(catalogue_file.read_text(encoding="utf-8"))
+    result = []
+    for station in catalogue["stations"]:
+        with (MODEL_FLOW_DIR / station["file"]).open(encoding="utf-8", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        result.append({
+            "id": f"model-{station['subid']}", **{key: station[key] for key in ("name", "kind", "unit", "latitude", "longitude", "earlier_max", "statistics")},
+            "measured_since": station["modelled_since"], "modelled": True, "daily": True, "unchecked": False,
+            "record_hold_days": scenario.HYDRO_RECORD_HOLD_DAYS,
+            "observations": [{"time_utc": row["time_utc"], "value": float(row["value"])} for row in rows],
+        })
     return {"source": catalogue["source"], "stations": result}
 
 
