@@ -11,6 +11,8 @@ measured afterwards (SEA_LEVEL_AHEAD_HOURS); `storms` gives the hourly peaks abo
 
 A scenario's modelled flows (SMHI's S-HYPE, tools/read_vattenwebb.py) are given as flows by the day,
 marked modelled, with SMHI's flow statistics (MHQ, HQ2-HQ50) for the screens' return period.
+
+A station with EFAS's flow forecasts (efas.py) carries them as issued, as `forecasts`.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any
 
-from app.backend import scenario
+from app.backend import efas, scenario
 
 HYDRO_DIR = scenario.HYDRO_DIR
 SEA_LEVEL_DIR = scenario.SEA_LEVEL_DIR
@@ -37,7 +39,10 @@ def stations() -> dict[str, Any] | None:
     parts = [part for part in (measured(), model_flows(), sea_levels()) if part is not None]
     if not parts:
         return None
-    return {"source": "; ".join(part["source"] for part in parts), "stations": [item for part in parts for item in part["stations"]]}
+    forecasts = efas.by_station()
+    return {"source": "; ".join(part["source"] for part in parts),
+            "stations": [{**item, "forecasts": forecasts[item["id"]]} if item["id"] in forecasts else item
+                         for part in parts for item in part["stations"]]}
 
 
 def measured() -> dict[str, Any] | None:

@@ -116,6 +116,12 @@ SEA_LEVEL_STATIONS = getattr(_module, "SEA_LEVEL_STATIONS", {})
 # SMHI's modelled daily flows (S-HYPE) by SUBID, for rivers without a station (tools/read_vattenwebb.py).
 MODEL_FLOW_DIR = getattr(_module, "MODEL_FLOW_DIR", None)
 MODEL_FLOW_STATIONS = getattr(_module, "MODEL_FLOW_STATIONS", {})
+# EFAS's flow forecasts as issued (tools/fetch_efas_forecasts.py, efas.py): the stations by their /api/hydro
+# id, the first and last day of the 00 UTC runs, and the area asked for (north, west, south, east).
+EFAS_DIR = getattr(_module, "EFAS_DIR", None)
+EFAS_STATIONS = getattr(_module, "EFAS_STATIONS", [])
+EFAS_ISSUES = getattr(_module, "EFAS_ISSUES", None)
+EFAS_AREA = getattr(_module, "EFAS_AREA", None)
 # A playback of days can show the sea level by the hour (SEA_LEVEL_HOURLY) instead of each day's highest;
 # and the screens can mark the sea level of the hours after the clock (SEA_LEVEL_AHEAD_HOURS), measured
 # afterwards, since no forecast of the sea level as issued then is archived.

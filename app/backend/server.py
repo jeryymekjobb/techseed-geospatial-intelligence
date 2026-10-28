@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, daily_rain, dam, detection, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_clm, meteosat_cth, meteosat_frm, meteosat_gii, meteosat_li, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, scene_satellites, sensor_sim, shorelines, spatial, speech, wms
+from app.backend import assessment, daily_rain, dam, detection, efas, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_clm, meteosat_cth, meteosat_frm, meteosat_gii, meteosat_li, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, scene_satellites, sensor_sim, shorelines, spatial, speech, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -623,6 +623,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "hydro": hydro.stations() is not None,  # SMHI's flows, lake levels and sea levels at /api/hydro
             # SMHI's sea level: the log's storm surges (hydro.storms).
             "sea_level": {"storms": hydro.storms()} if hydro.storms() else None,
+            # EFAS's flow forecasts as issued: the log's lines (efas.issues); the charts take them from /api/hydro.
+            "efas": efas.layer(),
             "ems": ems.perimeters() is not None,  # Copernicus EMS's perimeters of the fire at /api/ems
             # MET Norway's archived weather forecasts at /api/met-forecast (met_forecast.py), with their credit.
             "met_forecast": {"label": met_forecast.LABEL, "attribution": met_forecast.ATTRIBUTION,

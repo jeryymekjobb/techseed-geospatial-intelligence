@@ -799,6 +799,7 @@ function showHydro(clock) {
     ["Tidigare högsta", earlier ? `${hydroText(station.kind, earlier.value)} (${earlier.time_utc.slice(0, 4)}, ${since})` : "–"],
     ...(station.modelled ? [["Återkomsttid", years ? `minst ${years}-årsflöde` : "under 2-årsflödet"]] : []),
     ...(station.ahead_hours ? [aheadValue(station, clock)] : []),
+    ...(station.forecasts ? [forecastValue(station, clock)] : []),
   ].map(chartValue).join("");
   $("hydro-note").textContent = station.modelled
     ? `${hydroRecord(station, highest) ? `Högre än allt modellen gett här sedan ${station.measured_since.slice(0, 4)}. ` : ""}`
@@ -809,8 +810,19 @@ function showHydro(clock) {
         : station.daily ? "Vattenföring, dygnsmedelvärden. " : "Vattenföring, timmedelvärden. ")
       + (station.unchecked ? "SMHI har ännu inte kvalitetsgranskat alla värden." : "Kvalitetsgranskade värden från SMHI.")
       + (station.ahead_hours ? ` De kommande ${station.ahead_hours / 24} dygnen är uppmätta i efterhand, inte en prognos: `
-        + "ingen prognos av havet från då finns sparad." : "");
+        + "ingen prognos av havet från då finns sparad." : "")
+      + (station.forecasts ? " Streckat: EFAS-prognosen som den var utfärdad, beräknad i en modell med cirka 5 km rutor – "
+        + "information, inte en varning." : "");
   drawHydro(station, clock);
+}
+
+// EFAS's latest forecast by the clock (hydroForecast): its highest flow, when, and when it was issued.
+function forecastValue(station, clock) {
+  const issue = hydroForecast(station.forecasts, clock.getTime());
+  const peak = hydroForecastPeak(issue);
+  if (!peak) return ["EFAS-prognos", "ingen utfärdad ännu"];
+  return [`EFAS-prognos ${hydroWhen("flow", issue.issued_utc, formatLocal, true)}`,
+    `högst ${hydroText(station.kind, peak.value)} (${hydroWhen(station.kind, peak.time_utc, formatLocal, false)})`];
 }
 
 // A sea level's highest in the hours after the clock, marked as measured afterwards (hydroAhead).
@@ -826,7 +838,8 @@ function drawHydro(station, clock) {
   const end = Date.parse(state.config.playback.end_utc);
   const width = 300;
   const height = CHART_HEIGHT;
-  const values = station.observations.map((item) => item.value);
+  const issue = station.forecasts ? hydroForecast(station.forecasts, clock.getTime()) : null;
+  const values = [...station.observations, ...(issue?.values || [])].map((item) => item.value);
   const top = Math.max(...values, station.earlier_max?.value ?? -Infinity);
   const bottom = Math.min(...values);
   const span = Math.max(top - bottom, 1e-6);
@@ -838,6 +851,12 @@ function drawHydro(station, clock) {
     const y = yOf(station.earlier_max.value);
     parts.push(`<line class="hydro-record" x1="0" x2="${width}" y1="${y}" y2="${y}"></line>`,
       `<text x="2" y="${y - 2}">tidigare högsta ${station.earlier_max.time_utc.slice(0, 4)}</text>`);
+  }
+  if (issue) {
+    // EFAS's forecast as issued: a dashed line over its ten days, beside the measured flow.
+    const line = issue.values.map((item, index) => `${index ? "L" : "M"}${xOf(Date.parse(item.time_utc)).toFixed(1)},${yOf(item.value).toFixed(1)}`).join(" ");
+    parts.push(`<path class="hydro-forecast" d="${line}"></path>`,
+      `<text class="hydro-forecast-label" x="${Math.min(Math.max(xOf(Date.parse(issue.issued_utc)) + 3, 2), width - 60).toFixed(1)}" y="12">EFAS-prognos</text>`);
   }
   if (station.ahead_hours) {
     // The hours after the clock, measured afterwards: a band behind the line.

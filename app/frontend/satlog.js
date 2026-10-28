@@ -18,6 +18,7 @@ const SATLOG_SOURCES = {
   meteosat: "LSA SAF",
   report: "Länsstyrelsen, utredning",
   sea_level: "SMHI, uppmätt",
+  efas: "EFAS, modell",
   dam: "illustrativt, ingen dammbrottsmodell",
 };
 // How many of a pass's newly threatened places the line names; the rest are counted.
@@ -101,6 +102,15 @@ function satlogWhole(value) {
   return `${value < 0 && whole ? "-" : ""}${whole}`;
 }
 
+// A moment's day in Swedish time as "9 augusti", as a forecast names the day of its peak.
+const SATLOG_MONTH_NAMES = ["januari", "februari", "mars", "april", "maj", "juni", "juli", "augusti", "september", "oktober", "november", "december"];
+function satlogForecastDay(isoUtc) {
+  const parts = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", year: "numeric", month: "numeric", day: "numeric" })
+    .formatToParts(new Date(isoUtc));
+  const part = (type) => Number(parts.find((item) => item.type === type).value);
+  return `${part("day")} ${SATLOG_MONTH_NAMES[part("month") - 1]}`;
+}
+
 // The log lines, newest first: { atMs, text, source, kind, spoken? }, in whole words (megawatt, meter,
 // timmar), as they are read aloud; `spoken`, when there, is read instead of `text`.
 // `satellites`: [{ name, instrument, passes: [{ start, end }] }] over the fire (orbits.js);
@@ -115,7 +125,7 @@ function satlogWhole(value) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null, lightningImagerEvents = [], instabilityEvents = [], seaLevelStorms = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null, lightningImagerEvents = [], instabilityEvents = [], seaLevelStorms = [], flowForecasts = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -256,6 +266,14 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     lines.push({ atMs: Date.parse(storm.time_utc), source: "sea_level", kind: "storm_surge",
                  text: `${said} ${satlogDecimal(storm.value_cm)} centimeter i ${storm.height_system}${record}`,
                  spoken: `${said} ${satlogWhole(storm.value_cm)} centimeter i ${storm.height_system}${record}` });
+  }
+  // EFAS's flow forecasts as issued (efas.issues), when each reached its users: its highest flow at the first station.
+  for (const issue of flowForecasts) {
+    const said = `Ny flödesprognos från EFAS: ${issue.station} högst`;
+    const day = satlogForecastDay(issue.peak_time_utc);
+    lines.push({ atMs: Date.parse(issue.available_utc), source: "efas", kind: "flow_forecast",
+                 text: `${said} ${satlogDecimal(issue.peak_value)} kubikmeter per sekund den ${day}`,
+                 spoken: `${said} ${satlogWhole(issue.peak_value)} kubikmeter per sekund den ${day}` });
   }
   // SMHI's observed flashes to the ground near the incident, at the end of each hour with any (lightning.py events).
   for (const item of lightningEvents) {

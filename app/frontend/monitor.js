@@ -105,7 +105,7 @@ async function start() {
       meteosatQuarters: config.layers.meteosat?.quarters || [], fireRiskChanges: config.layers.meteosat_frm?.changes || [],
       cloudTopEvents: config.layers.meteosat_cth?.events || [], meteosatCompare: config.layers.meteosat?.compare || null,
       lightningImagerEvents: config.layers.meteosat_li?.events || [], instabilityEvents: config.layers.meteosat_gii?.events || [],
-      seaLevelStorms: config.layers.sea_level?.storms || [] }, clock.getTime(),
+      seaLevelStorms: config.layers.sea_level?.storms || [], flowForecasts: config.layers.efas?.issues || [] }, clock.getTime(),
       clock.getTime() - startMs + 1, Infinity, place);
     if (scenarioState.jump !== heardJump) {
       heardJump = scenarioState.jump;

@@ -65,4 +65,20 @@ function hydroAhead(observations, clockMs, hours) {
   return highest;
 }
 
-if (typeof module !== "undefined") module.exports = { hydroAt, hydroText, hydroRecord, hydroWhen, hydroReturnPeriod, hydroAhead };
+// EFAS's latest forecast that had reached its users by the clock (a station's `forecasts`, efas.py), or null;
+// a forecast never shows before it was available.
+function hydroForecast(forecasts, clockMs) {
+  let latest = null;
+  for (const issue of forecasts || []) {
+    if (Date.parse(issue.available_utc) <= clockMs && (!latest || issue.issued_utc > latest.issued_utc)) latest = issue;
+  }
+  return latest;
+}
+
+// A forecast's highest flow, or null.
+function hydroForecastPeak(issue) {
+  if (!issue?.values?.length) return null;
+  return issue.values.reduce((best, item) => (item.value > best.value ? item : best));
+}
+
+if (typeof module !== "undefined") module.exports = { hydroAt, hydroText, hydroRecord, hydroWhen, hydroReturnPeriod, hydroAhead, hydroForecast, hydroForecastPeak };

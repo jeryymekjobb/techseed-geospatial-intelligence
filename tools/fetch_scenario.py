@@ -56,6 +56,7 @@ ACCOUNTS = {
     "copernicus-cds": (Path.home() / ".cdsapirc", "Copernicus CDS (ERA5-Land and ERA5), guide section 2"),
     "eumetsat": (Path.home() / ".eumdac" / "credentials", "EUMETSAT Data Store (Meteosat), guide section 2"),
     "lsa-saf": (Path.home() / ".netrc", "LSA SAF (Meteosat fire products, ~/.netrc), guide section 2"),
+    "ewds": (Path.home() / ".ewdsapirc", "Copernicus EWDS (EFAS flow forecasts; accept the CEMS-FLOODS licence)"),
 }
 # Python packages beyond the demo's own, by the requirements file that installs them.
 PACKAGES = {
@@ -179,6 +180,10 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
         plan.append(Step("model-flows", "Modellerade flöden (SMHI S-HYPE, filer hämtade för hand)", tool("read_vattenwebb"),
                          Path(s.MODEL_FLOW_DIR) / "stations.json", packages=("xlrd",), size_mb=2,
                          note="ladda ner Vattenwebbs Excel-fil per SUBID till " + str(Path(s.MODEL_FLOW_DIR) / "raw") + " först"))
+    if get("EFAS_STATIONS") and get("EFAS_DIR"):
+        plan.append(Step("efas", "EFAS flödesprognoser (efter flödena)", tool("fetch_efas_forecasts"), Path(s.EFAS_DIR) / "forecasts.json",
+                         account="ewds", packages=("cdsapi", "eccodes"), optional=True, size_mb=2,
+                         note="EWDS-kön kan ta en timme eller mer"))
     if get("SEA_LEVEL_STATIONS") and get("SEA_LEVEL_DIR"):
         plan.append(Step("smhi-sea-level", "SMHI:s havsvattenstånd", tool("fetch_smhi_sea_level"),
                          Path(s.SEA_LEVEL_DIR) / "SOURCE.json", size_mb=5))

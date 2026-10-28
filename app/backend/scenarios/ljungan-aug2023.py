@@ -140,6 +140,16 @@ HYDRO_STATIONS = {
 MODEL_FLOW_DIR = DATA / "s-hype"
 MODEL_FLOW_STATIONS = {"12849": "Selångersån", "12794": "Sidsjöbäcken"}
 
+# EFAS's flow forecasts as issued (tools/fetch_efas_forecasts.py, efas.py), as the user chose on 2026-10-28 after
+# a check: ECMWF's high-resolution run at 00 UTC on 5-14 August, 1-10 days ahead, on EFAS's grid of about 5 km.
+# The run of 9 August gave Skallböle its peak at once (459 m³/s) and falling flows, while the measured flow rose
+# to 449 m³/s on 13 August: Ljungan's lakes and reservoirs hold the water back longer than the model. Skallböle
+# comes first, for the log; Sidsjöbäcken is too small for the grid.
+EFAS_DIR = DATA / "efas"
+EFAS_STATIONS = ["1650:2", "1471:1", "20036:2", "20035:1", "model-12849"]
+EFAS_ISSUES = (date(2023, 8, 5), date(2023, 8, 14))
+EFAS_AREA = (62.8, 13.5, 62.1, 17.7)
+
 # Three synthetic level sensors (level_sensors.py; tools/derive_impact_sensor_points.py, the `level-sensors`
 # step of fetch_scenario), each following its nearest flow station: Öhns Campingplats in Matfors by Ljungan,
 # where SVT reported water on 15 August 2023 (OSM's camp site; Skallböle), Himlabadet by Sidsjöbäcken (OSM's
@@ -265,6 +275,7 @@ ATTRIBUTION = {
     "sentinel": "Innehåller bearbetade Copernicus Sentinel-data 2023",
     "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land och ERA5 över havet), CC BY 4.0",
     "mcf": "Översvämningskartering © MCF (tidigare MSB)",
+    "efas": "Innehåller bearbetad information från Copernicus Emergency Management Service 2023 (EFAS)",
     "sundsvall": "Skyfallsmodeller och kartlager © Sundsvalls kommun",
     "copernicus_dem": (
         "produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 "

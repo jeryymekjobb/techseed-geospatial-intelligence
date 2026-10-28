@@ -111,6 +111,9 @@ body:not(.display-only) .view-switch ~ .panel-show, .panel-show:not([hidden]) ~ 
 /* The hours after the clock that a sea level shows measured afterwards, not forecast (panel.js drawHydro). */
 .hydro-ahead { fill: #f2e6c4; }
 .hydro-ahead-label { font-size: 9px; fill: #6b5a2a; }
+/* EFAS's flow forecast as issued, beside the measured flow (panel.js drawHydro). */
+.hydro-forecast { fill: none; stroke: #c05600; stroke-width: 1.4; stroke-dasharray: 5 3; }
+.hydro-forecast-label { font-size: 9px; fill: #c05600; }
 .legend-arrow { width: 28px; height: 14px; flex: none; }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid #0003; flex: none; }
 .scenario-status { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
