@@ -99,8 +99,17 @@ PLAYBACK_START = datetime(2023, 8, 5, 0, 0, tzinfo=timezone.utc)
 PLAYBACK_END = datetime(2023, 8, 18, 0, 0, tzinfo=timezone.utc)
 # Thirteen days at half an hour a second, slowing at the satellites' passes.
 PLAYBACK_SPEED = 1800.0
-# The sea's highest at Spikarna, 76.7 cm at 15 UTC on 8 August.
-CHECK_START_UTC = "2023-08-08T12:00:00Z"
+# The demo check (tools/check_demo.py), as the user asked on 2026-10-29 so that every scenario uses it: on 14 August,
+# Ljungan's peak at Sundsvall with Sentinel-1A's and Sentinel-2A's images. The flood was in the river, not the
+# town's stormwater: NG1 Öhns camping and NG3 the Selånger river's outlet alarm, the overflow sensors stay empty and
+# no flow passes its record, so the assessment says "Possible flood", and the radar's new water (0.02 %) keeps the
+# detection sequence at "Okänd". Its SATCOM outage starts before Sentinel-1A's pass at 16:30 UTC.
+CHECK_START_UTC = "2023-08-14T06:00:00Z"
+CHECK_PEAK_UTC = "2023-08-14T12:00:00Z"
+CHECK_SENSORS = "2/11"
+CHECK_OUTCOME = "Possible flood"
+CHECK_SATCOM_UTC = "2023-08-14T13:00:00Z"
+CHECK_DETECTION_OUTCOME = "Okänd"
 
 DATABASE = "ljungan-aug2023"
 TILES_FILE = "sundsvall.mbtiles"

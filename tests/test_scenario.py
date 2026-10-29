@@ -181,3 +181,10 @@ def test_falsterbo_has_a_clear_image_a_year_and_one_on_each_side_of_babet() -> N
     assert all(role in falsterbo.LANDSAT_ROLES for role in scenes)
     assert falsterbo.LANDSAT_ROLES["2019"] == "Årsbild 2019" and falsterbo.LANDSAT_ROLES["after-babet"] == "Efter Babet"
     assert all(falsterbo.PLAYBACK_START.strftime("%Y%m%d") <= date <= falsterbo.PLAYBACK_END.strftime("%Y%m%d") for date in dates.values())
+
+
+def test_the_demo_check_expects_ljungan_s_flood_in_the_river_not_the_town() -> None:
+    code = "from app.backend import scenario; print(scenario.CHECK_SENSORS, scenario.CHECK_OUTCOME, scenario.CHECK_DETECTION_OUTCOME, sep='|')"
+    assert run_python(code, "ljungan-aug2023").stdout.strip() == "2/11|Possible flood|Okänd"
+    # Scenarios that do not set it keep the flood the sequence has always ended with.
+    assert run_python(code, "sundsvall2026").stdout.strip().endswith("|Översvämning trolig")

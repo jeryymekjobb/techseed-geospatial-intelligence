@@ -56,6 +56,9 @@ CHECK_OUTCOME = getattr(_module, "CHECK_OUTCOME", "Wildfire probable")
 CHECK_PEAK_UTC = getattr(_module, "CHECK_PEAK_UTC", None)
 CHECK_SENSORS = getattr(_module, "CHECK_SENSORS", None)
 CHECK_SATCOM_UTC = getattr(_module, "CHECK_SATCOM_UTC", None)
+# What the flood's detection sequence ends with in the check: a flood that was there, unless the scenario's
+# radar and rain say otherwise (a storm without a documented flood).
+CHECK_DETECTION_OUTCOME = getattr(_module, "CHECK_DETECTION_OUTCOME", "Översvämning trolig")
 # MCF's layers for the flood's PostGIS questions (tools/fetch_mcf_flood_maps.py), its words for
 # the area the questions ask about and for the models behind it.
 MCF_LAYERS = getattr(_module, "MCF_LAYERS", None)
