@@ -8,7 +8,8 @@ Sidsjöbäcken had their highest flows of 2020 on 30 December, above their mean 
 was reported: the study found nothing in the press, SMHI's summary of the sea level in 2020 says December
 had no extreme levels, and SVT's December review names floods only in southern Sweden. The screens say so.
 Sidsjödammen is not shown as a marked "if" here, as the user chose on 2026-10-29: no threat to it was
-reported, and Sidsjöbäcken's flow, 121 % of its mean annual highest, was not exceptional.
+reported, and Sidsjöbäcken's flow, 3.0 m³/s or 111 % of its mean annual highest (SMHI's MHQ for 1991-2020 in
+Vattenwebb's file; the study's 121 % was wrong), was not exceptional.
 The scenario replays these data; it is not live.
 It shares sundsvall2026's map area, so its offline map, DEM, terrain, OSM layers, municipal
 base map and flood areas are those in data/sundsvall2026/; its own data live in the unversioned

@@ -1589,6 +1589,17 @@ TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
 Mission control ska då visa "Scenario: FLOOD – Sundsvall februari 2020, historiska data", och
 klockan står på 19 februari kl. 01:00 svensk tid.
 
+**Till december 2020 (Del 14):** välj **Regn och storm från havet i Sundsvall, december 2020** i
+menyn, eller steg för steg med samma karta:
+
+```bash
+TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
+.venv/bin/python -m app.backend.server --scenario sundsvall-dec2020
+```
+
+Mission control ska då visa "Scenario: FLOOD – Sundsvall december 2020, historiska data", och
+klockan står på 25 december kl. 01:00 svensk tid.
+
 ## 17. Manuset, cirka tre minuter
 
 Börja med huvudskärmen på adressen i avsnitt 16 och hastigheten 10 minuter/s. Gå lugnt fram,
@@ -2348,4 +2359,75 @@ eftersom regnet, flödena och havet ligger under sina gränser och rekord. Uppt�
 ```bash
 TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
 TECHSEED_SCENARIO=sundsvall-feb2020 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-feb2020-$(hostname)
+```
+
+---
+
+# Del 14 – Regn och storm från havet i Sundsvall, december 2020
+
+## 32. Vad demon visar
+
+Scenariot `sundsvall-dec2020` spelar upp regnet och stormen i Sundsvall 27–30 december 2020 med
+uppmätta data, inte i realtid. **Ingen översvämning rapporterades.** Förstudien hittade inget i
+pressen, och SMHI säger att december 2020 saknade extrema vattenstånd. Säg det till besökarna:
+scenariot visar vad mätningarna och modellen säger, inte en dokumenterad händelse. Titeln och
+sammanfattningen som läses upp vid start säger samma sak.
+
+Det regnade kraftigt i plusgrader. Sidsjö D fick 30,0 mm den 28 och 25,0 mm den 29 december, och
+kommunens mätare upp till 37,0 mm den 29 december vid Essvik. Vinden kom från sydost, från havet. I SMHI:s
+modell fick Selångersån (32,0 m³/s) och Sidsjöbäcken (3,0 m³/s) sitt högsta flöde 2020 den 30 december.
+Havet vid Spikarna nådde 58,7 cm i RH2000, under varningsnivån.
+
+Uppspelningen går från 25 december kl. 01 till 1 januari kl. 01 svensk tid, med 30 minuter per
+sekund. Scenariot delar karta, höjddata, terräng och OSM-lager med översvämningsdemon i Del 5.
+
+Demon visar:
+
+- **Regnet (SMHI):** kommunens mätare Fillan, Heffners, Essvik och Bällsta och Brämön A per timme,
+  Sidsjö D och Stordalen-Midlanda D per dygn och väderradarn. Kommunens mätare ligger en timme efter
+  SMHI:s, ett känt fel i backloggen.
+- **Bräddgivarna DV1–DV8 (syntetiska)** vid kommunens kritiska dagvattenpunkter, fyllda av det verkliga
+  regnet. Den 29 december är de nästan tomma.
+- **Nivågivarna NG1 Himlabadet och NG2 Selångersåns utlopp (syntetiska):** de följer Sidsjöbäckens och
+  Selångersåns beräknade flöden och larmar från den 28 december, när flödena har fördubblats sedan start.
+- **Flödena:** Skallböle, och Selångersån och Sidsjöbäcken i SMHI:s modell S-HYPE, märkta beräknade.
+- **Havet vid Spikarna** per timme, utan loggrad, eftersom det låg under varningsnivån.
+- **Radarbilderna:** Sentinel-1A den 27 december kl. 06:14 och Sentinel-1B den 28 december kl. 06:05
+  och 17:21 svensk tid. Alla tre täcker hela stan och visar nästan inget nytt vatten. Ingen Sentinel-1
+  passerade stan 29–31 december, och det var för mörkt för bilder i synligt ljus.
+- **Havsvind (Sentinel-1):** den 28 december kl. 17:21 mätte Sentinel-1B omkring 13,7 m/s från sydost,
+  alltså stormen från havet. Vid de andra åtta passagerna märker produkterna vinden över bukten som dålig,
+  och då visas den inte.
+- **Meteosats molntoppar och moln** som i Del 9, MET Norways prognoser som de utfärdades och ERA5-vinden.
+
+Sidsjödammen visas inte som ett "om" här: inget hot rapporterades, och Sidsjöbäckens flöde, 111 % av
+medelhögvattenföringen, var inte exceptionellt.
+
+| Del | Riktigt, beräknat, modell eller syntetiskt |
+|---|---|
+| Regn, väderradar, vattenföring, havsvattenstånd (SMHI) | Riktigt, uppmätt |
+| Sentinel-1 och dess havsvind | Riktigt |
+| Selångersån och Sidsjöbäcken (S-HYPE), MET Norways prognoser, ERA5 | Modell |
+| Bräddgivarna DV1–DV8 och nivågivarna NG1–NG2 | Syntetiska |
+
+## 33. Förbered demon
+
+Som avsnitt 31, med `sundsvall-dec2020` i stället för `sundsvall-feb2020`: samma konton, och
+S-HYPE-filerna kopieras med bevarad tid till `data/sundsvall-dec2020/s-hype/raw/`:
+
+```bash
+mkdir -p data/sundsvall-dec2020/s-hype/raw
+cp -p data/ljungan-aug2023/s-hype/raw/*.xls data/sundsvall-dec2020/s-hype/raw/
+.venv/bin/python -m tools.fetch_scenario sundsvall-dec2020 --list
+.venv/bin/python -m tools.fetch_scenario sundsvall-dec2020 --with-optional
+```
+
+**Generalrepetitionen**, med kartjänsten på Sundsvalls karta. Den börjar den 28 december kl. 13
+svensk tid, före Sentinel-1B:s sista passage över stan. Den 29 december larmar 2 av 10 givare, de två
+nivågivarna, och bedömningen blir "Possible flood", eftersom ingen översvämning rapporterades och inget
+flöde eller vattenstånd gick över sitt rekord. Upptäcktssekvensen slutar med "Okänd":
+
+```bash
+TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
+TECHSEED_SCENARIO=sundsvall-dec2020 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-dec2020-$(hostname)
 ```
