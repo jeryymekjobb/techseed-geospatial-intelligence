@@ -191,7 +191,9 @@ print(spatial.flood_summary("near_overflow", [], []))
 
 
 def radar_scene(moment: str, separable: bool, share: float) -> dict:
-    return {"acquired_utc": moment, "images": {"radar": "x", "radarwater": "y"}, "separable": separable, "new_water_pct": share}
+    # As landsat.py gives them: an image whose water cannot be told from land has no computed water.
+    images = {"radar": "x", "radarwater": "y"} if separable else {"radar": "x"}
+    return {"acquired_utc": moment, "images": images, "separable": separable, "new_water_pct": share}
 
 
 def test_the_radar_image_s_water_counts_only_where_it_can_tell_water_from_land(tmp_path: Path) -> None:

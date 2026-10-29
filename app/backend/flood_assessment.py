@@ -96,7 +96,8 @@ class FloodAssessor:
         self.stations = list(stations)
         self.acquisitions = sorted(acquisitions, key=lambda item: item["time_utc"])
         self.scenes = [scene for scene in scenes if "water" in scene["images"]]
-        self.radar = [scene for scene in scenes if "radarwater" in scene["images"]]
+        # The radar images, also those whose water cannot be told from land and so have no computed water (landsat.py).
+        self.radar = [scene for scene in scenes if "radar" in scene["images"]]
         self.centre = centre
         # SMHI's flows and levels (hydro.py): with them the rules are the river flood's.
         self.hydro = [station for station in hydro if station.get("earlier_max")]
