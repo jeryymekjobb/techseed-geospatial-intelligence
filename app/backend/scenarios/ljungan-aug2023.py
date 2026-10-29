@@ -5,7 +5,7 @@ described one flood from rain in the mountains and one from local rain: this sce
 first of four (reports/2026-10-28-forstudie-sundsvall-2020-2021-claude-opus-5-5.md). In SMHI's
 data the sea stood 76.7 cm RH2000 at Spikarna on 8 August, Sidsjö D had 48.0 mm on 10 August,
 and Ljungan's peak came down from Lännässjön in the mountains (9 August) to Skallböle by
-Sundsvall (449 m³/s on 14 August). The scenario replays these data; it is not live.
+Sundsvall (a daily mean of 445-449 m³/s on 12-14 August). The scenario replays these data; it is not live.
 
 It shares sundsvall2026's map area, so its offline map, DEM, terrain, OSM layers, municipal
 base map and flood areas are those in data/sundsvall2026/; its own data live in the unversioned
@@ -34,7 +34,7 @@ CONTROL_LABEL = "Scenario: FLOOD – Ljungan och Sundsvall augusti 2023, histori
 SUMMARY = [
     "Lågtrycket Hans gav mycket regn i fjällen och vid kusten i augusti 2023. Det här är uppmätta data, inte i realtid.",
     "Havet vid Spikarna stod högt den 8 augusti, och vid Sidsjön föll 48 millimeter regn den 10 augusti.",
-    "Flödet i Ljungan steg först i fjällen och nådde Sundsvall fem dygn senare, den 14 augusti.",
+    "Flödet i Ljungan steg först i fjällen och nådde Sundsvall några dygn senare. Där var det som högst den 12 till 14 augusti.",
     "Regn och flöden från SMHI, SMHI:s väderradar och havsvattenståndet vid Spikarna. Flödena i Selångersån och Sidsjöbäcken är beräknade i SMHI:s modell, inte uppmätta.",
     "Radarbilder från Sentinel-1, som ser genom moln, och bilder från Sentinel-2 och Landsat 9.",
     "Bräddgivarna DV1–DV8 är simulerade och beräknade ur det verkliga regnet. Nivågivarna NG1–NG3 är simulerade och larmar när flödet de följer har fördubblats.",
