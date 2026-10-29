@@ -299,15 +299,18 @@ async function createCesiumMap(config) {
 
     // Mission control's base map (basemaps.js baseMapFor): its id, or null for Natural Earth II only.
     // OSM online and the municipality's map have their own names, so the drawn place names are hidden over them.
+    // The municipality's map covers only its own area and zooms (from MUNICIPAL_MIN_LEVEL), so OSM (offline
+    // when it runs) lies under it.
     setBaseMap(id) {
       labelLayer.show = id !== "online" && id !== municipal?.id;
-      if (id === "online" && !baseById.online) {
+      const under = id && id === municipal?.id ? (baseById.offline ? "offline" : "online") : null;
+      if ((id === "online" || under === "online") && !baseById.online) {
         baseById.online = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
           url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", maximumLevel: 19,
           credit: new Cesium.Credit("© OpenStreetMap contributors", true),
         }), 1);
       }
-      for (const [key, layer] of Object.entries(baseById)) layer.show = key === id;
+      for (const [key, layer] of Object.entries(baseById)) layer.show = key === id || key === under;
     },
     addAttribution: addCredit,
 

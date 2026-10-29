@@ -246,10 +246,13 @@ function createLeafletMap(config) {
 
     // Mission control's base map (basemaps.js baseMapFor): its id, or null for none. The place
     // names show over the offline map and no map, which carry no text of their own.
+    // The municipality's map covers only its own area and zooms, so OSM (offline when it runs) lies under it.
     setBaseMap(id) {
+      const under = id && id === municipal?.id ? (offline ? "offline" : "online") : null;
       for (const [key, layer] of Object.entries(baseById)) {
-        if (key === id) { if (!map.hasLayer(layer)) layer.addTo(map); layer.bringToBack(); } else layer.remove();
+        if (key === id || key === under) { if (!map.hasLayer(layer)) layer.addTo(map); layer.bringToBack(); } else layer.remove();
       }
+      if (under) baseById[under].bringToBack();
       if (labelLayer) {
         if (id === "offline" || id === null) labelLayer.addTo(map); else labelLayer.remove();
       }

@@ -61,6 +61,26 @@ def test_the_fetch_writes_the_tiles_and_its_source_and_a_second_run_asks_nothing
     assert asked == []
 
 
+def test_a_map_white_outside_the_municipality_keeps_its_white_transparent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP", {**BASEMAP, "white_outside": True})
+    monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP_BBOX", BBOX)
+    monkeypatch.setattr(fetch.time, "sleep", lambda seconds: None)
+    side = fetch.META * fetch.TILE_PX + 2 * fetch.MARGIN_PX
+    image = Image.new("RGBA", (side, side), (255, 255, 255, 255))
+    image.paste((250, 250, 250, 255), (0, side - fetch.MARGIN_PX - 100, side, side))  # the municipality: near white stays
+    monkeypatch.setattr(fetch, "fetch_image", lambda url: image)
+    assert fetch.main(["--min-zoom", "8", "--max-zoom", "8", "--out", str(tmp_path)]) == 0
+    alphas = {pixel[3] for path in tmp_path.rglob("*.png") for pixel in Image.open(path).getdata()}
+    assert alphas == {0, 255} and json.loads((tmp_path / "SOURCE.json").read_text(encoding="utf-8"))["white_transparent"]
+    # Tiles fetched before are made transparent where white without asking the service.
+    old = tmp_path / "9" / "1" / "1.png"
+    old.parent.mkdir(parents=True)
+    Image.new("RGBA", (4, 4), (255, 255, 255, 255)).save(old)
+    monkeypatch.setattr(fetch, "fetch_image", lambda url: pytest.fail("asked the service"))
+    assert fetch.main(["--clear-white", "--out", str(tmp_path)]) == 0
+    assert {pixel[3] for pixel in Image.open(old).getdata()} == {0}
+
+
 def test_a_failed_request_leaves_no_source_so_the_map_is_not_shown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP", BASEMAP)
     monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP_BBOX", BBOX)

@@ -272,6 +272,8 @@ MUNICIPAL_BASEMAP = {
     "layer": "Kartan",
     "label": "Sundsvalls kommun (Kartan)",
     "attribution": "Karta © Sundsvalls kommun, Lantmäteriet, Trafikverket",
+    # White outside the municipality: kept transparent, so OSM shows there (fetch_municipal_basemap.py).
+    "white_outside": True,
 }
 MUNICIPAL_BASEMAP_DIR = SHARED / "municipal-basemap"
 

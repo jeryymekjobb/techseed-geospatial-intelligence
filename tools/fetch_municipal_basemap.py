@@ -12,6 +12,11 @@ service, the layer, the zooms, the area and the time of fetching; the backend sh
 only once it is there. The user confirmed on 2026-10-14 that the demo may show the map and
 keep it locally.
 
+A map that is white outside the municipality ("white_outside" in MUNICIPAL_BASEMAP; Kartan) has its
+pure white made transparent, so the screens' OSM map shows through there; inside the municipality
+Kartan has no pure white (checked on 2026-10-29 at zooms 12-16). `--clear-white` does the same to
+the tiles already fetched, without asking the service.
+
     TECHSEED_SCENARIO=sundsvall2026 .venv/bin/python -m tools.fetch_municipal_basemap
 """
 
@@ -19,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import os
 import json
 import math
 import time
@@ -27,6 +33,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+import numpy as np
 from PIL import Image
 
 from app.backend import scenario
@@ -98,6 +105,28 @@ def cut(image: Image.Image, z: int, mx: int, my: int, wanted: tuple[int, int, in
     return tiles
 
 
+def clear_white(image: Image.Image) -> Image.Image:
+    """The image with its pure white pixels transparent."""
+    pixels = np.array(image.convert("RGBA"))
+    pixels[(pixels[..., :3] == 255).all(axis=-1), 3] = 0
+    return Image.fromarray(pixels, "RGBA")
+
+
+def clear_white_tiles(out: Path) -> int:
+    """Makes the pure white of the fetched tiles transparent; returns how many tiles changed."""
+    changed = 0
+    for path in sorted(out.glob("*/*/*.png")):
+        with Image.open(path) as opened:
+            pixels = np.array(opened.convert("RGBA"))
+        if not ((pixels[..., :3] == 255).all(axis=-1) & (pixels[..., 3] > 0)).any():
+            continue
+        part = path.with_suffix(".part")
+        clear_white(Image.fromarray(pixels, "RGBA")).save(part, format="PNG", optimize=True)
+        os.replace(part, path)
+        changed += 1
+    return changed
+
+
 def tile_path(out: Path, z: int, x: int, y: int) -> Path:
     return out / str(z) / str(x) / f"{y}.png"
 
@@ -122,10 +151,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--min-zoom", type=int, default=MIN_ZOOM)
     parser.add_argument("--max-zoom", type=int, default=MAX_ZOOM)
     parser.add_argument("--pause", type=float, default=PAUSE_SECONDS, help="seconds between the requests")
+    parser.add_argument("--clear-white", action="store_true", help="make the fetched tiles' white transparent; fetch nothing")
     parser.add_argument("--out", type=Path, default=scenario.MUNICIPAL_BASEMAP_DIR, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if not scenario.MUNICIPAL_BASEMAP or args.out is None:
         parser.exit(1, f"fetch_municipal_basemap: the scenario {scenario.NAME} has no municipal map\n")
+    white_outside = scenario.MUNICIPAL_BASEMAP.get("white_outside", False)
+    if args.clear_white:
+        if not white_outside:
+            parser.exit(1, "fetch_municipal_basemap: the scenario's map is not white outside the municipality\n")
+        print(f"fetch_municipal_basemap: {clear_white_tiles(args.out)} tiles made transparent where white")
+        record = args.out / "SOURCE.json"
+        if record.is_file():
+            source = json.loads(record.read_text(encoding="utf-8"))
+            record.write_text(json.dumps({**source, "white_transparent": True}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return 0
     service, layer = scenario.MUNICIPAL_BASEMAP["url"], scenario.MUNICIPAL_BASEMAP["layer"]
     bbox = scenario.MUNICIPAL_BASEMAP_BBOX
     failed = 0
@@ -146,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
             for (x, y), piece in cut(image, z, mx, my, wanted).items():
                 path = tile_path(args.out, z, x, y)
                 path.parent.mkdir(parents=True, exist_ok=True)
-                piece.save(path, optimize=True)
+                (clear_white(piece) if white_outside else piece).save(path, optimize=True)
             fetched += 1
             time.sleep(args.pause)
         x0, y0, x1, y1 = wanted
@@ -161,6 +201,7 @@ def main(argv: list[str] | None = None) -> int:
         "fetched_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "permission": "The user confirmed on 2026-10-14 that the demo may show the map and keep it locally.",
         "note": "Kartan draws the municipality's, Lantmäteriet's and Trafikverket's layers; white outside the municipality.",
+        "white_transparent": white_outside,
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return 0
 
