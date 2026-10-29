@@ -33,7 +33,8 @@ class Check:
 
 # Inputs a scenario runs without (MET Norway's forecasts: the forecast panel stays empty).
 OPTIONAL_MARKERS = {"MET_FORECAST_DIR": "optional; the forecast panel stays empty without MET Norway's forecasts",
-                    "EFAS_DIR": "optional; the flow charts show no EFAS forecast without it"}
+                    "EFAS_DIR": "optional; the flow charts show no EFAS forecast without it",
+                    "SENTINEL1_WIND_DIR": "optional; the maps show no Sentinel-1 wind over the sea without it"}
 
 
 def find_chrome() -> str | None:
@@ -78,7 +79,8 @@ def data_checks(settings, root: Path = REPO_ROOT) -> list[Check]:
                    "SENTINEL2_DIR": "SOURCE.json", "MET_FORECAST_DIR": "SOURCE.json",
                    "LIGHTNING_DIR": "SOURCE.json", "RADAR_DIR": "SOURCE.json",
                    "EMS_DIR": "perimeters.geojson", "MUNICIPAL_BASEMAP_DIR": "SOURCE.json",
-                   "SEA_LEVEL_DIR": "SOURCE.json", "EFAS_DIR": "forecasts.json"}
+                   "SEA_LEVEL_DIR": "SOURCE.json", "EFAS_DIR": "forecasts.json",
+                   "SENTINEL1_WIND_DIR": "wind.json"}
         if name in markers and isinstance(value, Path):
             if name == "LANDSAT_DIR" and not getattr(settings, "LANDSAT_SCENES", {}):
                 continue

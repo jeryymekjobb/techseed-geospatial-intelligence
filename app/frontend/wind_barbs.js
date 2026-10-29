@@ -61,7 +61,16 @@ function windMinZoom(lat, lon, [middleRow, middleColumn] = [0, 0]) {
   return step ? step[1] : WIND_FULL_ZOOM;
 }
 
-if (typeof module !== "undefined") module.exports = { windBarbCounts, windBarbSvg, windGridMiddle, windMinZoom };
+// Sentinel-1's wind over the sea (sentinel1_wind.py): measured only as the satellite passes, so a pass
+// is shown from its time for showHours, and then nothing until the next.
+const SENTINEL1_BARB = "#7e22ce";  // purple, apart from ERA5-Land's blue and MET Norway's orange
+function sentinel1WindPass(passes, clockMs, showHours) {
+  let found = null;
+  for (const item of passes || []) if (Date.parse(item.time_utc) <= clockMs) found = item;
+  return found && clockMs - Date.parse(found.time_utc) <= showHours * 3600000 ? found : null;
+}
+
+if (typeof module !== "undefined") module.exports = { windBarbCounts, windBarbSvg, windGridMiddle, windMinZoom, sentinel1WindPass };
 
 // A lightning bolt as SVG, filled with `colour`, edged dark, for SMHI's observed lightning on both maps.
 function lightningSvg(colour, size) {

@@ -122,6 +122,8 @@ EFAS_DIR = getattr(_module, "EFAS_DIR", None)
 EFAS_STATIONS = getattr(_module, "EFAS_STATIONS", [])
 EFAS_ISSUES = getattr(_module, "EFAS_ISSUES", None)
 EFAS_AREA = getattr(_module, "EFAS_AREA", None)
+# Sentinel-1's wind over the sea in the map area during the playback (tools/fetch_sentinel1_wind.py, sentinel1_wind.py).
+SENTINEL1_WIND_DIR = getattr(_module, "SENTINEL1_WIND_DIR", None)
 # A playback of days can show the sea level by the hour (SEA_LEVEL_HOURLY) instead of each day's highest;
 # and the screens can mark the sea level of the hours after the clock (SEA_LEVEL_AHEAD_HOURS), measured
 # afterwards, since no forecast of the sea level as issued then is archived.

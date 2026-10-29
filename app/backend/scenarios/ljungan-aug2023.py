@@ -150,6 +150,10 @@ EFAS_STATIONS = ["1650:2", "1471:1", "20036:2", "20035:1", "model-12849"]
 EFAS_ISSUES = (date(2023, 8, 5), date(2023, 8, 14))
 EFAS_AREA = (62.8, 13.5, 62.1, 17.7)
 
+# Sentinel-1's wind over the sea (OCN; tools/fetch_sentinel1_wind.py), as planned in the study: Sentinel-1A passed
+# the Sundsvall bay at 05 and 16 UTC on 9 August and 05 UTC on 14 August. Needs a Copernicus Data Space account.
+SENTINEL1_WIND_DIR = DATA / "sentinel1-wind"
+
 # Three synthetic level sensors (level_sensors.py; tools/derive_impact_sensor_points.py, the `level-sensors`
 # step of fetch_scenario), each following its nearest flow station: Öhns Campingplats in Matfors by Ljungan,
 # where SVT reported water on 15 August 2023 (OSM's camp site; Skallböle), Himlabadet by Sidsjöbäcken (OSM's

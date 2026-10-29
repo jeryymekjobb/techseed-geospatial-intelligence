@@ -416,6 +416,12 @@ function showForecastCaption() {
       ? ` · isobarer var 1 hPa, regn senaste 3 timmar${forecast.has_thunder ? ", ⚡ åska" : ""}` : "";
     notes.push(`Prognos från MET Norway utfärdad ${zulu(forecast.issued_utc)}${details} – inte live`);
   }
+  // Sentinel-1's wind over the sea, while a pass is shown and the layer is ticked.
+  const seaWind = state.sentinel1WindShown;
+  if (seaWind && state.layersApplied[state.config.layers.sentinel1_wind.label]) {
+    lines.push(`<strong>Havsvind ${formatLocal(seaWind.time_utc)}</strong>: omkring ${decimal(seaWind.median_ms)} m/s från ${seaWind.from_words}`);
+    notes.push(`Uppmätt av ${seaWind.satellite} när den passerade – inte en modell`);
+  }
   // SMHI's observed lightning, when the layer is ticked and any struck in the hour.
   const flashes = state.lightningShown;
   if (flashes?.strikes.length && state.layersApplied["Blixtar (SMHI, observerade)"]) {
@@ -424,6 +430,17 @@ function showForecastCaption() {
   }
   caption.hidden = !lines.length;
   if (lines.length) caption.innerHTML = `${lines.join("<br>")}<small>${notes.join(" · ")}</small>`;
+}
+
+// Sentinel-1's wind over the sea (sentinel1_wind.py): the latest pass for some hours after it (sentinel1WindPass in wind_barbs.js).
+function showSentinel1Wind(clock) {
+  const info = state.config.layers.sentinel1_wind;
+  if (!info || !clock) return;
+  const shown = sentinel1WindPass(info.passes, clock.getTime(), info.show_hours);
+  if (shown === (state.sentinel1WindShown ?? null)) return;
+  state.sentinel1WindShown = shown;
+  state.map.drawSentinel1Wind(shown?.points || [], shown ? `Havsvind uppmätt av ${shown.satellite} ${formatLocal(shown.time_utc)}` : "");
+  showForecastCaption();
 }
 
 // SMHI's observed lightning in the hour before the clock (/api/lightning, lightning.py), fetched
@@ -1008,6 +1025,7 @@ function setClock(clock) {
   }
   showMetForecast(clock);
   showLightning(clock);
+  showSentinel1Wind(clock);
   showMeteosat(clock);
   showMeteosatCompare(clock);
   showMeteosatFrm(clock);
@@ -2042,9 +2060,12 @@ async function startApp(createMap) {
   }
 
   if (config.layers.met_forecast) setupMetForecast(config);
-  if (config.layers.lightning) {
-    state.map.setupLightning();
-    state.map.addAttribution(config.layers.lightning.attribution);
+  if (config.layers.sentinel1_wind) state.map.setupSentinel1Wind(config.layers.sentinel1_wind.label);
+  if (config.layers.lightning || config.layers.sentinel1_wind) {
+    if (config.layers.lightning) {
+      state.map.setupLightning();
+      state.map.addAttribution(config.layers.lightning.attribution);
+    }
     if (!$("forecast-caption")) {
       const caption = document.createElement("div");
       caption.id = "forecast-caption";

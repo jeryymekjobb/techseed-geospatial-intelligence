@@ -57,6 +57,7 @@ ACCOUNTS = {
     "eumetsat": (Path.home() / ".eumdac" / "credentials", "EUMETSAT Data Store (Meteosat), guide section 2"),
     "lsa-saf": (Path.home() / ".netrc", "LSA SAF (Meteosat fire products, ~/.netrc), guide section 2"),
     "ewds": (Path.home() / ".ewdsapirc", "Copernicus EWDS (EFAS flow forecasts; accept the CEMS-FLOODS licence)"),
+    "cdse": (Path.home() / ".netrc", "Copernicus Data Space (Sentinel-1 wind; a machine line for identity.dataspace.copernicus.eu in ~/.netrc)"),
 }
 # Python packages beyond the demo's own, by the requirements file that installs them.
 PACKAGES = {
@@ -243,6 +244,9 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
     if get("SENTINEL1_ACQUISITIONS"):
         plan.append(Step("sentinel1", "Sentinel-1-radarbilder (efter OSM och höjddata)", tool("fetch_sentinel1_scene", "--tools", tools),
                          Path(s.SENTINEL1_DIR) / "SOURCE.json", programs=native(tools, *GDAL), packages=IMAGES, size_mb=50))
+    if get("SENTINEL1_WIND_DIR"):
+        plan.append(Step("sentinel1-wind", "Sentinel-1:s vind över havet", tool("fetch_sentinel1_wind"), Path(s.SENTINEL1_WIND_DIR) / "wind.json",
+                         account="cdse", optional=True, size_mb=45))
     if get("MUNICIPAL_BASEMAP") and get("MUNICIPAL_BASEMAP_DIR"):
         plan.append(Step("municipal-basemap", "Kommunens karta (Kartan)", tool("fetch_municipal_basemap"),
                          Path(s.MUNICIPAL_BASEMAP_DIR) / "SOURCE.json", packages=IMAGES, size_mb=1100, note="2–3 timmar; fortsätter där den stannade"))

@@ -185,6 +185,8 @@ async function createCesiumMap(config) {
   const windLayer = group("wind");
   const forecastWindLayer = group("forecast-wind");  // MET Norway's forecast wind (met_forecast.py)
   forecastWindLayer.show = false;
+  const sentinel1WindLayer = group("sentinel1-wind");  // Sentinel-1's wind over the sea at its latest pass (sentinel1_wind.py)
+  let sentinel1WindVisible = true;
   const isobarLayer = group("isobars");  // MET Norway's weather chart (met_forecast.py isobars)
   isobarLayer.show = false;
   const lightningLayer = group("lightning");  // SMHI's observed lightning
@@ -458,6 +460,26 @@ async function createCesiumMap(config) {
         forecastWindVisible = visible;
         forecastWindLayer.show = visible && weatherCategoryVisible;
       }, () => forecastWindVisible && weatherCategoryVisible]);
+    },
+
+    // Sentinel-1's wind over the sea, measured at its latest pass, as purple barbs.
+    setupSentinel1Wind(label) {
+      layers.push([label, (visible) => {
+        sentinel1WindVisible = visible;
+        sentinel1WindLayer.show = visible && weatherCategoryVisible;
+      }, () => sentinel1WindVisible && weatherCategoryVisible]);
+    },
+
+    drawSentinel1Wind(points, text) {
+      sentinel1WindLayer.entities.removeAll();
+      for (const [lat, lon, speed, from] of points) {
+        sentinel1WindLayer.entities.add({
+          name: text, description: `${String(speed).replace(".", ",")} m/s`,
+          position: Cesium.Cartesian3.fromDegrees(lon, lat),
+          billboard: { image: barbImage(speed, SENTINEL1_BARB), alignedAxis: Cesium.Cartesian3.UNIT_Z,
+                       rotation: northRotation((from + 180) % 360), ...ON_GROUND },
+        });
+      }
     },
 
     drawForecastWind(points, hoursAhead) {
@@ -869,6 +891,7 @@ async function createCesiumMap(config) {
         weatherCategoryVisible = visible;
         windLayer.show = visible && windVisible;
         forecastWindLayer.show = visible && forecastWindVisible;
+        sentinel1WindLayer.show = visible && sentinel1WindVisible;
         isobarLayer.show = visible && isobarVisible;
         lightningLayer.show = visible && lightningVisible;
         dailyRainLayer.show = visible && dailyRainVisible;

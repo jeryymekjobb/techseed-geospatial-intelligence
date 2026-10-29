@@ -119,6 +119,8 @@ function createLeafletMap(config) {
   let radarVisible = true;
   let forecastWindLayer = null;  // MET Norway's forecast wind (met_forecast.py), orange barbs
   let forecastWindVisible = false;
+  let sentinel1WindLayer = null;  // Sentinel-1's wind over the sea at its latest pass (sentinel1_wind.py), purple barbs
+  let sentinel1WindVisible = true;
   let isobarLayer = null;  // MET Norway's weather chart: isobars every 2 hPa, highs and lows, rain and lightning
   let viewBeforeChart = null;  // the view to come back to when the weather chart is unticked
   let lightningLayer = null;  // SMHI's observed flashes to the ground in the last hour
@@ -360,6 +362,24 @@ function createLeafletMap(config) {
           icon: L.divIcon({ className: "barb-icon forecast-barb", iconSize: [100, 100], iconAnchor: [50, 50], html: svg }), keyboard: false,
         }).bindTooltip(`Prognosvind om ${hoursAhead} timmar (MET Norway): ${String(point.wind_ms).replace(".", ",")} m/s`, { direction: "top" })
           .addTo(forecastWindLayer);
+      }
+    },
+
+    // Sentinel-1's wind over the sea, measured at its latest pass (sentinel1_wind.py), as purple barbs.
+    setupSentinel1Wind(label) {
+      sentinel1WindLayer = L.layerGroup();
+      overlays[label] = sentinel1WindLayer;
+      setMapLayerVisible(sentinel1WindLayer, weatherCategoryVisible && sentinel1WindVisible);
+    },
+
+    drawSentinel1Wind(points, text) {
+      if (!sentinel1WindLayer) return;
+      sentinel1WindLayer.clearLayers();
+      for (const [lat, lon, speed, from] of points) {
+        const svg = windBarbSvg(speed).replace("<svg ", `<svg style="transform: rotate(${(from + 180) % 360}deg)" `);
+        L.marker([lat, lon], {
+          icon: L.divIcon({ className: "barb-icon sentinel1-barb", iconSize: [100, 100], iconAnchor: [50, 50], html: svg }), keyboard: false,
+        }).bindTooltip(`${text}: ${String(speed).replace(".", ",")} m/s`, { direction: "top" }).addTo(sentinel1WindLayer);
       }
     },
 
@@ -609,6 +629,9 @@ function createLeafletMap(config) {
       } else if (layer === liLayer) {
         liVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
+      } else if (layer === sentinel1WindLayer) {
+        sentinel1WindVisible = visible;
+        effectiveVisible = visible && weatherCategoryVisible;
       } else if (layer === cthLayer) {
         cthVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
@@ -680,6 +703,7 @@ function createLeafletMap(config) {
         setMapLayerVisible(stationLayer, visible);
         setMapLayerVisible(radarOverlay, visible && radarVisible);
         setMapLayerVisible(forecastWindLayer, visible && forecastWindVisible);
+        setMapLayerVisible(sentinel1WindLayer, visible && sentinel1WindVisible);
         setMapLayerVisible(isobarLayer, visible && isobarVisible);
         setMapLayerVisible(lightningLayer, visible && lightningVisible);
         setMapLayerVisible(dailyRainLayer, visible && dailyRainVisible);

@@ -19,6 +19,7 @@ const SATLOG_SOURCES = {
   report: "Länsstyrelsen, utredning",
   sea_level: "SMHI, uppmätt",
   efas: "EFAS, modell",
+  sentinel1_wind: "Sentinel-1, uppmätt",
   dam: "illustrativt, ingen dammbrottsmodell",
 };
 // How many of a pass's newly threatened places the line names; the rest are counted.
@@ -125,7 +126,7 @@ function satlogForecastDay(isoUtc) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null, lightningImagerEvents = [], instabilityEvents = [], seaLevelStorms = [], flowForecasts = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null, lightningImagerEvents = [], instabilityEvents = [], seaLevelStorms = [], flowForecasts = [], seaWindPasses = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -274,6 +275,13 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
     lines.push({ atMs: Date.parse(issue.available_utc), source: "efas", kind: "flow_forecast",
                  text: `${said} ${satlogDecimal(issue.peak_value)} kubikmeter per sekund den ${day}`,
                  spoken: `${said} ${satlogWhole(issue.peak_value)} kubikmeter per sekund den ${day}` });
+  }
+  // Sentinel-1's wind over the sea at each pass (sentinel1_wind.layer): the middle speed of its arrows, and the strongest.
+  for (const item of seaWindPasses) {
+    const said = `${item.satellite} mätte vinden över havet: omkring`;
+    lines.push({ atMs: Date.parse(item.time_utc), source: "sentinel1_wind", kind: "sea_wind",
+                 text: `${said} ${satlogDecimal(item.median_ms)} meter per sekund från ${item.from_words}, som mest ${satlogDecimal(item.max_ms)}`,
+                 spoken: `${said} ${satlogWhole(item.median_ms)} meter per sekund från ${item.from_words}` });
   }
   // SMHI's observed flashes to the ground near the incident, at the end of each hour with any (lightning.py events).
   for (const item of lightningEvents) {
