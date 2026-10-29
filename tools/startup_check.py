@@ -81,7 +81,8 @@ def data_checks(settings, root: Path = REPO_ROOT) -> list[Check]:
                    "LIGHTNING_DIR": "SOURCE.json", "RADAR_DIR": "SOURCE.json",
                    "EMS_DIR": "perimeters.geojson", "MUNICIPAL_BASEMAP_DIR": "SOURCE.json",
                    "SEA_LEVEL_DIR": "SOURCE.json", "EFAS_DIR": "forecasts.json",
-                   "SENTINEL1_WIND_DIR": "wind.json", "SWOT_DIR": "swot.json"}
+                   "SENTINEL1_WIND_DIR": "wind.json", "SWOT_DIR": "swot.json",
+                   "UPSTREAM_RAIN_DIR": "stations.json"}
         if name in markers and isinstance(value, Path):
             if name == "LANDSAT_DIR" and not getattr(settings, "LANDSAT_SCENES", {}):
                 continue

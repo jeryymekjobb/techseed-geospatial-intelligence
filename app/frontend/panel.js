@@ -479,6 +479,34 @@ function showDailyRain(clock) {
     detail: `Dygnet ${formatLocal(item.from_utc)} – ${formatLocal(item.to_utc)} (SMHI, dygnsvärde)` })));
 }
 
+// The rain upstream in the river (daily_rain.upstream_layer): a section after the flows with each station's
+// latest ended day and its rain since the start, and the maps' points; not part of the assessment.
+function setupUpstreamRain(info) {
+  const section = document.createElement("section");
+  section.id = "upstream-rain-section";
+  section.className = "chart-section";
+  section.innerHTML = `<h2>${info.label}</h2><dl id="upstream-rain-values" class="forecast-values"></dl>`
+    + '<div class="status">SMHI:s dygnsvärden (06–06 UTC) i älvens avrinningsområde uppströms, senaste dygnet och sedan start. '
+    + `Räknas inte i bedömningen, som gäller Sundsvall: vattnet når kusten först efter flera dygn. Loggen nämner dygn med minst ${String(info.notice_mm).replace(".", ",")} mm.</div>`;
+  const after = $("hydro-section") || $("rain-station")?.closest("section");
+  if (after) after.after(section);
+  else document.querySelector(".panel")?.append(section);
+  state.map.setupUpstreamRain(info);
+}
+
+function showUpstreamRain(clock) {
+  const info = state.config.layers.upstream_rain;
+  if (!info || !clock) return;
+  const rows = upstreamRainRows(info.stations, clock.getTime(), Date.parse(state.config.playback.start_utc));
+  const key = rows.map((row) => `${row.to_utc}|${row.since}`).join(",");
+  if (key === state.upstreamRainKey) return;
+  state.upstreamRainKey = key;
+  $("upstream-rain-values").innerHTML = rows.map((row) => chartValue([row.name,
+    `${row.day === null ? "–" : dailyRainText(row.day)} senaste dygnet · ${dailyRainText(row.since)} sedan start`])).join("");
+  state.map.drawUpstreamRain(rows.filter((row) => row.day !== null).map((row) => ({ ...row, text: `${row.name}: ${dailyRainText(row.day)}`,
+    detail: `Dygnet till ${formatLocal(row.to_utc)} (SMHI, dygnsvärde); ${dailyRainText(row.since)} sedan start. Räknas inte i bedömningen.` })));
+}
+
 // Meteosat's fire pixels (meteosat.py, meteosat.js), redrawn when the clock reaches a new one.
 function showMeteosat(clock) {
   const info = state.config.layers.meteosat;
@@ -1061,6 +1089,7 @@ function setClock(clock) {
   showLightning(clock);
   showSentinel1Wind(clock);
   showSwot(clock);
+  showUpstreamRain(clock);
   showMeteosat(clock);
   showMeteosatCompare(clock);
   showMeteosatFrm(clock);
@@ -2125,6 +2154,7 @@ async function startApp(createMap) {
   }
   if (config.layers.routes) await setupRoutes(config.layers.routes);
   if (config.layers.shorelines) await setupShorelines(config.layers.shorelines);
+  if (config.layers.upstream_rain) setupUpstreamRain(config.layers.upstream_rain);
   if (config.layers.daily_rain) {
     state.map.setupDailyRain(config.layers.daily_rain);
     state.map.addAttribution(config.layers.daily_rain.attribution);

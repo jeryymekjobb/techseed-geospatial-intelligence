@@ -5,7 +5,9 @@ Many of SMHI's stations report the rain once a day, at 06 UTC, for the 24 hours 
 (parameter 5). This tool reads each station's quality-controlled archive (or, with --period
 latest-months, the last four months, not yet controlled), keeps the days that
 end within the scenario's period and writes them with the station's place to
-DAILY_RAIN_DIR/stations.json for app/backend/daily_rain.py.
+DAILY_RAIN_DIR/stations.json for app/backend/daily_rain.py. With --upstream it fetches the
+scenario's UPSTREAM_RAIN_STATIONS into UPSTREAM_RAIN_DIR instead: the rain upstream in the river,
+shown apart from the flood's assessment.
 
     TECHSEED_SCENARIO=vasternorrland2025 .venv/bin/python -m tools.fetch_smhi_daily
 
@@ -66,21 +68,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=scenario.DAILY_RAIN_DIR, help=argparse.SUPPRESS)
     parser.add_argument("--period", choices=PERIODS, default="corrected-archive",
                         help="SMHI period: the quality-controlled archive or the last four months (not yet controlled)")
+    parser.add_argument("--upstream", action="store_true", help="the stations upstream (UPSTREAM_RAIN_STATIONS)")
     args = parser.parse_args(argv)
-    if not scenario.DAILY_RAIN_STATIONS or args.out is None:
-        parser.exit(1, f"fetch_smhi_daily: the scenario {scenario.NAME} has no DAILY_RAIN_STATIONS\n")
+    wanted = scenario.UPSTREAM_RAIN_STATIONS if args.upstream else scenario.DAILY_RAIN_STATIONS
+    out = scenario.UPSTREAM_RAIN_DIR if args.upstream else args.out
+    if not wanted or out is None:
+        parser.exit(1, f"fetch_smhi_daily: the scenario {scenario.NAME} has no {'UPSTREAM' if args.upstream else 'DAILY'}_RAIN_STATIONS\n")
     first = datetime.combine(scenario.PERIOD_START, datetime.min.time(), tzinfo=timezone.utc)
     last = datetime.combine(scenario.PERIOD_END, datetime.min.time(), tzinfo=timezone.utc) + timedelta(days=2)
     stations = []
-    for key, name in scenario.DAILY_RAIN_STATIONS.items():
+    for key, name in wanted.items():
         with urlopen(Request(archive_url(key, args.period), headers={"User-Agent": USER_AGENT}), timeout=120) as response:
             parsed = parse(response.read().decode("utf-8"))
         days = [{**day, "from_utc": day["from_utc"].strftime("%Y-%m-%dT%H:%M:%SZ"), "to_utc": day["to_utc"].strftime("%Y-%m-%dT%H:%M:%SZ")}
                 for day in parsed["days"] if first < day["to_utc"] <= last]
         stations.append({"id": key, "name": name, "latitude": parsed["latitude"], "longitude": parsed["longitude"], "days": days})
         print(f"{name}: {len(days)} days, most {max((day['mm'] for day in days), default=0)} mm")
-    args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / "stations.json").write_text(json.dumps({
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "stations.json").write_text(json.dumps({
         "source": API, "parameter": 5, "period": args.period, "attribution": ATTRIBUTION,
         "fetched_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "stations": stations,
     }, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")

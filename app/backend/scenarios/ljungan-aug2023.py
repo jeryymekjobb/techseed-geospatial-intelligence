@@ -124,6 +124,16 @@ RAIN_STATIONS = {
 # assessment counts them, so the mountains' stations are not among them. Sidsjö D lies by the dam.
 DAILY_RAIN_STATIONS = {"127220": "Sidsjö D", "127320": "Stordalen-Midlanda D"}
 DAILY_RAIN_DIR = DATA / "smhi-daily"
+# The rain upstream in Ljungan, shown apart from the assessment (daily_rain.upstream_layer), as the user chose on
+# 2026-10-29: SMHI's daily stations in Ljungan's main catchment (SVAR 2016, huvudavrinningsområde 42000, from SMHI's
+# open download) above the flow station at Torpshammar, all with every day of 5-17 August 2023.
+UPSTREAM_RAIN_STATIONS = {
+    "123460": "Börtnan A", "124300": "Klövsjöhöjden A", "124400": "Åsarna D", "124290": "Handsjön D",
+    "125240": "Kölsillre", "125440": "Hunge A", "125510": "Mälgåsen D", "125310": "Ånge-Parteboda D",
+    "135020": "Svedjelandet", "126430": "Öraåtjärnarna", "126290": "Torpshammar A",
+}
+UPSTREAM_RAIN_DIR = DATA / "smhi-daily-upstream"
+UPSTREAM_RAIN_LABEL = "Regn i fjällen och uppströms (SMHI)"
 # SMHI's flow stations along Ljungan, from the mountains to Sundsvall ("station:parameter"): every
 # 15 minutes (parameter 2) where SMHI has it for 2023, else by the day (parameter 1). Only
 # Skallböle lies on the map; the others are in the panel's chart and the log.

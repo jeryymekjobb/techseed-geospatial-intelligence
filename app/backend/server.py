@@ -474,6 +474,7 @@ LAYER_CATEGORIES = {
     "Väderkarta (MET Norway)": "weather",
     "Blixtar (SMHI, observerade)": "weather",
     daily_rain.LABEL: "weather",
+    scenario.UPSTREAM_RAIN_LABEL: "weather",
     routes.IMPACT_LABEL: "infrastructure",
     routes.EXPOSURE_LABEL: "infrastructure",
     offline_tiles.OVERLAY_LABEL: "infrastructure",
@@ -521,6 +522,8 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
         items.append(item(meteosat_li.LABEL, True, True))
     if daily_rain.stations():
         items.append(item(daily_rain.LABEL, True, True))
+    if daily_rain.upstream_stations():
+        items.append(item(scenario.UPSTREAM_RAIN_LABEL, True, True))
     if routes.impacts():
         items.append(item(routes.IMPACT_LABEL, True, True))
     if routes.exposure() is not None:
@@ -674,6 +677,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "shorelines": shorelines.layer(),
             # SMHI's rain by the day at the stations that report so (daily_rain.py).
             "daily_rain": daily_rain.layer(),
+            # The rain upstream in the river by the day, apart from the assessment (daily_rain.upstream_layer).
+            "upstream_rain": daily_rain.upstream_layer(),
             "wms": wms.sources(),
             "lantmateriet_topowebb": settings.topowebb_enabled,
             "base_maps": base_maps(settings),

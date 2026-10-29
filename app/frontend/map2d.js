@@ -136,6 +136,8 @@ function createLeafletMap(config) {
   let liVisible = true;
   let dailyRainLayer = null;  // SMHI's rain by the day (daily_rain.py)
   let dailyRainVisible = true;
+  let upstreamRainLayer = null;  // the rain upstream in the river by the day (daily_rain.upstream_layer)
+  let upstreamRainVisible = true;
   let routeExposureLayer = null;  // roads and railways under heavy rain, computed from the radar
   let shorelineLayer = null;  // a coastal erosion scenario's yearly shoreline lines (shorelines.py)
   let isobarVisible = false;
@@ -607,6 +609,21 @@ function createLeafletMap(config) {
       }
     },
 
+    // The rain upstream (daily_rain.upstream_layer): teal markers with each station's latest ended day.
+    setupUpstreamRain(info) {
+      upstreamRainLayer = L.layerGroup().addTo(map);
+      overlays[info.label] = upstreamRainLayer;
+    },
+
+    drawUpstreamRain(items) {
+      if (!upstreamRainLayer) return;
+      upstreamRainLayer.clearLayers();
+      for (const item of items) {
+        L.circleMarker([item.latitude, item.longitude], { radius: 7, color: "#ffffff", weight: 2, fillColor: "#0e7490", fillOpacity: 0.95 })
+          .bindTooltip(item.text, { direction: "right", permanent: true, className: "daily-rain-label" }).addTo(upstreamRainLayer);
+      }
+    },
+
     // SMHI's rain by the day: a marker in the rain's class with the station's latest ended day.
     setupDailyRain(info) {
       dailyRainLayer = L.layerGroup().addTo(map);
@@ -700,6 +717,9 @@ function createLeafletMap(config) {
       } else if (layer === frmLayer) {
         frmVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
+      } else if (layer === upstreamRainLayer) {
+        upstreamRainVisible = visible;
+        effectiveVisible = visible && weatherCategoryVisible;
       } else if (layer === dailyRainLayer) {
         dailyRainVisible = visible;
         effectiveVisible = visible && weatherCategoryVisible;
@@ -769,6 +789,7 @@ function createLeafletMap(config) {
         setMapLayerVisible(isobarLayer, visible && isobarVisible);
         setMapLayerVisible(lightningLayer, visible && lightningVisible);
         setMapLayerVisible(dailyRainLayer, visible && dailyRainVisible);
+        setMapLayerVisible(upstreamRainLayer, visible && upstreamRainVisible);
         setMapLayerVisible(frmLayer, visible && frmVisible);
         setMapLayerVisible(cthLayer, visible && cthVisible);
         setMapLayerVisible(liLayer, visible && liVisible);

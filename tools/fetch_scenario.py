@@ -176,6 +176,9 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
     if get("DAILY_RAIN_STATIONS") and get("DAILY_RAIN_DIR"):
         plan.append(Step("smhi-daily", "SMHI:s dygnsnederbörd", tool("fetch_smhi_daily", "--period", smhi_period(s.PERIOD_END)),
                          Path(s.DAILY_RAIN_DIR) / "stations.json", size_mb=1))
+    if get("UPSTREAM_RAIN_STATIONS") and get("UPSTREAM_RAIN_DIR"):
+        plan.append(Step("smhi-daily-upstream", "SMHI:s dygnsnederbörd uppströms", tool(
+            "fetch_smhi_daily", "--upstream", "--period", smhi_period(s.PERIOD_END)), Path(s.UPSTREAM_RAIN_DIR) / "stations.json", size_mb=1))
     if get("HYDRO_STATIONS") and get("HYDRO_DIR"):
         plan.append(Step("smhi-hydro", "SMHI:s vattenföring", tool("fetch_smhi_hydro"), Path(s.HYDRO_DIR) / "stations.json", size_mb=2))
     if get("MODEL_FLOW_STATIONS") and get("MODEL_FLOW_DIR"):

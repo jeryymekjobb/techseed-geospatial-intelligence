@@ -21,6 +21,7 @@ const SATLOG_SOURCES = {
   efas: "EFAS, modell",
   sentinel1_wind: "Sentinel-1, uppmätt",
   swot: "SWOT, uppmätt",
+  upstream_rain: "SMHI, uppmätt",
   dam: "illustrativt, ingen dammbrottsmodell",
 };
 // How many of a pass's newly threatened places the line names; the rest are counted.
@@ -127,7 +128,7 @@ function satlogForecastDay(isoUtc) {
 // sensor's while mission control has switched IoT off.
 // `place` names the incident's place ("branden", "Sundsvall"). A line may carry its own
 // `sourceText` (an image: its satellite and year); otherwise SATLOG_SOURCES names its source.
-function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null, lightningImagerEvents = [], instabilityEvents = [], seaLevelStorms = [], flowForecasts = [], seaWindPasses = [], swotEvents = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
+function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], sensorEvents = [], threats = {}, forecastIssues = [], lightningEvents = [], lightningKm = 30, routeImpacts = [], meteosatQuarters = [], fireRiskChanges = [], cloudTopEvents = [], meteosatCompare = null, lightningImagerEvents = [], instabilityEvents = [], seaLevelStorms = [], flowForecasts = [], seaWindPasses = [], swotEvents = [], upstreamRainDays = [] }, clockMs, windowMs = SATLOG_WINDOW_MS,
   limit = SATLOG_LIMIT, place = "branden") {
   const lines = [];
   for (const satellite of satellites) {
@@ -287,6 +288,13 @@ function satelliteLog({ satellites = [], firms = [], scenes = [], events = [], s
   // SWOT's water heights at its pass (swot.event): the lakes of good quality, the uncertain ones and the river.
   for (const item of swotEvents) {
     lines.push({ atMs: Date.parse(item.time_utc), source: "swot", kind: "water_height", text: item.text, spoken: item.spoken });
+  }
+  // The rain upstream in the river (daily_rain.upstream_layer days): each day with much rain at a station, wettest first.
+  for (const item of upstreamRainDays) {
+    const named = item.stations.map((station, index) => `${station.name.replace(/ [AD]$/, "")} ${satlogDecimal(station.mm)}${index ? "" : " millimeter"}`);
+    const spoken = item.stations.map((station, index) => `${station.name.replace(/ [AD]$/, "")} ${satlogWhole(station.mm)}${index ? "" : " millimeter"}`);
+    lines.push({ atMs: Date.parse(item.to_utc), source: "upstream_rain", kind: "upstream_rain",
+                 text: `Regn uppströms senaste dygnet: ${named.join(", ")}`, spoken: `Regn uppströms senaste dygnet: ${spoken.join(", ")}` });
   }
   // SMHI's observed flashes to the ground near the incident, at the end of each hour with any (lightning.py events).
   for (const item of lightningEvents) {

@@ -193,6 +193,8 @@ async function createCesiumMap(config) {
   const lightningLayer = group("lightning");  // SMHI's observed lightning
   const dailyRainLayer = group("daily-rain");  // SMHI's rain by the day (daily_rain.py)
   let dailyRainVisible = true;
+  const upstreamRainLayer = group("upstream-rain");  // the rain upstream in the river (daily_rain.upstream_layer)
+  let upstreamRainVisible = true;
   const routeExposureLayer = group("route-exposure");  // roads and railways under heavy rain, computed (routes.py)
   const routeImpactLayer = group("route-impacts");  // roads and railways the incident damaged, documented
   const shorelineLayer = group("shorelines");  // a coastal erosion scenario's yearly shoreline lines (shorelines.py)
@@ -729,6 +731,28 @@ async function createCesiumMap(config) {
       }
     },
 
+    // The rain upstream (daily_rain.upstream_layer): teal points with each station's latest ended day.
+    setupUpstreamRain(info) {
+      layers.push([info.label, (visible) => {
+        upstreamRainVisible = visible;
+        upstreamRainLayer.show = visible && weatherCategoryVisible;
+      }, () => upstreamRainVisible && weatherCategoryVisible]);
+    },
+
+    drawUpstreamRain(items) {
+      upstreamRainLayer.entities.removeAll();
+      for (const item of items) {
+        upstreamRainLayer.entities.add({
+          name: item.text, description: item.detail,
+          position: Cesium.Cartesian3.fromDegrees(item.longitude, item.latitude),
+          point: { pixelSize: 12, color: cesiumColor("#0e7490"), outlineColor: cesiumColor("#ffffff"), outlineWidth: 2, ...ON_GROUND },
+          label: { text: item.text, font: "bold 14px system-ui, sans-serif", fillColor: cesiumColor("#ffffff"), outlineColor: cesiumColor("#0e7490"),
+                   outlineWidth: 4, style: Cesium.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cesium.Cartesian2(10, 0),
+                   horizontalOrigin: Cesium.HorizontalOrigin.LEFT, ...ON_GROUND },
+        });
+      }
+    },
+
     // SMHI's rain by the day: a dark blue point with the station's latest ended day.
     setupDailyRain(info) {
       layers.push([info.label, (visible) => {
@@ -950,6 +974,7 @@ async function createCesiumMap(config) {
         isobarLayer.show = visible && isobarVisible;
         lightningLayer.show = visible && lightningVisible;
         dailyRainLayer.show = visible && dailyRainVisible;
+        upstreamRainLayer.show = visible && upstreamRainVisible;
         frmLayer.show = visible && frmVisible;
         cthLayer.show = visible && cthVisible;
         liLayer.show = visible && liVisible;

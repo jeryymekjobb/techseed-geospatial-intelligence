@@ -124,6 +124,12 @@ EFAS_ISSUES = getattr(_module, "EFAS_ISSUES", None)
 EFAS_AREA = getattr(_module, "EFAS_AREA", None)
 # Sentinel-1's wind over the sea in the map area during the playback (tools/fetch_sentinel1_wind.py, sentinel1_wind.py).
 SENTINEL1_WIND_DIR = getattr(_module, "SENTINEL1_WIND_DIR", None)
+# SMHI's daily rain upstream in the river, shown apart from the assessment (fetch_smhi_daily.py --upstream,
+# daily_rain.upstream_layer): the stations by id, their directory, and the day's rain the log names.
+UPSTREAM_RAIN_STATIONS = getattr(_module, "UPSTREAM_RAIN_STATIONS", {})
+UPSTREAM_RAIN_DIR = getattr(_module, "UPSTREAM_RAIN_DIR", None)
+UPSTREAM_RAIN_LABEL = getattr(_module, "UPSTREAM_RAIN_LABEL", "Regn uppströms (SMHI)")
+UPSTREAM_RAIN_NOTICE_MM = getattr(_module, "UPSTREAM_RAIN_NOTICE_MM", 20.0)
 # The names of the map area's rivers and streams, placed along them (tools/fetch_osm_waterways.py).
 WATERWAY_LABELS_FILE = getattr(_module, "WATERWAY_LABELS_FILE", None)
 # SWOT's water surface heights (tools/fetch_swot.py, swot.py): the area searched (west, south, east, north), the

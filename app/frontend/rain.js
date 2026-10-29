@@ -100,4 +100,16 @@ function dailyRainText(mm) {
   return `${String(Math.round(mm * 10) / 10).replace(".", ",")} mm`;
 }
 
-if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainBars, rainBarUnit, rainClass, radarFrameAt, dailyRainAt, dailyRainText, RAIN_CLASSES, HOUR_MS };
+// The rain upstream (daily_rain.upstream_layer): each station's latest ended day and its days since the
+// playback's start, wettest first.
+function upstreamRainRows(stations, clockMs, startMs) {
+  return (stations || []).map((station) => {
+    const ended = station.days.filter((day) => Date.parse(day.to_utc) <= clockMs);
+    const latest = ended[ended.length - 1];
+    const since = ended.filter((day) => Date.parse(day.from_utc) >= startMs).reduce((sum, day) => sum + day.mm, 0);
+    return { id: station.id, name: station.name, latitude: station.latitude, longitude: station.longitude,
+             day: latest ? latest.mm : null, to_utc: latest ? latest.to_utc : null, since: Math.round(since * 10) / 10 };
+  }).sort((a, b) => b.since - a.since);
+}
+
+if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainBars, rainBarUnit, rainClass, radarFrameAt, dailyRainAt, dailyRainText, upstreamRainRows, RAIN_CLASSES, HOUR_MS };
