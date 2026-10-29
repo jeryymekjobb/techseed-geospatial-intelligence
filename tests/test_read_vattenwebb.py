@@ -69,6 +69,15 @@ def test_the_backend_gives_the_modelled_flows_as_daily_modelled_stations(tmp_pat
     assert station["observations"] == [{"time_utc": "2023-08-01T00:00:00Z", "value": 2.2}] and station["statistics"] == {"HQ2": 29.4}
 
 
+
+def test_the_source_states_the_model_version_and_the_download_date_once() -> None:
+    model = {"Hype modellversion": "s-hype2022_version_2022_1.1.1", "Vattenwebb version": "release_autumn_2025-2"}
+    area = {"model": model, "downloaded_utc": "2026-10-28T10:53:23Z"}
+    assert hydro.model_source({"source": "SMHI Vattenwebb", "stations": [area, area]}) == (
+        "SMHI Vattenwebb; modellversion s-hype2022_version_2022_1.1.1, Vattenwebb release_autumn_2025-2, hämtad 2026-10-28")
+    assert hydro.model_source({"source": "SMHI Vattenwebb", "stations": [{}]}) == "SMHI Vattenwebb"
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_the_screens_name_the_return_period_and_a_daily_flow_s_date() -> None:
     statistics = {"HQ2": 29.4, "HQ5": 43.6, "HQ10": 53.0, "HQ25": 64.9, "HQ50": 73.7}

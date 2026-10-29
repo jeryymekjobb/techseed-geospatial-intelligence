@@ -65,6 +65,21 @@ def measured() -> dict[str, Any] | None:
     return {"source": catalogue["source"], "stations": result}
 
 
+def model_source(catalogue: dict[str, Any]) -> str:
+    """The modelled flows' source with the model version, Vattenwebb's release and the download date, which SMHI
+    asks to be stated with Vattenwebb's data (read_vattenwebb.py keeps them per area)."""
+    stated = []
+    for station in catalogue["stations"]:
+        model = station.get("model", {})
+        text = ", ".join(part for part in (
+            f"modellversion {model['Hype modellversion']}" if model.get("Hype modellversion") else "",
+            f"Vattenwebb {model['Vattenwebb version']}" if model.get("Vattenwebb version") else "",
+            f"hämtad {station['downloaded_utc'][:10]}" if station.get("downloaded_utc") else "") if part)
+        if text and text not in stated:
+            stated.append(text)
+    return "; ".join([catalogue["source"], *stated])
+
+
 def model_flows() -> dict[str, Any] | None:
     """The modelled flows by the day, or None."""
     catalogue_file = MODEL_FLOW_DIR / "stations.json" if MODEL_FLOW_DIR else None
@@ -81,7 +96,7 @@ def model_flows() -> dict[str, Any] | None:
             "record_hold_days": scenario.HYDRO_RECORD_HOLD_DAYS,
             "observations": [{"time_utc": row["time_utc"], "value": float(row["value"])} for row in rows],
         })
-    return {"source": catalogue["source"], "stations": result}
+    return {"source": model_source(catalogue), "stations": result}
 
 
 def _sea_rows(station: dict[str, Any]) -> list[dict[str, Any]]:
