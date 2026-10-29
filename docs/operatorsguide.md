@@ -2250,8 +2250,11 @@ EUMETSAT:s Data Store har ibland svarat med fel eller timeout. Kör då samma ko
 senare. Databassteget kräver PostgreSQL med PostGIS igång (avsnitt D). På slutet körs
 `startup_check`.
 
-**Generalrepetitionen**, med kartjänsten på Sundsvalls karta. Den börjar den 8 augusti kl. 14
-svensk tid, strax före havets högsta vid Spikarna:
+**Generalrepetitionen**, med kartjänsten på Sundsvalls karta. Den börjar den 14 augusti kl. 08
+svensk tid, när Ljungan var som högst vid Sundsvall. Kl. 14 larmar 2 av 11 givare, NG1 vid Öhns camping
+och NG3 vid Selångersåns utlopp, och bedömningen blir "Possible flood": översvämningen var i älven,
+inte i stans dagvatten, och inget flöde gick över sitt rekord. Upptäcktssekvensen slutar med "Okänd",
+eftersom radarbilden visar nästan inget nytt vatten:
 
 ```bash
 TILES_FILE=sundsvall.mbtiles docker compose up -d tiles

@@ -150,7 +150,7 @@ def test_ljusdal_2018_is_a_fire_from_four_firms_satellites_with_its_own_forecast
 
 def test_every_scenario_has_a_summary_that_says_what_is_real() -> None:
     code = "from app.backend import scenario; import json; print(json.dumps(scenario.SUMMARY))"
-    for name in ["vastmanland2014", "ljusdal2018", "sundsvall2026", "skane2024"]:
+    for name in ["vastmanland2014", "ljusdal2018", "sundsvall2026", "skane2024", "ljungan-aug2023"]:
         result = run_python(code, name)
         assert result.returncode == 0, result.stderr
         lines = __import__("json").loads(result.stdout)
@@ -161,6 +161,9 @@ def test_every_scenario_has_a_summary_that_says_what_is_real() -> None:
         assert not any(word in " ".join(lines) for word in ["live", "IoT", "IR ", "syntetisk", "vegetation", "detektioner", "-bilder", "klimatanpassad"]), name
         if name == "ljusdal2018":
             assert "Landsats bilder från de veckorna är för molniga över branden och är inte med." in lines
+        if name == "ljungan-aug2023":
+            # Skallböle's daily mean was 445-449 m³/s on 12-14 August, not first on the 14th.
+            assert any("som högst den 12 till 14 augusti" in line for line in lines)
     assert server.config(lantmateriet.Settings(None, None, None, None, None))["summary"] == scenario.SUMMARY
 
 
@@ -178,3 +181,10 @@ def test_falsterbo_has_a_clear_image_a_year_and_one_on_each_side_of_babet() -> N
     assert all(role in falsterbo.LANDSAT_ROLES for role in scenes)
     assert falsterbo.LANDSAT_ROLES["2019"] == "Årsbild 2019" and falsterbo.LANDSAT_ROLES["after-babet"] == "Efter Babet"
     assert all(falsterbo.PLAYBACK_START.strftime("%Y%m%d") <= date <= falsterbo.PLAYBACK_END.strftime("%Y%m%d") for date in dates.values())
+
+
+def test_the_demo_check_expects_ljungan_s_flood_in_the_river_not_the_town() -> None:
+    code = "from app.backend import scenario; print(scenario.CHECK_SENSORS, scenario.CHECK_OUTCOME, scenario.CHECK_DETECTION_OUTCOME, sep='|')"
+    assert run_python(code, "ljungan-aug2023").stdout.strip() == "2/11|Possible flood|Okänd"
+    # Scenarios that do not set it keep the flood the sequence has always ended with.
+    assert run_python(code, "sundsvall2026").stdout.strip().endswith("|Översvämning trolig")
