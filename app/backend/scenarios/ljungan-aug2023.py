@@ -154,6 +154,14 @@ EFAS_AREA = (62.8, 13.5, 62.1, 17.7)
 # the Sundsvall bay at 05 and 16 UTC on 9 August and 05 UTC on 14 August. Needs a Copernicus Data Space account.
 SENTINEL1_WIND_DIR = DATA / "sentinel1-wind"
 
+# SWOT's water surface heights (tools/fetch_swot.py), as the user chose on 2026-10-29: the lakes of the map area and
+# Ljungan from Torpshammar to the sea, uncertain measurements kept and flagged. SWOT passed on 11 August at
+# 11:51 UTC; the comparison is its passes of 1 and 2 August, before the rain. Needs a NASA Earthdata account.
+SWOT_DIR = DATA / "swot"
+SWOT_AREA = (16.0, 62.15, 17.8, 62.62)
+SWOT_RIVERS = ["Ljungan"]
+SWOT_NOTES = ["Ljungan är reglerad för vattenkraft, så tappningen påverkar nivåerna, inte bara regnet."]
+
 # Three synthetic level sensors (level_sensors.py; tools/derive_impact_sensor_points.py, the `level-sensors`
 # step of fetch_scenario), each following its nearest flow station: Öhns Campingplats in Matfors by Ljungan,
 # where SVT reported water on 15 August 2023 (OSM's camp site; Skallböle), Himlabadet by Sidsjöbäcken (OSM's

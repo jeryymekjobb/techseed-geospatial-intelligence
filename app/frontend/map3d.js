@@ -187,6 +187,7 @@ async function createCesiumMap(config) {
   forecastWindLayer.show = false;
   const sentinel1WindLayer = group("sentinel1-wind");  // Sentinel-1's wind over the sea at its latest pass (sentinel1_wind.py)
   let sentinel1WindVisible = true;
+  const swotLayer = group("swot");  // SWOT's water heights of lakes and river (swot.py), from its pass
   const isobarLayer = group("isobars");  // MET Norway's weather chart (met_forecast.py isobars)
   isobarLayer.show = false;
   const lightningLayer = group("lightning");  // SMHI's observed lightning
@@ -479,6 +480,34 @@ async function createCesiumMap(config) {
           billboard: { image: barbImage(speed, SENTINEL1_BARB), alignedAxis: Cesium.Cartesian3.UNIT_Z,
                        rotation: northRotation((from + 180) % 360), ...ON_GROUND },
         });
+      }
+    },
+
+    // SWOT's water heights: lakes on the ground and reaches in the colour of their rise, dashed where uncertain.
+    setupSwot(label) {
+      layers.push([label, (visible) => { swotLayer.show = visible; }, () => swotLayer.show]);
+    },
+
+    drawSwot(items) {
+      swotLayer.entities.removeAll();
+      for (const item of items) {
+        const colour = swotColour(item.change_m);
+        for (const line of item.lines) {
+          const positions = Cesium.Cartesian3.fromDegreesArray(line.flatMap(([lat, lon]) => [lon, lat]));
+          const edge = item.uncertain ? new Cesium.PolylineDashMaterialProperty({ color: cesiumColor(item.kind === "river" ? colour : "#b45309"), dashLength: 12 })
+            : cesiumColor(colour);
+          if (item.kind === "lake") {
+            swotLayer.entities.add({ name: item.name || "Sjö (SWOT)", description: swotTooltip(item),
+                                     polygon: { hierarchy: positions, material: cesiumColor(colour, 0.7), classificationType: Cesium.ClassificationType.BOTH } });
+          }
+          swotLayer.entities.add({ name: item.name || "SWOT", description: swotTooltip(item),
+                                   polyline: { positions, width: item.kind === "river" ? 5 : 1.5, material: edge, clampToGround: true } });
+        }
+        if (swotLabelled(item)) {
+          swotLayer.entities.add({ position: Cesium.Cartesian3.fromDegrees(item.longitude, item.latitude),
+                                   label: { text: swotLabel(item), font: "600 13px sans-serif", fillColor: cesiumColor("#1e3a8a"),
+                                            outlineColor: cesiumColor("#ffffff"), outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE, ...ON_GROUND } });
+        }
       }
     },
 

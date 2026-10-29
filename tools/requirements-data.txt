@@ -7,3 +7,5 @@ Pillow==12.3.0
 numpy==2.5.3
 # xlrd reads Vattenwebb's Excel files of modelled flows (tools/read_vattenwebb.py).
 xlrd==2.0.1
+# requests downloads SWOT's products through NASA Earthdata's login redirects (tools/fetch_swot.py).
+requests==2.34.2

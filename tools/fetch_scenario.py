@@ -57,6 +57,7 @@ ACCOUNTS = {
     "eumetsat": (Path.home() / ".eumdac" / "credentials", "EUMETSAT Data Store (Meteosat), guide section 2"),
     "lsa-saf": (Path.home() / ".netrc", "LSA SAF (Meteosat fire products, ~/.netrc), guide section 2"),
     "ewds": (Path.home() / ".ewdsapirc", "Copernicus EWDS (EFAS flow forecasts; accept the CEMS-FLOODS licence)"),
+    "earthdata": (Path.home() / ".netrc", "NASA Earthdata (SWOT; a machine line for urs.earthdata.nasa.gov in ~/.netrc)"),
     "cdse": (Path.home() / ".netrc", "Copernicus Data Space (Sentinel-1 wind; a machine line for identity.dataspace.copernicus.eu in ~/.netrc)"),
 }
 # Python packages beyond the demo's own, by the requirements file that installs them.
@@ -64,7 +65,7 @@ PACKAGES = {
     "tools/requirements-era5.txt": ("cdsapi", "netCDF4"),
     "tools/requirements-meteosat.txt": ("h5py", "eumdac", "eccodes"),
     "tools/requirements-terrain.txt": ("pydelatin", "quantized_mesh_encoder"),
-    "tools/requirements-data.txt": ("PIL", "numpy", "xlrd"),
+    "tools/requirements-data.txt": ("PIL", "numpy", "xlrd", "requests"),
     "netCDF4": ("netCDF4",),
 }
 # The fire scenarios' SMHI stations are not in their modules (the guide's sections 4 and 23).
@@ -247,6 +248,9 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
     if get("SENTINEL1_WIND_DIR"):
         plan.append(Step("sentinel1-wind", "Sentinel-1:s vind över havet", tool("fetch_sentinel1_wind"), Path(s.SENTINEL1_WIND_DIR) / "wind.json",
                          account="cdse", optional=True, size_mb=45))
+    if get("SWOT_DIR") and get("SWOT_AREA"):
+        plan.append(Step("swot", "SWOT:s vattenhöjder i sjöar och älv", tool("fetch_swot", "--tools", tools), Path(s.SWOT_DIR) / "swot.json",
+                         account="earthdata", optional=True, programs=native(tools, *GDAL), packages=("requests",), size_mb=200))
     if get("MUNICIPAL_BASEMAP") and get("MUNICIPAL_BASEMAP_DIR"):
         plan.append(Step("municipal-basemap", "Kommunens karta (Kartan)", tool("fetch_municipal_basemap"),
                          Path(s.MUNICIPAL_BASEMAP_DIR) / "SOURCE.json", packages=IMAGES, size_mb=1100, note="2–3 timmar; fortsätter där den stannade"))

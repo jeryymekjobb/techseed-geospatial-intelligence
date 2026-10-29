@@ -517,6 +517,40 @@ function showMeteosatFrm(clock) {
     text: `Brandrisk ${info.risk_names[cell.risk]}${cell.fwi === null ? "" : `, FWI ${Math.round(cell.fwi)}`} (LSA SAF, gäller ${when}; Meteosat och ERA5)` })));
 }
 
+// SWOT's water heights (swot.py, swot.js): a section after the flows with what it measured and every
+// uncertainty, and the maps' lakes and reaches from its pass on.
+function setupSwot(info) {
+  const section = document.createElement("section");
+  section.id = "swot-section";
+  section.className = "chart-section";
+  const legend = SWOT_STEPS.map(([limit, colour], index) => `<span style="background:${colour}"></span>`
+    + (index === 0 ? "sjönk" : limit === Infinity ? "1 m och mer" : `till ${String(limit).replace(".", ",")} m`)).join("");
+  section.innerHTML = `<h2>${info.label}</h2><dl id="swot-values" class="forecast-values"></dl>`
+    + `<div class="status swot-legend">Höjning sedan ${info.summary.baseline}:${legend}. Streckad kant och ? = osäker mätning.</div>`
+    + `<div class="status"><strong>Osäkerheter</strong></div><ul class="swot-uncertainties">${info.uncertainties.map((line) => `<li>${line}</li>`).join("")}</ul>`;
+  const after = $("hydro-section") || $("rain-station")?.closest("section");
+  if (after) after.after(section);
+  else document.querySelector(".panel")?.append(section);
+  state.map.setupSwot(info.label);
+  state.map.addAttribution(info.attribution);
+}
+
+function showSwot(clock) {
+  const info = state.config.layers.swot;
+  if (!info || !clock) return;
+  const shown = swotShown(info, clock.getTime());
+  if (shown === state.swotShown) return;
+  state.swotShown = shown;
+  const found = info.summary;
+  $("swot-values").innerHTML = (shown ? [
+    ["Mätt", formatLocal(info.pass_utc)],
+    ["Sjöar, god kvalitet", `${found.lakes_good_rose} av ${found.lakes_good} högre${found.lakes_good_median_m === null ? "" : `, i mitten ${swotMetres(found.lakes_good_median_m)}`}`],
+    ["Sjöar, osäker mätning", `${found.lakes_uncertain_rose} av ${found.lakes_uncertain} högre`],
+    ...(found.rivers ? [[found.river_name, `${swotMetres(found.river_min_m)} till ${swotMetres(found.river_max_m)}, ${found.rivers_uncertain} av ${found.rivers} sträckor osäkra`]] : []),
+  ] : [["Nästa passage", formatLocal(info.pass_utc)]]).map(chartValue).join("");
+  state.map.drawSwot(shown ? info.items : []);
+}
+
 // Meteosat's cloud top height (meteosat_cth.py, meteosat_cth.js): a chart of the mean over the map
 // area after the rain and flows, with the log's thresholds, and the maps' cells of the quarter.
 function setupMeteosatCth(info) {
@@ -1026,6 +1060,7 @@ function setClock(clock) {
   showMetForecast(clock);
   showLightning(clock);
   showSentinel1Wind(clock);
+  showSwot(clock);
   showMeteosat(clock);
   showMeteosatCompare(clock);
   showMeteosatFrm(clock);
@@ -2076,6 +2111,7 @@ async function startApp(createMap) {
   }
   if (config.layers.meteosat_frm) setupMeteosatFrm(config.layers.meteosat_frm);
   if (config.layers.meteosat_cth) setupMeteosatCth(config.layers.meteosat_cth);
+  if (config.layers.swot) setupSwot(config.layers.swot);
   if (config.layers.meteosat_clm) setupMeteosatClm(config.layers.meteosat_clm);
   if (config.layers.meteosat_li || config.layers.meteosat_gii) setupMeteosatMtg(config);
   if (config.layers.meteosat?.compare) setupMeteosatCompare(config.layers.meteosat);

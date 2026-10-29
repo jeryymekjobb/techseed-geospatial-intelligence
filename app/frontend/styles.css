@@ -80,6 +80,10 @@ body:not(.display-only) .view-switch ~ .panel-show, .panel-show:not([hidden]) ~ 
 /* Sentinel-1's measured wind over the sea: purple (SENTINEL1_BARB in wind_barbs.js). */
 .sentinel1-barb .barb path:not(.halo), .sentinel1-barb .barb circle:not(.halo) { stroke: #7e22ce; }
 .sentinel1-barb .barb .pennant { fill: #7e22ce; }
+/* SWOT's water heights (swot.js): the change as a label, and the panel's legend. */
+.leaflet-tooltip.swot-label { padding: 0 3px; font-size: 11px; font-weight: 600; color: #1e3a8a; }
+.swot-legend span { display: inline-block; width: 12px; height: 10px; margin: 0 3px 0 8px; vertical-align: middle; }
+.swot-uncertainties { margin: 4px 0 0 16px; padding: 0; font-size: 12px; }
 /* MET Norway's weather chart: the isobars' hPa, the highs and lows and the lightning. */
 .isobar-label { font: 600 11px system-ui, sans-serif; color: #1f3a7a; white-space: nowrap; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
 .isobar-label, .isobar-centre { transform: translate(-50%, -50%); }

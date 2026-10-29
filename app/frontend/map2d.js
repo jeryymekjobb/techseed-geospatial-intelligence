@@ -121,6 +121,7 @@ function createLeafletMap(config) {
   let forecastWindVisible = false;
   let sentinel1WindLayer = null;  // Sentinel-1's wind over the sea at its latest pass (sentinel1_wind.py), purple barbs
   let sentinel1WindVisible = true;
+  let swotLayer = null;  // SWOT's water heights of lakes and river (swot.py), from its pass
   let isobarLayer = null;  // MET Norway's weather chart: isobars every 2 hPa, highs and lows, rain and lightning
   let viewBeforeChart = null;  // the view to come back to when the weather chart is unticked
   let lightningLayer = null;  // SMHI's observed flashes to the ground in the last hour
@@ -380,6 +381,29 @@ function createLeafletMap(config) {
         L.marker([lat, lon], {
           icon: L.divIcon({ className: "barb-icon sentinel1-barb", iconSize: [100, 100], iconAnchor: [50, 50], html: svg }), keyboard: false,
         }).bindTooltip(`${text}: ${String(speed).replace(".", ",")} m/s`, { direction: "top" }).addTo(sentinel1WindLayer);
+      }
+    },
+
+    // SWOT's water heights: lakes filled and reaches drawn in the colour of their rise, dashed where uncertain.
+    setupSwot(label) {
+      swotLayer = L.layerGroup();
+      overlays[label] = swotLayer;
+      setMapLayerVisible(swotLayer, true);
+    },
+
+    drawSwot(items) {
+      if (!swotLayer) return;
+      swotLayer.clearLayers();
+      for (const item of items) {
+        const colour = swotColour(item.change_m);
+        const style = { color: item.uncertain ? "#b45309" : colour, weight: item.kind === "river" ? 5 : 1.5,
+                        dashArray: item.uncertain ? "5 4" : null, fillColor: colour, fillOpacity: 0.7 };
+        const shape = item.kind === "river" ? L.polyline(item.lines, { ...style, color: colour }) : L.polygon(item.lines, style);
+        shape.bindTooltip(swotTooltip(item), { sticky: true }).addTo(swotLayer);
+        if (swotLabelled(item)) {
+          L.marker([item.latitude, item.longitude], { icon: L.divIcon({ className: "", iconSize: [0, 0] }), keyboard: false, interactive: false })
+            .bindTooltip(swotLabel(item), { permanent: true, direction: "center", className: "swot-label" }).addTo(swotLayer);
+        }
       }
     },
 

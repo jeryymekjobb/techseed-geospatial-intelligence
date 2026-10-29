@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlsplit
 
-from app.backend import assessment, daily_rain, dam, detection, efas, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_clm, meteosat_cth, meteosat_frm, meteosat_gii, meteosat_li, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, scene_satellites, sentinel1_wind, sensor_sim, shorelines, spatial, speech, wms
+from app.backend import assessment, daily_rain, dam, detection, efas, ems, flood_assessment, flood_sensors, forecast, hydro, iot, landsat, level_sensors, lightning, met_forecast, meteosat, meteosat_clm, meteosat_cth, meteosat_frm, meteosat_gii, meteosat_li, municipal_basemap, passes, profiles, lantmateriet, offline_tiles, radar, routes, satellites, scenario, scene_satellites, sentinel1_wind, sensor_sim, shorelines, spatial, speech, swot, wms
 from app.backend.scenario_engine import DEFAULT_SPEED, DETECTION_AFTER, CommandError, ScenarioEngine
 from app.backend.scenarios import AVAILABLE, DEFAULT
 from tools.firms_extract import daily_summary, select_detections
@@ -484,6 +484,8 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
                   item("Syntetiska sensorer", True, True)]
     if scenario.WIND_FILE and scenario.WIND_FILE.exists():
         items.append(item("Vind (ERA5-Land)", True, True))
+    if swot.data() is not None:
+        items.append(item(swot.LABEL, True, True))
     if sentinel1_wind.layer() is not None:
         items.append(item(sentinel1_wind.LABEL, True, True))
     if radar.layer() is not None:
@@ -630,6 +632,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "efas": efas.layer(),
             # Sentinel-1's wind over the sea at each pass (sentinel1_wind.py): the maps' arrows and the log's lines.
             "sentinel1_wind": sentinel1_wind.layer(),
+            # SWOT's water heights of lakes and river (swot.py): the maps, the panel's section and the log's line.
+            "swot": swot.layer(),
             "ems": ems.perimeters() is not None,  # Copernicus EMS's perimeters of the fire at /api/ems
             # MET Norway's archived weather forecasts at /api/met-forecast (met_forecast.py), with their credit.
             "met_forecast": {"label": met_forecast.LABEL, "attribution": met_forecast.ATTRIBUTION,

@@ -124,6 +124,14 @@ EFAS_ISSUES = getattr(_module, "EFAS_ISSUES", None)
 EFAS_AREA = getattr(_module, "EFAS_AREA", None)
 # Sentinel-1's wind over the sea in the map area during the playback (tools/fetch_sentinel1_wind.py, sentinel1_wind.py).
 SENTINEL1_WIND_DIR = getattr(_module, "SENTINEL1_WIND_DIR", None)
+# SWOT's water surface heights (tools/fetch_swot.py, swot.py): the area searched (west, south, east, north), the
+# rivers kept by their SWORD name, and the days before the playback whose passes are the comparison.
+SWOT_DIR = getattr(_module, "SWOT_DIR", None)
+SWOT_AREA = getattr(_module, "SWOT_AREA", None)
+SWOT_RIVERS = getattr(_module, "SWOT_RIVERS", [])
+SWOT_BASELINE_DAYS = getattr(_module, "SWOT_BASELINE_DAYS", 14)
+# What else makes the scenario's SWOT heights uncertain, in the panel's words (swot.uncertainties).
+SWOT_NOTES = getattr(_module, "SWOT_NOTES", [])
 # A playback of days can show the sea level by the hour (SEA_LEVEL_HOURLY) instead of each day's highest;
 # and the screens can mark the sea level of the hours after the clock (SEA_LEVEL_AHEAD_HOURS), measured
 # afterwards, since no forecast of the sea level as issued then is archived.
