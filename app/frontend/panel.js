@@ -1178,7 +1178,7 @@ function sceneConditions(scene) {
   if (scene.cloud_pct !== null && scene.cloud_pct !== undefined) {
     return `${String(scene.cloud_pct).replace(".", ",")} % moln över ${state.config.incident_area}`;
   }
-  if (scene.separable === false) return "radar genom molnen; vatten och land skiljs dåligt åt i bilden";
+  if (scene.separable === false) return "radar genom molnen; vatten och land skiljs inte åt i bilden, så inget beräknat vatten visas";
   if (scene.new_water_pct !== undefined) {
     return `radar genom molnen; beräknat vatten utanför sjöar och hav på ${String(scene.new_water_pct).replace(".", ",")} % av ${state.config.focus_land}`;
   }
@@ -1477,7 +1477,8 @@ function showDetectionImage(info) {
   if (info.pass.kind !== "flood" || !state.landsat) return;
   const scene = state.landsat.scenes.find((item) => item.acquired_utc === info.pass.pass_utc && item.images.radar);
   const steps = DETECTION_STEPS.map((item) => item.name);
-  const image = steps.indexOf(info.name) >= steps.indexOf("iot") ? "radarwater" : "radar";
+  // A scene whose water cannot be told from land has no computed water (landsat.py) and keeps its radar image.
+  const image = steps.indexOf(info.name) >= steps.indexOf("iot") && scene?.images.radarwater ? "radarwater" : "radar";
   state.detectionImage = scene ? `${scene.scene}|${image}` : null;
   state.landsatShown = undefined;
   showLandsatAt(state.clock);

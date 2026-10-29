@@ -38,10 +38,14 @@ function landsatSelection(scenes, clockMs, pick, types) {
     }
   }
   if (!ticked.length) return { scene: null, key: null, reason: "no-types" };
+  // A radar image whose water cannot be told from land has no computed water (landsat.py): with the water
+  // ticked, it shows its radar image instead of giving way to an older image with water.
+  const kinds = (item) => ticked.includes("radarwater") && item.separable === false && !ticked.includes("radar")
+    ? [...ticked, "radar"] : ticked;
   // The latest scene with a ticked type, its first ticked image; none yet when no such scene has been taken.
-  const scene = scenes.filter((item) => Date.parse(item.acquired_utc) <= clockMs && ticked.some((kind) => item.images[kind])).pop();
+  const scene = scenes.filter((item) => Date.parse(item.acquired_utc) <= clockMs && kinds(item).some((kind) => item.images[kind])).pop();
   if (!scene) return { scene: null, key: null, reason: "none-yet" };
-  return { scene, key: `${scene.scene}|${ticked.find((kind) => scene.images[kind])}`, reason: "shown" };
+  return { scene, key: `${scene.scene}|${kinds(scene).find((kind) => scene.images[kind])}`, reason: "shown" };
 }
 
 // For mission control's ticks: how many images of each type are taken up to the clock, of all.

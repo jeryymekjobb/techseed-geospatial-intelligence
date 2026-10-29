@@ -205,7 +205,7 @@ class FloodAssessor:
         if scene is None:
             return "bilden är inte hämtad (tools/fetch_sentinel1_scene.py)"
         if not scene["separable"]:
-            return "vatten och land skiljs dåligt åt i bilden (vind eller regn), vattenmasken är osäker"
+            return "vatten och land skiljs dåligt åt i bilden (vind, regn eller blöt snö), så beräknat vatten visas inte och räknas inte"
         return f"vatten utanför sjöar och hav på {sv(scene['new_water_pct'])} % av {self.focus_land} (beräknat, enkel tröskel)"
 
     def at(self, clock: datetime, synthetic: dict[str, Any], satellite_until: datetime | None = None) -> dict[str, Any]:

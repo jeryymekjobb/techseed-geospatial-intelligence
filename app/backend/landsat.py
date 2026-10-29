@@ -29,12 +29,12 @@ NAMES = {
     "natural": "naturliga färger",
     "ndmi": "fukt i vegetationen, NDMI (Landsat band 5 och 6, Sentinel-2 B8A och B11)",
     "water": "vatten, NDWI (Sentinel-2; moln bortmaskade)",
-    "radar": "radar (Sentinel-1, VV; ser genom moln, ej terrängkorrigerad)",
+    "radar": "radar (Sentinel-1, VV eller HH; ser genom moln, ej terrängkorrigerad)",
     "radarwater": "beräknat vatten i radarbilden utanför sjöar och hav (röd mask, enkel tröskel)",
 }
 ROLES = scenario.LANDSAT_ROLES
 SATELLITES = {"LC08": "Landsat 8", "LC09": "Landsat 9", "S2A": "Sentinel-2A", "S2B": "Sentinel-2B", "S2C": "Sentinel-2C",
-              "S1A": "Sentinel-1A", "S1C": "Sentinel-1C", "S1D": "Sentinel-1D"}
+              "S1A": "Sentinel-1A", "S1B": "Sentinel-1B", "S1C": "Sentinel-1C", "S1D": "Sentinel-1D"}
 ROLE_TEXTS = {**ROLES, "radar": "Radarbild"}
 
 
@@ -47,8 +47,10 @@ def _scenes(directory: Any, prefix: str) -> tuple[list[dict[str, Any]], dict[str
     version = quote(str(source.get("processed_utc") or source_file.stat().st_mtime_ns), safe="")
     scenes = []
     for record in source.get("scenes", []):
+        # A radar image whose water cannot be told from land (separable false, such as wet snow) keeps its image
+        # but not its computed water, which would look like a flood that was not there; the log says why.
         images = {name: f"/{prefix}/{image['file']}?v={version}" for name, image in record["images"].items()
-                  if (directory / image["file"]).is_file()}
+                  if (directory / image["file"]).is_file() and not (name == "radarwater" and record.get("separable") is False)}
         if not images:
             continue
         acquired = record["acquired_utc"]

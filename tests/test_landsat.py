@@ -115,6 +115,26 @@ def test_the_layer_lists_the_scenes_in_time_order_with_their_images(tmp_path: Pa
 
 
 
+def test_a_radar_image_that_cannot_tell_water_from_land_shows_no_computed_water(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    directory = tmp_path / "sentinel1"
+    directory.mkdir()
+    monkeypatch.setattr(landsat, "LANDSAT_DIR", None)
+    monkeypatch.setattr(landsat, "SENTINEL2_DIR", None)
+    monkeypatch.setattr(landsat, "SENTINEL1_DIR", directory)
+    scenes = []
+    for key, separable in (("S1A_20200219T163014", True), ("S1B_20200223T052945", False)):
+        for image in ("radar", "radarwater"):
+            (directory / f"{key}-{image}.png").write_bytes(PNG)
+        scenes.append({"role": "radar", "scene": key, "satellite": "x", "acquired_utc": f"2020-02-{key[11:13]}T05:00:00Z",
+                       "focus_area_coverage_pct": 100.0, "focus_area_new_water_pct": 55.8, "separable": separable,
+                       "images": {image: {"file": f"{key}-{image}.png"} for image in ("radar", "radarwater")}})
+    (directory / "SOURCE.json").write_text(json.dumps({"scenes": scenes, "bounds_west_south_east_north": [16.9, 62.15, 17.8, 62.62],
+                                                       "processed_utc": "2026-10-29T00:00:00Z"}), encoding="utf-8")
+    shown = {scene["scene"]: scene for scene in landsat.layer()["scenes"]}
+    assert sorted(shown["S1A_20200219T163014"]["images"]) == ["radar", "radarwater"]
+    assert sorted(shown["S1B_20200223T052945"]["images"]) == ["radar"]
+    assert (shown["S1B_20200223T052945"]["satellite"], shown["S1B_20200223T052945"]["separable"]) == ("Sentinel-1B", False)
+
 def test_sentinel_2_scenes_alone_bring_their_ndmi_colours(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(landsat, "LANDSAT_DIR", tmp_path / "landsat")
     monkeypatch.setattr(landsat, "SENTINEL1_DIR", tmp_path / "sentinel1")
@@ -212,6 +232,15 @@ def options(clock: str) -> list[list[str]]:
             f"const r = m.imageOptions({json.dumps(scenes_js())}, {{swir: 'a', natural: 'b', ndmi: 'c'}}, Date.parse({json.dumps(clock)}), (t) => t.slice(0, 10));"
             "console.log(JSON.stringify(r.map((item) => [item.value, item.text])));")
     return json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_with_the_radar_s_water_ticked_an_image_without_it_shows_its_radar() -> None:
+    scenes = [{"scene": "S1A_19", "acquired_utc": "2020-02-19T16:30:00Z", "separable": True, "images": {"radar": "a", "radarwater": "b"}},
+              {"scene": "S1B_23", "acquired_utc": "2020-02-23T05:30:00Z", "separable": False, "images": {"radar": "c"}}]
+    code = (f"const l = require({json.dumps(str(FRONTEND / 'landsat.js'))});"
+            f"console.log(JSON.stringify(l.landsatSelection({json.dumps(scenes)}, Date.parse('2020-02-23T12:00:00Z'), 'auto', ['radarwater']).key))")
+    assert json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout) == "S1B_23|radar"
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")

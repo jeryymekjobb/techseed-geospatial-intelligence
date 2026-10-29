@@ -418,6 +418,14 @@ def test_an_image_line_says_meteosat_s_cloud_where_known() -> None:
     assert [line["text"] for line in lines] == ["Landsat 8 tar bild över Kramfors", "Sentinel-1C tar bild över Kramfors – Meteosat: 100 procent moln"]
 
 
+def test_an_image_line_says_when_the_radar_cannot_tell_water_from_land() -> None:
+    scenes = [{"satellite": "Sentinel-1B", "acquired_utc": "2020-02-23T05:29:45Z", "separable": False},
+              {"satellite": "Sentinel-1A", "acquired_utc": "2020-02-24T05:22:35Z", "separable": True}]
+    lines = node(f"satelliteLog({{ scenes: {json.dumps(scenes)} }}, Date.parse('2020-02-24T05:25:00Z'), 86400000, Infinity, 'Sundsvall')")
+    assert [line["text"] for line in lines] == [
+        "Sentinel-1A tar bild över Sundsvall",
+        "Sentinel-1B tar bild över Sundsvall – vatten och land skiljs inte åt i radarbilden, inget vatten visas"]
+
 def test_the_kiosk_s_loop_says_when_it_plays_or_starts_again() -> None:
     def state(phase: str | None, on: bool = True, left: int | None = 12) -> dict:
         return {"loop": {"on": on, "phase": phase, "seconds_left": left}}
