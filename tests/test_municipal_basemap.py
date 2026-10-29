@@ -139,3 +139,36 @@ def test_the_route_serves_fetched_tiles_and_nothing_else(fetched: Path) -> None:
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+def test_a_scenario_may_have_several_municipal_maps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Västerås stad's map and aerial photo; the photo has no names of its own. Mission control takes ids of letters only.
+    maps = [{**BASEMAP, "id": "karta", "label": "Västerås stad (karta)", "dir": tmp_path / "karta"},
+            {**BASEMAP, "id": "flygfoto", "label": "Västerås stad (flygfoto)", "dir": tmp_path / "flygfoto", "names": False}]
+    monkeypatch.setattr(municipal_basemap.scenario, "MUNICIPAL_BASEMAPS", maps)
+    monkeypatch.setattr(offline_tiles, "available", lambda: False)
+    assert municipal_basemap.layers() == [] and municipal_basemap.layer() is None
+    for item in maps:
+        (item["dir"] / "12" / "2245").mkdir(parents=True)
+        (item["dir"] / "12" / "2245" / "1130.png").write_bytes(item["id"].encode())
+        (item["dir"] / "SOURCE.json").write_text(json.dumps({"min_zoom": 8, "max_zoom": 16, "bbox_west_south_east_north": list(BBOX)}), encoding="utf-8")
+    layers = municipal_basemap.layers()
+    assert [(item["id"], item["url"], item["names"]) for item in layers] == [
+        ("karta", "/basemap/karta/{z}/{x}/{y}.png", True), ("flygfoto", "/basemap/flygfoto/{z}/{x}/{y}.png", False)]
+    assert municipal_basemap.layer()["id"] == "karta"
+    assert municipal_basemap.tile(12, 2245, 1130, "flygfoto") == b"flygfoto" and municipal_basemap.tile(12, 2245, 1130, "x") is None
+    assert [item["id"] for item in server.base_maps(lantmateriet.Settings(None, None, None, None))] == ["karta", "flygfoto", "online"]
+
+
+def test_each_of_several_maps_is_an_optional_step_and_check() -> None:
+    from types import SimpleNamespace
+
+    from tools import fetch_scenario, startup_check
+    plan = {step.key: step for step in fetch_scenario.steps("vasteras-sep2023")}
+    assert all(plan[f"municipal-basemap-{name}"].optional for name in ("vasteraskarta", "vasterasgra", "vasterasflygfoto"))
+    assert plan["municipal-basemap-vasterasgra"].command[-2:] == ["--map", "vasterasgra"]
+    settings = SimpleNamespace(TERRAIN_FILE=Path("/x/terrain.json"), TARGETS_FILE=Path("/x/targets.json"), WIND_FILE=None,
+                               TLE_DIR=Path("/x/tle"), TLE_FILE_NAME="tle.json", TLE_SATELLITES={}, TILES_FILE="demo.mbtiles",
+                               FIRMS_FILES=[], MUNICIPAL_BASEMAPS=[{"id": "karta", "label": "Västerås stad (karta)", "dir": Path("/x/karta")}])
+    check = next(item for item in startup_check.data_checks(settings, Path("/x")) if item.name.endswith("karta/SOURCE.json"))
+    assert not check.required and "optional" in check.detail

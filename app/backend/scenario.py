@@ -113,9 +113,15 @@ SENTINEL1_DIR = getattr(_module, "SENTINEL1_DIR", None)
 # ERA5 wind where ERA5-Land has none (tools/fetch_era5_sea.py) and SMHI's radar (tools/fetch_smhi_radar.py).
 WIND_SEA_FILE = getattr(_module, "WIND_SEA_FILE", None)
 RADAR_DIR = getattr(_module, "RADAR_DIR", None)
+# The rain chart's first gauge: an hourly gauge's id or a daily station's as "daily-<id>" (panel.js); None
+# for the first hourly gauge.
+RAIN_CHART_STATION = getattr(_module, "RAIN_CHART_STATION", None)
 # SMHI's measured flows and lake levels (tools/fetch_smhi_hydro.py) and their stations.
 HYDRO_DIR = getattr(_module, "HYDRO_DIR", None)
 HYDRO_STATIONS = getattr(_module, "HYDRO_STATIONS", {})
+# Earlier numbers of a station at the same place ("station:parameter" -> (number, ...)), whose daily flows give
+# its highest before the period and the start of measuring (SMHI renumbers a station when it is rebuilt).
+HYDRO_EARLIER_STATIONS = getattr(_module, "HYDRO_EARLIER_STATIONS", {})
 # SMHI's sea-level stations by id, with the hourly sea level (tools/fetch_smhi_sea_level.py).
 SEA_LEVEL_DIR = getattr(_module, "SEA_LEVEL_DIR", None)
 SEA_LEVEL_STATIONS = getattr(_module, "SEA_LEVEL_STATIONS", {})
@@ -192,6 +198,10 @@ MUNICIPAL_WMS = getattr(_module, "MUNICIPAL_WMS", None)
 MUNICIPAL_DIR = getattr(_module, "MUNICIPAL_DIR", None)
 # The municipality's map as a locally kept base map (municipal_basemap.py); only Sundsvall 2026.
 MUNICIPAL_BASEMAP = getattr(_module, "MUNICIPAL_BASEMAP", None)
+# Several municipal maps, each {"id", "url", "layer", "label", "attribution", "dir", "names"?}, in the order the
+# screens offer them (Västerås stad's map, grey map and aerial photo); instead of MUNICIPAL_BASEMAP. An id is
+# lower-case letters only, as mission control's base_maps command takes.
+MUNICIPAL_BASEMAPS = getattr(_module, "MUNICIPAL_BASEMAPS", [])
 # The offline map's road numbers and dashed railway tunnels as a layer of their own over the base map,
 # the images and the flood maps (offline_tiles.py); every scenario has it, as the user asked on 2026-10-19.
 ROAD_OVERLAY = getattr(_module, "ROAD_OVERLAY", True)

@@ -260,6 +260,11 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
     if get("MUNICIPAL_BASEMAP") and get("MUNICIPAL_BASEMAP_DIR"):
         plan.append(Step("municipal-basemap", "Kommunens karta (Kartan)", tool("fetch_municipal_basemap"),
                          Path(s.MUNICIPAL_BASEMAP_DIR) / "SOURCE.json", packages=IMAGES, size_mb=1100, note="2–3 timmar; fortsätter där den stannade"))
+    # Several municipal maps (Västerås stad's): one optional step each, as the demo runs without them.
+    for item in get("MUNICIPAL_BASEMAPS") or []:
+        plan.append(Step(f"municipal-basemap-{item['id']}", f"Kommunens karta: {item['label']}", tool("fetch_municipal_basemap", "--map", item["id"]),
+                         Path(item["dir"]) / "SOURCE.json", packages=IMAGES, optional=True, size_mb=800,
+                         note="1–2 timmar; fortsätter där den stannade"))
     if get("MET_FORECAST_DIR"):
         plan.append(Step("met-forecasts", "MET Norways prognoser", tool("fetch_met_forecasts"), Path(s.MET_FORECAST_DIR) / "SOURCE.json",
                          packages=PACKAGES["netCDF4"], optional=True, size_mb=30, note="20–120 minuter"))

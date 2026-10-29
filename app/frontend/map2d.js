@@ -41,15 +41,18 @@ function createLeafletMap(config) {
   } else {
     baseLayers["OpenStreetMap (online)"] = osm.addTo(map);
   }
-  const municipal = config.layers.municipal_basemap;
-  if (municipal) {
-    // The municipality's map, kept locally (municipal_basemap.py), enlarged beyond its highest fetched zoom.
+  // The municipality's maps, kept locally (municipal_basemap.py), enlarged beyond their highest fetched zoom.
+  const municipalMaps = config.layers.municipal_basemaps || (config.layers.municipal_basemap ? [config.layers.municipal_basemap] : []);
+  for (const municipal of municipalMaps) {
     baseById[municipal.id] = L.tileLayer(municipal.url, {
       minZoom: municipal.min_zoom, maxZoom: 18, maxNativeZoom: municipal.max_zoom, bounds: municipal.bounds,
       attribution: municipal.attribution,
     });
     baseLayers[municipal.label] = baseById[municipal.id];
   }
+  // An aerial photo has no names of its own, so the drawn place names show over it.
+  const withoutNames = new Set(municipalMaps.filter((item) => item.names === false).map((item) => item.id));
+  const municipalIds = new Set(municipalMaps.map((item) => item.id));
   const overlays = {};
   if (config.layers.lantmateriet_topowebb) {
     baseLayers["Lantmäteriet topowebb"] = L.tileLayer("/lm/topowebb/{z}/{x}/{y}.png", {
@@ -247,16 +250,16 @@ function createLeafletMap(config) {
     },
 
     // Mission control's base map (basemaps.js baseMapFor): its id, or null for none. The place
-    // names show over the offline map and no map, which carry no text of their own.
-    // The municipality's map covers only its own area and zooms, so OSM (offline when it runs) lies under it.
+    // names show over the offline map, an aerial photo and no map, which carry no text of their own.
+    // A municipality's map covers only its own area and zooms, so OSM (offline when it runs) lies under it.
     setBaseMap(id) {
-      const under = id && id === municipal?.id ? (offline ? "offline" : "online") : null;
+      const under = municipalIds.has(id) ? (offline ? "offline" : "online") : null;
       for (const [key, layer] of Object.entries(baseById)) {
         if (key === id || key === under) { if (!map.hasLayer(layer)) layer.addTo(map); layer.bringToBack(); } else layer.remove();
       }
       if (under) baseById[under].bringToBack();
       if (labelLayer) {
-        if (id === "offline" || id === null) labelLayer.addTo(map); else labelLayer.remove();
+        if (id === "offline" || id === null || withoutNames.has(id)) labelLayer.addTo(map); else labelLayer.remove();
       }
     },
 
@@ -652,14 +655,25 @@ function createLeafletMap(config) {
       }
       routeImpactLayer.clearLayers();
       for (const item of impacts) {
+        const shown = routeImpactMarker(item, formatLocal(item.time_utc));
+        if (item.marker) {
+          // A marked object, such as embankments: a bar with its label beside it, the source on click.
+          L.marker([shown.latitude, shown.longitude], {
+            icon: L.divIcon({ className: "route-impact", iconSize: [28, 14], iconAnchor: [14, 7],
+              html: `<div style="width:24px;height:10px;background:${ROUTE_MARKER_COLOURS[item.marker] || "#7c4a1e"};`
+                + 'border:2px solid #fff;border-radius:2px;box-shadow:0 0 4px rgba(0,0,0,.6)"></div>' }),
+            keyboard: false,
+          }).bindTooltip(shown.title, { direction: "left", permanent: true, className: "daily-rain-label" })
+            .bindPopup(`${shown.title}<br><small>${shown.detail}</small>`).addTo(routeImpactLayer);
+          continue;
+        }
         const colour = ROUTE_IMPACT_COLOURS[item.kind] || "#d62828";
-        L.marker([item.latitude, item.longitude], {
+        L.marker([shown.latitude, shown.longitude], {
           icon: L.divIcon({ className: "route-impact", iconSize: [22, 22], iconAnchor: [11, 11],
             html: `<div style="width:18px;height:18px;border-radius:${item.kind === "rail" ? "3px" : "50%"};background:${colour};`
               + 'border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.6);color:#fff;font:bold 13px system-ui;text-align:center;line-height:18px">!</div>' }),
           keyboard: false,
-        }).bindTooltip(`${item.text}<br><small>${formatLocal(item.time_utc)}${item.approximate_time ? " (tid ungefärlig)" : ""} · `
-          + `plats ungefärlig · ${item.source_label || "Länsstyrelsen, utredning 2026"}</small>`, { direction: "top" }).addTo(routeImpactLayer);
+        }).bindTooltip(`${shown.title}<br><small>${shown.detail}</small>`, { direction: "top" }).addTo(routeImpactLayer);
       }
     },
 

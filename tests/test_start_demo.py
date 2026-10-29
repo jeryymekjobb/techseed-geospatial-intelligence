@@ -61,6 +61,7 @@ def test_the_menu_lists_the_demos_with_their_titles_and_labels() -> None:
         ("sundsvall-nov2023", "Regnet i Sundsvall, november 2023"),
         ("sundsvall-feb2020", "Högt hav och regn på snö i Sundsvall, februari 2020"),
         ("sundsvall-dec2020", "Regn och storm från havet i Sundsvall, december 2020"),
+        ("vasteras-sep2023", "Svartån i Västerås, september 2023"),
     ]
     assert all(demo["label"] for demo in start_demo.demos())
 

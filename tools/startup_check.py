@@ -90,6 +90,10 @@ def data_checks(settings, root: Path = REPO_ROOT) -> list[Check]:
             files.append(value / markers[name])
             if name in OPTIONAL_MARKERS:
                 optional[value / markers[name]] = OPTIONAL_MARKERS[name]
+    for item in getattr(settings, "MUNICIPAL_BASEMAPS", []):
+        path = Path(item["dir"]) / "SOURCE.json"
+        files.append(path)
+        optional[path] = f"optional; the base map {item['label']} is not offered without it"
     checks = [Check(str(path), path.is_file() and path.stat().st_size > 0, optional.get(path, "required input file"), path not in optional)
               for path in dict.fromkeys(files)]
     for name, spec in PACKAGES.items():

@@ -1600,6 +1600,17 @@ TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
 Mission control ska då visa "Scenario: FLOOD – Sundsvall december 2020, historiska data", och
 klockan står på 25 december kl. 01:00 svensk tid.
 
+**Till Västerås 2023 (Del 12):** välj **Svartån i Västerås, september 2023** i menyn. Steg för
+steg, med Västerås karta:
+
+```bash
+TILES_FILE=vasteras.mbtiles docker compose up -d tiles
+.venv/bin/python -m app.backend.server --scenario vasteras-sep2023
+```
+
+Mission control ska då visa "Scenario: FLOOD – Svartån i Västerås september 2023, historiska
+data", och klockan står på 30 augusti kl. 02:00 svensk tid.
+
 ## 17. Manuset, cirka tre minuter
 
 Börja med huvudskärmen på adressen i avsnitt 16 och hastigheten 10 minuter/s. Gå lugnt fram,
@@ -2259,6 +2270,116 @@ eftersom radarbilden visar nästan inget nytt vatten:
 ```bash
 TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
 TECHSEED_SCENARIO=ljungan-aug2023 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-ljungan-$(hostname)
+```
+
+---
+
+# Del 12 – Svartån i Västerås, september 2023
+
+## 28. Vad demon visar
+
+Scenariot `vasteras-sep2023` spelar upp Svartåns översvämning i Västerås i september 2023 med
+uppmätta data, inte i realtid. Augusti var blöt, och Skultuna fick 254 mm regn under månaden.
+Natten till lördagen den 2 september regnade det kraftigt: Skultuna fick 59,7 mm och Västerås
+37,0 mm på dygnet. SMHI gav röd varning för höga flöden i Svartån. Vid Åkesta kvarn, ovanför stan,
+nådde flödet 64,0 m³/s kl. 08 svensk tid den 2 september. Det är det högsta sedan mätningarna
+började 1980; det tidigare rekordet var 42,9 m³/s från 1983. Ett sextiotal fritidshus i
+Biskopsängen stod under vatten, och staden satte upp vallar vid stadshuset.
+
+Uppspelningen går från 30 augusti kl. 02 till 7 september kl. 14 svensk tid, med 30 minuter per
+sekund, och bromsar vid satellitpassagerna. Scenariot har egen karta, höjddata, terräng, OSM-lager
+och databas, `vasteras-sep2023`.
+
+> **Bara internt.** Användaren bekräftade 2026-10-28 att Techseed får använda Västerås stads data
+> internt. Inga offentliga visningar är planerade. Visa därför inte stadens kartor eller
+> skyfallskartering offentligt utan att det har klarats av först.
+
+Demon visar:
+
+- **Regnet (SMHI):** Västerås, Skultuna och Hallstaberg per dygn (kl. 08–08 svensk tid), som
+  staplar i panelens regndiagram och som punkter på kartan. Ingen av SMHI:s timstationer mätte i
+  kartområdet 2023. Den närmaste, Eskilstuna A, ligger 28 km söderut och fick nästan inget regn.
+  Väderradarn visar regnet över stan timme för timme.
+- **Vattenföringen (SMHI):** Åkesta kvarn i Svartån, Berg i Kolbäcksån och Gränvad i Sagån, var
+  15:e minut. Åkesta kvarns rekord från 1983 är streckat i diagrammet. Stationen har bytt nummer
+  två gånger, och rekordet kommer från de tidigare numren.
+- **Mediernas uppgifter (SVT och TV4):** loggen och kartan, under lagret **Översvämning och vallar
+  enligt medierna**, visar SMHI:s röda varning, Biskopsängen och vallarna. Tiderna är ungefärliga,
+  eftersom reportagen anger förmiddagen eller "under dagen". Platserna kommer från OSM.
+  - **Vallarna vid stadshuset** är en brun stapel med etiketten "Vallar vid stadshuset (plats
+    ungefärlig)", från den 2 september kl. 12 svensk tid. Ingen källa säger var vallarna stod,
+    hur långa de var eller vad de var gjorda av. Stapeln står därför på stadshusets sida mot
+    Svartån, och klickrutan säger "Platsangivelsen ungefärlig. Längd och typ okänd".
+  - Den 3 september säger loggen att vallarna aldrig sattes på allvarligt prov, eftersom vattnet
+    hade sjunkit (SVT).
+- **Nivågivarna NG1–NG3 (syntetiska):** vid Biskopsängen, stadshuset och Svartåns mynning. Alla tre
+  följer Åkesta kvarn och larmar när flödet där är över rekordet, från 2 september kl. 04 till
+  3 september kl. 13 svensk tid. Bedömningen säger "Possible flood" kl. 07:30 och "Flood
+  probable" kl. 14 den 2 september.
+- **Satellitbilderna:** Sentinel-1A den 31 augusti, den 2 september kl. 07:07 svensk tid (dagen
+  för toppen) och den 7 september. Sentinel-2 den 31 augusti och 5 september, och Landsat 9 den
+  6 september. Sentinel-2:s bilder den 1 och 3 september var nästan helt molniga.
+  - **Känd svaghet:** radarbildens enkla tröskel för vatten visar inget rött vatten där stan
+    svämmade över. Fritidshusen i Biskopsängen ligger bland träd och byggnader och blir inte
+    mörkare i radarn. Säg därför inte att satelliten såg översvämningen i stan; den finns i
+    backloggen som något att åtgärda.
+- **Kartlagren:** MCF:s kartering av Svartån (klimatanpassat 100- och 200-årsflöde och beräknat
+  högsta flöde) och Västerås stads skyfallskartering (vattendjup och ytvattenflöde vid ett
+  100-årsregn). Båda är avslagna från start och slås på i kartans lagerlista.
+- **Baskartorna:** Västerås stads karta, grå karta och flygfoto, utöver offlinekartan. Flygfotot
+  är inte från september 2023.
+- **Meteosats molntoppar och moln** som i Del 9, MET Norways prognoser som de utfärdades och
+  ERA5-Lands vind.
+
+EFAS flödesprognoser visas inte i Västerås. EFAS räknade i september 2023 med rutor på cirka
+5 km, och de rutorna motsvarar inte Svartån, Kolbäcksån eller Sagån vid stationerna. EFAS gav
+Svartån en tiondel av det uppmätta flödet redan före regnet, så det går inte att säga om modellen
+eller rutorna missade översvämningen.
+
+| Del | Riktigt, beräknat, modell eller syntetiskt |
+|---|---|
+| Regn per dygn, väderradar, vattenföring, blixtar (SMHI) | Riktigt, uppmätt |
+| Sentinel-1, Sentinel-2, Landsat 9 | Riktigt. Vattnet i radarbilden är beräknat och missar stan. |
+| SMHI:s varning, Biskopsängen och vallarna | Ur SVT och TV4, tider och platser ungefärliga |
+| MCF:s kartering, stadens skyfallskartering | Modell |
+| MET Norways prognoser, ERA5-Lands vind | Modell |
+| Nivågivarna NG1–NG3 | Syntetiska |
+
+## 29. Förbered demon
+
+Gör Del 1 först. Kommandona körs från repots mapp och skriver till `data/vasteras-sep2023/`.
+Visa först planen; den hämtar ingenting:
+
+```bash
+.venv/bin/python -m tools.fetch_scenario vasteras-sep2023 --list
+```
+
+**Konton.** Inloggningar sparas i filer i din hemmapp, aldrig i repot:
+
+- **Space-Track** för satellitbanorna: `~/.spacetrackrc`, som i avsnitt 2.
+- **Copernicus CDS** för vinden: `~/.cdsapirc`, som i avsnitt 15.
+- **EUMETSAT Data Store** för Meteosat: `~/.eumdac/credentials`, som i avsnitt 2.
+
+Inga andra konton behövs. Västerås stads kartor och skyfallskartering är öppna tjänster.
+
+**Hämta allt.** De valfria stegen är stadens tre baskartor och MET Norways prognoser:
+
+```bash
+.venv/bin/python -m tools.fetch_scenario vasteras-sep2023 --with-optional
+```
+
+Verktyget frågar innan det hämtar, hoppar över det som redan finns och fortsätter där det stannade
+om samma kommando körs igen. Varje baskarta tar en till två timmar (cirka 800 MB), och MET Norways
+prognoser 20–120 minuter. Databassteget kräver PostgreSQL med PostGIS igång (avsnitt D). På
+slutet körs `startup_check`.
+
+**Generalrepetitionen**, med kartjänsten på Västerås karta. Den börjar den 2 september kl. 07
+svensk tid, strax före Sentinel-1:s passage. Kl. 14 larmar alla tre givare och bedömningen blir
+"Flood probable":
+
+```bash
+TILES_FILE=vasteras.mbtiles docker compose up -d tiles
+TECHSEED_SCENARIO=vasteras-sep2023 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-vasteras-$(hostname)
 ```
 
 ---

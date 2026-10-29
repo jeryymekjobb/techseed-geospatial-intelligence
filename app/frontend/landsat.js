@@ -90,6 +90,11 @@ const BASE_MAP_TEXTS = {
   online: "Karta – OpenStreetMap online", topowebb: "Karta – Lantmäteriet topowebb", kommun: "Karta – Sundsvalls kommun",
 };
 
+// The municipal maps' captions by their labels (config.layers.municipal_basemaps), e.g. Västerås stad's three.
+function addBaseMapTexts(municipalMaps) {
+  for (const item of municipalMaps || []) BASE_MAP_TEXTS[item.id] ??= `Karta – ${item.label}`;
+}
+
 function mapText(baseMap, mapData, offlineTiles, formatDate) {
   if (baseMap === null) return "Karta – ingen baskarta vald i mission control (i 3D Natural Earth II)";
   if (baseMap && BASE_MAP_TEXTS[baseMap]) return BASE_MAP_TEXTS[baseMap];
@@ -144,5 +149,5 @@ function imageSatellite(scenes, clockMs) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { landsatSelection, imageOptions, viewCaption, satelliteAtText, imageSatellite, IMAGE_KINDS, defaultImageTypes, imageTypesShown, imageTypeCounts, typeNames };
+  module.exports = { landsatSelection, imageOptions, viewCaption, addBaseMapTexts, satelliteAtText, imageSatellite, IMAGE_KINDS, defaultImageTypes, imageTypesShown, imageTypeCounts, typeNames };
 }

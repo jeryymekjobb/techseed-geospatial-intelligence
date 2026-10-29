@@ -26,10 +26,25 @@ function routeExposureAt(exposure, clockMs) {
     .filter((piece) => piece.level > 0);
 }
 
-// A piece's colour by its class, and the damage's by its kind, on both maps.
+// A piece's colour by its class, and the damage's by its kind, on both maps; a marked object, such
+// as embankments, has its own colour.
 const ROUTE_EXPOSURE_COLOURS = { 1: "#f2b705", 2: "#d62828" };
 const ROUTE_IMPACT_COLOURS = { road: "#d62828", rail: "#111111" };
+const ROUTE_MARKER_COLOURS = { embankment: "#7c4a1e" };
+
+// Where the maps put an item and what its tooltip says: a marked object (`marker`) at its own place,
+// with its label and note; the damage at its place, with the report's text.
+function routeImpactMarker(item, timeText) {
+  const when = `${timeText}${item.approximate_time ? " (tid ungefärlig)" : ""}`;
+  const source = item.source_label || "Länsstyrelsen, utredning 2026";
+  if (item.marker) {
+    return { latitude: item.marker_latitude ?? item.latitude, longitude: item.marker_longitude ?? item.longitude,
+             title: item.label || item.text, detail: `${item.text}, ${when}. ${item.note || "Plats ungefärlig"}. Källa: ${source}.` };
+  }
+  return { latitude: item.latitude, longitude: item.longitude, title: item.text, detail: `${when} · plats ungefärlig · ${source}` };
+}
 
 if (typeof module !== "undefined") {
-  module.exports = { routeImpactsAt, routeExposureClass, routeExposureAt, ROUTE_EXPOSURE_COLOURS, ROUTE_IMPACT_COLOURS };
+  module.exports = { routeImpactsAt, routeImpactMarker, routeExposureClass, routeExposureAt, ROUTE_EXPOSURE_COLOURS,
+                     ROUTE_IMPACT_COLOURS, ROUTE_MARKER_COLOURS };
 }

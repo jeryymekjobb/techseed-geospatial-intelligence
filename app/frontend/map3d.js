@@ -132,11 +132,13 @@ async function createCesiumMap(config) {
   } else {
     addNote(`Offline-kartan är inte igång; 3D-globen visar bara Natural Earth II över ${config.incident_area}.`);
   }
-  const municipal = config.layers.municipal_basemap;
-  if (municipal) {
-    // The municipality's map, kept locally (municipal_basemap.py), over its fetched area and zooms. Its
-    // place names are drawn into the tiles, so from MUNICIPAL_MIN_LEVEL only: a tilted camera would
-    // otherwise show the coarse tiles' names huge on the ground far off.
+  // The municipality's maps, kept locally (municipal_basemap.py), over their fetched area and zooms. Their
+  // place names are drawn into the tiles, so from MUNICIPAL_MIN_LEVEL only: a tilted camera would
+  // otherwise show the coarse tiles' names huge on the ground far off.
+  const municipalMaps = config.layers.municipal_basemaps || (config.layers.municipal_basemap ? [config.layers.municipal_basemap] : []);
+  const withNames = new Set(municipalMaps.filter((item) => item.names !== false).map((item) => item.id));
+  const municipalIds = new Set(municipalMaps.map((item) => item.id));
+  for (const municipal of municipalMaps) {
     const [[municipalSouth, municipalWest], [municipalNorth, municipalEast]] = municipal.bounds;
     baseById[municipal.id] = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
       url: municipal.url, minimumLevel: Math.max(municipal.min_zoom, MUNICIPAL_MIN_LEVEL), maximumLevel: municipal.max_zoom,
@@ -300,12 +302,12 @@ async function createCesiumMap(config) {
     wantsLabels: () => true,
 
     // Mission control's base map (basemaps.js baseMapFor): its id, or null for Natural Earth II only.
-    // OSM online and the municipality's map have their own names, so the drawn place names are hidden over them.
-    // The municipality's map covers only its own area and zooms (from MUNICIPAL_MIN_LEVEL), so OSM (offline
-    // when it runs) lies under it.
+    // OSM online and the municipality's maps have their own names, so the drawn place names are hidden over them
+    // (not over an aerial photo). A municipality's map covers only its own area and zooms (from MUNICIPAL_MIN_LEVEL),
+    // so OSM (offline when it runs) lies under it.
     setBaseMap(id) {
-      labelLayer.show = id !== "online" && id !== municipal?.id;
-      const under = id && id === municipal?.id ? (baseById.offline ? "offline" : "online") : null;
+      labelLayer.show = id !== "online" && !withNames.has(id);
+      const under = municipalIds.has(id) ? (baseById.offline ? "offline" : "online") : null;
       if ((id === "online" || under === "online") && !baseById.online) {
         baseById.online = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
           url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", maximumLevel: 19,
@@ -787,6 +789,22 @@ async function createCesiumMap(config) {
       }
       routeImpactLayer.entities.removeAll();
       for (const item of impacts) {
+        if (item.marker) {
+          // A marked object, such as embankments: a bar with its label, the source on click.
+          const shown = routeImpactMarker(item, formatLocal(item.time_utc));
+          const bar = `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16">'
+            + `<rect x="2" y="2" width="28" height="12" rx="2" fill="${ROUTE_MARKER_COLOURS[item.marker] || "#7c4a1e"}" stroke="#ffffff" stroke-width="3"/></svg>`)}`;
+          routeImpactLayer.entities.add({
+            name: shown.title,
+            description: shown.detail,
+            position: Cesium.Cartesian3.fromDegrees(shown.longitude, shown.latitude),
+            billboard: { image: bar, width: 28, height: 14, ...ON_GROUND },
+            label: { text: shown.title, font: "13px system-ui", fillColor: Cesium.Color.WHITE, outlineColor: Cesium.Color.BLACK,
+                     outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE, horizontalOrigin: Cesium.HorizontalOrigin.RIGHT,
+                     pixelOffset: new Cesium.Cartesian2(-18, 0), ...ON_GROUND },
+          });
+          continue;
+        }
         const colour = ROUTE_IMPACT_COLOURS[item.kind] || "#d62828";
         const shape = item.kind === "rail" ? '<rect x="3" y="3" width="26" height="26" rx="4"' : '<circle cx="16" cy="16" r="13"';
         const image = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">${shape} `

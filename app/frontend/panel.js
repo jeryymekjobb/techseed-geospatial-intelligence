@@ -204,6 +204,19 @@ function showRain(clock) {
   }
   state.map.labelStations(labels);
   state.map.markRain(classes);
+  const daily = dailyStation(state.rainStation);
+  if (daily) {
+    // A station that reports by the day: its days that have ended, in the same chart.
+    const sums = dailyRainSums(daily.days, clock.getTime(), Date.parse(state.config.playback.start_utc));
+    $("rain-values").innerHTML = [
+      ["Senaste dygnet (06–06)", sums.day === null ? "inget dygn slut ännu" : `${decimal(sums.day)} mm`],
+      ["Sedan start", `${decimal(sums.total)} mm`],
+    ].map(chartValue).join("");
+    $("rain-note").textContent = "Dygnssummor 06–06 UTC från SMHI; ett dygn visas när det har slutat.";
+    drawDailyRainChart(daily, clock);
+    return;
+  }
+  $("rain-note").textContent = state.rainNote;
   const station = state.weather.stations.find((item) => item.id === state.rainStation);
   if (!station) return;
   const sums = rainSums(station.observations, clock.getTime(), Date.parse(state.config.playback.start_utc));
@@ -291,11 +304,42 @@ function drawRain(station, clock) {
   svg.innerHTML = `${state.rainChart.svg}<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`;
 }
 
+// A daily station chosen in the rain chart (its value is "daily-" and the station's id), or undefined.
+const DAILY_PREFIX = "daily-";
+function dailyStation(id) {
+  if (!id?.startsWith(DAILY_PREFIX)) return undefined;
+  return (state.config.layers.daily_rain?.stations || []).find((item) => item.id === id.slice(DAILY_PREFIX.length));
+}
+
+// A daily station's chart: a bar a day (06-06 UTC), drawn over the day it sums.
+function drawDailyRainChart(station, clock) {
+  const start = Date.parse(state.config.playback.start_utc);
+  const end = Date.parse(state.config.playback.end_utc);
+  const width = 300;
+  const height = CHART_HEIGHT;
+  const xOf = (ms) => ((Math.min(Math.max(ms, start), end) - start) / (end - start)) * width;
+  const bars = dailyRainBars(station.days, start, end);
+  const max = bars.reduce((most, item) => Math.max(most, item.mm), 5);
+  const parts = bars.map((item) => {
+    const barHeight = (item.mm / max) * (height - 20);
+    return `<rect class="rain-bar" x="${xOf(item.fromMs)}" y="${height - 14 - barHeight}" width="${Math.max(1, xOf(item.toMs) - xOf(item.fromMs) - 1)}" height="${barHeight}">`
+      + `<title>${formatLocal(new Date(item.toMs).toISOString())}: ${decimal(item.mm)} mm på dygnet</title></rect>`;
+  });
+  parts.push(...chartDates(start, end, xOf, height), `<text x="${width - 2}" y="10" text-anchor="end">max ${decimal(max)} mm per dygn</text>`);
+  const x = xOf(clock.getTime());
+  const svg = $("rain-chart");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = `${parts.join("")}<line class="rain-now" x1="${x}" x2="${x}" y1="0" y2="${height - 14}"></line>`;
+}
+
 function setupRain(config) {
   const select = $("rain-station");
   for (const station of state.weather.stations) select.append(new Option(`${station.name} (${station.distance_km} km)`, station.id));
+  // SMHI's daily stations too (daily_rain.py), where no hourly gauge lies near (Västerås in 2023).
+  for (const station of config.layers.daily_rain?.stations || []) select.append(new Option(`${station.name} (per dygn)`, DAILY_PREFIX + station.id));
   state.map.addStations(state.weather.stations);
-  state.rainStation = state.weather.stations[0]?.id || null;
+  state.rainStation = config.rain_station_default || state.weather.stations[0]?.id || null;
+  select.value = state.rainStation;
   select.addEventListener("change", () => {
     state.rainStation = select.value;
     state.rainShownAt = null;
@@ -307,8 +351,9 @@ function setupRain(config) {
   $("rain-legend").innerHTML = RAIN_CLASSES.map((item, index) => `<li><span class="swatch" style="background:${item.color};`
     + `border:2px solid #1f5fa8;border-radius:50%"></span>${item.label}: ${limits[index]} på en timme</li>`).join("");
   const gauges = config.rain_gauges.charAt(0).toUpperCase() + config.rain_gauges.slice(1);
-  $("rain-note").textContent = `Timsummor från SMHI. ${gauges} redovisar bara timmar med regn; `
+  state.rainNote = `Timsummor från SMHI. ${gauges} redovisar bara timmar med regn; `
     + "en timme utan värde räknas som torr. Senaste månaderna är inte alltid kvalitetsgranskade.";
+  $("rain-note").textContent = state.rainNote;
 }
 
 // MET Norway's weather forecast as issued at the clock (/api/met-forecast, met_forecast.py and
@@ -2052,6 +2097,7 @@ async function startApp(createMap) {
   setupPanelToggle();
   const config = await getJson("/api/config");
   state.config = config;
+  addBaseMapTexts(config.layers.municipal_basemaps);
   $("title").textContent = config.title;
   document.title = `${config.title}${document.body.dataset.titleSuffix || ""}`;
   $("data-label").textContent = config.data_label;

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Fetch the municipality's map as base map tiles kept locally, for the Sundsvall scenario.
+"""Fetch the municipality's maps as base map tiles kept locally.
 
-The scenario's MUNICIPAL_BASEMAP (the layer group Kartan of Sundsvall's geoserver) is fetched
-by WMS GetMap in Web Mercator (EPSG:3857) over MUNICIPAL_BASEMAP_BBOX and cut into 256 px
-PNG tiles in MUNICIPAL_BASEMAP_DIR/{z}/{x}/{y}.png, which the backend serves without
+Each of the scenario's municipal maps (municipal_basemap.maps: Sundsvall's MUNICIPAL_BASEMAP, the layer
+group Kartan of its geoserver; Västerås stad's MUNICIPAL_BASEMAPS) is fetched by WMS GetMap in Web
+Mercator (EPSG:3857) over MUNICIPAL_BASEMAP_BBOX and cut into 256 px PNG tiles in the map's directory,
+{z}/{x}/{y}.png, which the backend serves without
 internet (app/backend/municipal_basemap.py). Each request covers 4 x 4 tiles with a margin
 of MARGIN_PX, so place names are cut at fewer tile edges and the service gets a sixteenth of
 the requests; PAUSE_SECONDS lies between the requests. Tiles already fetched are kept, so an
 interrupted run continues where it stopped. SOURCE.json, written at the end, records the
 service, the layer, the zooms, the area and the time of fetching; the backend shows the map
-only once it is there. The user confirmed on 2026-10-14 that the demo may show the map and
-keep it locally.
+only once it is there. The user confirmed on 2026-10-14 that the demo may show Sundsvall's map and
+keep it locally, and on 2026-10-28 that Techseed may use Västerås stad's data internally.
 
 A map that is white outside the municipality ("white_outside" in MUNICIPAL_BASEMAP; Kartan) has its
 pure white made transparent, so the screens' OSM map shows through there; inside the municipality
@@ -36,7 +37,7 @@ from urllib.request import Request, urlopen
 import numpy as np
 from PIL import Image
 
-from app.backend import scenario
+from app.backend import municipal_basemap, scenario
 
 USER_AGENT = "techseed-geospatial-intelligence/0.1 (exhibition demonstrator)"
 TILE_PX = 256
@@ -146,63 +147,77 @@ def fetch_image(url: str) -> Image.Image:
     raise AssertionError("unreachable")
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
-    parser.add_argument("--min-zoom", type=int, default=MIN_ZOOM)
-    parser.add_argument("--max-zoom", type=int, default=MAX_ZOOM)
-    parser.add_argument("--pause", type=float, default=PAUSE_SECONDS, help="seconds between the requests")
-    parser.add_argument("--clear-white", action="store_true", help="make the fetched tiles' white transparent; fetch nothing")
-    parser.add_argument("--out", type=Path, default=scenario.MUNICIPAL_BASEMAP_DIR, help=argparse.SUPPRESS)
-    args = parser.parse_args(argv)
-    if not scenario.MUNICIPAL_BASEMAP or args.out is None:
-        parser.exit(1, f"fetch_municipal_basemap: the scenario {scenario.NAME} has no municipal map\n")
-    white_outside = scenario.MUNICIPAL_BASEMAP.get("white_outside", False)
-    if args.clear_white:
-        if not white_outside:
-            parser.exit(1, "fetch_municipal_basemap: the scenario's map is not white outside the municipality\n")
-        print(f"fetch_municipal_basemap: {clear_white_tiles(args.out)} tiles made transparent where white")
-        record = args.out / "SOURCE.json"
-        if record.is_file():
-            source = json.loads(record.read_text(encoding="utf-8"))
-            record.write_text(json.dumps({**source, "white_transparent": True}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        return 0
-    service, layer = scenario.MUNICIPAL_BASEMAP["url"], scenario.MUNICIPAL_BASEMAP["layer"]
-    bbox = scenario.MUNICIPAL_BASEMAP_BBOX
+def fetch_map(item: dict, bbox: tuple[float, float, float, float], min_zoom: int, max_zoom: int, pause: float) -> int:
+    """Fetch one map's tiles into its directory; write its SOURCE.json once every request succeeded. The
+    number of failed requests."""
+    out, service, layer = item["dir"], item["url"], item["layer"]
+    white_outside = item.get("white_outside", False)
     failed = 0
-    for z in range(args.min_zoom, args.max_zoom + 1):
+    for z in range(min_zoom, max_zoom + 1):
         wanted = tile_range(bbox, z)
         blocks = meta_tiles(bbox, z)
         fetched = 0
         for mx, my in blocks:
-            missing = [(x, y) for (x, y) in cut_positions(z, mx, my, wanted) if not tile_path(args.out, z, x, y).is_file()]
+            missing = [(x, y) for (x, y) in cut_positions(z, mx, my, wanted) if not tile_path(out, z, x, y).is_file()]
             if not missing:
                 continue
             try:
                 image = fetch_image(getmap_url(service, layer, z, mx, my))
             except (OSError, ValueError) as exc:
                 failed += 1
-                print(f"z{z} block {mx},{my}: {exc}")
+                print(f"{item['id']} z{z} block {mx},{my}: {exc}")
                 continue
             for (x, y), piece in cut(image, z, mx, my, wanted).items():
-                path = tile_path(args.out, z, x, y)
+                path = tile_path(out, z, x, y)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 (clear_white(piece) if white_outside else piece).save(path, optimize=True)
             fetched += 1
-            time.sleep(args.pause)
+            time.sleep(pause)
         x0, y0, x1, y1 = wanted
-        print(f"z{z}: {(x1 - x0 + 1) * (y1 - y0 + 1)} tiles, {fetched} of {len(blocks)} requests made now")
+        print(f"{item['id']} z{z}: {(x1 - x0 + 1) * (y1 - y0 + 1)} tiles, {fetched} of {len(blocks)} requests made now", flush=True)
+    if failed:
+        return failed
+    (out / "SOURCE.json").write_text(json.dumps({
+        "service": service, "layer": layer, "attribution": item["attribution"],
+        "crs": "EPSG:3857", "tile_px": TILE_PX, "min_zoom": min_zoom, "max_zoom": max_zoom,
+        "bbox_west_south_east_north": list(bbox),
+        "fetched_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "permission": item.get("permission", "The user confirmed on 2026-10-14 that the demo may show the map and keep it locally."),
+        "note": item.get("note", "Kartan draws the municipality's, Lantmäteriet's and Trafikverket's layers; white outside the municipality."),
+        "white_transparent": white_outside,
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
+    parser.add_argument("--min-zoom", type=int, default=MIN_ZOOM)
+    parser.add_argument("--max-zoom", type=int, default=MAX_ZOOM)
+    parser.add_argument("--pause", type=float, default=PAUSE_SECONDS, help="seconds between the requests")
+    parser.add_argument("--map", help="only this map's id (default: every municipal map of the scenario)")
+    parser.add_argument("--clear-white", action="store_true", help="make the fetched tiles' white transparent; fetch nothing")
+    parser.add_argument("--out", type=Path, help=argparse.SUPPRESS)
+    args = parser.parse_args(argv)
+    items = [item for item in municipal_basemap.maps() if args.map in (None, item["id"])]
+    if not items:
+        parser.exit(1, f"fetch_municipal_basemap: the scenario {scenario.NAME} has no municipal map {args.map or ''}\n")
+    if args.out is not None:  # one map into another directory (the tests)
+        items = [{**items[0], "dir": args.out}]
+    if args.clear_white:
+        white = [item for item in items if item.get("white_outside")]
+        if not white:
+            parser.exit(1, "fetch_municipal_basemap: no map of the scenario is white outside the municipality\n")
+        for item in white:
+            print(f"fetch_municipal_basemap: {item['id']}: {clear_white_tiles(item['dir'])} tiles made transparent where white")
+            record = item["dir"] / "SOURCE.json"
+            if record.is_file():
+                source = json.loads(record.read_text(encoding="utf-8"))
+                record.write_text(json.dumps({**source, "white_transparent": True}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return 0
+    failed = sum(fetch_map(item, scenario.MUNICIPAL_BASEMAP_BBOX, args.min_zoom, args.max_zoom, args.pause) for item in items)
     if failed:
         print(f"{failed} requests failed; run again to fetch them")
         return 1
-    (args.out / "SOURCE.json").write_text(json.dumps({
-        "service": service, "layer": layer, "attribution": scenario.MUNICIPAL_BASEMAP["attribution"],
-        "crs": "EPSG:3857", "tile_px": TILE_PX, "min_zoom": args.min_zoom, "max_zoom": args.max_zoom,
-        "bbox_west_south_east_north": list(bbox),
-        "fetched_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "permission": "The user confirmed on 2026-10-14 that the demo may show the map and keep it locally.",
-        "note": "Kartan draws the municipality's, Lantmäteriet's and Trafikverket's layers; white outside the municipality.",
-        "white_transparent": white_outside,
-    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return 0
 
 

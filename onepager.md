@@ -1,5 +1,8 @@
 # IoTDagen – TechSeed Geospatial Intelligence
 
+> Not 2026-10-28: IoTDagen-utställningen är avslutad. Demon används nu internt, och inga
+> offentliga visningar är planerade. Konceptet nedan är oförändrat.
+
 ## Ofiltrerad konceptutveckling för mässdemonstrator
 
 Jag skulle skala ner visionen men göra upplevelsen mycket mer övertygande. Målet bör inte vara att bygga ett komplett War Room, utan en 2–3 minuters demo där besökaren upplever hur rymddata + GIS + IoT + AI blir en operativ lägesbild.

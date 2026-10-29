@@ -137,3 +137,28 @@ def test_without_a_level_station_the_river_flood_s_classification_counts_the_lev
     result = assessor.classify({"pass_utc": "2025-09-07T05:21:30Z", "centre": None}, {"sensors": [sensor, {**sensor, "confirms": False}]})
     assert [rule["text"] for rule in result["rules"]][2] == "1 av 2 nivågivare larmar (syntetiska)"
     assert (result["outcome"], len(result["rules"]), result["counts"]["Översvämning"]) == ("Översvämning trolig", 4, 2)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_rain_chart_can_show_a_daily_station_by_its_ended_days() -> None:
+    # SYNTHETIC days round Skultuna's 59.7 mm on 1 September 2023 (06-06 UTC to 2 September).
+    days = [{"from_utc": "2023-08-30T06:00:00Z", "to_utc": "2023-08-31T06:00:00Z", "mm": 2.1},
+            {"from_utc": "2023-08-31T06:00:00Z", "to_utc": "2023-09-01T06:00:00Z", "mm": 4.0},
+            {"from_utc": "2023-09-01T06:00:00Z", "to_utc": "2023-09-02T06:00:00Z", "mm": 59.7}]
+    sums = lambda clock: node("rain.js", f"dailyRainSums({json.dumps(days)}, Date.parse('{clock}'), Date.parse('2023-08-30T00:00:00Z'))")  # noqa: E731
+    assert sums("2023-08-31T05:00:00Z") == {"day": None, "total": 0}
+    assert sums("2023-09-02T06:00:00Z") == {"day": 59.7, "total": 65.8}
+    bars = node("rain.js", f"dailyRainBars({json.dumps(days)}, Date.parse('2023-08-31T00:00:00Z'), Date.parse('2023-09-01T12:00:00Z'))")
+    assert [bar["mm"] for bar in bars] == [2.1, 4.0, 59.7]
+
+
+def test_mission_control_offers_the_daily_stations_as_rain_gauges(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.backend import server
+    monkeypatch.setattr(server, "weather", lambda: {"stations": [{"id": "96190", "name": "Eskilstuna A", "distance_km": 25.7}]})
+    monkeypatch.setattr(server.daily_rain, "stations", lambda: [{"id": "96350", "name": "Västerås", "days": [{}]}])
+    monkeypatch.setattr(server.scenario, "WILDFIRE", False)
+    monkeypatch.setattr(server.scenario, "RAIN_CHART_STATION", "daily-96350")
+    monkeypatch.setattr(server.hydro, "stations", lambda: None)
+    choice = server.panel_choices()["rain_station"]
+    assert choice["options"] == [["96190", "Eskilstuna A (25.7 km)"], ["daily-96350", "Västerås (per dygn)"]]
+    assert choice["default"] == "daily-96350"
