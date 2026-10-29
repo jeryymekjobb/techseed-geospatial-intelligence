@@ -73,3 +73,9 @@ def test_the_threshold_comes_from_the_analysis_area_only(tmp_path: Path) -> None
     assert not s1.radar_images(tmp_path, "K", water, SIZE, BBOX, FOCUS, BBOX)["separable"]
     # Columns 20-89 only (from 17.1 E): the dark land in the west no longer counts.
     assert s1.radar_images(tmp_path, "K", water, SIZE, BBOX, FOCUS, (17.1, 62.15, 17.8, 62.62))["separable"]
+
+
+def test_a_pass_without_vv_takes_its_hh_channel() -> None:
+    assert s1.co_polarised([{"assets": {"vv": {}, "vh": {}}}]) == "vv"
+    # Sentinel-1B's extra-wide passes, such as Sundsvall's of 22 February 2020, have HH and HV.
+    assert s1.co_polarised([{"assets": {"hh": {}, "hv": {}}}, {"assets": {"hh": {}, "hv": {}}}]) == "hh"

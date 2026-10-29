@@ -2,7 +2,7 @@
 """Cut the scenario's Sentinel-1 radar acquisitions over its map area into images.
 
 For each of the scenario's SENTINEL1_ACQUISITIONS the products of that pass over the map
-area (Level-1 GRD, the VV channel; Microsoft Planetary Computer's open STAC catalogue,
+area (Level-1 GRD, the VV channel, or HH where a pass has no VV; Microsoft Planetary Computer's open STAC catalogue,
 sentinel-1-grd, with the anonymous access token its API hands out) are warped to WGS 84
 with their ground control points by GDAL in Docker, averaged to about 20 m. Per
 acquisition it writes two PNGs:
@@ -210,10 +210,16 @@ def radar_images(out: Path, key: str, water: Any, size: tuple[int, int] = SIZE,
     }
 
 
+def co_polarised(items: list[dict]) -> str:
+    """The pass's co-polarised channel: VV, or HH for Sentinel-1B's extra-wide passes (EW, before 2022), which have no VV."""
+    return "vv" if all("vv" in item["assets"] for item in items) else "hh"
+
+
 def process(acquisition: dict[str, str], token: str, out: Path, water: Any, tools: str = "docker") -> dict[str, Any]:
     key = scene_key(acquisition)
     items = pass_items(acquisition)
-    urls = [f"{item['assets']['vv']['href']}?{token}" for item in items]
+    channel = co_polarised(items)
+    urls = [f"{item['assets'][channel]['href']}?{token}" for item in items]
     run = run_gdal(warp_steps(urls, key), out, tools)
     if run.returncode != 0:
         raise RuntimeError(f"GDAL failed for {key}:\n{without_token(run.stderr, token)[-2000:]}")
@@ -224,9 +230,9 @@ def process(acquisition: dict[str, str], token: str, out: Path, water: Any, tool
         "role": "radar", "scene": key, "satellite": acquisition["satellite"], "acquired_utc": acquisition["time_utc"],
         "products": [item["id"] for item in items], **stats,
         "images": {
-            "radar": {"file": f"{key}-radar.png", "bands": "VV, 20 log10(DN), 2-98 %"},
+            "radar": {"file": f"{key}-radar.png", "bands": f"{channel.upper()}, 20 log10(DN), 2-98 %"},
             "radarwater": {"file": f"{key}-radarwater.png",
-                           "bands": "VV darker than the median over the known water (OSM lakes, DEM sea), outside it"},
+                           "bands": f"{channel.upper()} darker than the median over the known water (OSM lakes, DEM sea), outside it"},
         },
     }
 

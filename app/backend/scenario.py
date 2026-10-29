@@ -74,6 +74,9 @@ DAM_FILE = getattr(_module, "DAM_FILE", None)
 # Whether the overflow sensors at the municipality's stormwater points stay beside the level sensors
 # (level_sensors.BothSensors); otherwise a scenario with level sensors has only those.
 OVERFLOW_WITH_LEVEL_SENSORS = getattr(_module, "OVERFLOW_WITH_LEVEL_SENSORS", False)
+# Whether the flood has overflow sensors at the municipality's stormwater points; a scenario from before the
+# municipality's rain gauges has none.
+OVERFLOW_SENSORS = getattr(_module, "OVERFLOW_SENSORS", True)
 # The cloudburst's synthetic overflow sensors at its reported damage, with the radar's rain at each
 # (tools/derive_radar_sensor_points.py, flood_sensors.py).
 RADAR_SENSOR_FILE = getattr(_module, "RADAR_SENSOR_FILE", None)

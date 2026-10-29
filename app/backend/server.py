@@ -186,7 +186,7 @@ def synthetic_sensors() -> (sensor_sim.SyntheticSensors | flood_sensors.FloodSen
 
 def overflow_sensors() -> flood_sensors.FloodSensors:
     """The flood's overflow sensors at the municipality's stormwater points, where the scenario has them; none otherwise."""
-    points = scenario.MUNICIPAL_DIR / "critical-stormwater.geojson" if scenario.MUNICIPAL_DIR else None
+    points = scenario.MUNICIPAL_DIR / "critical-stormwater.geojson" if scenario.MUNICIPAL_DIR and scenario.OVERFLOW_SENSORS else None
     return flood_sensors.FloodSensors(points, weather()["stations"], scenario.PLAYBACK_START, scenario.PLAYBACK_END,
                                       rain_points=scenario.RADAR_SENSOR_FILE)
 
