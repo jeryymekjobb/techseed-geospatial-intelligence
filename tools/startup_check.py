@@ -84,7 +84,8 @@ def data_checks(settings, root: Path = REPO_ROOT) -> list[Check]:
                    "SENTINEL1_WIND_DIR": "wind.json", "SWOT_DIR": "swot.json",
                    "UPSTREAM_RAIN_DIR": "stations.json"}
         if name in markers and isinstance(value, Path):
-            if name == "LANDSAT_DIR" and not getattr(settings, "LANDSAT_SCENES", {}):
+            # A scenario without scenes of a satellite (Sundsvall in November 2023: too cloudy) has no file for it.
+            if name in ("LANDSAT_DIR", "SENTINEL2_DIR") and not getattr(settings, name.replace("_DIR", "_SCENES"), {}):
                 continue
             files.append(value / markers[name])
             if name in OPTIONAL_MARKERS:

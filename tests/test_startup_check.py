@@ -125,3 +125,13 @@ def test_a_scenario_without_wind_or_satellites_needs_neither_file(tmp_path):
     with_both = SimpleNamespace(**{**vars(settings), "WIND_FILE": tmp_path / "wind.csv", "TLE_SATELLITES": {"40697": "Sentinel-2A"}})
     names = [check.name for check in startup_check.data_checks(with_both, tmp_path)]
     assert str(tmp_path / "wind.csv") in names and str(tmp_path / "tle" / "tle.json") in names
+
+
+def test_a_scenario_without_sentinel_2_scenes_needs_no_sentinel_2_file(tmp_path):
+    # Sundsvall in November 2023: every Sentinel-2 scene was cloudy.
+    settings = SimpleNamespace(TERRAIN_FILE=tmp_path / "terrain.json", TARGETS_FILE=tmp_path / "targets.json", WIND_FILE=None,
+                               TLE_DIR=tmp_path / "tle", TLE_FILE_NAME="tle.json", TLE_SATELLITES={}, TILES_FILE="demo.mbtiles",
+                               FIRMS_FILES=[], SENTINEL2_DIR=tmp_path / "sentinel2", SENTINEL2_SCENES={})
+    assert str(tmp_path / "sentinel2" / "SOURCE.json") not in [check.name for check in startup_check.data_checks(settings, tmp_path)]
+    settings.SENTINEL2_SCENES = {"after": "S2A_MSIL2A_20231105T103221_R108"}
+    assert str(tmp_path / "sentinel2" / "SOURCE.json") in [check.name for check in startup_check.data_checks(settings, tmp_path)]
