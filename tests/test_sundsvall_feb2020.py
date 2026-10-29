@@ -27,6 +27,7 @@ def test_the_scenario_fetches_its_own_data_and_shares_sundsvall_s_map() -> None:
     plan = {step.key: step for step in fetch_scenario.steps("sundsvall-feb2020")}
     assert {"smhi-sea-level", "smhi-daily", "model-flows", "sentinel1", "landsat", "sentinel2"} <= set(plan)
     assert "dam" not in plan and "level-sensors" in plan
+    assert plan["sentinel1-wind"].optional and plan["sentinel1-wind"].account == "cdse"
 
 
 def test_the_harbour_s_sensors_follow_spikarna_and_alarm_at_the_warning_s_lower_bound() -> None:

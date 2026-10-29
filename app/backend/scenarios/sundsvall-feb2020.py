@@ -127,6 +127,12 @@ HYDRO_STATIONS = {"1650:2": "Skallböle"}
 # Selånger river at its outlet in the sea (449 km²) and Sidsjöbäcken (27 km²), which have no SMHI station.
 MODEL_FLOW_DIR = DATA / "s-hype"
 MODEL_FLOW_STATIONS = {"12849": "Selångersån", "12794": "Sidsjöbäcken"}
+# Sentinel-1's wind over the sea (OCN; tools/fetch_sentinel1_wind.py), as in ljungan-aug2023. Sentinel-1A and 1B
+# passed the Sundsvall bay eleven times in the playback, but the products flag the wind over the bay poor on all but
+# two (checked 2026-10-29), the storm's passes of 22 and 23 February among them, and poor wind is left out: only
+# 20 February at 16:21 UTC (Sentinel-1B, about 11 m/s from the south) and 26 February at 05:06 UTC remain.
+# Needs a Copernicus Data Space account.
+SENTINEL1_WIND_DIR = DATA / "sentinel1-wind"
 # The names of the rivers and streams (tools/fetch_osm_waterways.py).
 WATERWAY_LABELS_FILE = DATA / "osm" / "waterway-labels.geojson"
 
