@@ -1567,6 +1567,17 @@ docker compose up -d tiles
 
 Sensorerna i montern, terminal 2, behöver inte startas om. De visas i båda demona.
 
+**Till Ljungan 2023 (Del 11):** välj **Höga flöden i Ljungan och Sundsvall, augusti 2023** i
+menyn. Steg för steg används samma karta som för översvämningen:
+
+```bash
+TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
+.venv/bin/python -m app.backend.server --scenario ljungan-aug2023
+```
+
+Mission control ska då visa "Scenario: FLOOD – Ljungan och Sundsvall augusti 2023, historiska
+data", och klockan står på 5 augusti kl. 02:00 svensk tid.
+
 ## 17. Manuset, cirka tre minuter
 
 Börja med huvudskärmen på adressen i avsnitt 16 och hastigheten 10 minuter/s. Gå lugnt fram,
@@ -2060,4 +2071,167 @@ Data hämtas med:
 ```bash
 .venv/bin/python -m tools.fetch_scenario falsterbo --list   # visa stegen
 .venv/bin/python -m tools.fetch_scenario falsterbo          # hämta och bygg (frågar först)
+```
+
+---
+
+# Del 11 – Höga flöden i Ljungan och Sundsvall, augusti 2023
+
+## 26. Vad demon visar
+
+Scenariot `ljungan-aug2023` spelar upp lågtrycket Hans i augusti 2023 med uppmätta data, inte i
+realtid. Hans gav mycket regn både i fjällen och vid kusten. Flödet i Ljungan steg först i
+fjällen, vid Lännässjön den 9 augusti, och nådde Skallböle vid Sundsvall några dygn senare. Där
+låg dygnsmedlet på 445–449 m³/s 12–14 augusti, under rekordet 1 050 m³/s från år 2000. Havet vid
+Spikarna stod som högst 76,7 cm i RH2000 den 8 augusti kl. 17 svensk tid, och vid Sidsjö D föll
+48,0 mm regn den 10 augusti.
+
+Uppspelningen går från 5 augusti kl. 02 till 18 augusti kl. 02 svensk tid, med 30 minuter per
+sekund. Den bromsar vid satellitpassagerna, så en genomkörning tar cirka 13 minuter. Scenariot
+delar kartområde, karta, höjddata, terräng, OSM-lager, kommunens karta och flödesytor med
+översvämningsdemon i Del 5. Det mesta i avsnitt 14 gäller därför också här.
+
+Utöver översvämningsdemonens delar visar scenariot:
+
+- **Regnet vid stan:** kommunens mätare och Brämön A per timme, och Sidsjö D och
+  Stordalen-Midlanda D per dygn (kl. 08–08 svensk tid). Bara dessa stationer räknas i bedömningen.
+- **Regn i fjällen och uppströms (SMHI):** SMHI:s elva dygnsstationer i Ljungans
+  avrinningsområde ovanför Torpshammar, från Börtnan och Klövsjöhöjden i fjällen till Torpshammar.
+  Stationerna är valda med SMHI:s avrinningsområden (SVAR 2016). Panelen visar varje stations
+  senaste avslutade dygn och summan sedan start, till exempel "Klövsjöhöjden A 52,1 mm senaste
+  dygnet" den 8 augusti. Kartorna visar turkosa punkter. I 3D syns de när man zoomar ut västerut,
+  i 2D ligger de utanför det område som går att panorera till. Loggen läser upp dygn med minst
+  20 mm vid någon station. Regnet räknas **inte** i bedömningen; det förklarar varför flödet når
+  Sundsvall dagar senare.
+- **Vattenföringen i Ljungan (SMHI):** Lännässjön, Östavallselet, Torpshammar och Skallböle i
+  panelens diagram, uppmätta. Bara Skallböle ligger på kartan. Selångersån och Sidsjöbäcken har
+  ingen station; deras flöden är beräknade i SMHI:s modell S-HYPE och märkta så. Båda låg under
+  2-årsflödet.
+- **EFAS flödesprognoser:** varje dags prognos (kl. 00 UTC, 5–14 augusti) som en streckad orange
+  linje i flödesdiagrammet, och en rad i loggen ("EFAS, modell"). Ingen prognos förutsåg
+  höjningen vid Skallböle: prognosen den 9 augusti gav toppen direkt och sedan fallande flöde, och
+  ingen gav mer än cirka 290 m³/s för 12–15 augusti. Ljungans sjöar och magasin håller kvar
+  vattnet längre än modellen räknar med. EFAS är information, inte en varning; det är SMHI som
+  varnar.
+- **Havsvattenståndet vid Spikarna (SMHI):** per timme i RH2000. De 72 timmarna efter klockan
+  är märkta "uppmätt i efterhand", eftersom ingen prognos från 2023 finns sparad.
+- **Satellitbilderna:** Sentinel-1A den 7 augusti och två gånger den 14 augusti, Sentinel-2 den
+  30 juli, 14 och 17 augusti och Landsat 9 den 5 och 14 augusti. Vattnet i radarbilden är
+  beräknat. Sentinel-1A:s bild den 9 augusti täcker bara 57 % av stan och är utelämnad.
+- **Havsvind (Sentinel-1):** vinden som Sentinel-1A mätte över havet den 9 augusti (kl. 07 och
+  18 svensk tid) och den 14 augusti (kl. 07), som lila vindhullingar i 12 timmar. Det är uppmätt,
+  inte modell, till skillnad från ERA5-pilarna.
+- **Vattenhöjd (SWOT):** SWOT passerade en gång, den 11 augusti kl. 13:51 svensk tid. Sjöarna och
+  Ljungans sträckor jämförs med passagerna 31 juli–3 augusti, före regnet, och färgas efter hur
+  mycket de steg. Osäkra mätningar är streckade med "?" och står kvar. Alla 13 sjöar med god
+  kvalitet steg (i mitten 0,61 m). Ljungans åtta sträckor steg 0,07–0,89 m, men alla har osäker
+  kvalitet, och jämförelsemätningarna skiljer upp till 2,1 m sinsemellan. Panelen listar alla
+  osäkerheter: en enda passage, jämförelsen före regnet, höjdsystemet, att Ljungan är reglerad för
+  vattenkraft, med mera. Säg därför "SWOT mätte att sjöarna steg", inte hur mycket Ljungan steg.
+- **Vattendrag (namn):** namnen på Ljungan och de andra namngivna vattendragen ur OSM, skrivna
+  längs vattnet och bredvid det, utan ruta. Älvar syns från zoomnivå 9, bäckar från 12.
+- **Kartan utanför kommunen:** kommunens karta täcker bara kommunen. Utanför den syns
+  OpenStreetMap under den, offline när kartjänsten går, annars online.
+- **Nivågivarna NG1–NG3 (syntetiska):** NG1 vid Öhns camping i Matfors följer Skallböle, där SVT
+  rapporterade vatten den 15 augusti. NG2 vid Himlabadet följer Sidsjöbäcken och NG3 vid
+  Selångersåns utlopp följer Selångersån, båda beräknade flöden. Ingen station nådde sitt rekord,
+  så givarna larmar när flödet de följer har fördubblats sedan start: NG3 från 8 augusti, NG2 från
+  10 augusti och NG1 från 11 augusti. Bräddgivarna DV1–DV8 från Del 5 finns kvar bredvid, fyllda
+  av regnet 2023.
+- **Sidsjödammen som ett "om":** när NG2 larmar säger loggen "Om Sidsjödammen brister: 256
+  byggnader inom 100 meter från Sidsjöbäcken nedströms dammen; Himlabadet 360 meter från bäcken",
+  och kartorna sätter varningstrianglar vid dammen och Himlabadet. Det är en illustration, inte en
+  dammbrottsberäkning. Ingen öppen dammbrottskartering finns. Säg aldrig att dammen brast.
+- **Meteosats molntoppar och moln** som i Del 9, och MET Norways prognoser som de utfärdades.
+
+| Del | Riktigt, beräknat, modell eller syntetiskt |
+|---|---|
+| Regn per timme och dygn, regnet uppströms, väderradar, vattenföring, havsvattenstånd, blixtar (SMHI) | Riktigt, uppmätt |
+| Sentinel-1, Sentinel-2, Landsat 9 | Riktigt. Vattnet i radarbilden är beräknat. |
+| Sentinel-1:s havsvind, SWOT:s vattenhöjder | Riktigt, uppmätt. SWOT:s osäkerheter står i panelen. |
+| Flöden i Selångersån och Sidsjöbäcken (S-HYPE) | Modell |
+| EFAS, MET Norways prognoser, ERA5-vind | Modell |
+| MCF:s karteringar, kommunens skyfallsmodeller | Modell |
+| Byggnader nedströms Sidsjödammen | Räknat ur OSM, ett "om", ingen dammbrottsmodell |
+| Nivågivarna NG1–NG3 och bräddgivarna DV1–DV8 | Syntetiska |
+
+## 27. Förbered demon
+
+Gör Del 1 först. Scenariot använder Sundsvalls karta, höjddata och kommunens karta från
+`data/sundsvall2026/`; finns de inte hämtas de av samma kommando. Övriga data hamnar i
+`data/ljungan-aug2023/`. Visa först planen; den hämtar ingenting:
+
+```bash
+.venv/bin/python -m tools.fetch_scenario ljungan-aug2023 --list
+```
+
+**Konton.** Listan säger vilka kontofiler som saknas. Inloggningar sparas alltid i filer i din
+hemmapp, aldrig i repot. Space-Track (`~/.spacetrackrc`, avsnitt 2) och Copernicus CDS
+(`~/.cdsapirc`, avsnitt 15) behövs för de vanliga stegen. De valfria stegen behöver dessutom:
+
+- **NASA Earthdata** (SWOT): ett gratis konto på urs.earthdata.nasa.gov. Lägg till en rad i
+  `~/.netrc`, med ditt eget användarnamn och lösenord. Rader som redan finns där, till exempel för
+  LSA SAF, ska stå kvar:
+
+  ```
+  machine urs.earthdata.nasa.gov login <användarnamn> password <lösenord>
+  ```
+
+- **Copernicus Data Space** (Sentinel-1:s havsvind): ett gratis konto på dataspace.copernicus.eu.
+  Ytterligare en rad i `~/.netrc`:
+
+  ```
+  machine identity.dataspace.copernicus.eu login <e-postadress> password <lösenord>
+  ```
+
+- **Copernicus EWDS** (EFAS): ett gratis konto på ewds.climate.copernicus.eu. Godkänn licensen
+  CEMS-FLOODS på datasetet *efas-forecast*, och spara API-nyckeln från din profilsida i en egen
+  fil, `~/.ewdsapirc`, skild från `~/.cdsapirc`:
+
+  ```
+  url: https://ewds.climate.copernicus.eu/api
+  key: <API-nyckel>
+  ```
+
+- **EUMETSAT Data Store** (Meteosat): som i avsnitt 2, i `~/.eumdac/credentials`.
+
+Gör filerna läsbara bara för dig:
+
+```bash
+chmod 600 ~/.netrc ~/.ewdsapirc
+```
+
+**S-HYPE-filerna hämtas för hand.** SMHI:s villkor tillåter bara deras dokumenterade API:er, och
+Vattenwebbs nedladdning är inte ett sådant. Öppna <https://vattenwebb.smhi.se/modelarea/>, sök
+fram delavrinningsområdena 12849 (Selångersåns utlopp) och 12794 (Sidsjöbäcken), klicka **Ladda
+ner** för vart och ett och spara filerna som:
+
+```
+data/ljungan-aug2023/s-hype/raw/12849.xls
+data/ljungan-aug2023/s-hype/raw/12794.xls
+```
+
+**Hämta allt.** Kör sedan, med de valfria stegen (EFAS, havsvind, SWOT och MET Norway):
+
+```bash
+.venv/bin/python -m tools.fetch_scenario ljungan-aug2023 --with-optional
+```
+
+Verktyget frågar innan det hämtar, hoppar över det som redan finns och fortsätter där det stannade
+om samma kommando körs igen. Räkna med lång tid för tre steg:
+
+- **Kommunens karta** tar två till tre timmar (cirka 1,1 GB) om den inte redan finns från Del 5.
+- **EFAS** ställs i kö hos EWDS, ibland en timme eller mer.
+- **MET Norways prognoser** tar 20–120 minuter.
+
+EUMETSAT:s Data Store har ibland svarat med fel eller timeout. Kör då samma kommando igen
+senare. Databassteget kräver PostgreSQL med PostGIS igång (avsnitt D). På slutet körs
+`startup_check`.
+
+**Generalrepetitionen**, med kartjänsten på Sundsvalls karta. Den börjar den 8 augusti kl. 14
+svensk tid, strax före havets högsta vid Spikarna:
+
+```bash
+TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
+TECHSEED_SCENARIO=ljungan-aug2023 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-ljungan-$(hostname)
 ```
