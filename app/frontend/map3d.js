@@ -688,6 +688,22 @@ async function createCesiumMap(config) {
       }
       routeImpactLayer.entities.removeAll();
       for (const item of impacts) {
+        if (item.marker) {
+          // A marked object, such as embankments: a bar with its label, the source on click.
+          const shown = routeImpactMarker(item, formatLocal(item.time_utc));
+          const bar = `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16">'
+            + `<rect x="2" y="2" width="28" height="12" rx="2" fill="${ROUTE_MARKER_COLOURS[item.marker] || "#7c4a1e"}" stroke="#ffffff" stroke-width="3"/></svg>`)}`;
+          routeImpactLayer.entities.add({
+            name: shown.title,
+            description: shown.detail,
+            position: Cesium.Cartesian3.fromDegrees(shown.longitude, shown.latitude),
+            billboard: { image: bar, width: 28, height: 14, ...ON_GROUND },
+            label: { text: shown.title, font: "13px system-ui", fillColor: Cesium.Color.WHITE, outlineColor: Cesium.Color.BLACK,
+                     outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE, horizontalOrigin: Cesium.HorizontalOrigin.RIGHT,
+                     pixelOffset: new Cesium.Cartesian2(-18, 0), ...ON_GROUND },
+          });
+          continue;
+        }
         const colour = ROUTE_IMPACT_COLOURS[item.kind] || "#d62828";
         const shape = item.kind === "rail" ? '<rect x="3" y="3" width="26" height="26" rx="4"' : '<circle cx="16" cy="16" r="13"';
         const image = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">${shape} `

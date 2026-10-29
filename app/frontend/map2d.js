@@ -555,14 +555,25 @@ function createLeafletMap(config) {
       }
       routeImpactLayer.clearLayers();
       for (const item of impacts) {
+        const shown = routeImpactMarker(item, formatLocal(item.time_utc));
+        if (item.marker) {
+          // A marked object, such as embankments: a bar with its label beside it, the source on click.
+          L.marker([shown.latitude, shown.longitude], {
+            icon: L.divIcon({ className: "route-impact", iconSize: [28, 14], iconAnchor: [14, 7],
+              html: `<div style="width:24px;height:10px;background:${ROUTE_MARKER_COLOURS[item.marker] || "#7c4a1e"};`
+                + 'border:2px solid #fff;border-radius:2px;box-shadow:0 0 4px rgba(0,0,0,.6)"></div>' }),
+            keyboard: false,
+          }).bindTooltip(shown.title, { direction: "left", permanent: true, className: "daily-rain-label" })
+            .bindPopup(`${shown.title}<br><small>${shown.detail}</small>`).addTo(routeImpactLayer);
+          continue;
+        }
         const colour = ROUTE_IMPACT_COLOURS[item.kind] || "#d62828";
-        L.marker([item.latitude, item.longitude], {
+        L.marker([shown.latitude, shown.longitude], {
           icon: L.divIcon({ className: "route-impact", iconSize: [22, 22], iconAnchor: [11, 11],
             html: `<div style="width:18px;height:18px;border-radius:${item.kind === "rail" ? "3px" : "50%"};background:${colour};`
               + 'border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.6);color:#fff;font:bold 13px system-ui;text-align:center;line-height:18px">!</div>' }),
           keyboard: false,
-        }).bindTooltip(`${item.text}<br><small>${formatLocal(item.time_utc)}${item.approximate_time ? " (tid ungefärlig)" : ""} · `
-          + `plats ungefärlig · ${item.source_label || "Länsstyrelsen, utredning 2026"}</small>`, { direction: "top" }).addTo(routeImpactLayer);
+        }).bindTooltip(`${shown.title}<br><small>${shown.detail}</small>`, { direction: "top" }).addTo(routeImpactLayer);
       }
     },
 

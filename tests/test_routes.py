@@ -99,3 +99,26 @@ def test_a_damage_names_its_own_source_on_the_screens() -> None:
     impacts = [{"time_utc": "2026-08-16T06:00:00Z", "kind": "road", "text": "Väg 855 avstängd", "source_label": "Tidningen Ångermanland"}]
     lines = node("satlog.js", f"satelliteLog({{ routeImpacts: {json.dumps(impacts)} }}, Date.parse('2026-08-16T07:00:00Z'))")
     assert lines[0]["sourceText"] == "Tidningen Ångermanland"
+
+
+def test_the_embankments_at_vasteras_city_hall_are_a_marked_object_beside_the_sensor_s_place() -> None:
+    out = json.loads(run_scenario("import json; from app.backend import routes; print(json.dumps(routes.impacts()))", "vasteras-sep2023"))
+    hall = next(item for item in out if item.get("site") == "Stadshuset")
+    assert hall["marker"] == "embankment" and hall["note"] == "Platsangivelsen ungefärlig. Längd och typ okänd"
+    # Marked towards Svartån, west of the building, while the level sensor keeps the item's own place.
+    assert hall["marker_longitude"] < hall["longitude"]
+    later = [item for item in out if item["time_utc"] > hall["time_utc"]]
+    assert [(item["kind"], "latitude" in item, item["source_label"]) for item in later] == [("alert", False, "SVT")]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_a_marked_object_is_shown_at_its_own_place_with_its_label_and_note() -> None:
+    item = {"time_utc": "2023-09-02T10:00:00Z", "kind": "road", "approximate_time": True, "latitude": 59.6085, "longitude": 16.5473,
+            "marker": "embankment", "marker_latitude": 59.6083, "marker_longitude": 16.5453, "label": "Vallar vid stadshuset (plats ungefärlig)",
+            "note": "Platsangivelsen ungefärlig. Längd och typ okänd", "source_label": "SVT och TV4", "text": "Staden bygger vallar"}
+    assert node("routes.js", f"routeImpactMarker({json.dumps(item)}, '2 sep. 12:00')") == {
+        "latitude": 59.6083, "longitude": 16.5453, "title": "Vallar vid stadshuset (plats ungefärlig)",
+        "detail": "Staden bygger vallar, 2 sep. 12:00 (tid ungefärlig). Platsangivelsen ungefärlig. Längd och typ okänd. Källa: SVT och TV4."}
+    damage = {"time_utc": "2025-09-07T05:00:00Z", "kind": "road", "latitude": 62.8, "longitude": 17.86, "text": "Väg 738"}
+    assert node("routes.js", f"routeImpactMarker({json.dumps(damage)}, '7 sep. 07:00')")["detail"] == (
+        "7 sep. 07:00 · plats ungefärlig · Länsstyrelsen, utredning 2026")

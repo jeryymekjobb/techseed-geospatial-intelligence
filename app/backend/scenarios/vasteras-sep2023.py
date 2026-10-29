@@ -170,8 +170,13 @@ SENTINEL2_SIZE = (2250, 1670)
 
 # What SVT and TV4 reported on Saturday 2 September 2023. The reports give the morning but no time,
 # so the times are approximate; the places are OSM's Biskopsängen (allotments) and city hall.
+# The embankments at city hall are a marked object, as the user chose on 2026-10-29: SVT and TV4 say
+# barriers were put up outside city hall during Saturday, where the risk was greatest, but not where,
+# how long or of what, so the maps mark them on the side towards Svartån, about 70 m west of the
+# building in OSM (`marker_latitude`, `marker_longitude`); the level sensor NG2 keeps the item's own
+# place. SVT's live report said at 11:33 on 3 September that they were never seriously tested.
 ROUTE_REPORT = "SVT och TV4 2 september 2023"
-ROUTE_IMPACT_LABEL = "Översvämmat enligt medierna"
+ROUTE_IMPACT_LABEL = "Översvämning och vallar enligt medierna"
 ROUTE_SOURCE_LABEL = "lokala medier"
 ROUTE_ATTRIBUTION = "SVT och TV4"
 ROUTE_IMPACTS = [
@@ -181,8 +186,12 @@ ROUTE_IMPACTS = [
      "latitude": 59.6258, "longitude": 16.5178, "source_label": "SVT",
      "text": "Ett sextiotal fritidshus i Biskopsängen står under vatten"},
     {"time_utc": "2023-09-02T10:00:00Z", "kind": "road", "approximate_time": True, "site": "Stadshuset",
-     "latitude": 59.6085, "longitude": 16.5473, "source_label": "SVT och TV4",
+     "latitude": 59.6085, "longitude": 16.5473, "source_label": "SVT och TV4", "marker": "embankment",
+     "marker_latitude": 59.6083, "marker_longitude": 16.5453, "label": "Vallar vid stadshuset (plats ungefärlig)",
+     "note": "Platsangivelsen ungefärlig. Längd och typ okänd",
      "text": "Staden bygger vallar för att skydda stadshuset mot Svartån"},
+    {"time_utc": "2023-09-03T09:33:00Z", "kind": "alert", "approximate_time": True, "source_label": "SVT",
+     "text": "Vallarna vid stadshuset sattes aldrig på allvarligt prov; vattnet hade sjunkit"},
 ]
 # Synthetic level sensors at the places above and at Svartån's outlet in Mälaren (the southern end of
 # OSM's river in the scenario's extract, checked 2026-10-28), each
