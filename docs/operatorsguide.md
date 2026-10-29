@@ -2340,7 +2340,12 @@ cp -p data/ljungan-aug2023/s-hype/raw/*.xls data/sundsvall-feb2020/s-hype/raw/
 EUMETSAT:s tjänst svarade inte alls under en del av 2026-10-29. Stannar hämtningen vid Meteosat, kör
 samma kommando igen senare; den fortsätter där den stannade.
 
-**Generalrepetitionen** med `tools.check_demo` är inte inställd för det här scenariot än. Prova i
-stället för hand: starta scenariot enligt avsnitt 16, sök i mission control till 22 februari kl. 16
-svensk tid och kontrollera att NG1–NG3 larmar, att loggen har raderna om SMHI:s varning och havets
-topp, och att radarbilden den 23 februari visas utan rött vatten.
+**Generalrepetitionen**, med kartjänsten på Sundsvalls karta. Den börjar den 22 februari kl. 13
+svensk tid. Vid havets topp kl. 16 larmar alla tre givare, och bedömningen blir "Possible flood",
+eftersom regnet, flödena och havet ligger under sina gränser och rekord. Upptäcktssekvensen slutar med
+"Okänd", eftersom radarbilden den 23 februari inte kan skilja vatten från land:
+
+```bash
+TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
+TECHSEED_SCENARIO=sundsvall-feb2020 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-feb2020-$(hostname)
+```

@@ -397,7 +397,7 @@ def flood_detection_sequence(demo: Demo) -> str:
     demo.main.wait_for_function("!document.getElementById('detection-rules').hidden", timeout=WAIT_MS, polling=POLL_MS)
     outcome = demo.text("detection-outcome")
     rules = demo.main.eval_on_selector_all("#detection-rule-list li", "els => els.length")
-    assert outcome == "Översvämning trolig" and rules == 4, (outcome, rules)
+    assert outcome == scenario.CHECK_DETECTION_OUTCOME and rules == 4, (outcome, rules)
     demo.shot("3-detection-correlate")
     demo.button("NÄSTA ▸").click()
     demo.main.wait_for_function("document.getElementById('detection-card').hidden", timeout=WAIT_MS, polling=POLL_MS)

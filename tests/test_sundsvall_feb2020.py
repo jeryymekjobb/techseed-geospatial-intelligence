@@ -34,3 +34,10 @@ def test_the_harbour_s_sensors_follow_spikarna_and_alarm_at_the_warning_s_lower_
     out = run_scenario("from app.backend import scenario; print(scenario.LEVEL_ALARM_LEVEL, scenario.SEA_LEVEL_STORM_CM, "
                        "sorted({site['station'] for site in scenario.LEVEL_SENSOR_SITES}))", "sundsvall-feb2020")
     assert out.strip() == "81.0 81.0 ['sea-2061']"
+
+
+def test_the_demo_check_expects_what_the_storm_without_a_documented_flood_gives() -> None:
+    code = "from app.backend import scenario; print(scenario.CHECK_SENSORS, scenario.CHECK_OUTCOME, scenario.CHECK_DETECTION_OUTCOME, sep='|')"
+    assert run_scenario(code, "sundsvall-feb2020").strip() == "3/3|Possible flood|Okänd"
+    # Scenarios that do not set it keep the flood the sequence has always ended with.
+    assert run_scenario(code, "sundsvall2026").strip().endswith("|Översvämning trolig")

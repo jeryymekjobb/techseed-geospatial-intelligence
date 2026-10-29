@@ -104,6 +104,16 @@ PLAYBACK_END = datetime(2020, 2, 27, 0, 0, tzinfo=timezone.utc)
 PLAYBACK_SPEED = 1800.0
 # The sea's highest at Spikarna, 97.7 cm at 15 UTC on 22 February.
 CHECK_START_UTC = "2020-02-22T12:00:00Z"
+# The demo check (tools/check_demo.py): at the sea's peak the three harbour sensors alarm, but the rain, the flows
+# and the sea stay below their rules and records, so the assessment says "Possible flood", as no flood is documented.
+# Its SATCOM outage starts in the evening before Sentinel-1A's pass at 05:22 UTC on 24 February.
+CHECK_PEAK_UTC = "2020-02-22T15:00:00Z"
+CHECK_SENSORS = "3/3"
+CHECK_OUTCOME = "Possible flood"
+CHECK_SATCOM_UTC = "2020-02-23T21:00:00Z"
+# The detection sequence at noon on 22 February uses Sentinel-1B's pass of 23 February, whose water cannot be
+# told from land (wet snow), so fewer than two of its rules hold.
+CHECK_DETECTION_OUTCOME = "Okänd"
 DATABASE = "sundsvall-feb2020"
 TILES_FILE = "sundsvall.mbtiles"
 CAMERA_ROUTE = [
