@@ -1578,6 +1578,17 @@ TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
 Mission control ska då visa "Scenario: FLOOD – Ljungan och Sundsvall augusti 2023, historiska
 data", och klockan står på 5 augusti kl. 02:00 svensk tid.
 
+**Till februari 2020 (Del 13):** välj **Högt hav och regn på snö i Sundsvall, februari 2020** i
+menyn, eller steg för steg med samma karta:
+
+```bash
+TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
+.venv/bin/python -m app.backend.server --scenario sundsvall-feb2020
+```
+
+Mission control ska då visa "Scenario: FLOOD – Sundsvall februari 2020, historiska data", och
+klockan står på 19 februari kl. 01:00 svensk tid.
+
 ## 17. Manuset, cirka tre minuter
 
 Börja med huvudskärmen på adressen i avsnitt 16 och hastigheten 10 minuter/s. Gå lugnt fram,
@@ -2235,3 +2246,101 @@ svensk tid, strax före havets högsta vid Spikarna:
 TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
 TECHSEED_SCENARIO=ljungan-aug2023 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-ljungan-$(hostname)
 ```
+
+---
+
+# Del 13 – Högt hav och regn på snö i Sundsvall, februari 2020
+
+## 30. Vad demon visar
+
+Scenariot `sundsvall-feb2020` spelar upp ovädret i Sundsvall 20–23 februari 2020 med uppmätta data,
+inte i realtid. Sundsvalls Tidning skrev den 22 februari om "spöregn följt av snöväder" i Medelpad och
+om SMHI:s varning för högt vattenstånd i norra Bottenhavet, 80–100 cm över medelvattenståndet. Inga
+skador är dokumenterade. Vid Spikarna nådde havet 97,7 cm i RH2000 kl. 16 svensk tid den 22 februari,
+det högsta 2020, och en andra topp på 94,9 cm kl. 20. Det regnade i plusgrader på snön: Sidsjö D fick
+5,0 mm den 20 och 12,9 mm den 22 februari. Flödena i åarna förblev låga.
+
+Uppspelningen går från 19 februari kl. 01 till 27 februari kl. 01 svensk tid, med 30 minuter per
+sekund, och bromsar vid satellitpassagerna. Scenariot delar karta, höjddata, terräng och OSM-lager med
+översvämningsdemon i Del 5.
+
+Demon visar:
+
+- **Havet vid Spikarna (SMHI)** per timme i RH2000. De 72 timmarna efter klockan är märkta "uppmätt i
+  efterhand", eftersom ingen prognos från 2020 finns sparad. Vid havets topp säger loggen "Högt
+  vattenstånd vid Spikarna: 97,7 centimeter i RH2000".
+- **Nivågivarna NG1–NG3 vid hamnen (syntetiska):** NG1 Inre hamnen vid Hamnplan, NG2 Selångersåns
+  mynning och NG3 Rosenborgskajen, vid kajerna enligt OSM. De mäter inget själva utan följer Spikarna och
+  larmar vid 81 cm i RH2000. Det är den nedre gränsen i SMHI:s varning, 80 cm över medelvattenståndet
+  2020, som var +1,4 cm i RH2000 enligt SMHI:s ekvation för Spikarna. Givarna larmar 21 februari
+  kl. 05–10 och från 22 februari kl. 09 till 23 februari kl. 02 svensk tid. Höjddatan kan inte visa hur
+  högt kajerna ligger, så säg inte att platserna är låga punkter.
+- **Inga bräddgivare.** Kommunens regnmätare började mäta först i mars–april 2020. Regnet per timme
+  kommer från Brämön A ute i havet och från väderradarn, och per dygn från Sidsjö D och
+  Stordalen-Midlanda D.
+- **Blixtar (SMHI):** 43 nedslag den 22 februari och 9 den 23 februari, ovanligt för februari.
+- **Flödena:** Skallböle, och Selångersån och Sidsjöbäcken i SMHI:s modell S-HYPE, alla låga.
+- **Mediernas uppgifter:** två loggrader ur Sundsvalls Tidning på förmiddagen den 22 februari, märkta
+  "tid ungefärlig": SMHI:s varning och "spöregn följt av snöväder".
+- **Satellitbilderna:** Sentinel-1A den 19 februari, före ovädret, Sentinel-1B den 23 februari
+  kl. 06:30 och Sentinel-1A den 24 februari. Sentinel-2 den 19 och 24 februari och Landsat 8 den
+  26 februari. Stormens upprörda hav syns som en ljus yta i radarbilden den 23 februari.
+  - **Inget beräknat vatten efter ovädret.** Den 23 och 24 februari går vatten och land inte att skilja
+    åt i radarbilden, troligen på grund av blöt snö. Kartan visar då radarbilden utan rött vatten, och
+    bildtexten och loggen säger varför.
+  - Sentinel-1B:s passage en timme efter havets topp den 22 februari täcker bara en femtedel av stan
+    och är inte med.
+- **Havsvind (Sentinel-1):** lila vindhullingar den 20 februari kl. 17:21, omkring 11 m/s från söder,
+  och den 26 februari. Sentinel-1:s produkter märker vinden över bukten som dålig vid de andra nio
+  passagerna, också under stormen, och då visas den inte.
+- **Meteosats molntoppar och moln** som i Del 9, MET Norways prognoser som de utfärdades och ERA5-vinden.
+
+| Del | Riktigt, beräknat, modell eller syntetiskt |
+|---|---|
+| Havsvattenstånd, regn, väderradar, vattenföring, blixtar (SMHI) | Riktigt, uppmätt |
+| Sentinel-1, Sentinel-2, Landsat 8, Sentinel-1:s havsvind | Riktigt. Vattnet i radarbilden visas inte efter ovädret. |
+| SMHI:s varning och ovädret | Ur Sundsvalls Tidning, tid ungefärlig |
+| Selångersån och Sidsjöbäcken (S-HYPE), MET Norways prognoser, ERA5 | Modell |
+| Nivågivarna NG1–NG3 | Syntetiska |
+
+## 31. Förbered demon
+
+Gör Del 1 och Del 5 först, eftersom scenariot använder Sundsvalls karta. Data hamnar i
+`data/sundsvall-feb2020/`.
+
+**Konton.** Inloggningar sparas i filer i din hemmapp, aldrig i repot: Space-Track
+(`~/.spacetrackrc`, avsnitt 2), Copernicus CDS (`~/.cdsapirc`, avsnitt 15), EUMETSAT
+(`~/.eumdac/credentials`, avsnitt 2) och, för havsvinden, Copernicus Data Space. För den sista lägger
+du till en rad i `~/.netrc`, med din egen e-postadress och ditt lösenord. Rader som redan finns där
+ska stå kvar:
+
+```
+machine identity.dataspace.copernicus.eu login <e-postadress> password <lösenord>
+```
+
+```bash
+chmod 600 ~/.netrc
+```
+
+**S-HYPE-filerna** är samma som för Ljungan (avsnitt 27). Kopiera dem med bevarad tid, så att
+nedladdningsdatumet i källraden blir rätt:
+
+```bash
+mkdir -p data/sundsvall-feb2020/s-hype/raw
+cp -p data/ljungan-aug2023/s-hype/raw/*.xls data/sundsvall-feb2020/s-hype/raw/
+```
+
+**Hämta allt**, med de valfria stegen (havsvinden och MET Norways prognoser):
+
+```bash
+.venv/bin/python -m tools.fetch_scenario sundsvall-feb2020 --list
+.venv/bin/python -m tools.fetch_scenario sundsvall-feb2020 --with-optional
+```
+
+EUMETSAT:s tjänst svarade inte alls under en del av 2026-10-29. Stannar hämtningen vid Meteosat, kör
+samma kommando igen senare; den fortsätter där den stannade.
+
+**Generalrepetitionen** med `tools.check_demo` är inte inställd för det här scenariot än. Prova i
+stället för hand: starta scenariot enligt avsnitt 16, sök i mission control till 22 februari kl. 16
+svensk tid och kontrollera att NG1–NG3 larmar, att loggen har raderna om SMHI:s varning och havets
+topp, och att radarbilden den 23 februari visas utan rött vatten.
