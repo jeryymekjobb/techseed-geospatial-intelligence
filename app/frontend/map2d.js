@@ -41,15 +41,17 @@ function createLeafletMap(config) {
   } else {
     baseLayers["OpenStreetMap (online)"] = osm.addTo(map);
   }
-  const municipal = config.layers.municipal_basemap;
-  if (municipal) {
-    // The municipality's map, kept locally (municipal_basemap.py), enlarged beyond its highest fetched zoom.
+  // The municipality's maps, kept locally (municipal_basemap.py), enlarged beyond their highest fetched zoom.
+  const municipalMaps = config.layers.municipal_basemaps || (config.layers.municipal_basemap ? [config.layers.municipal_basemap] : []);
+  for (const municipal of municipalMaps) {
     baseById[municipal.id] = L.tileLayer(municipal.url, {
       minZoom: municipal.min_zoom, maxZoom: 18, maxNativeZoom: municipal.max_zoom, bounds: municipal.bounds,
       attribution: municipal.attribution,
     });
     baseLayers[municipal.label] = baseById[municipal.id];
   }
+  // An aerial photo has no names of its own, so the drawn place names show over it.
+  const withoutNames = new Set(municipalMaps.filter((item) => item.names === false).map((item) => item.id));
   const overlays = {};
   if (config.layers.lantmateriet_topowebb) {
     baseLayers["Lantmäteriet topowebb"] = L.tileLayer("/lm/topowebb/{z}/{x}/{y}.png", {
@@ -207,13 +209,13 @@ function createLeafletMap(config) {
     },
 
     // Mission control's base map (basemaps.js baseMapFor): its id, or null for none. The place
-    // names show over the offline map and no map, which carry no text of their own.
+    // names show over the offline map, an aerial photo and no map, which carry no text of their own.
     setBaseMap(id) {
       for (const [key, layer] of Object.entries(baseById)) {
         if (key === id) { if (!map.hasLayer(layer)) layer.addTo(map); layer.bringToBack(); } else layer.remove();
       }
       if (labelLayer) {
-        if (id === "offline" || id === null) labelLayer.addTo(map); else labelLayer.remove();
+        if (id === "offline" || id === null || withoutNames.has(id)) labelLayer.addTo(map); else labelLayer.remove();
       }
     },
 

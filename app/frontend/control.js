@@ -624,6 +624,7 @@ $("apply-speed").addEventListener("click", () => {
 });
 // The scenario's name in the header.
 fetch("/api/config").then((response) => response.json()).then((loaded) => {
+  addBaseMapTexts(loaded.layers?.municipal_basemaps);
   config = loaded;
   setupImageTypes(config.layers.landsat);
   setupBaseMaps(config.layers.base_maps);

@@ -165,6 +165,10 @@ MUNICIPAL_WMS = getattr(_module, "MUNICIPAL_WMS", None)
 MUNICIPAL_DIR = getattr(_module, "MUNICIPAL_DIR", None)
 # The municipality's map as a locally kept base map (municipal_basemap.py); only Sundsvall 2026.
 MUNICIPAL_BASEMAP = getattr(_module, "MUNICIPAL_BASEMAP", None)
+# Several municipal maps, each {"id", "url", "layer", "label", "attribution", "dir", "names"?}, in the order the
+# screens offer them (Västerås stad's map, grey map and aerial photo); instead of MUNICIPAL_BASEMAP. An id is
+# lower-case letters only, as mission control's base_maps command takes.
+MUNICIPAL_BASEMAPS = getattr(_module, "MUNICIPAL_BASEMAPS", [])
 # The offline map's road numbers and dashed railway tunnels as a layer of their own over the base map,
 # the images and the flood maps (offline_tiles.py); every scenario has it, as the user asked on 2026-10-19.
 ROAD_OVERLAY = getattr(_module, "ROAD_OVERLAY", True)

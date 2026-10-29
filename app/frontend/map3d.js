@@ -132,11 +132,12 @@ async function createCesiumMap(config) {
   } else {
     addNote(`Offline-kartan är inte igång; 3D-globen visar bara Natural Earth II över ${config.incident_area}.`);
   }
-  const municipal = config.layers.municipal_basemap;
-  if (municipal) {
-    // The municipality's map, kept locally (municipal_basemap.py), over its fetched area and zooms. Its
-    // place names are drawn into the tiles, so from MUNICIPAL_MIN_LEVEL only: a tilted camera would
-    // otherwise show the coarse tiles' names huge on the ground far off.
+  // The municipality's maps, kept locally (municipal_basemap.py), over their fetched area and zooms. Their
+  // place names are drawn into the tiles, so from MUNICIPAL_MIN_LEVEL only: a tilted camera would
+  // otherwise show the coarse tiles' names huge on the ground far off.
+  const municipalMaps = config.layers.municipal_basemaps || (config.layers.municipal_basemap ? [config.layers.municipal_basemap] : []);
+  const withNames = new Set(municipalMaps.filter((item) => item.names !== false).map((item) => item.id));
+  for (const municipal of municipalMaps) {
     const [[municipalSouth, municipalWest], [municipalNorth, municipalEast]] = municipal.bounds;
     baseById[municipal.id] = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
       url: municipal.url, minimumLevel: Math.max(municipal.min_zoom, MUNICIPAL_MIN_LEVEL), maximumLevel: municipal.max_zoom,
@@ -295,9 +296,10 @@ async function createCesiumMap(config) {
     wantsLabels: () => true,
 
     // Mission control's base map (basemaps.js baseMapFor): its id, or null for Natural Earth II only.
-    // OSM online and the municipality's map have their own names, so the drawn place names are hidden over them.
+    // OSM online and the municipality's maps have their own names, so the drawn place names are hidden over them
+    // (not over an aerial photo).
     setBaseMap(id) {
-      labelLayer.show = id !== "online" && id !== municipal?.id;
+      labelLayer.show = id !== "online" && !withNames.has(id);
       if (id === "online" && !baseById.online) {
         baseById.online = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
           url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", maximumLevel: 19,

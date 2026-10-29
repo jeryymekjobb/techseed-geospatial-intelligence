@@ -221,6 +221,23 @@ MUNICIPAL_WMS = {
     "visible": [],
 }
 
+# Västerås stad's background maps of its Origo maps (GeoServer bakgrundskartor, WMS in EPSG:3857), kept
+# locally like Sundsvall's Kartan, as the user chose on 2026-10-28; internal use only. The map's name
+# (topowebbkartan) suggests Lantmäteriet's Topografisk webbkarta under the city's own layers.
+_BASEMAP_WMS = "https://kartserver.vasteras.se/geoserver/wms"
+_BASEMAP_PERMISSION = "The user confirmed on 2026-10-28 that Techseed may use Västerås stad's data internally; no public showings."
+MUNICIPAL_BASEMAPS = [
+    {"id": "vasteraskarta", "url": _BASEMAP_WMS, "layer": "bakgrundskartor:topowebbkartan", "label": "Västerås stad (karta)",
+     "attribution": "Karta © Västerås stad, Lantmäteriet", "dir": DATA / "municipal-basemap" / "karta",
+     "permission": _BASEMAP_PERMISSION, "note": "Västerås stad's colour map (topowebbkartan) from its Origo maps."},
+    {"id": "vasterasgra", "url": _BASEMAP_WMS, "layer": "bakgrundskartor:topowebbkartan_nedtonad", "label": "Västerås stad (grå karta)",
+     "attribution": "Karta © Västerås stad, Lantmäteriet", "dir": DATA / "municipal-basemap" / "gra",
+     "permission": _BASEMAP_PERMISSION, "note": "Västerås stad's grey map (topowebbkartan_nedtonad) from its Origo maps."},
+    {"id": "vasterasflygfoto", "url": _BASEMAP_WMS, "layer": "bakgrundskartor:Ortofoto_016", "label": "Västerås stad (flygfoto)",
+     "attribution": "Flygfoto © Västerås stad", "dir": DATA / "municipal-basemap" / "flygfoto", "names": False,
+     "permission": _BASEMAP_PERMISSION, "note": "Västerås stad's aerial photo (Ortofoto_016, 0.16 m) from its Origo maps; not of September 2023."},
+]
+
 FORECAST_WEATHER_FILES: list = []
 FORECAST_METHOD = ""
 FORECAST_REPORT = ""

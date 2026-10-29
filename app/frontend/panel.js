@@ -1950,6 +1950,7 @@ async function startApp(createMap) {
   setupPanelToggle();
   const config = await getJson("/api/config");
   state.config = config;
+  addBaseMapTexts(config.layers.municipal_basemaps);
   $("title").textContent = config.title;
   document.title = `${config.title}${document.body.dataset.titleSuffix || ""}`;
   $("data-label").textContent = config.data_label;

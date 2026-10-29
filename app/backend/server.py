@@ -408,8 +408,7 @@ def base_maps(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
     """The base maps mission control can tick (basemaps.js), in the order a map prefers them:
     the municipality's map when fetched (municipal_basemap.py), Lantmäteriet's topowebb when enabled
     (2D only), the offline OSM map when it runs, OSM online."""
-    municipal = municipal_basemap.layer()
-    items = [{"id": municipal["id"], "label": municipal["label"], "only_2d": False}] if municipal else []
+    items = [{"id": municipal["id"], "label": municipal["label"], "only_2d": False} for municipal in municipal_basemap.layers()]
     if settings.topowebb_enabled:
         items.append({"id": "topowebb", "label": "Lantmäteriet topowebb", "only_2d": True})
     if offline_tiles.available():
@@ -608,8 +607,9 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
         "layers": {
             "terrain": "/api/layers/terrain",
             "offline_tiles": offline_tiles.available(),
-            # The municipality's map, kept locally, at /basemap/kommun/ (municipal_basemap.py).
+            # The municipality's maps, kept locally, at /basemap/<id>/ (municipal_basemap.py); the first also alone.
             "municipal_basemap": municipal_basemap.layer(),
+            "municipal_basemaps": municipal_basemap.layers(),
             # The offline map's road numbers and railway tunnels over any base map (offline_tiles.py).
             "road_overlay": offline_tiles.overlay_layer(scenario.ROAD_OVERLAY),
             "map_data": map_data(),
@@ -811,7 +811,7 @@ class Handler(BaseHTTPRequestHandler):
             self.offline_tile(path)
         elif path.startswith("/tiles-overlay/") and scenario.ROAD_OVERLAY:
             self.offline_tile(path, overlay=True)
-        elif path.startswith(f"/basemap/{municipal_basemap.ID}/"):
+        elif path.startswith("/basemap/"):
             self.municipal_tile(path)
         elif path.startswith("/terrain/"):
             self.terrain(path)
@@ -1104,7 +1104,7 @@ class Handler(BaseHTTPRequestHandler):
         body = None
         if len(parts) == 5 and parts[4].endswith(".png"):
             try:
-                body = municipal_basemap.tile(int(parts[2]), int(parts[3]), int(parts[4].removesuffix(".png")))
+                body = municipal_basemap.tile(int(parts[2]), int(parts[3]), int(parts[4].removesuffix(".png")), parts[1])
             except ValueError:
                 body = None
         if body is None:
