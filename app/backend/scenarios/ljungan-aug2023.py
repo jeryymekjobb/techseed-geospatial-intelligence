@@ -296,7 +296,8 @@ SPATIAL_SOURCE = ("PostGIS (lokal databas): OSM-mål © OpenStreetMap contributo
 ATTRIBUTION = {
     "osm": "© OpenStreetMap contributors (ODbL)",
     "lantmateriet": "© Lantmäteriet",
-    "smhi": ("SMHI öppna data (CC BY 4.0 SE): nederbörd vid kommunens mätare, Brämön A, Sidsjö D och Stordalen-Midlanda D, "
+    "smhi": ("SMHI öppna data (CC BY 4.0 SE): nederbörd vid kommunens mätare, Brämön A, Sidsjö D och Stordalen-Midlanda D "
+             "och elva stationer i Ljungans avrinningsområde uppströms Torpshammar, "
              "väderradar, vattenföring i Ljungan och havsvattenstånd vid Spikarna; modellerad vattenföring (S-HYPE) i Vattenwebb"),
     "sentinel": "Innehåller bearbetade Copernicus Sentinel-data 2023",
     "era5_land": "Innehåller bearbetad information från Copernicus Climate Change Service (ERA5-Land och ERA5 över havet), CC BY 4.0",
