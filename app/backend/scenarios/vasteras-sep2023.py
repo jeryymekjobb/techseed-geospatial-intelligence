@@ -112,6 +112,8 @@ RAIN_STATIONS = {"96190": "Eskilstuna A"}
 # 2026-10-28 (tools/fetch_smhi_daily.py, daily_rain.py): Skultuna had 59.7 mm on 1 September.
 DAILY_RAIN_STATIONS = {"96350": "Västerås", "96440": "Skultuna", "96390": "Hallstaberg"}
 DAILY_RAIN_DIR = DATA / "smhi-daily"
+# The rain chart starts at Västerås's daily rain: Eskilstuna A had 0.5 mm on 31 August - 3 September.
+RAIN_CHART_STATION = "daily-96350"
 # SMHI's flow stations ("station:parameter"), every 15 minutes, checked 2026-10-28: Svartån at Åkesta
 # kvarn above the town, Kolbäcksån at Berg and Sagån at Gränvad.
 HYDRO_STATIONS = {

@@ -107,6 +107,9 @@ SENTINEL1_DIR = getattr(_module, "SENTINEL1_DIR", None)
 # ERA5 wind where ERA5-Land has none (tools/fetch_era5_sea.py) and SMHI's radar (tools/fetch_smhi_radar.py).
 WIND_SEA_FILE = getattr(_module, "WIND_SEA_FILE", None)
 RADAR_DIR = getattr(_module, "RADAR_DIR", None)
+# The rain chart's first gauge: an hourly gauge's id or a daily station's as "daily-<id>" (panel.js); None
+# for the first hourly gauge.
+RAIN_CHART_STATION = getattr(_module, "RAIN_CHART_STATION", None)
 # SMHI's measured flows and lake levels (tools/fetch_smhi_hydro.py) and their stations.
 HYDRO_DIR = getattr(_module, "HYDRO_DIR", None)
 HYDRO_STATIONS = getattr(_module, "HYDRO_STATIONS", {})

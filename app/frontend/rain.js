@@ -100,4 +100,24 @@ function dailyRainText(mm) {
   return `${String(Math.round(mm * 10) / 10).replace(".", ",")} mm`;
 }
 
-if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainBars, rainBarUnit, rainClass, radarFrameAt, dailyRainAt, dailyRainText, RAIN_CLASSES, HOUR_MS };
+// A daily station in the rain chart: the latest day ended by the clock and the days ended since the start
+// (a day counts when it ends after the start), as rainSums gives an hourly gauge's; null before any day ends.
+function dailyRainSums(days, clockMs, startMs = -Infinity) {
+  let day = null;
+  let total = 0;
+  for (const item of days) {
+    const endMs = Date.parse(item.to_utc);
+    if (endMs > clockMs) break;
+    day = item.mm;
+    if (endMs > startMs) total += item.mm;
+  }
+  return { day, total: Math.round(total * 10) / 10 };
+}
+
+// The days that overlap the playback, each { fromMs, toMs, mm }, for the chart's bars of a day each.
+function dailyRainBars(days, startMs, endMs) {
+  return days.map((item) => ({ fromMs: Date.parse(item.from_utc), toMs: Date.parse(item.to_utc), mm: item.mm }))
+    .filter((item) => item.toMs > startMs && item.fromMs < endMs);
+}
+
+if (typeof module !== "undefined") module.exports = { rainSums, hourlyRain, rainBars, rainBarUnit, rainClass, radarFrameAt, dailyRainAt, dailyRainText, dailyRainSums, dailyRainBars, RAIN_CLASSES, HOUR_MS };

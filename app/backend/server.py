@@ -433,8 +433,11 @@ def panel_choices() -> dict[str, dict[str, Any]]:
         if gauges:
             choices["weather_station"] = {"label": "Väderstation", "options": gauges, "default": gauges[0][0]}
         return choices
+    # SMHI's daily stations too (daily_rain.py), as "daily-<id>" (panel.js dailyStation).
+    daily = [[f"daily-{station['id']}", f"{station['name']} (per dygn)"] for station in daily_rain.stations()]
     if gauges:
-        choices["rain_station"] = {"label": "Regnmätare", "options": gauges, "default": gauges[0][0]}
+        choices["rain_station"] = {"label": "Regnmätare", "options": gauges + daily,
+                                   "default": scenario.RAIN_CHART_STATION or gauges[0][0]}
     data = hydro.stations()
     if data:
         options = [[station["id"], f"{station['name']} ({'vattenstånd' if station['kind'] == 'level' else 'vattenföring'})"]
@@ -577,6 +580,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
         # The flood's words: the land the radar's water is counted on and the rain gauges.
         "focus_land": scenario.FOCUS_LAND,
         "rain_gauges": scenario.RAIN_GAUGES,
+        # The rain chart's first gauge, where it is not the first hourly one (RAIN_CHART_STATION).
+        "rain_station_default": scenario.RAIN_CHART_STATION,
         "sensor_words": scenario.SENSOR_WORDS,  # the flood's sensors: overflow or level sensors
         # The fire's forecast weather station.
         "forecast_station": scenario.FORECAST_STATION,
