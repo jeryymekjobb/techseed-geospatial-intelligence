@@ -46,6 +46,9 @@ from tools import weather_chart
 ARCHIVE = "https://thredds.met.no/thredds/dodsC/meps25epsarchive"
 AROME_ARCHIVE = "https://thredds.met.no/thredds/dodsC/aromemetcoopstarc"
 MEPS_START = datetime(2016, 11, 8, tzinfo=timezone.utc)  # before it, AROME-MetCoOp's deterministic runs
+# From 2020 the deterministic run is one file a run, except from October 2023 through 2024, when the archive
+# holds it as an NcML aggregation (checked in the archive's catalogue on 2026-10-28).
+NCML_START = datetime(2023, 10, 1, tzinfo=timezone.utc)
 RUN_HOURS = (0, 6, 12, 18)
 LEAD_HOURS = 66
 GRID_STEP = 2  # every second 2.5 km point: 5 km between the map's arrows
@@ -72,15 +75,15 @@ OUT_DIR = getattr(scenario, "MET_FORECAST_DIR", None)
 def archive_for(run: datetime) -> dict[str, Any]:
     """The archive of a run's time: its file, the model's name and its thunder variable (None without one).
     AROME-MetCoOp until MEPS came in November 2016 (no thunder index); MEPS's post-processed control
-    member until 2019; from 2024 MEPS's deterministic run, as an NcML aggregation in 2024 and one file
-    from 2025, with a lightning index. The years between are not used by any scenario."""
+    member until 2019; from 2020 MEPS's deterministic run with a lightning index, as one file a run, but as
+    an NcML aggregation from October 2023 through 2024."""
     if run < MEPS_START:
         return {"url": f"{AROME_ARCHIVE}/{run:%Y/%m/%d}/AROME_MetCoOp_{run:%H}_fp.nc_{run:%Y%m%d}",
                 "model": "AROME-MetCoOp (deterministic)", "thunder": None}
     if run.year < 2020:
         return {"url": f"{ARCHIVE}/{run:%Y/%m/%d}/meps_mbr0_pp_2_5km_{run:%Y%m%dT%H}Z.nc",
                 "model": "MEPS, control member, post-processed (meps_mbr0_pp_2_5km)", "thunder": "thunderstorm_index_combined"}
-    if run.year < 2025:
+    if NCML_START <= run and run.year < 2025:
         return {"url": f"{ARCHIVE}/{run:%Y/%m/%d}/meps_det_sfc_{run:%Y%m%dT%H}Z.ncml",
                 "model": "MEPS, deterministic (meps_det_sfc)", "thunder": "lightning_index"}
     return {"url": f"{ARCHIVE}/{run:%Y/%m/%d}/meps_det_2_5km_{run:%Y%m%dT%H}Z.nc",
