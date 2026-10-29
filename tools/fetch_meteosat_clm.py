@@ -66,7 +66,9 @@ def read_grib(data: bytes, positions: bool):
 
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         grib = archive.read(next(item for item in archive.namelist() if item.endswith(".grb")))
-    handle = eccodes.codes_new_from_message(grib)
+    # Some products (Meteosat-10's of 2023) have a few bytes before the message, which a file reader skips
+    # but codes_new_from_message does not.
+    handle = eccodes.codes_new_from_message(grib[max(grib.find(b"GRIB"), 0):])
     try:
         size = eccodes.codes_get(handle, "Nx")
         values = eccodes.codes_get_values(handle)

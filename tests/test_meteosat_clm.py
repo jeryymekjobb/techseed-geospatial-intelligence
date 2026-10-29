@@ -101,3 +101,16 @@ def test_each_scene_gets_meteosat_s_cloudy_share(tmp_path: Path, monkeypatch: py
         assert meteosat_clm.with_cloud(None) is None
     finally:
         meteosat_clm.data.cache_clear()
+
+
+def test_read_grib_skips_bytes_before_the_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Meteosat-10's products of 2023 start with a few bytes before "GRIB" (seen in MSGCLMK of 30 August 2023).
+    zipped = io.BytesIO()
+    with zipfile.ZipFile(zipped, "w") as archive:
+        archive.writestr("product.grb", b"\x107\x02\x00GRIB message7777")
+    decoded: list[bytes] = []
+    monkeypatch.setitem(sys.modules, "eccodes", SimpleNamespace(
+        codes_new_from_message=lambda data: decoded.append(data) or "handle", codes_get=lambda handle, key: 1,
+        codes_get_values=lambda handle: [0], codes_release=lambda handle: None))
+    assert fetch.read_grib(zipped.getvalue(), positions=False) == (1, [0], None, None)
+    assert decoded == [b"GRIB message7777"]
