@@ -100,6 +100,18 @@ def _ring_area_km2(ring: list[list[float]]) -> float:
     return abs(sum(a[0] * kx * b[1] * ky - b[0] * kx * a[1] * ky for a, b in zip(ring, ring[1:] + ring[:1]))) / 2.0
 
 
+# The names of the map area's rivers and streams, placed along them (tools/fetch_osm_waterways.py).
+WATERWAY_LABEL = "Vattendrag (namn)"
+
+
+@lru_cache(maxsize=1)
+def waterway_labels() -> dict[str, Any] | None:
+    path = scenario.WATERWAY_LABELS_FILE
+    if path is None or not path.is_file():
+        return None
+    return {"label": WATERWAY_LABEL, **json.loads(path.read_text(encoding="utf-8"))}
+
+
 @lru_cache(maxsize=1)
 def labels() -> dict[str, Any]:
     """Place names (OSM places) and lake names (named water areas) as label points."""
@@ -479,6 +491,8 @@ def map_layers(settings: lantmateriet.Settings) -> list[dict[str, Any]]:
     if scenario.TERRAIN_FILE.is_file():
         items.append(item("Terräng (OSM)", True, False))
     items.append(item("Ortnamn", None, True))  # in 2D the place names follow the base map
+    if waterway_labels() is not None:
+        items.append(item(WATERWAY_LABEL, True, True))
     if scenario.WILDFIRE:
         items += [item("Hotspots", True, True), item("FIRMS-urval", False, None), item("Prognos (modell)", True, True),
                   item("Syntetiska sensorer", True, True)]
@@ -632,6 +646,8 @@ def config(settings: lantmateriet.Settings, engine: ScenarioEngine | None = None
             "efas": efas.layer(),
             # Sentinel-1's wind over the sea at each pass (sentinel1_wind.py): the maps' arrows and the log's lines.
             "sentinel1_wind": sentinel1_wind.layer(),
+            # The rivers' and streams' names along them (fetch_osm_waterways.py), over every base map.
+            "waterway_labels": waterway_labels(),
             # SWOT's water heights of lakes and river (swot.py): the maps, the panel's section and the log's line.
             "swot": swot.layer(),
             "ems": ems.perimeters() is not None,  # Copernicus EMS's perimeters of the fire at /api/ems

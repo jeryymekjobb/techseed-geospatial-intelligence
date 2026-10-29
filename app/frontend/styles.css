@@ -54,6 +54,10 @@ body:not(.display-only) .view-switch ~ .panel-show, .panel-show:not([hidden]) ~ 
 .map-label-town { font-size: 16px; font-weight: 700; }
 .map-label-village { font-size: 14px; font-weight: 600; }
 .map-label-lake { font-style: italic; color: #1f5fa8; }
+/* A river's or stream's name along it, beside the water, without a box (addWaterwayLabels in map2d.js). */
+.waterway-label { position: absolute; left: 0; top: 0; white-space: nowrap; pointer-events: none; font: italic 600 12px system-ui, sans-serif;
+  color: #1f4f8f; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; transform-origin: 0 0; }
+.waterway-label-river { font-size: 13px; letter-spacing: 0.06em; }
 /* Threatened buildings (map2d.js drawThreats): the newest threat large with its name, the earlier ones a small icon. */
 .threat-mark { pointer-events: none; }
 .threat-body { position: absolute; display: flex; align-items: center; gap: 6px; transform: translate(-12px, -50%); white-space: nowrap; }

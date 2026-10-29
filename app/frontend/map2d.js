@@ -209,6 +209,41 @@ function createLeafletMap(config) {
       if (!offline || map.hasLayer(offline)) layer.addTo(map);
     },
 
+    // The rivers' and streams' names written along the water and 12 px beside it, so the water itself
+    // stays visible; over every base map, from each kind's zoom.
+    addWaterwayLabels(info) {
+      if (!map.getPane("labels")) {
+        const pane = map.createPane("labels");
+        pane.style.zIndex = 450;
+        pane.style.pointerEvents = "none";
+      }
+      const markers = info.features.map((feature) => {
+        const [lon, lat] = feature.geometry.coordinates;
+        const { name, kind, angle_deg: angle, min_zoom: minZoom } = feature.properties;
+        const text = document.createElement("span");
+        text.className = `waterway-label waterway-label-${kind}`;
+        text.textContent = name;  // OSM names are text, never markup
+        text.style.transform = `rotate(${angle}deg) translate(-50%, -100%) translateY(-12px)`;
+        const marker = L.marker([lat, lon], { icon: L.divIcon({ className: "", html: text.outerHTML, iconSize: [0, 0] }),
+                                              pane: "labels", interactive: false, keyboard: false });
+        marker.minZoom = minZoom;
+        return marker;
+      });
+      const layer = L.layerGroup();
+      const update = () => {
+        const zoom = map.getZoom();
+        for (const marker of markers) {
+          const visible = zoom >= marker.minZoom;
+          if (visible && !layer.hasLayer(marker)) layer.addLayer(marker);
+          if (!visible && layer.hasLayer(marker)) layer.removeLayer(marker);
+        }
+      };
+      map.on("zoomend", update);
+      update();
+      overlays[info.label] = layer;
+      layer.addTo(map);
+    },
+
     // Mission control's base map (basemaps.js baseMapFor): its id, or null for none. The place
     // names show over the offline map and no map, which carry no text of their own.
     setBaseMap(id) {

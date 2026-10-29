@@ -219,6 +219,9 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
             plan.append(Step(key, title, tool(tool_name, "--bbox", osm_box, "--out", str(target)), target, size_mb=10))
         else:
             plan.append(Step(key, title, None, target, note="spåras i git (osm_data/README.md)"))
+    if get("WATERWAY_LABELS_FILE"):
+        plan.append(Step("osm-waterways", "Vattendragens namn (OpenStreetMap)", tool("fetch_osm_waterways"), Path(s.WATERWAY_LABELS_FILE),
+                         size_mb=1))
     if get("LANDSAT_SCENES"):
         plan.append(Step("landsat", "Landsat-bilder", tool("fetch_landsat_scene", "--tools", tools),
                          Path(s.LANDSAT_DIR) / "SOURCE.json", programs=native(tools, *GDAL), packages=IMAGES, size_mb=100))

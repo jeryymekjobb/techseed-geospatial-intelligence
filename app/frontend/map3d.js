@@ -355,6 +355,29 @@ async function createCesiumMap(config) {
       layers.push(["Ortnamn", (visible) => { labelLayer.show = visible; }, () => labelLayer.show]);
     },
 
+    // The rivers' and streams' names along the water: a billboard turned with the map, its text in the upper
+    // half so it stands beside the water, not on it; from each kind's zoom.
+    addWaterwayLabels(info) {
+      const waterwayLayer = group("waterway-labels");
+      for (const feature of info.features) {
+        const [lon, lat] = feature.geometry.coordinates;
+        const { name, kind, angle_deg: angle, min_zoom: minZoom } = feature.properties;
+        const size = kind === "river" ? 13 : 12;
+        const width = Math.ceil(name.length * size * 0.62) + 12;
+        const escaped = name.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="48"><text x="${width / 2}" y="18" text-anchor="middle" `
+          + `font-family="system-ui, sans-serif" font-style="italic" font-weight="600" font-size="${size}" fill="#1f4f8f" `
+          + `stroke="#ffffff" stroke-width="3" paint-order="stroke">${escaped}</text></svg>`;
+        waterwayLayer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(lon, lat),
+          billboard: { image: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, alignedAxis: Cesium.Cartesian3.UNIT_Z,
+                       rotation: -Cesium.Math.toRadians(angle), ...ON_GROUND,
+                       distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, distanceForZoom(minZoom)) },
+        });
+      }
+      layers.push([info.label, (visible) => { waterwayLayer.show = visible; }, () => waterwayLayer.show]);
+    },
+
     // style: { color, fill } for another kind of station (the flood's flows and lake levels).
     addStations(stations, style = {}) {
       for (const station of stations) {

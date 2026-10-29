@@ -153,6 +153,8 @@ EFAS_AREA = (62.8, 13.5, 62.1, 17.7)
 # Sentinel-1's wind over the sea (OCN; tools/fetch_sentinel1_wind.py), as planned in the study: Sentinel-1A passed
 # the Sundsvall bay at 05 and 16 UTC on 9 August and 05 UTC on 14 August. Needs a Copernicus Data Space account.
 SENTINEL1_WIND_DIR = DATA / "sentinel1-wind"
+# The names of Ljungan and the other rivers and streams, as the user asked on 2026-10-29 (tools/fetch_osm_waterways.py).
+WATERWAY_LABELS_FILE = DATA / "osm" / "waterway-labels.geojson"
 
 # SWOT's water surface heights (tools/fetch_swot.py), as the user chose on 2026-10-29: the lakes of the map area and
 # Ljungan from Torpshammar to the sea, uncertain measurements kept and flagged. SWOT passed on 11 August at

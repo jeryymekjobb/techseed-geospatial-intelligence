@@ -124,6 +124,8 @@ EFAS_ISSUES = getattr(_module, "EFAS_ISSUES", None)
 EFAS_AREA = getattr(_module, "EFAS_AREA", None)
 # Sentinel-1's wind over the sea in the map area during the playback (tools/fetch_sentinel1_wind.py, sentinel1_wind.py).
 SENTINEL1_WIND_DIR = getattr(_module, "SENTINEL1_WIND_DIR", None)
+# The names of the map area's rivers and streams, placed along them (tools/fetch_osm_waterways.py).
+WATERWAY_LABELS_FILE = getattr(_module, "WATERWAY_LABELS_FILE", None)
 # SWOT's water surface heights (tools/fetch_swot.py, swot.py): the area searched (west, south, east, north), the
 # rivers kept by their SWORD name, and the days before the playback whose passes are the comparison.
 SWOT_DIR = getattr(_module, "SWOT_DIR", None)

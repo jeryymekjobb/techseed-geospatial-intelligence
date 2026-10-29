@@ -2041,6 +2041,10 @@ async function startApp(createMap) {
   }
   const terrain = await loadOptional(config.layers.terrain, (error) => addNote(`Terränglagret kunde inte laddas: ${error.message}.`));
   if (terrain) state.map.addTerrain(terrain);
+  if (config.layers.waterway_labels) {
+    state.map.addWaterwayLabels(config.layers.waterway_labels);
+    state.map.addAttribution(config.layers.waterway_labels.attribution);
+  }
   if (state.map.wantsLabels()) {
     const labels = await loadOptional("/api/layers/labels", (error) => addNote(`Ortnamnen kunde inte laddas: ${error.message}.`));
     if (labels) state.map.addLabels(labels);
