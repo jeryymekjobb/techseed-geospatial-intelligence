@@ -4,7 +4,8 @@
 Each of the scenario's ROUTE_IMPACTS with a "site" (a road or railway the report says was
 damaged, at an approximate place) gets a synthetic level sensor, which follows the nearest of
 the scenario's SMHI flow stations (hydro.py) with a record, and so does each of its
-LEVEL_SENSOR_SITES (places chosen where the reports name too few). The points go to LEVEL_SENSOR_FILE,
+LEVEL_SENSOR_SITES (places chosen where the reports name too few); a site may name its station
+instead, such as the sea level a harbour follows rather than the nearest stream. The points go to LEVEL_SENSOR_FILE,
 as tools/derive_level_sensor_points.py writes them for Skåne, and level_sensors.py drives them.
 
     TECHSEED_SCENARIO=vasternorrland2025 .venv/bin/python -m tools.derive_impact_sensor_points
@@ -25,12 +26,14 @@ from app.backend.flood_sensors import distance_km
 def points(impacts: list[dict[str, Any]], stations: list[dict[str, Any]],
            default_source: str | None = None) -> dict[str, Any]:
     """The sensors as a GeoJSON FeatureCollection, numbered in the order of the impacts."""
+    named = {station["id"]: station for station in stations}
     stations = [station for station in stations if station.get("earlier_max")]
     features = []
     for item in impacts:
         if not item.get("site"):
             continue
-        nearest = min(stations, key=lambda station: distance_km(item["latitude"], item["longitude"], station["latitude"], station["longitude"]))
+        nearest = named[item["station"]] if item.get("station") else min(
+            stations, key=lambda station: distance_km(item["latitude"], item["longitude"], station["latitude"], station["longitude"]))
         number = len(features) + 1
         source = item.get("source_label") or default_source
         features.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [item["longitude"], item["latitude"]]},

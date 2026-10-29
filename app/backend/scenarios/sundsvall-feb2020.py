@@ -36,6 +36,7 @@ SUMMARY = [
     "Det regnade på snön i plusgrader, men flödena i åarna förblev låga.",
     "Regn och flöden från SMHI, SMHI:s väderradar och havsvattenståndet vid Spikarna. Flödena i Selångersån och Sidsjöbäcken är beräknade i SMHI:s modell, inte uppmätta.",
     "Radarbilder från Sentinel-1, som ser genom moln, och bilder från Sentinel-2 och Landsat 8 efter ovädret.",
+    "Nivågivarna vid hamnen är simulerade. De följer havet vid Spikarna och larmar vid 81 centimeter, den nedre gränsen i SMHI:s varning.",
 ]
 
 FIRMS_FILES: list = []
@@ -76,8 +77,11 @@ SCENE_ELEMENTS_FILE = TLE_DIR / "scene-elements.json"
 # SMHI's sea level at Spikarna (2061) outside Sundsvall, hourly in RH2000 (tools/fetch_smhi_sea_level.py).
 SEA_LEVEL_DIR = DATA / "sea-level"
 SEA_LEVEL_STATIONS = {"2061": "Spikarna"}
-# No log line for the sea yet: its level is to be chosen with the synthetic sensors by the sea.
-SEA_LEVEL_STORM_CM = 100.0
+# The log's line for the sea and the harbour's sensors' alarm, as the user chose on 2026-10-29: 81 cm RH2000, the
+# lower bound of SMHI's warning of 22 February 2020 (80-100 cm above the year's mean, as Sundsvalls Tidning reported)
+# over the mean sea level at Spikarna in 2020, +1.4 cm RH2000 by SMHI's equation (16.2 - 0.74 x (year - 2000) cm,
+# mwreg_MWekvationer). The sea passed it briefly on the morning of 21 February and from 08 UTC on 22 February.
+SEA_LEVEL_STORM_CM = 81.0
 # Eight days: the sea level by the hour, and, as in ljungan-aug2023, the 72 hours after the clock marked
 # as measured afterwards, not a forecast (no forecast as issued in 2020 is archived).
 SEA_LEVEL_HOURLY = True
@@ -138,7 +142,18 @@ ROUTE_IMPACTS = [
     {"time_utc": "2020-02-22T09:00:00Z", "kind": "alert", "approximate_time": True, "source_label": "Sundsvalls Tidning",
      "text": "Spöregn följt av snöväder i Medelpad, och ovanligt högt vattenstånd"},
 ]
-SENSOR_WORDS = {"sensors": "givare", "the_sensors": "givarna", "alarming": "larmande"}
+# Three synthetic level sensors by the harbour (tools/derive_impact_sensor_points.py, level_sensors.py), at places
+# by the quays in OSM: the inner harbour at Hamnplan, the Selånger river's mouth (S-HYPE's outlet point) and
+# Rosenborgskajen. They measure nothing but follow Spikarna's sea level (`station`) and alarm at SEA_LEVEL_STORM_CM;
+# the DEM's 30 m surface cannot tell the quays' height, so they are not said to be low points.
+LEVEL_SENSOR_SITES = [
+    {"site": "Inre hamnen", "latitude": 62.3911, "longitude": 17.3140, "station": "sea-2061", "source_label": "Syntetisk plats vid kajen"},
+    {"site": "Selångersåns mynning", "latitude": 62.39309, "longitude": 17.3151, "station": "sea-2061", "source_label": "Syntetisk plats vid mynningen"},
+    {"site": "Rosenborgskajen", "latitude": 62.3889, "longitude": 17.3206, "station": "sea-2061", "source_label": "Syntetisk plats vid kajen"},
+]
+LEVEL_SENSOR_FILE = DATA / "sensors" / "level-points.geojson"
+LEVEL_ALARM_LEVEL = SEA_LEVEL_STORM_CM
+SENSOR_WORDS = {"sensors": "nivågivare", "the_sensors": "nivågivarna", "alarming": "larmande"}
 
 # The satellites that imaged Sundsvall in the period (Planetary Computer catalogue, checked
 # 2026-10-29; both Sentinel-1A and 1B flew) and the ISS, by NORAD number; element sets a few days

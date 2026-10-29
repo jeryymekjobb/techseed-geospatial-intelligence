@@ -427,7 +427,8 @@ function levelReport(sensors) {
   const stations = new Map();
   for (const item of alarming) {
     const value = item.rise_rule ? `flödet ${String(item.rise).replace(".", ",")} gånger så stort som vid start`
-      : item.alarm_cm !== undefined && item.alarm_cm !== null ? `högst ${item.peak} centimeter de senaste ${item.hold_days} dygnen`
+      : item.alarm_cm !== undefined && item.alarm_cm !== null
+        ? (item.hold_days ? `högst ${item.peak} centimeter de senaste ${item.hold_days} dygnen` : `${item.value} centimeter`)
       : item.station_kind === "level" ? `${item.from_record_cm} centimeter över tidigare högsta nivå`
         : `${item.percent} procent av tidigare högsta flöde`;
     stations.set(item.station, value);

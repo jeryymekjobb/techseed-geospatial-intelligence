@@ -372,6 +372,28 @@ def test_the_screens_say_a_beach_sensor_s_level_and_that_its_alarm_is_held() -> 
         "NG2 Ljunghusens strand: inget larm, Skanör (havet) 42 cm i RH2000, larm vid 100 cm, hålls 30 dygn (syntetisk)")
 
 
+def test_harbour_sensors_without_a_hold_say_the_sea_level_now(tmp_path: Path) -> None:
+    from app.backend import level_sensors as lsen
+    points = tmp_path / "harbour.geojson"
+    points.write_text(json.dumps({"features": [{"geometry": {"type": "Point", "coordinates": [17.314, 62.391]},
+                                                "properties": {"id": "ng-01", "name": "NG1 Inre hamnen", "station": "sea-30488"}}]}), encoding="utf-8")
+    sensors = lsen.LevelSensors(points, [SEA], alarm=100.0)
+    storm = sensors.at(at("2023-10-21T06:00:00Z"))
+    assert (storm["sensors"][0]["confirms"], storm["sensors"][0]["hold_days"]) == (True, None)
+    keys = {item["key"]: item for item in fa.FloodAssessor([RIVER_RAIN], [], [], (55.39, 12.9), hydro=[SEA]).at(
+        at("2023-10-21T06:00:00Z"), storm)["evidence"]}
+    assert keys["iot:ng-01"]["text"] == "IoT NG1 Inre hamnen: larmar, Skanör (havet) 150 cm (regel ≥ 100 cm) (syntetisk)"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_screens_and_the_log_leave_out_a_hold_a_sensor_does_not_have() -> None:
+    sensor = {"kind": "level", "name": "NG1 Inre hamnen", "status": "ok", "confirms": True, "held": False, "station": "Spikarna (havet)",
+              "station_kind": "level", "value": 98, "peak": 98, "peak_utc": "2020-02-22T15:00:00Z", "alarm_cm": 81, "hold_days": None,
+              "height_system": "RH2000", "placed": False}
+    assert node("sensors.js", f"syntheticSensorText({json.dumps(sensor)})") == (
+        "NG1 Inre hamnen: LARMAR, Spikarna (havet) 98 cm i RH2000, larm vid 81 cm (syntetisk)")
+    assert node("satlog.js", f"levelReport([{json.dumps(sensor)}])") == "Nivålarm från 1 nivågivare: Spikarna (havet) 98 centimeter."
+
 def test_the_level_sensors_round_a_half_away_from_zero_as_said_aloud() -> None:
     from app.backend import level_sensors as lsen
     assert [lsen.round_half_up(value) for value in (0.5, 1.5, 2.5, 12.5, -2.5, 2.49, 112.5, 0.0)] == [1, 2, 3, 13, -3, 2, 113, 0]

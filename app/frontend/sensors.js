@@ -65,7 +65,8 @@ function levelAlarmText(sensor, kind) {
   const system = sensor.height_system ? ` i ${sensor.height_system}` : "";
   const state = !sensor.confirms ? "inget larm" : sensor.held ? `LARMAR, hålls kvar efter ${sensor.peak} cm den ${sensor.peak_utc.slice(0, 10)}` : "LARMAR";
   const value = sensor.value === null ? `inga värden från ${sensor.station} ännu` : `${sensor.station} ${sensor.value} cm${system}`;
-  return `${sensor.name}: ${state}, ${value}, larm vid ${sensor.alarm_cm} cm, hålls ${sensor.hold_days} dygn (${kind})`;
+  const held = sensor.hold_days ? `, hålls ${sensor.hold_days} dygn` : "";
+  return `${sensor.name}: ${state}, ${value}, larm vid ${sensor.alarm_cm} cm${held} (${kind})`;
 }
 
 function syntheticSensorText(sensor) {

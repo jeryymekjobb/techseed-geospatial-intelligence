@@ -35,3 +35,11 @@ def test_sensor_collection_records_the_flow_attribution_and_derivation_time() ->
 def test_sensor_collection_is_stamped_with_the_time_of_deriving_by_default() -> None:
     derived = with_measurement_provenance({"features": []}, "SMHI")
     assert datetime.fromisoformat(derived["derived_utc"].replace("Z", "+00:00")) <= datetime.now(timezone.utc)
+
+
+def test_a_site_that_names_its_station_follows_it_rather_than_the_nearest() -> None:
+    stations = [{"id": "model-12849", "latitude": 62.393, "longitude": 17.315, "earlier_max": {"value": 64.0}},
+                {"id": "sea-2061", "latitude": 62.363, "longitude": 17.531, "earlier_max": {"value": 155.0}}]
+    sites = [{"site": "Selångersåns mynning", "latitude": 62.393, "longitude": 17.315, "station": "sea-2061"},
+             {"site": "Himlabadet", "latitude": 62.394, "longitude": 17.289}]
+    assert [feature["properties"]["station"] for feature in points(sites, stations)["features"]] == ["sea-2061", "model-12849"]

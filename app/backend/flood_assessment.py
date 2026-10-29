@@ -63,8 +63,9 @@ def level_text(sensor: dict[str, Any]) -> str:
     if sensor.get("rise_rule"):
         return f"{state}, {sensor['station']} {sv(sensor['rise'])} gånger flödet vid start (regel ≥ {sv(sensor['rise_rule'])})"
     if sensor.get("alarm_cm") is not None:
-        return (f"{state}, {sensor['station']} {sensor['value']} cm, högst {sensor['peak']} cm de senaste {sv(sensor['hold_days'])} dygnen "
-                f"(regel ≥ {sensor['alarm_cm']} cm)")
+        # A sea that holds its alarm (Falsterbo) names its highest over the days held; one that does not, the level now.
+        held = f", högst {sensor['peak']} cm de senaste {sv(sensor['hold_days'])} dygnen" if sensor.get("hold_days") else ""
+        return f"{state}, {sensor['station']} {sensor['value']} cm{held} (regel ≥ {sensor['alarm_cm']} cm)"
     if sensor["station_kind"] == "flow":
         return f"{state}, {sensor['station']} {sensor['percent']} % av tidigare högsta flöde"
     return f"{state}, {sensor['station']} {abs(sensor['from_record_cm'])} cm {'över' if sensor['from_record_cm'] > 0 else 'under'} tidigare högsta nivå"
