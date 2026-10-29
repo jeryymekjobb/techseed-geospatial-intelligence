@@ -139,8 +139,11 @@ området på samma sätt som Sundsvall.
 
 - **MCF:s översvämningskarteringar:** översikten listar *Svartån Västerås*, karterad 2025, och
   i närheten Eskilstunaån (2025), Kolbäcksån (2014), Arbogaån (2013) och Kölstaån och Köpingsån
-  (2024). En fråga mot lagret *100-årsflöde* gav ingen yta inom 3 km från Svartån i Västerås.
-  Den nya karteringen är kanske inte publicerad i flödeslagren än. Det behöver kontrolleras.
+  (2024). Karteringen av Svartån är publicerad. Ytan *Svartån Västerås* (startdatum 2025) finns i
+  lagren *100-årsflöde (klimatanpassat flöde för slutet av seklet)* och *Beräknat högsta flöde*
+  (REST-lager 3 och 5, WMS-lager 12, 11 och 9), men inte i det vanliga lagret *100-årsflöde*.
+  *Rättat 2026-10-29:* förstudien frågade först bara lager 0 och 2 och drog felaktigt slutsatsen
+  att karteringen kanske inte var publicerad.
 - **MET Norway:** MEPS-arkivet täcker 2023, som för Ljungan.
 
 ## Skogsbrand
@@ -223,7 +226,7 @@ Beslutat av användaren 2026-10-28:
 - SMHI öppna data, hämtade 2026-10-28: vattenföring per dygn vid Åkesta kvarn (2216, 2771,
   2773), Berg (2218) och Gränvad (2217); nederbörd per dygn vid Västerås (96350), Skultuna
   (96440) och Hallstaberg (96390).
-- MCF:s översvämningskarteringar, `gis-tjanster.mcf.se/arcgis/rest/services/Oversvamningskarteringar/karteringar/MapServer`, lager 0 och 2, frågade 2026-10-28.
+- MCF:s översvämningskarteringar, `gis-tjanster.mcf.se/arcgis/rest/services/Oversvamningskarteringar/karteringar/MapServer`, lager 0 och 2, frågade 2026-10-28; lager 3 och 5, hämtade 2026-10-28 för scenariot och kontrollerade 2026-10-29.
 - [SGI: Erosionskarta Svartån, Västerås](https://www.sgi.se/globalassets/kartor/erosionskartor/erosionskartor-vattendrag/svartan-vasteras.pdf)
 - [SGI: Vägledning ras, skred, erosion](https://gis.swedgeo.se/rasskrederosion/)
 - [Länsstyrelsernas geodatakatalog: SGI Erosionsförutsättningar](https://ext-geodatakatalog.lansstyrelsen.se/GeodataKatalogen/srv/api/records/GetMetaDataById?id=f735c3f3-56e5-46d4-b78e-00a319357ece)
