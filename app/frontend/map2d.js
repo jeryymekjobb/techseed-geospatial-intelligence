@@ -31,10 +31,15 @@ function createLeafletMap(config) {
   const baseLayers = {};
   const baseById = { online: osm };  // mission control's base maps (basemaps.js) by id
   let labelLayer = null;  // the place names, drawn only over a base map without text
+  // Natural Earth II under every base map, as on the 3D globe (natural_earth.js), in a pane of its own
+  // so the base maps' bringToBack keeps them above it.
+  map.createPane("naturalearth").style.zIndex = 150;
+  naturalEarthLayer({ pane: "naturalearth", maxNativeZoom: 6, attribution: "Natural Earth II" }).addTo(map);
   let offline = null;
   if (config.layers.offline_tiles) {
     // Local tiles (tools/build_offline_tiles.py, docker compose service "tiles"): no internet needed.
-    offline = L.tileLayer("/tiles/{z}/{x}/{y}.png", { maxZoom: 18, attribution: osmAttribution }).addTo(map);
+    // Cut at the map area, as on the globe: outside it the tile server draws only land colour.
+    offline = clippedTileLayer("/tiles/{z}/{x}/{y}.png", config.map_bounds, { maxZoom: 18, attribution: osmAttribution }).addTo(map);
     baseLayers["Offline-karta (OSM, lokal)"] = offline;
     baseById.offline = offline;
     baseLayers["OpenStreetMap (online)"] = osm;
@@ -858,8 +863,8 @@ function createLeafletMap(config) {
       map.flyToBounds([[south, west], [north, east]], { duration: 2 });
     },
 
-    // Mission control's GOD VIEW: out to Europe (OSM online; the offline tiles cover the
-    // fire area only), and back to the fire area when it is switched off.
+    // Mission control's GOD VIEW: out to Europe (Natural Earth II around the offline map, as on the
+    // globe), and back to the fire area when it is switched off.
     // Mission control's FLYG TILL and ÖVERSIKT (the status's camera): to the incident, or the whole view.
     flyToIncident() {
       return new Promise((resolve) => {
