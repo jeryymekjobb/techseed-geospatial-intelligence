@@ -193,3 +193,9 @@ def test_the_demo_check_expects_ljungan_s_flood_in_the_river_not_the_town() -> N
 def test_the_demo_check_expects_no_detected_flood_in_sundsvall_in_november_2023() -> None:
     code = "from app.backend import scenario; print(scenario.CHECK_SENSORS, scenario.CHECK_OUTCOME, scenario.CHECK_DETECTION_OUTCOME, sep='|')"
     assert run_python(code, "sundsvall-nov2023").stdout.strip() == "4/9|Flood probable|Okänd"
+
+
+def test_every_scenario_with_sundsvall_s_map_keeps_its_white_outside_transparent() -> None:
+    code = "from app.backend import scenario; print(scenario.MUNICIPAL_BASEMAP.get('white_outside', False))"
+    for name in ("sundsvall2026", "ljungan-aug2023", "sundsvall-nov2023", "sundsvall-feb2020", "sundsvall-dec2020"):
+        assert run_python(code, name).stdout.strip() == "True", name
