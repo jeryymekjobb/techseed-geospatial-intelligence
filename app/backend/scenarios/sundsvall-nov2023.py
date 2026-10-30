@@ -106,6 +106,9 @@ CHECK_PEAK_UTC = "2023-11-04T12:00:00Z"
 CHECK_SENSORS = "4/9"
 CHECK_OUTCOME = "Flood probable"
 CHECK_SATCOM_UTC = "2023-11-05T21:00:00Z"
+# The detection sequence at noon on 4 November uses Sentinel-1A's pass of 6 November, whose radar shows no new
+# water, so fewer than two of its rules hold.
+CHECK_DETECTION_OUTCOME = "Okänd"
 
 DATABASE = "sundsvall-nov2023"
 TILES_FILE = "sundsvall.mbtiles"

@@ -188,3 +188,8 @@ def test_the_demo_check_expects_ljungan_s_flood_in_the_river_not_the_town() -> N
     assert run_python(code, "ljungan-aug2023").stdout.strip() == "2/11|Possible flood|Okänd"
     # Scenarios that do not set it keep the flood the sequence has always ended with.
     assert run_python(code, "sundsvall2026").stdout.strip().endswith("|Översvämning trolig")
+
+
+def test_the_demo_check_expects_no_detected_flood_in_sundsvall_in_november_2023() -> None:
+    code = "from app.backend import scenario; print(scenario.CHECK_SENSORS, scenario.CHECK_OUTCOME, scenario.CHECK_DETECTION_OUTCOME, sep='|')"
+    assert run_python(code, "sundsvall-nov2023").stdout.strip() == "4/9|Flood probable|Okänd"
