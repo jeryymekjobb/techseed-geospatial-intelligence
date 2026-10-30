@@ -1138,8 +1138,10 @@ async function createCesiumMap(config) {
     addWms(source) {
       const [[south, west], [north, east]] = config.map_bounds;
       for (const [name, title] of Object.entries(source.layers)) {
+        // From level 8 (tiles of 0,7 degrees): Cesium otherwise asks from level 0, half the Earth in one
+        // image, which MCF's service takes some 16 s to draw (wms.py MAX_BBOX_DEGREES).
         const layer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapServiceImageryProvider({
-          url: source.url, layers: name, rectangle: Cesium.Rectangle.fromDegrees(west, south, east, north),
+          url: source.url, layers: name, rectangle: Cesium.Rectangle.fromDegrees(west, south, east, north), minimumLevel: 8,
           parameters: { transparent: true, format: "image/png" },
           // No GetFeatureInfo on a click: the backend forwards only GetMap (wms.py).
           enablePickFeatures: false,

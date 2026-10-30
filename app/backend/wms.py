@@ -8,10 +8,15 @@ The services are outside the demo's control. A service that does not answer with
 TIMEOUT_SECONDS is refused at once for DOWN_SECONDS, so the waiting requests do not
 take the browser's few connections to the backend and hold up the rest of the screens;
 /api/config says whether each service answers, so the screens leave a silent one out.
+
+A map image over a large area takes MCF's service some 16 s to draw, past TIMEOUT_SECONDS, which
+then refused the service for every screen. Such a request, and one wholly outside the scenario's map
+area, is answered here with an empty image and not forwarded (MAX_BBOX_DEGREES).
 """
 
 from __future__ import annotations
 
+import base64
 import threading
 import time
 from typing import Any
@@ -25,6 +30,10 @@ from app.backend.lantmateriet import WMS_PARAMETERS
 TIMEOUT_SECONDS = 5
 DOWN_SECONDS = 60.0
 USER_AGENT = "techseed-geospatial-intelligence/0.1 (exhibition demonstrator)"
+# The widest map image forwarded, in degrees of longitude or latitude (a 256 px tile at zoom 8 is 1.4).
+MAX_BBOX_DEGREES = 2.0
+# A transparent 1 x 1 PNG, the answer to a request that is not forwarded.
+EMPTY_PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGBgAAAABQABeqhXUAAAAABJRU5ErkJggg==")
 # id -> the scenario's service: {"url", "layers": {name: title}, "attribution"}
 SOURCES = {key: value for key, value in (("municipal", scenario.MUNICIPAL_WMS), ("mcf", scenario.FLOOD_HAZARD_WMS)) if value}
 # id -> until when the service is refused without asking it (time.monotonic())
@@ -103,4 +112,29 @@ def get_map(source_id: str, query: dict[str, str]) -> tuple[bytes, str]:
     # The screens send an empty STYLES, which the query parsing drops; MCF's service refuses a
     # GetMap without it (an XML error with status 200), while empty means each layer's default style.
     parameters.setdefault("STYLES", "")
+    if not _worth_asking(parameters):
+        return EMPTY_PNG, "image/png"
     return _fetch(source_id, parameters)
+
+
+def _worth_asking(parameters: dict[str, str]) -> bool:
+    """False for a WGS 84 map image wider than MAX_BBOX_DEGREES or wholly outside the scenario's map
+    area; another reference system or an unreadable box is forwarded as it is."""
+    reference = parameters.get("SRS") or parameters.get("CRS") or ""
+    if reference.upper() not in ("EPSG:4326", "CRS:84"):
+        return True
+    try:
+        values = [float(value) for value in parameters.get("BBOX", "").split(",")]
+    except ValueError:
+        return True
+    if len(values) != 4:
+        return True
+    # WMS 1.3.0 gives EPSG:4326 as latitude first.
+    if parameters.get("VERSION") == "1.3.0" and reference.upper() == "EPSG:4326":
+        south, west, north, east = values
+    else:
+        west, south, east, north = values
+    map_west, map_south, map_east, map_north = scenario.MAP_BBOX
+    if east - west > MAX_BBOX_DEGREES or north - south > MAX_BBOX_DEGREES:
+        return False
+    return west < map_east and east > map_west and south < map_north and north > map_south

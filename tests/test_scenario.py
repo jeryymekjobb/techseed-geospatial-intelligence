@@ -199,3 +199,32 @@ def test_every_scenario_with_sundsvall_s_map_keeps_its_white_outside_transparent
     code = "from app.backend import scenario; print(scenario.MUNICIPAL_BASEMAP.get('white_outside', False))"
     for name in ("sundsvall2026", "ljungan-aug2023", "sundsvall-nov2023", "sundsvall-feb2020", "sundsvall-dec2020"):
         assert run_python(code, name).stdout.strip() == "True", name
+
+
+def test_the_wms_proxy_answers_a_wide_or_distant_map_image_itself() -> None:
+    code = """
+from app.backend import wms
+asked = []
+class Answer:
+    headers = {'Content-Type': 'image/png'}
+    def read(self): return b'png'
+    def __enter__(self): return self
+    def __exit__(self, *exc): return False
+def answer(request, timeout):
+    asked.append(request.full_url)
+    return Answer()
+wms.urlopen = answer
+base = {'SERVICE': 'WMS', 'REQUEST': 'GetMap', 'LAYERS': '12', 'SRS': 'EPSG:4326', 'VERSION': '1.1.1'}
+for bbox in ['0,-90,180,90', '11.25,53.4375,14.0625,56.25', '15.0,59.0,15.5,59.5', '13.45,55.81,13.54,55.90']:
+    body, _ = wms.get_map('mcf', {**base, 'BBOX': bbox})
+    print(body == wms.EMPTY_PNG)
+print(len(asked))
+"""
+    # Half the Earth, a zoom-7 tile and a tile far off are answered empty; one over Ringsjöarna is forwarded.
+    assert run_python(code, "skane2024").stdout.split() == ["True", "True", "True", "False", "1"]
+
+
+def test_the_screens_ask_the_map_services_only_for_small_tiles_over_the_map_area() -> None:
+    frontend = REPO_ROOT / "app" / "frontend"
+    assert "bounds: config.map_bounds, minZoom: 8" in (frontend / "map2d.js").read_text(encoding="utf-8")
+    assert "minimumLevel: 8" in (frontend / "map3d.js").read_text(encoding="utf-8")

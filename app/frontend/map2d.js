@@ -333,11 +333,13 @@ function createLeafletMap(config) {
     },
 
     // The scenario's WMS layers (wms.py, through the backend) in the layer control; `visible` start shown.
-    // In WGS 84: MCF's service has no Web Mercator.
+    // In WGS 84: MCF's service has no Web Mercator. Over the map area and from zoom 8 only: a tile over
+    // GOD VIEW's Europe takes MCF's service some 16 s to draw (wms.py MAX_BBOX_DEGREES).
     addWms(source) {
       for (const [name, title] of Object.entries(source.layers)) {
         const layer = L.tileLayer.wms(source.url, {
           layers: name, format: "image/png", transparent: true, version: "1.1.1", crs: L.CRS.EPSG4326,
+          bounds: config.map_bounds, minZoom: 8,
           opacity: 0.7, attribution: source.attribution, pane: "wms",
         });
         overlays[`${title} (modell)`] = layer;
