@@ -63,6 +63,8 @@ KEEP_BOTH_RUNNING = ["--disable-background-timer-throttling", "--disable-rendere
                      "--disable-backgrounding-occluded-windows"]
 # Conditions are polled at a fixed interval, not on animation frames.
 POLL_MS = 100
+# The rain panel opens with the hour's rain, or with the day's where no station measures by the hour.
+RAIN_SHOWN = ("Senaste timmen", "Senaste dygnet")
 
 
 @dataclass
@@ -229,7 +231,7 @@ def opening(demo: Demo) -> str:
     demo.monitor.goto(f"{demo.base_url}/monitor.html")
     demo.control.wait_for_function("document.getElementById('scenario-status').children.length > 0", timeout=WAIT_MS, polling=POLL_MS)
     if not scenario.WILDFIRE:
-        demo.main.wait_for_function("document.getElementById('rain-values').textContent.includes('Senaste timmen')", timeout=WAIT_MS, polling=POLL_MS)
+        demo.main.wait_for_function(f"(text => {json.dumps(RAIN_SHOWN)}.some(label => text.includes(label)))(document.getElementById('rain-values').textContent)", timeout=WAIT_MS, polling=POLL_MS)
     demo.shot("1-opening")
     shown = demo.text('counts') if scenario.WILDFIRE else 'regnet visas: ' + demo.text('rain-values').replace(chr(10), ' ')
     # The flood maps come from services outside the demo: a silent one is reported, not failed.

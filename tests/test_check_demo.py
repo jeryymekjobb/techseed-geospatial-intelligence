@@ -5,6 +5,7 @@ started on a free local port."""
 from __future__ import annotations
 
 import socket
+from pathlib import Path
 
 from tools import check_demo
 
@@ -104,3 +105,8 @@ def test_in_a_visible_window_the_screens_go_where_open_screens_puts_them() -> No
 
     window = open_screens.Window("main", "/3d.html", 1190, 192, 2250, 1408)
     assert check_demo.bounds(window) == {"left": 1190, "top": 192, "width": 2250, "height": 1408}
+
+
+def test_the_opening_accepts_the_rain_panel_s_hourly_and_daily_start() -> None:
+    panel = (Path(check_demo.REPO_ROOT) / "app/frontend/panel.js").read_text(encoding="utf-8")
+    assert all(f'["{label}' in panel for label in check_demo.RAIN_SHOWN)
