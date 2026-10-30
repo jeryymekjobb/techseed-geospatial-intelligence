@@ -100,10 +100,10 @@ PLAYBACK_END = datetime(2023, 11, 7, 0, 0, tzinfo=timezone.utc)
 PLAYBACK_SPEED = 1800.0
 # The heaviest rain, on 4 November.
 CHECK_START_UTC = "2023-11-04T06:00:00Z"
-# The demo check: at noon on 4 November 4 of the 9 sensors confirm (DV1, DV2, DV4 and NG1 Himlabadet) and the
+# The demo check: at noon on 4 November 5 of the 9 sensors confirm (DV1, DV2, DV4, DV5 and NG1 Himlabadet) and the
 # assessment says "Flood probable". Its SATCOM outage starts in the evening before Sentinel-1's pass at 05:14 UTC on 6 November.
 CHECK_PEAK_UTC = "2023-11-04T12:00:00Z"
-CHECK_SENSORS = "4/9"
+CHECK_SENSORS = "5/9"
 CHECK_OUTCOME = "Flood probable"
 CHECK_SATCOM_UTC = "2023-11-05T21:00:00Z"
 # The detection sequence at noon on 4 November uses Sentinel-1A's pass of 6 November, whose radar shows no new

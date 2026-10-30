@@ -11,9 +11,13 @@ both have an hour, the latest months' value is kept.
 `--parameters` limits the parameters, for stations that measure only some of
 them, such as precipitation gauges.
 
+The stations in LOCAL_TIME_STATIONS stamp their hours in Swedish local time,
+though SMHI's files say UTC; their rows are moved to UTC as they are read.
+
 SMHI open data is licensed under Creative Commons Attribution 4.0 SE: name SMHI
-as the source and state changes (here: period selection and merging of
-parameters). Only the Python standard library is used.
+as the source and state changes (here: period selection, merging of parameters
+and, for those stations, the time moved to UTC). Only the Python standard library
+is used.
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
@@ -41,6 +45,42 @@ PARAMETERS = {
 
 
 PERIODS = ("corrected-archive", "latest-months")
+
+# Sundsvall municipality's own rain gauges in SMHI's "Övriga stationer" (whose data SMHI does not
+# check) stamp their hours in Swedish local time, though SMHI's files say UTC: measured on
+# 2026-10-30 against SMHI's radar, they come two hours late in August 2023 and 2026 and one in
+# November 2023 and December 2020, while SMHI's Brämön A fits the radar as it is.
+LOCAL_TIME_STATIONS = {"2222811", "2222812", "2222813", "2222814", "2222818", "2222819", "22228110"}
+TIME_BASIS_LOCAL = "Svensk lokal tid (normaltid, sommartid), flyttad till UTC; SMHI:s fil anger UTC"
+
+
+def last_sunday(year: int, month: int) -> date:
+    day = date(year, month + 1, 1) - timedelta(days=1)
+    return day - timedelta(days=(day.weekday() + 1) % 7)
+
+
+def summer_time_utc(year: int) -> tuple[datetime, datetime]:
+    """Swedish summer time, as the EU's: from 01 UTC on March's last Sunday to 01 UTC on October's."""
+    start, end = last_sunday(year, 3), last_sunday(year, 10)
+    return (datetime(start.year, start.month, start.day, 1, tzinfo=timezone.utc),
+            datetime(end.year, end.month, end.day, 1, tzinfo=timezone.utc))
+
+
+def local_rows_to_utc(rows: list[tuple[str, str, str, str]]) -> list[tuple[str, str, str, str]]:
+    """`(date, time, value, quality)` rows stamped in Swedish local time, moved to UTC. October's
+    repeated hour is summer time the first time and normal time the second; a time March skips is
+    taken as normal time. Computed without time zone data, so it works where Python has none."""
+    moved, seen = [], set()
+    for day, clock, value, quality in rows:
+        local = datetime.fromisoformat(f"{day}T{clock}").replace(tzinfo=timezone.utc)
+        start, end = summer_time_utc(local.year)
+        summer, winter = local - timedelta(hours=2), local - timedelta(hours=1)
+        summer_fits = start <= summer < end
+        winter_fits = not start <= winter < end
+        utc = summer if summer_fits and not (winter_fits and (day, clock) in seen) else winter
+        seen.add((day, clock))
+        moved.append((utc.strftime("%Y-%m-%d"), utc.strftime("%H:%M"), value, quality))
+    return moved
 
 
 def archive_url(parameter: int, station: str, period: str = "corrected-archive") -> str:
@@ -152,13 +192,18 @@ def main(argv: list[str] | None = None) -> int:
                         raw_path.parent.mkdir(parents=True, exist_ok=True)
                         raw_path.write_text(text, encoding="utf-8")
                 current = parse_archive(text)
+                if station in LOCAL_TIME_STATIONS:
+                    current = {**current, "rows": local_rows_to_utc(current["rows"])}
                 # The later period's rows come after, so merge() keeps its value for an hour both have.
                 parsed = current if parsed is None else {**parsed, "rows": parsed["rows"] + current["rows"]}
             archives[parameter] = parsed
         rows = merge(archives, args.start, args.end)
         slug = slug_for(next(iter(archives.values()))["station_name"], station)
         write_station(args.out, slug, rows)
-        records.append({**station_record(archives, slug), "hours": len(rows)})
+        record = {**station_record(archives, slug), "hours": len(rows)}
+        if station in LOCAL_TIME_STATIONS:
+            record["time_basis"] = TIME_BASIS_LOCAL
+        records.append(record)
         print(f"{slug}: {len(rows)} hours")
     (args.out / "stations.json").write_text(json.dumps({
         "source": ATTRIBUTION,

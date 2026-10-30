@@ -77,3 +77,20 @@ def test_both_periods_are_read_and_the_latest_months_win_an_hour_they_share(tmp_
         rows = list(csv.DictReader(stream))
     assert [[row["time_utc"], row["precip_mm"], row["precip_mm_quality"]] for row in rows] == [
         ["2012-01-01T00:00:00Z", "0.2", "G"], ["2026-07-01T00:00:00Z", "1.4", "Y"], ["2026-10-20T12:00:00Z", "3.0", "Y"]]
+
+
+def test_local_time_rows_move_to_utc_by_the_season() -> None:
+    moved = smhi.local_rows_to_utc([
+        ("2026-08-16", "10:00", "7.9", "Y"),   # summer time: UTC+2
+        ("2020-12-29", "00:30", "1.0", "Y"),   # normal time: UTC+1, into the day before
+        ("2023-10-29", "02:00", "0.2", "Y"),   # October's repeated hour, first summer time ...
+        ("2023-10-29", "02:00", "0.4", "Y"),   # ... then normal time
+        ("2023-10-29", "03:00", "0.6", "Y"),
+    ])
+    assert moved == [
+        ("2026-08-16", "08:00", "7.9", "Y"), ("2020-12-28", "23:30", "1.0", "Y"),
+        ("2023-10-29", "00:00", "0.2", "Y"), ("2023-10-29", "01:00", "0.4", "Y"), ("2023-10-29", "02:00", "0.6", "Y"),
+    ]
+    assert smhi.summer_time_utc(2026)[0].isoformat() == "2026-03-29T01:00:00+00:00"
+    assert {"2222813", "2222814", "2222818", "2222811", "2222812", "2222819"} <= smhi.LOCAL_TIME_STATIONS
+    assert "127130" not in smhi.LOCAL_TIME_STATIONS  # SMHI's own Brämön A keeps UTC
