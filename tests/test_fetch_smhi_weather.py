@@ -94,3 +94,11 @@ def test_local_time_rows_move_to_utc_by_the_season() -> None:
     assert smhi.summer_time_utc(2026)[0].isoformat() == "2026-03-29T01:00:00+00:00"
     assert {"2222813", "2222814", "2222818", "2222811", "2222812", "2222819"} <= smhi.LOCAL_TIME_STATIONS
     assert "127130" not in smhi.LOCAL_TIME_STATIONS  # SMHI's own Brämön A keeps UTC
+
+
+def test_skanes_water_utility_gauges_move_forward_by_the_season() -> None:
+    moved = smhi.back_rows_to_utc([("2024-01-27", "16:00", "2.0", "Y"), ("2024-07-01", "23:00", "1.0", "Y")])
+    assert moved == [("2024-01-27", "17:00", "2.0", "Y"), ("2024-07-02", "01:00", "1.0", "Y")]
+    assert {"22128144", "22128520", "22128522", "22128523", "22128524"} == smhi.UTC_BACK_BY_LOCAL_STATIONS
+    assert "53530" not in smhi.UTC_BACK_BY_LOCAL_STATIONS  # SMHI's own Hörby A keeps UTC
+    assert not smhi.UTC_BACK_BY_LOCAL_STATIONS & smhi.LOCAL_TIME_STATIONS

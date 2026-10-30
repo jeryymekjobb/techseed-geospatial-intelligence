@@ -11,12 +11,13 @@ both have an hour, the latest months' value is kept.
 `--parameters` limits the parameters, for stations that measure only some of
 them, such as precipitation gauges.
 
-The stations in LOCAL_TIME_STATIONS stamp their hours in Swedish local time,
+The stations in LOCAL_TIME_STATIONS stamp their hours in Swedish local time, and
+those in UTC_BACK_BY_LOCAL_STATIONS as far before UTC as local time is after it,
 though SMHI's files say UTC; their rows are moved to UTC as they are read.
 
 SMHI open data is licensed under Creative Commons Attribution 4.0 SE: name SMHI
 as the source and state changes (here: period selection, merging of parameters
-and, for those stations, the time moved to UTC). Only the Python standard library
+and, for the stations above, the time moved to UTC). Only the Python standard library
 is used.
 """
 
@@ -52,6 +53,12 @@ PERIODS = ("corrected-archive", "latest-months")
 # November 2023 and December 2020, while SMHI's Brämön A fits the radar as it is.
 LOCAL_TIME_STATIONS = {"2222811", "2222812", "2222813", "2222814", "2222818", "2222819", "22228110"}
 TIME_BASIS_LOCAL = "Svensk lokal tid (normaltid, sommartid), flyttad till UTC; SMHI:s fil anger UTC"
+# The water utilities' gauges in Skåne (Kungshult VV, Billinge VV, Eslöv VV, Löberöd PST and Veberöd TS,
+# also "Övriga stationer") stamp their hours the other way: one hour before UTC in winter and two in
+# summer, as against SMHI's Hörby A over 2023-2024 and SMHI's radar in January 2024 (measured
+# 2026-10-30). Perhaps UTC taken for local time and moved once more; their rows are moved forward.
+UTC_BACK_BY_LOCAL_STATIONS = {"22128144", "22128520", "22128522", "22128523", "22128524"}
+TIME_BASIS_BACK = "UTC minus svensk tids skillnad mot UTC (1 h vintertid, 2 h sommartid), flyttad till UTC; SMHI:s fil anger UTC"
 
 
 def last_sunday(year: int, month: int) -> date:
@@ -79,6 +86,19 @@ def local_rows_to_utc(rows: list[tuple[str, str, str, str]]) -> list[tuple[str, 
         winter_fits = not start <= winter < end
         utc = summer if summer_fits and not (winter_fits and (day, clock) in seen) else winter
         seen.add((day, clock))
+        moved.append((utc.strftime("%Y-%m-%d"), utc.strftime("%H:%M"), value, quality))
+    return moved
+
+
+def back_rows_to_utc(rows: list[tuple[str, str, str, str]]) -> list[tuple[str, str, str, str]]:
+    """`(date, time, value, quality)` rows stamped as far before UTC as Swedish local time is after it,
+    moved to UTC: one hour forward in normal time, two in summer time, as the stamp itself falls.
+    Round the changes of time an hour or two may land an hour off."""
+    moved = []
+    for day, clock, value, quality in rows:
+        stamp = datetime.fromisoformat(f"{day}T{clock}").replace(tzinfo=timezone.utc)
+        start, end = summer_time_utc(stamp.year)
+        utc = stamp + timedelta(hours=2 if start <= stamp < end else 1)
         moved.append((utc.strftime("%Y-%m-%d"), utc.strftime("%H:%M"), value, quality))
     return moved
 
@@ -194,6 +214,8 @@ def main(argv: list[str] | None = None) -> int:
                 current = parse_archive(text)
                 if station in LOCAL_TIME_STATIONS:
                     current = {**current, "rows": local_rows_to_utc(current["rows"])}
+                elif station in UTC_BACK_BY_LOCAL_STATIONS:
+                    current = {**current, "rows": back_rows_to_utc(current["rows"])}
                 # The later period's rows come after, so merge() keeps its value for an hour both have.
                 parsed = current if parsed is None else {**parsed, "rows": parsed["rows"] + current["rows"]}
             archives[parameter] = parsed
@@ -203,6 +225,8 @@ def main(argv: list[str] | None = None) -> int:
         record = {**station_record(archives, slug), "hours": len(rows)}
         if station in LOCAL_TIME_STATIONS:
             record["time_basis"] = TIME_BASIS_LOCAL
+        elif station in UTC_BACK_BY_LOCAL_STATIONS:
+            record["time_basis"] = TIME_BASIS_BACK
         records.append(record)
         print(f"{slug}: {len(rows)} hours")
     (args.out / "stations.json").write_text(json.dumps({
