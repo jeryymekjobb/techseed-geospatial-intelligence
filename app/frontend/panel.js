@@ -1968,7 +1968,8 @@ function showSummary(scenarioState) {
     start.addEventListener("click", () => runCommand("play"));
     const countdown = document.createElement("p");
     countdown.className = "loop-countdown";
-    element.append(title, list, start, countdown);
+    // The sources too, so the map's corner can keep only OpenStreetMap's credit (credits.js).
+    element.append(title, list, start, countdown, creditList());
   }
   showCountdown(element, loopCountdown(scenarioState, "summary"));
   element.hidden = !(summary.shown && lines.length);
@@ -2010,7 +2011,7 @@ function showClosing(scenarioState) {
     }));
     const countdown = document.createElement("p");
     countdown.className = "loop-countdown";
-    element.append(countdown);
+    element.append(countdown, creditList());
   }
   showCountdown(element, loopCountdown(scenarioState, "closing"));
   element.hidden = !shown || state.closingDismissed;

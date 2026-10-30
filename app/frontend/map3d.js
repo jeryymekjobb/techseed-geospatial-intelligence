@@ -113,8 +113,10 @@ async function createCesiumMap(config) {
   });
   viewer.scene.globe.enableLighting = false;
   viewer.scene.skyAtmosphere.show = true;
-  const credits = viewer.creditDisplay;
-  const addCredit = (text) => { if (text) credits.addStaticCredit(new Cesium.Credit(text, true)); };
+  // The credits out of the map picture (credits.js): Cesium's own line is hidden, and the imagery's
+  // credits are added as the layers are made or shown.
+  viewer.bottomContainer.style.display = "none";
+  viewer.container.append(creditBox());
   addCredit("Natural Earth II");
   addCredit(config.attribution.firms);
   const [south, west] = config.view_bounds[0];
@@ -129,6 +131,7 @@ async function createCesiumMap(config) {
       rectangle: Cesium.Rectangle.fromDegrees(mapWest, mapSouth, mapEast, mapNorth),
       credit: new Cesium.Credit("© OpenStreetMap contributors", true),
     }));
+    addCredit(config.attribution.osm);
   } else {
     addNote(`Offline-kartan är inte igång; 3D-globen visar bara Natural Earth II över ${config.incident_area}.`);
   }
@@ -157,6 +160,7 @@ async function createCesiumMap(config) {
       rectangle: Cesium.Rectangle.fromDegrees(overlayWest, overlaySouth, overlayEast, overlayNorth),
       credit: new Cesium.Credit(config.layers.road_overlay.attribution, true),
     }));
+    addCredit(config.layers.road_overlay.attribution);
     const keepOnTop = (layer) => {
       if (layer !== roadOverlayLayer) viewer.imageryLayers.raiseToTop(roadOverlayLayer);
     };
@@ -315,6 +319,7 @@ async function createCesiumMap(config) {
         }), 1);
       }
       for (const [key, layer] of Object.entries(baseById)) layer.show = key === id || key === under;
+      setShortCredits(municipalMaps.filter((item) => item.id === id).map((item) => item.attribution));
     },
     addAttribution: addCredit,
 

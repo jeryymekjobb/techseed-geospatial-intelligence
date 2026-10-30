@@ -23,8 +23,18 @@ function panBounds(config) {
 
 function createLeafletMap(config) {
   const map = L.map("map", {
-    preferCanvas: true, zoomSnap: 0.25, maxBounds: panBounds(config),
+    preferCanvas: true, zoomSnap: 0.25, maxBounds: panBounds(config), attributionControl: false,
   });
+  // The credits out of the map picture (credits.js): Leaflet's attribution control still collects
+  // every layer's credit, but draws the short line and the list behind "(i) Källor".
+  const CreditControl = L.Control.Attribution.extend({
+    _update() {
+      if (!this._map) return;
+      for (const [text, count] of Object.entries(this._attributions)) if (count) addCredit(text);
+      if (!this._container.classList.contains("map-credits")) creditBox(this._container);
+    },
+  });
+  new CreditControl({ prefix: false }).addTo(map);
   map.fitBounds(config.view_bounds);
   const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
   const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: osmAttribution });
@@ -117,7 +127,7 @@ function createLeafletMap(config) {
   const landsatOverlays = {};
   let windLayer = null;
   const wmsLayers = new Map();  // WMS layer name -> Leaflet layer
-  if (config.attribution.firms) map.attributionControl.addAttribution(config.attribution.firms);
+  addCredit(config.attribution.firms);
   const stationMarkers = new Map();  // SMHI station id -> marker
   let markers = [];
   let windMarkers = [];
@@ -168,7 +178,7 @@ function createLeafletMap(config) {
   return {
     dimension: "2d",
     wantsLabels: () => Boolean(offline),
-    addAttribution: (text) => map.attributionControl.addAttribution(text),
+    addAttribution: addCredit,
 
     addTerrain(collection) {
       const layer = L.geoJSON(collection, {
@@ -263,6 +273,7 @@ function createLeafletMap(config) {
         if (key === id || key === under) { if (!map.hasLayer(layer)) layer.addTo(map); layer.bringToBack(); } else layer.remove();
       }
       if (under) baseById[under].bringToBack();
+      setShortCredits(municipalMaps.filter((item) => item.id === id).map((item) => item.attribution));
       if (labelLayer) {
         if (id === "offline" || id === null || withoutNames.has(id)) labelLayer.addTo(map); else labelLayer.remove();
       }
