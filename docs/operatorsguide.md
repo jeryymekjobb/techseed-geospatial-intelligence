@@ -1185,7 +1185,11 @@ tagen 4 aug. 2014 12:06 svensk tid".
 gäller alla skärmar: uppspelningen, **VISA ALLA**, **FLYG TILL …** och **ÖVERSIKT**,
 prognoshorisonten och vilken station panelen visar, kartans lager, frågorna och **RENSA
 SVARET**. Huvudskärmens listor står kvar som text, så att besökarna ser vad som visas. På
-kartan kan du fortfarande zooma, dra och högerklicka. Lägg till `?controls=1` i adressen för
+kartan kan du fortfarande zooma, dra och högerklicka. Det enda du styr från huvudskärmen är klockan: i panelens
+tidsdiagram (regn, vattenföring, molntoppar, moln och brandens tidslinje) kan du ta tag i det
+röda strecket och dra det. Åt vänster backar scenariots klocka, åt höger flyttas den fram, och
+alla skärmar följer med. Spelar demon fortsätter den från den nya tiden. Väderprognosens
+diagram har sin egen tidsaxel och går inte att dra. Lägg till `?controls=1` i adressen för
 att få tillbaka huvudskärmens egna knappar och lagerlistor vid felsökning. Uppspelningsknapparna
 där styr alla skärmar, medan lagerlistan och stationslistorna bara gäller den skärmen.
 

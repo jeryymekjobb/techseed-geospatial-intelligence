@@ -39,6 +39,7 @@ const state = {
   daily: [],
   playing: false,
   controlToken: null,
+  clockDrag: false,  // the clock's line is being dragged in a time chart (setupClockDrag)
   clock: null,
   finished: false,
   // Mission-control status (scenario_events.js): applied when it changes.
@@ -1416,6 +1417,65 @@ function runCommand(name, extra) {
   });
 }
 
+// The time charts whose clock line can be dragged (chart_clock.js): left moves the scenario's clock
+// back, right forward. The panel and the map follow at once; the shared clock, and so every screen,
+// a few times a second and where the line is let go. MET Norway's forecast keeps its own time axis.
+const CLOCK_CHARTS = ["rain-chart", "cth-chart", "clm-chart", "hydro-chart", "timeline"];
+const CLOCK_LINE_REACH_PX = 10;
+const CLOCK_SEEK_MS = 250;
+
+function clockLineNear(svg, clientX) {
+  const line = svg.querySelector("line.rain-now, line.cursor");
+  if (!line) return false;
+  const box = line.getBoundingClientRect();
+  return Math.abs(clientX - (box.left + box.right) / 2) <= CLOCK_LINE_REACH_PX;
+}
+
+function setupClockDrag() {
+  const chartAt = (target) => {
+    const svg = target.closest?.("svg");
+    return svg && CLOCK_CHARTS.includes(svg.id) ? svg : null;
+  };
+  document.addEventListener("pointermove", (event) => {
+    const svg = chartAt(event.target);
+    if (svg && !state.clockDrag) svg.style.cursor = clockLineNear(svg, event.clientX) ? "ew-resize" : "";
+  });
+  document.addEventListener("pointerdown", (event) => {
+    const svg = chartAt(event.target);
+    if (!svg || !clockLineNear(svg, event.clientX)) return;
+    event.preventDefault();
+    // The chart's screen geometry when grabbed: the chart is drawn again under the line as it moves.
+    const toChart = svg.getScreenCTM().inverse();
+    const width = svg.viewBox.baseVal.width;
+    const timeAt = (clientX) => chartTimeAt(new DOMPoint(clientX, 0).matrixTransform(toChart).x, width,
+      Date.parse(state.config.playback.start_utc), Date.parse(state.config.playback.end_utc));
+    let clock = state.clock;
+    let frame = null;
+    let lastSeek = 0;
+    const seek = () => {
+      lastSeek = Date.now();
+      runCommand("seek", { at: clock.toISOString() });
+    };
+    const move = (moved) => {
+      clock = timeAt(moved.clientX);
+      if (frame === null) frame = requestAnimationFrame(() => { frame = null; setClock(clock); });
+      if (Date.now() - lastSeek >= CLOCK_SEEK_MS) seek();
+    };
+    const release = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+      state.clockDrag = false;
+      svg.style.cursor = "";
+      seek();
+    };
+    state.clockDrag = true;
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+  });
+}
+
 function showSpeed(speed) {
   const select = $("speed");
   if (![...select.options].some((option) => Number(option.value) === speed)) {
@@ -1980,7 +2040,8 @@ function applyState(scenarioState) {
   document.body.dataset.slowed = String(Boolean(scenarioState.slowed && scenarioState.playing));
   // Read by tools/record_demo.py.
   document.body.dataset.playback = scenarioState.finished ? "finished" : scenarioState.playing ? "playing" : "paused";
-  setClock(new Date(scenarioState.clock_utc));
+  // While the clock's line is dragged the panel shows the dragged time, not the stream's.
+  if (!state.clockDrag) setClock(new Date(scenarioState.clock_utc));
   applyStatus(scenarioState.status);
   for (const event of state.pendingEvents.splice(0)) showBanner(eventBanner(event, scenarioState.status));
 }
@@ -2227,6 +2288,7 @@ async function startApp(createMap) {
   $("reset").addEventListener("click", () => runCommand("reset"));
   $("show-all").addEventListener("click", () => runCommand("seek", { at: config.playback.end_utc }));
   $("speed").addEventListener("change", (event) => runCommand("speed", { speed: Number(event.target.value) }));
+  setupClockDrag();
   await connectScenario();
   // Kiosk options (kiosk.js): ?show=all, ?at=<ISO time>, ?autoplay=1, ?speed=, ?horizon=.
   // Options that move the clock change the shared scenario for every screen.
