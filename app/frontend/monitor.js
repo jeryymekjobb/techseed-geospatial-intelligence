@@ -37,7 +37,8 @@ async function start() {
   const lib = await import("/vendor/satellite.js-7.1.0/index.js");
   // The read-aloud voices' credit (speech.py; alma is CC BY 4.0) after the satellites' source.
   const credit = config.speech_credit ? ` ${config.speech_credit}.` : "";
-  note.textContent = data.available ? `${data.label}. Källa: ${data.source}.${credit}` : `${data.note}${credit}`;
+  const sources = data.available ? `${data.label}. Källa: ${data.source}.${credit}` : `${data.note}${credit}`;
+  note.textContent = sources;
   const centre = config.fire_centre;
   const longPlayback = (Date.parse(config.playback.data_end_utc) - Date.parse(config.playback.data_start_utc)) / DAY > LOG_YEARS_AFTER_DAYS;
   const place = config.incident_place;
@@ -222,7 +223,8 @@ async function start() {
 
   const source = new EventSource("/api/scenario/stream");
   const follow = (event) => { const body = JSON.parse(event.data); show(body.state || body); };
-  source.addEventListener("sync", follow);
+  // The stream sends sync on every (re)connection: the source and voice credits come back after an outage.
+  source.addEventListener("sync", (event) => { note.textContent = sources; follow(event); });
   source.addEventListener("state", follow);
   source.addEventListener("synthetic_sensors", (event) => { levelSensors = JSON.parse(event.data).sensors || []; });
   source.onerror = () => { note.textContent = "Anslutningen till backend bröts – försöker igen …"; };

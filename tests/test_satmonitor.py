@@ -86,3 +86,11 @@ def test_the_timeline_marks_the_hours_of_night_at_the_incident() -> None:
     spans = node(f"nightSpans(62.391, 17.307, Date.parse('2026-08-16T19:00:00Z'))")
     assert len(spans) == 1 and spans[0][1] == 1
     assert spans[0][0] == pytest.approx((18 * 60 + 45 - 18 * 60) / 360, abs=0.03)  # 18:45 UTC in a window from 18:00
+
+
+def test_the_monitor_s_credits_come_back_when_the_stream_reconnects() -> None:
+    """An outage shows "Anslutningen … bröts" in the credit line; the sync sent on reconnection puts the
+    satellites' source and the voice's credit (CC BY 4.0) back. monitor.js is not run here (Q-05)."""
+    monitor = (SCRIPT.parent / "monitor.js").read_text(encoding="utf-8")
+    assert 'source.onerror = () => { note.textContent = "Anslutningen till backend bröts' in monitor
+    assert 'source.addEventListener("sync", (event) => { note.textContent = sources; follow(event); });' in monitor
