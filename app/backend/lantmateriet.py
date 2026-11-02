@@ -24,6 +24,8 @@ from urllib.request import Request, urlopen
 # Only map-image requests are forwarded; other WMS operations are refused.
 WMS_PARAMETERS = {"SERVICE", "REQUEST", "VERSION", "LAYERS", "STYLES", "FORMAT", "TRANSPARENT", "SRS", "CRS", "BBOX", "WIDTH", "HEIGHT"}
 TIMEOUT_SECONDS = 20
+# Topowebb is a web mercator tile pyramid; deeper levels than this are not asked for.
+MAX_ZOOM = 20
 
 
 class NotConfigured(Exception):
@@ -75,13 +77,16 @@ def _get(url: str, settings: Settings) -> tuple[bytes, str]:
             return response.read(), response.headers.get("Content-Type", "application/octet-stream")
     except HTTPError as exc:
         raise UpstreamError(exc.code) from None
-    except (URLError, TimeoutError):
+    except (URLError, TimeoutError, OSError):
+        # OSError too: a connection reset or cut off while the body is read.
         raise UpstreamError(504) from None
 
 
 def topowebb_tile(settings: Settings, z: int, x: int, y: int) -> tuple[bytes, str]:
     if not settings.topowebb_enabled:
         raise NotConfigured("topowebb")
+    if not (0 <= z <= MAX_ZOOM and 0 <= x < 2 ** z and 0 <= y < 2 ** z):
+        raise ValueError("tile outside the web mercator grid")
     return _get(str(settings.topowebb_url).format(z=z, x=x, y=y), settings)
 
 
@@ -91,5 +96,8 @@ def fastighet_map(settings: Settings, query: dict[str, str]) -> tuple[bytes, str
     parameters = {key.upper(): value for key, value in query.items()}
     if set(parameters) - WMS_PARAMETERS or parameters.get("REQUEST", "").lower() != "getmap":
         raise ValueError("only WMS GetMap with map parameters is forwarded")
+    allowed = {layer.strip() for layer in settings.fastighet_layers.split(",") if layer.strip()}
+    if not set(parameters.get("LAYERS", "").split(",")) <= allowed:
+        raise ValueError("only the layers in LM_FASTIGHET_LAYERS are forwarded")
     separator = "&" if "?" in str(settings.fastighet_wms_url) else "?"
     return _get(f"{settings.fastighet_wms_url}{separator}{urlencode(parameters)}", settings)

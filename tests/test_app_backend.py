@@ -98,13 +98,39 @@ def test_lantmateriet_proxy_authenticates_and_forwards_only_getmap() -> None:
         lantmateriet.fastighet_map(settings, {"request": "GetMap", "url": "https://elsewhere.test"})
 
 
+def test_lantmateriet_proxy_forwards_only_the_chosen_layers_and_real_tiles() -> None:
+    settings = lantmateriet.Settings("user", "secret", "https://lm.test/{z}/{y}/{x}.png", "https://lm.test/wms", "gränser, ytor")
+    with patch("app.backend.lantmateriet.urlopen", side_effect=lambda request, timeout: FakeResponse(b"png")) as opened:
+        lantmateriet.fastighet_map(settings, {"request": "GetMap", "layers": "gränser,ytor"})
+        for layers in ("hemligt", "gränser,hemligt", ""):
+            with pytest.raises(ValueError):
+                lantmateriet.fastighet_map(settings, {"request": "GetMap", "layers": layers})
+        for z, x, y in ((21, 0, 0), (-1, 0, 0), (2, 4, 0), (2, 0, -1)):
+            with pytest.raises(ValueError):
+                lantmateriet.topowebb_tile(settings, z, x, y)
+    assert opened.call_count == 1  # nothing refused reached Lantmäteriet with the server's login
+
+
+def test_a_connection_cut_while_reading_is_an_upstream_error() -> None:
+    settings = lantmateriet.Settings("user", "secret", "https://lm.test/{z}/{y}/{x}.png", None)
+
+    class Cut(FakeResponse):
+        def read(self) -> bytes:
+            raise ConnectionResetError("reset by peer")
+
+    with patch("app.backend.lantmateriet.urlopen", side_effect=lambda request, timeout: Cut(b"")):
+        with pytest.raises(lantmateriet.UpstreamError) as raised:
+            lantmateriet.topowebb_tile(settings, 1, 1, 1)
+    assert raised.value.status == 504
+
+
 def test_lantmateriet_errors_do_not_reveal_credentials() -> None:
     settings = lantmateriet.Settings("user", "secret", "https://lm.test/{z}/{x}/{y}", None)
-    error = HTTPError("https://lm.test/1/2/3", 401, "Unauthorized", {}, None)
+    error = HTTPError("https://lm.test/1/1/1", 401, "Unauthorized", {}, None)
 
     with patch("app.backend.lantmateriet.urlopen", side_effect=error):
         with pytest.raises(lantmateriet.UpstreamError) as raised:
-            lantmateriet.topowebb_tile(settings, 1, 2, 3)
+            lantmateriet.topowebb_tile(settings, 1, 1, 1)
 
     assert raised.value.status == 401
     assert "secret" not in repr(raised.value)
