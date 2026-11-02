@@ -49,7 +49,7 @@ inte att funktionen är fullständigt verifierad.
 | ID | Funktion | Märkning | Moduler | Tester |
 |---|---|---|---|---|
 | F-MAP-01 | 2D-karta (Leaflet) och 3D-glob (CesiumJS utan Cesium ion) med samma gränssnitt | – | `map2d.js`, `map3d.js`, `panel.js` | `test_map_adapters.py` |
-| F-MAP-02 | Offline-baskarta från OpenStreetMap via egen tileserver, med etiketter och vägöverlägg | V | `offline_tiles.py`, `tools/build_offline_tiles.py` | `test_offline_and_labels.py`, `test_basemaps.py` |
+| F-MAP-02 | Offline-baskarta från OpenStreetMap via egen tileserver, med etiketter och vägöverlägg | V | `offline_tiles.py`, `tools/build_offline_tiles.py` | `test_offline_and_labels.py`, `test_basemaps.py`, `test_cancelled_requests.py` |
 | F-MAP-03 | Val av baskarta: offline-OSM, OSM online, Lantmäteriets topowebb (via proxy med inloggning på servern), kommunens kartor sparade lokalt | V | `basemaps.js`, `lantmateriet.py`, `municipal_basemap.py` | `test_basemaps.py`, `test_municipal_basemap.py` |
 | F-MAP-04 | Världskarta utanför scenarioområdet (Natural Earth II) i 2D och 3D | V | `natural_earth.js` | `test_natural_earth.py` |
 | F-MAP-05 | 3D-terräng från Copernicus DEM GLO-30 | V | `tools/build_terrain.py`, `tools/quantized_terrain.py` | `test_terrain.py`, `test_quantized_terrain.py` |
@@ -57,7 +57,7 @@ inte att funktionen är fullständigt verifierad.
 | F-MAP-07 | Källkreditering: kort rad i kartan, hela listan bakom "(i) Källor", i sammanfattningen och i slutbilden | – | `credits.js` | `test_credits.py` |
 | F-MAP-08 | Vyer: GOD VIEW, rymdvy, kameraflygning från rymden, växling 2D/3D från mission control | – | `map2d.js`, `map3d.js`, `kiosk.js` | `test_mission_control.py`, `test_view_caption.py` |
 | F-MAP-09 | Filter per kategori: rymd, IoT, infrastruktur, väder | – | `scenario_engine.py` (`FILTERS`) | `test_mission_control.py` |
-| F-MAP-10 | Terränglager och mål från OpenStreetMap (byggnader, vägar, orter) | V | `/api/layers/terrain`, `tools/fetch_osm_terrain.py`, `tools/fetch_osm_targets.py` | `test_fetch_osm_terrain.py`, `test_fetch_osm_targets.py` |
+| F-MAP-10 | Terränglager och mål från OpenStreetMap (byggnader, vägar, orter) | V | `/api/layers/terrain`, `tools/fetch_osm_terrain.py`, `tools/fetch_osm_targets.py` | `test_fetch_osm_terrain.py`, `test_fetch_osm_targets.py`, `test_osm_waterways.py` |
 
 ## C. Satellitdata
 
@@ -85,7 +85,7 @@ inte att funktionen är fullständigt verifierad.
 | F-WX-04 | SMHI:s observerade blixtar | V | `lightning.py` | `test_lightning.py` |
 | F-WX-05 | Vindpilar från ERA5-Land och ERA5 över havet | M | `/api/wind`, `wind_barbs.js` | `test_wind_barbs.py`, `test_fetch_era5_land.py`, `test_sea_wind.py` |
 | F-WX-06 | MET Norways prognoser som de utfärdades vid scenarioklockan | M | `met_forecast.py`, `met_forecast.js` | `test_met_forecast.py`, `test_met_forecast_screens.py` |
-| F-WX-07 | SMHI:s uppmätta flöden och sjönivåer, med jämförelse mot högsta uppmätta | V | `hydro.py`, `hydro.js` | `test_hydro.py` |
+| F-WX-07 | SMHI:s uppmätta flöden och sjönivåer, med jämförelse mot högsta uppmätta | V | `hydro.py`, `hydro.js` | `test_hydro.py`, `test_read_vattenwebb.py` |
 | F-WX-08 | EFAS flödesprognoser som de utfärdades | M | `efas.py` | `test_efas.py` |
 | F-WX-09 | Havsvattenstånd från SMHI | V | `tools/fetch_smhi_sea_level.py` | `test_fetch_smhi_sea_level.py` |
 | F-WX-10 | Isobarer och väderdiagram | M | `tools/isobars.py`, `tools/weather_chart.py` | `test_isobars.py`, `test_weather_chart.py` |
@@ -97,7 +97,7 @@ inte att funktionen är fullständigt verifierad.
 | F-IOT-01 | Mottagning av IoT-noder över MQTT (TEMP, WATER, AIR, NTN), med status för noder som tystnat | S i dag | `iot.py`, `tools/mqtt_node_sim.py` | `test_iot.py`, `test_mqtt_node_sim.py` |
 | F-IOT-02 | Syntetiska sensorer i brandområdet, beräknade ur branden och vädret | S | `sensor_sim.py` | `test_sensor_sim.py` |
 | F-IOT-03 | Syntetiska bräddgivare vid kommunens kritiska dagvattenpunkter, i formen av diwise `Sewer` | S | `flood_sensors.py` | `test_flood.py` |
-| F-IOT-04 | Syntetiska nivåsensorer där vägar korsar ett vattendrags 100-årsflöde, drivna av SMHI:s mätningar | S | `level_sensors.py` | `test_flood.py` |
+| F-IOT-04 | Syntetiska nivåsensorer där vägar korsar ett vattendrags 100-årsflöde, drivna av SMHI:s mätningar | S | `level_sensors.py` | `test_flood.py`, `test_derive_impact_sensor_points.py` |
 | F-IOT-05 | Sensorer som operatören placerar på kartan (högst 10) | S | `scenario_engine.py` (`place_sensor`) | `test_mission_control.py`, `test_scenario_engine.py` |
 
 ## F. Analys och bedömning
@@ -133,11 +133,11 @@ inte att funktionen är fullständigt verifierad.
 
 | ID | Funktion | Märkning | Moduler | Tester |
 |---|---|---|---|---|
-| F-OPS-01 | Start med scenariomeny, kontroll före start och öppning av skärmar på rätt bildskärm | – | `tools/start_demo.py`, `tools/startup_check.py`, `tools/open_screens.py`, `tools/windows_screens.py` | `test_start_demo.py`, `test_startup_check.py`, `test_open_screens.py` |
+| F-OPS-01 | Start med scenariomeny, kontroll före start och öppning av skärmar på rätt bildskärm | – | `tools/start_demo.py`, `tools/startup_check.py`, `tools/open_screens.py`, `tools/windows_screens.py` | `test_start_demo.py`, `test_startup_check.py`, `test_open_screens.py`, `test_browsers.py` |
 | F-OPS-02 | Automatisk kontroll av ett scenario i webbläsare (`check_demo`) och inspelning av demon | – | `tools/check_demo.py`, `tools/record_demo.py` | `test_check_demo.py`, `test_record_demo.py` |
 | F-OPS-03 | Tjänster i Docker (PostGIS, tileserver, Mosquitto) eller lokalt installerade på Windows | – | `docker-compose.yml`, `tools/native_services.py`, `tools/start_native_*.py`, `postgres.py` | `test_native_services.py`, `test_start_native_mqtt.py`, `test_start_native_tiles.py` |
 | F-OPS-04 | Datapaket med kontrollsummor, installation från paket, hämtning per scenario | – | `tools/package_data.py`, `tools/install_data.py`, `tools/fetch_scenario.py` | `test_package_data.py`, `test_install_data.py`, `test_fetch_scenario.py` |
-| F-OPS-05 | Datainhämtning från respektive källa, med inloggningar utanför repot | – | `tools/fetch_*.py` (omkring 30 verktyg) | `test_fetch_*.py` |
+| F-OPS-05 | Datainhämtning från respektive källa, med inloggningar utanför repot | – | `tools/fetch_*.py` (omkring 30 verktyg) | `test_fetch_*.py`, `test_geo_tools.py`, `test_fetch_flood_sources.py` |
 
 ## Begränsningar som redan är kända
 
