@@ -1,7 +1,6 @@
-# Operatörsguide – brandkartan på IoTDagen
+# Operatörsguide – Techseed Geospatial Intelligence
 
-Den här guiden tar dig från en dator utan något installerat till en demo som går i
-montern. Varje steg säger vad du gör, varför, och vad du ska se när det har fungerat.
+Den här guiden tar dig från en dator utan något installerat till en demo som går. Varje steg säger vad du gör, varför, och vad du ska se när det har fungerat.
 Läs gärna igenom hela guiden en gång innan du börjar.
 
 Teknisk bakgrund för utvecklare finns i `app/README.md`.
@@ -76,12 +75,10 @@ git rev-parse HEAD
 py -3 --version
 ```
 
-Kommandona nedan förutsätter att klonen innehåller de nya verktygen
-`tools/startup_check.py`, `tools/install_data.py` och `tools/package_data.py`.
-Arbetet ligger på `cross-platform-installation` tills det publiceras eller integreras;
-en vanlig klon av `main` ger inte nödvändigtvis dessa ändringar. Använd endast en
-publicerad revision som projektansvarig har angett. Guiden är inte en uppmaning att
-pusha eller byta branch i ett repo med pågående arbete.
+Kommandona nedan använder verktygen `tools/startup_check.py`, `tools/install_data.py`
+och `tools/package_data.py`, som finns på `main`. Använd en revision som projektansvarig
+har angett. Guiden är inte en uppmaning att pusha eller byta branch i ett repo med
+pågående arbete.
 
 ### B. Pythonberoenden
 
@@ -245,9 +242,10 @@ kommunens GeoJSON är fortfarande inte fastställda och får inte antas.
 ### D. Kontrollera data och fyll PostGIS för valda scenarier
 
 Exemplet väljer enbart Västmanland. Byt namnet till ett scenario som paketet faktiskt
-omfattar: `vastmanland2014`, `sundsvall2026`, `skane2024`, `ljusdal2018`,
-`vasternorrland2025`, `kramfors2026`, `flenkommun2024`, `flen2024`, `flenkommun2021`
-eller `flen2019`.
+omfattar: `vastmanland2014`, `ljusdal2018`, `sundsvall2026`, `sundsvall-nov2023`,
+`sundsvall-feb2020`, `sundsvall-dec2020`, `ljungan-aug2023`, `vasternorrland2025`,
+`kramfors2026`, `skane2024`, `vasteras-sep2023`, `flenkommun2024`, `flen2024`,
+`flenkommun2021`, `flen2019` eller `falsterbo`.
 
 Ubuntu/Bash:
 
@@ -419,7 +417,7 @@ innehåller `tools/native_services.py` och de två `tools/start_native_*.py`-ver
 processorer blev VM:en överbelastad när 3D-globen ritades i mjukvara, och med VirtualBox
 3D-acceleration påslagen låste den sig. Det fungerade med **minst 8 processorer och
 3D-accelerationen avstängd**. En VM utan grafikkort säger inget om prestandan på
-utställningsdatorn. Ta en ögonblicksbild av VM:en innan du installerar något.
+demodatorn. Ta en ögonblicksbild av VM:en innan du installerar något.
 
 **Administratörsfönster.** Programmen installeras som vanligt, men att stoppa en
 Windows-tjänst eller ändra hur den startar kräver ett PowerShell-fönster som öppnats med
@@ -523,8 +521,16 @@ Rollnamnet är `firemap`, medan databasnamnet beror på scenariot:
 | `flen2024` | `flen2024` |
 | `flenkommun2021` | `flenkommun2021` |
 | `flen2019` | `flen2019` |
+| `sundsvall-nov2023` | `sundsvall-nov2023` |
+| `sundsvall-feb2020` | `sundsvall-feb2020` |
+| `sundsvall-dec2020` | `sundsvall-dec2020` |
+| `ljungan-aug2023` | `ljungan-aug2023` |
+| `vasteras-sep2023` | `vasteras-sep2023` |
+| `falsterbo` | `falsterbo` |
 
-För övriga installerade scenarier skapar administratören respektive databas med
+Alla scenarier utom `vastmanland2014` har alltså en databas med scenariots eget namn.
+Namn med bindestreck citeras i SQL, till exempel `CREATE DATABASE "sundsvall-nov2023"`.
+För varje installerat scenario skapar administratören respektive databas med
 `OWNER firemap` och aktiverar PostGIS där på samma sätt. Rollen skapas bara en gång.
 Föraktiveringen behövs eftersom `load_postgis` annars kan behöva större behörighet
 för att skapa databasen eller PostGIS-tillägget. Laddaren ersätter senare demotabeller,
@@ -732,7 +738,7 @@ och gör ingenting om den råkar komma med.
 
 # Del 1 – Förbered datorn
 
-Del 1 görs en gång per dator, helst några dagar före mässan. Den kräver internet. Efteråt
+Del 1 görs en gång per dator, helst några dagar före en visning. Den kräver internet. Efteråt
 fungerar demon utan internet.
 
 ## 1. Program som behövs
@@ -917,7 +923,7 @@ exempel `Suomi NPP: 18 element sets`. När 5.7 är klar skriver den en rad per b
 
 Det här steget ingår i installationen på **varje dator** där demon ska köras. Det visar
 att allt fungerar och mäter hur jämnt 3D-vyn rör sig på just den datorn. Kör det med
-skärmarna inkopplade som de ska vara i montern.
+skärmarna inkopplade som de ska vara vid visningen.
 
 Stäng först en demo som redan är igång (Ctrl+C i terminal 1 och 2 från avsnitt 7).
 Kontrollen startar en egen.
@@ -950,11 +956,11 @@ att försöka byta grafikkort själv.
 
 ---
 
-# Del 2 – På mässdagen
+# Del 2 – Vid visning
 
 ## 7. Starta demon
 
-**Enklast:** ett kommando startar allt – tjänsterna, backend, sensorerna i montern och de tre
+**Enklast:** ett kommando startar allt – tjänsterna, backend, IoT-noderna och de tre
 skärmarna på sina platser. Öppna en terminal, gå in i repot (`cd ~/techseed-geospatial-intelligence`)
 och kör:
 
@@ -987,7 +993,7 @@ PLAY eller hoppar i tiden.
 - Sammanfattningen visas i 20 sekunder ("Startar av sig själv om … s"), sedan spelas demon upp.
 - Vid stoppet står slutbilden i 30 sekunder ("Demon börjar om om … s"), sedan börjar demon om från
   start.
-- Var tionde sekund kontrollerar `start_demo` att sensorerna i montern och de tre skärmarna går, och
+- Var tionde sekund kontrollerar `start_demo` att IoT-noderna och de tre skärmarna går, och
   startar det som har stannat. Öppnas mission control igen återställs demon och börjar från start.
 - Stannar backend av sig själv, eller startar demon inte, försöker `start_demo` igen efter 10 sekunder.
 
@@ -1015,7 +1021,7 @@ docker compose up -d tiles postgis mosquitto
 
 Efter några sekunder ska du se raden `PostGIS: questions on`. Då är backend klar.
 
-**I terminal 2**, starta sensorerna i montern. De är simulerade i demon, se avsnitt 11:
+**I terminal 2**, starta IoT-noderna. De är simulerade i demon, se avsnitt 11:
 
 ```bash
 .venv/bin/python -m tools.mqtt_node_sim --interval 5
@@ -1239,7 +1245,7 @@ satelliter som tog bilder.
   översvämning), om en sådan sparades innan profilerna blev per scenario; texten under knappen
   säger vilken profil som gäller. Utan sparad profil gäller standardvalet: kortvågig IR i
   bränderna, radar i översvämningarna, offline-kartan och scenariots hela period. Profilerna
-  sparas i `data/display-profiles.json` på utställningsdatorn och följer inte med repot. Ta
+  sparas i `data/display-profiles.json` på demodatorn och följer inte med repot. Ta
   bort filen för att gå tillbaka till standardvalet.
 
 ## 9. Mission control på en surfplatta (valfritt)
@@ -1336,7 +1342,7 @@ flyttat sig mätbart. Pekar de åt samma håll stämmer modellen med vad satelli
 Fler knappar om besökarna frågar:
 
 - **SENSOR FAILURE**: en sensor slutar fungera och räknas inte längre.
-- **IOT PÅ/AV**: stänger av alla sensorer, både de i montern och de i brandområdet. Bedömningen
+- **IOT PÅ/AV**: stänger av alla sensorer, både IoT-noderna och de i brandområdet. Bedömningen
   räknas då bara på satellitdata. Tryck igen för att slå på dem.
 - **Placera IoT-sensor**: högerklicka på kartan på huvudskärmen och välj **Placera IoT-sensor**
   i menyn. En syntetisk sensor placeras där du klickade. Den heter Sensor P1, P2 och så vidare,
@@ -1355,7 +1361,7 @@ att det du säger stämmer med märkningen.
 |---|---|---|
 | **Riktiga data** | Meteosats brandpixlar (LSA SAF), satelliternas upptäckter av branden (NASA FIRMS), också passagen och detektionerna i upptäcktssekvensen, Landsat-bilderna (USGS), väderobservationer från SMHI, satelliternas banor (Space-Track), kartdata från OpenStreetMap (dagens läge, inte 2014) | "Riktiga data från 2014, uppspelade. Det är inte live." |
 | **Beräknat** | Satelliternas positioner, brandrisken från LSA SAF (ur ERA5:s väder), vinden (ERA5-Land, en modell), brandprognosen, bedömningens poäng, reglerna i sekvensens korreleringssteg | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
-| **Simulerat** | Sensorerna i montern (TEMP, WATER, AIR, NTN), sensorerna i brandområdet, satellitavbrottet, händelserna från mission control och sekvensens steg märkta SYNTETISKT: anomali ombord, nedlänk och IoT på marken | "Simulerat för demon. Det står på skärmen." |
+| **Simulerat** | IoT-noderna (TEMP, WATER, AIR, NTN), sensorerna i brandområdet, satellitavbrottet, händelserna från mission control och sekvensens steg märkta SYNTETISKT: anomali ombord, nedlänk och IoT på marken | "Simulerat för demon. Det står på skärmen." |
 
 Säg inte att något är live, att sensorerna fanns i skogen 2014 eller att poängen är en
 träffsäkerhet. Nämn inte partnernamn som Dacreo eller BruhnBruhn förrän det finns ett
@@ -1382,7 +1388,7 @@ Hitta det du ser i vänstra kolumnen. Åtgärderna A–F står i kodblocket unde
 |---|---|---|
 | "This site can't be reached" eller `ERR_CONNECTION_REFUSED` | Backend är inte igång. | A, och ladda om sidorna. |
 | Sensorerna visar "Ansluter …" eller "IoT unavailable" | Meddelandetjänsten är inte igång, eller backend startades med `python3` i stället för `.venv/bin/python`. | B, sedan A. |
-| Sensorerna i montern visas som OFFLINE | Programmet i terminal 2 har stannat. | C. Sensorerna kommer tillbaka inom några sekunder. |
+| IoT-noderna visas som OFFLINE | Programmet i terminal 2 har stannat. | C. Sensorerna kommer tillbaka inom några sekunder. |
 | Frågorna svarar "PostGIS svarar inte" | Databasen är inte igång. | D, sedan A. |
 | Inga satelliter, eller ingen satellitbild | Steg 5.6 eller 5.7 är inte gjort. | E. Före 12:06 svensk tid den 4 augusti visas bilden från 10 juni; bilden från 4 augusti tar över när scenariot når dit. |
 | Kartan runt brandområdet är tom eller ljus | Kartjänsten är inte igång. | F. |
@@ -1401,7 +1407,7 @@ Hitta det du ser i vänstra kolumnen. Åtgärderna A–F står i kodblocket unde
 # B – starta meddelandetjänsten för sensorerna
 docker compose up -d mosquitto
 
-# C – starta sensorerna i montern (i terminal 2)
+# C – starta IoT-noderna (i terminal 2)
 .venv/bin/python -m tools.mqtt_node_sim --interval 5
 
 # D – starta databasen
@@ -1569,7 +1575,7 @@ docker compose up -d tiles
 .venv/bin/python -m app.backend.server
 ```
 
-Sensorerna i montern, terminal 2, behöver inte startas om. De visas i båda demona.
+IoT-noderna, terminal 2, behöver inte startas om. De visas i båda demona.
 
 **Till Ljungan 2023 (Del 11):** välj **Höga flöden i Ljungan och Sundsvall, augusti 2023** i
 menyn. Steg för steg används samma karta som för översvämningen:
@@ -1659,7 +1665,7 @@ också. En placerad sensor räknas ut ur regnet vid närmaste mätare, men har i
 | **Riktiga data** | Regnet från kommunens mätare och SMHI:s Brämön A, Sentinel-1:s radarbilder (inte terrängkorrigerade), Landsat 8- och Sentinel-2-bilderna, satelliternas banor (Space-Track), kommunens kritiska dagvattenpunkter, kartdata från OpenStreetMap (dagens läge) | "Riktiga data från augusti 2026, uppspelade. Det är inte live." |
 | **Modell** | Vinden (ERA5-Land, en väderanalys från Copernicus, inte SMHI:s mätningar), kommunens skyfallsmodeller, vattendjup och strömhastighet, Selångersåns 100-årsflöde, MCF:s karteringar av Ljungan och Indalsälven | "Modeller av vad som kan översvämmas. De visar inte vad som hände." |
 | **Beräknat** | Satelliternas positioner och passager, vattenmasken i Sentinel-2-bilden, vattnet i radarbilden utanför sjöar och hav (en enkel tröskel), bedömningens poäng och reglerna | "Beräknat ur data. Poängen är en regelbaserad poäng, inte en sannolikhet." |
-| **Syntetiskt och simulerat** | Bräddgivarna DV1–DV8 och placerade sensorer, sensorerna i montern, händelserna från mission control och sekvensens steg märkta SYNTETISKT | "Simulerat för demon. Det står på skärmen." |
+| **Syntetiskt och simulerat** | Bräddgivarna DV1–DV8 och placerade sensorer, IoT-noderna, händelserna från mission control och sekvensens steg märkta SYNTETISKT | "Simulerat för demon. Det står på skärmen." |
 
 Säg inte att Sundsvall översvämmades den 16 augusti, att det röda i radarbilden är en kartlagd
 översvämning eller att bräddgivarna är MSVA:s eller kommunens mätningar. Regnet från kommunens mätare är de senaste
