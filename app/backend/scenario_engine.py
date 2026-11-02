@@ -56,6 +56,7 @@ the clock is advanced window by window, so a high speed cannot jump over one.
 from __future__ import annotations
 
 import bisect
+import copy
 import math
 import re
 import threading
@@ -104,6 +105,18 @@ def parse_utc(text: str) -> datetime:
     return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(timezone.utc)
 
 
+def initial_event_status() -> dict[str, Any]:
+    """The state before any event: what RESET returns to."""
+    return {
+        "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
+        "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None,
+        "hidden_layers": [],
+        # IoT on or off from mission control: off leaves every sensor out of the screens and the assessment.
+        "iot": True,
+        "placed_sensors": [],
+    }
+
+
 class CommandError(ValueError):
     pass
 
@@ -129,7 +142,9 @@ class ScenarioEngine:
     revision: int = field(default=0, init=False)
     jump: int = field(default=0, init=False)  # increases when the clock moves other than by playing
     log: list[dict[str, Any]] = field(default_factory=list, init=False)
+    # The latest MAX_EVENTS events, for the screens' logs; the state they add up to is _event_status.
     events: list[dict[str, Any]] = field(default_factory=list, init=False)
+    _event_status: dict[str, Any] = field(default_factory=initial_event_status, init=False)
     event_seq: int = field(default=0, init=False)
     _slow: list[tuple[datetime, datetime]] = field(default_factory=list, init=False)
     _detection: dict[str, Any] | None = field(default=None, init=False)
@@ -305,44 +320,39 @@ class ScenarioEngine:
             }
 
     def _status(self) -> dict[str, Any]:
-        """The state the events add up to, so a screen that connects late shows the same."""
-        status: dict[str, Any] = {
-            "satcom_up": True, "plus60": False, "god_view": False, "space_view": False, "power_failure": False,
-            "failed_sensors": [], "closed_roads": [], "satcom_down_since": None, "last_outage": None,
-            "hidden_layers": [],
-            # IoT on or off from mission control: off leaves every sensor out of the screens and the assessment.
-            "iot": True,
-            "placed_sensors": [],
-        }
-        for event in self.events:
-            kind, target = event["kind"], event["target"]
-            if kind == "satcom_failure":
-                if status["satcom_up"]:
-                    status["satcom_down_since"] = event["clock_utc"]
-                status["satcom_up"] = False
-            elif kind == "satcom_restore":
-                if not status["satcom_up"]:
-                    status["last_outage"] = {"from_utc": status["satcom_down_since"], "to_utc": event["clock_utc"]}
-                    status["satcom_down_since"] = None
-                status["satcom_up"] = True
-            elif kind in TOGGLES:
-                status[kind] = not status[kind]
-            elif kind == "power_failure":
-                status["power_failure"] = True
-            elif kind == "sensor_failure" and target not in status["failed_sensors"]:
-                status["failed_sensors"].append(target)
-            elif kind == "road_closed" and target not in status["closed_roads"]:
-                status["closed_roads"].append(target)
-            elif kind == "iot":
-                status["iot"] = not status["iot"]
-            elif kind == "place_sensor":
-                number = len(status["placed_sensors"]) + 1
-                status["placed_sensors"].append({"id": target, "name": f"Sensor P{number}",
-                                                 "latitude": event["latitude"], "longitude": event["longitude"]})
-            elif kind == "filter":
-                hidden = status["hidden_layers"]
-                hidden.remove(target) if target in hidden else hidden.append(target)
-        return status
+        """The state the events add up to, so a screen that connects late shows the same. It is kept as
+        each event comes (_apply_event), so the log dropping its oldest events changes nothing."""
+        return copy.deepcopy(self._event_status)
+
+    @staticmethod
+    def _apply_event(status: dict[str, Any], event: dict[str, Any]) -> None:
+        kind, target = event["kind"], event["target"]
+        if kind == "satcom_failure":
+            if status["satcom_up"]:
+                status["satcom_down_since"] = event["clock_utc"]
+            status["satcom_up"] = False
+        elif kind == "satcom_restore":
+            if not status["satcom_up"]:
+                status["last_outage"] = {"from_utc": status["satcom_down_since"], "to_utc": event["clock_utc"]}
+                status["satcom_down_since"] = None
+            status["satcom_up"] = True
+        elif kind in TOGGLES:
+            status[kind] = not status[kind]
+        elif kind == "power_failure":
+            status["power_failure"] = True
+        elif kind == "sensor_failure" and target not in status["failed_sensors"]:
+            status["failed_sensors"].append(target)
+        elif kind == "road_closed" and target not in status["closed_roads"]:
+            status["closed_roads"].append(target)
+        elif kind == "iot":
+            status["iot"] = not status["iot"]
+        elif kind == "place_sensor":
+            number = len(status["placed_sensors"]) + 1
+            status["placed_sensors"].append({"id": target, "name": f"Sensor P{number}",
+                                             "latitude": event["latitude"], "longitude": event["longitude"]})
+        elif kind == "filter":
+            hidden = status["hidden_layers"]
+            hidden.remove(target) if target in hidden else hidden.append(target)
 
     def _detection_status(self) -> dict[str, Any] | None:
         if self._detection is None:
@@ -380,7 +390,9 @@ class ScenarioEngine:
         if kind == "filter" and target not in FILTERS:
             raise CommandError(f"filter needs a target: {', '.join(FILTERS)}")
         self.event_seq += 1
-        self.events.append({"seq": self.event_seq, "kind": kind, "target": target, "clock_utc": utc_text(self._clock), **extra})
+        event = {"seq": self.event_seq, "kind": kind, "target": target, "clock_utc": utc_text(self._clock), **extra}
+        self._apply_event(self._event_status, event)
+        self.events.append(event)
         del self.events[:-MAX_EVENTS]
 
     def _place_sensor(self, latitude: float | None, longitude: float | None) -> None:
@@ -390,7 +402,7 @@ class ScenarioEngine:
             min_lat, max_lat, min_lon, max_lon = self.area
             if not (min_lat <= latitude <= max_lat and min_lon <= longitude <= max_lon):
                 raise CommandError("the sensor must be placed inside the map area")
-        placed = sum(1 for event in self.events if event["kind"] == "place_sensor")
+        placed = len(self._event_status["placed_sensors"])
         if placed >= MAX_PLACED_SENSORS:
             raise CommandError(f"at most {MAX_PLACED_SENSORS} placed sensors")
         self._record_event("place_sensor", f"placed-{placed + 1}", latitude=round(latitude, 5), longitude=round(longitude, 5))
@@ -398,6 +410,7 @@ class ScenarioEngine:
     def _reset(self) -> None:
         self._playing = False
         self.events.clear()
+        self._event_status = initial_event_status()
         self._detection = None
         self._image = "auto"
         self._map_layers.clear()

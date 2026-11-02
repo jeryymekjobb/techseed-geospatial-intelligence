@@ -14,7 +14,7 @@ import pytest
 
 from app.backend import lantmateriet, server
 from app.backend.scenarios import AVAILABLE
-from app.backend.scenario_engine import CommandError, ScenarioEngine
+from app.backend.scenario_engine import MAX_EVENTS, CommandError, ScenarioEngine, initial_event_status
 
 START = datetime(2014, 7, 31, tzinfo=timezone.utc)
 END = datetime(2014, 8, 15, tzinfo=timezone.utc)
@@ -621,3 +621,26 @@ def test_a_scenario_without_satellites_says_so(monkeypatch: pytest.MonkeyPatch) 
     assert satellites.satellites() == {"available": False, "label": satellites.LABEL, "satellites": [],
                                        "note": "Scenariot visar inga satellitbanor."}
     satellites.satellites.cache_clear()
+
+
+def test_the_state_outlives_the_log_s_oldest_events() -> None:
+    """The log keeps the latest MAX_EVENTS events for the screens; what they did stays after they are dropped."""
+    scenario = ScenarioEngine(START, END, area=(59.75, 60.08, 15.85, 16.45))
+    scenario.command("satcom_failure")
+    scenario.command("sensor_failure", target="sensor-17")
+    scenario.command("iot")
+    scenario.command("god_view")
+    for index in range(10):
+        scenario.command("place_sensor", latitude=59.9, longitude=16.0 + index / 100)
+    before = scenario.snapshot()["status"]
+    for _ in range(150):
+        state = scenario.command("filter", target="space")
+    assert len(state["events"]) == MAX_EVENTS and state["events"][0]["kind"] == "filter"
+    status = state["status"]
+    assert (status["satcom_up"], status["failed_sensors"], status["iot"], status["god_view"]) == (False, ["sensor-17"], False, True)
+    assert status["placed_sensors"] == before["placed_sensors"] and len(status["placed_sensors"]) == 10
+    assert status["hidden_layers"] == []  # 150 clicks on the same filter: shown again
+    with pytest.raises(CommandError, match="at most 10"):
+        scenario.command("place_sensor", latitude=59.9, longitude=16.3)
+    reset = scenario.command("reset")["status"]
+    assert {key: reset[key] for key in initial_event_status()} == initial_event_status()
