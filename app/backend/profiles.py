@@ -99,6 +99,12 @@ def save(scenario: str, image_types: list[str] | None, base_maps: list[str] | No
     """Save display settings, playback window and speed for the scenario, keeping the other profiles; returns the profile."""
     target = path or PROFILE_FILE
     data = _read(target)
+    if not data and target.is_file() and target.stat().st_size > 0:
+        # A file that cannot be read as profiles still holds the other scenarios' settings: keep it aside
+        # rather than overwrite it with this one profile.
+        kept = target.with_name(f"{target.name}.broken-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}")
+        target.replace(kept)
+        print(f"profiles: {target.name} could not be read; kept as {kept.name}, saving a new one")
     data[scenario] = {"image_types": image_types, "base_maps": base_maps, "map_layers": _layers(map_layers),
                       "playback": _playback(playback), "speed": _speed(speed), "speech": speech is not False,
                       "saved_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}

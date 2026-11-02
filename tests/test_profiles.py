@@ -38,6 +38,17 @@ def test_a_profile_is_saved_per_scenario_and_a_scenario_without_one_has_none(tmp
     assert profiles.load("sundsvall2026", path) is None
 
 
+def test_a_profile_file_that_cannot_be_read_is_kept_aside_not_overwritten(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.json"
+    path.write_text('{"sundsvall2026": {"image_types": ["radar"]}, "skane20', encoding="utf-8")  # cut off mid-write
+    profiles.save("flen2019", ["natural"], None, path)
+    kept = list(tmp_path.glob("profiles.json.broken-*"))
+    assert len(kept) == 1 and kept[0].read_text(encoding="utf-8").startswith('{"sundsvall2026"')
+    assert profiles.load("flen2019", path)["image_types"] == ["natural"]
+    profiles.save("skane2024", None, ["online"], path)  # a readable file: nothing more is set aside
+    assert len(list(tmp_path.glob("profiles.json.broken-*"))) == 1 and profiles.load("flen2019", path) is not None
+
+
 def test_a_scenario_without_a_profile_uses_the_older_one_of_its_kind_of_incident(tmp_path: Path) -> None:
     path = tmp_path / "profiles.json"
     path.write_text(json.dumps({"flood": {"image_types": ["radarwater"], "base_maps": ["offline"],
