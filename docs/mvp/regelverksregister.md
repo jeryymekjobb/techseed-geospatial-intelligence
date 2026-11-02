@@ -1,6 +1,6 @@
 # Regelverksregister – utkast
 
-Underlag för MVP:n, fas 0b. Utkast gjort 2026-11-02 på grenen `mvp-regelverksregister`.
+Underlag för MVP:n, fas 0b. Utkast gjort 2026-11-02, nu på `main`.
 Registret listar lagar, EU-rättsakter, föreskrifter, villkor och standarder som **kan**
 beröra en MVP byggd på dagens demonstrator (`docs/mvp/funktionskatalog.md`). Det är inte
 en juridisk bedömning och inte compliance-rådgivning. Om ett regelverk gäller avgörs
@@ -29,9 +29,8 @@ eller datum:
 | **Beror på** | Beror på ett beslut som inte är fattat. Beslutet anges i posten. |
 | **Osannolik** | Med i registret för att utesluta den uttryckligen. Skälet anges. |
 
-Sex poster har märkningen **P** sedan 2026-11-02: R-CS-01, R-CS-03, R-GEO-02, R-EM-02 (bara
-myndighetens namn), R-AI-02 och R-AI-03, och R-AI-01 har den för det allmänna
-tillämpningsdatumet.
+Sju poster har märkningen **P** sedan 2026-11-02: R-CS-01, R-CS-03, R-GEO-02, R-EM-02 (bara
+myndighetens namn), R-AI-02, R-AI-03 och R-AI-01 (bara det allmänna tillämpningsdatumet).
 
 ## Beslut som avgör tillämpligheten
 

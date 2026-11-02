@@ -1,6 +1,6 @@
 # Kravmall och spårbarhetsmodell – utkast
 
-Underlag för MVP:n, fas 0c. Utkast gjort 2026-11-02 på grenen `mvp-regelverksregister`.
+Underlag för MVP:n, fas 0c. Utkast gjort 2026-11-02, nu på `main`.
 Dokumentet beskriver hur kraven i kravspecifikationen (fas 1) ska skrivas och spåras. Det
 innehåller inga beslutade krav. Exemplen i slutet är märkta som exempel och är inte
 godkända.

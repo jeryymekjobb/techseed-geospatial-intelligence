@@ -119,7 +119,7 @@ inte att funktionen är fullständigt verifierad.
 |---|---|---|---|---|
 | F-MC-01 | Mission control: styr klockan, bilder, baskartor, lager, vyer, profil och händelser för alla skärmar | – | `control.js`, `/api/scenario/command` | `test_mission_control.py` |
 | F-MC-02 | Operatörens händelser: satellitdetektion, sensorfel, satellitavbrott och återställning, stängd väg, strömavbrott, +60 MIN, IoT | S | `scenario_engine.py` (`EVENT_KINDS`), `scenario_events.js` | `test_mission_control.py`, `test_satcom_outage.py` |
-| F-MC-03 | Valfri token för kommandon när mission control körs över nätverk (`SCENARIO_CONTROL_TOKEN`) | – | `server.py` | `test_mission_control.py` |
+| F-MC-03 | Valfri token för kommandon när mission control körs över nätverk (`SCENARIO_CONTROL_TOKEN`) | – | `server.py` | `test_scenario_engine.py` |
 
 ## H. Kommunikation till publik och operatör
 
@@ -148,6 +148,9 @@ operatörsguiden eller `CONTEXT.md`.
   realtidsdata från satelliter eller väder.
 - **Poängen är inte en sannolikhet.** Bedömningarna (F-AN-01, F-AN-02) använder fasta vikter
   som är påhittade för demon. Ingen modellprestanda är validerad.
+- **Ingen språkmodell eller AI-agent.** One-pagern beskriver en LLM/AI-agent och GIS-frågor
+  från AI. Det är inte byggt: frågorna är förberedda och väljs efter ID (F-AN-08), och
+  bedömningarna är regelbaserade (F-AN-01, F-AN-02).
 - **Sensorerna är syntetiska.** IoT-noderna körs simulerade sedan beslutet 2026-10-04. Det
   finns ingen firmware och ingen skyddad MQTT-exponering för riktiga noder.
 - **Vattenmasker och vattentröskel är enkla.** Sentinel-1:s tröskel är inte en kartlagd
@@ -158,7 +161,7 @@ operatörsguiden eller `CONTEXT.md`.
   enda skyddet är en valfri token för kommandon, och backend kör ett scenario i taget.
 - **Plattformar.** Ubuntu är verifierat. Windows utan Docker är provat i en VM men delvis
   oåtgärdat. macOS stöds inte.
-- **Datarättigheter.** Sundsvalls och Kramfors kommuners lager används med medgivande.
+- **Datarättigheter.** Sundsvalls kommuns lager används med medgivande. Kramfors kommun har medgivit detsamma, men hade inga egna lager i tjänsten 2026-10-15, och `kramfors2026` använder bara MCF:s karteringar.
   Västerås stads data får bara användas internt. Hur Sundsvalls kommun vill bli krediterad är
   oklart. Se `reports/2026-10-30-kreditering-utanfor-kartbilden-claude-opus-5-5.md`.
 - **Partnernamn och elnät.** Dacreo och BruhnBruhn nämns inte, och elnätet från OSM visas
