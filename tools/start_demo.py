@@ -58,6 +58,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.error import URLError
+from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 from app.backend import offline_tiles, profiles
@@ -152,6 +153,16 @@ class MenuHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
         if self.path != "/api/demo/start":
             self.send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
+            return
+        # As the backend's commands: only JSON, which another web page cannot send without a CORS
+        # preflight this server never answers, and from this page's own origin when a browser says.
+        content_type = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        origin = self.headers.get("Origin")
+        if content_type != "application/json":
+            self.send_json(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, {"error": "json_from_this_page_only"})
+            return
+        if origin is not None and urlsplit(origin).netloc.lower() != (self.headers.get("Host") or "").lower():
+            self.send_json(HTTPStatus.FORBIDDEN, {"error": "json_from_this_page_only"})
             return
         try:
             length = int(self.headers.get("Content-Length") or 0)

@@ -86,6 +86,17 @@ def test_the_menu_page_serves_the_demos_and_takes_one_valid_choice() -> None:
         status, body = request(f"{base}/api/demos")
         assert status == 200 and json.loads(body)["title"] == "Techseed Geospatial Intelligence Demos"
         assert json.loads(body)["kiosk"] is False
+        body = json.dumps({"scenario": "sundsvall2026", "kiosk": True}).encode()
+        def raw(headers: dict) -> int:
+            try:
+                with urlopen(Request(f"{base}/api/demo/start", data=body, headers=headers), timeout=10) as response:
+                    return response.status
+            except HTTPError as exc:
+                return exc.code
+        # Another web page in the browser cannot choose: no JSON, or another origin.
+        assert raw({"Content-Type": "text/plain"}) == 415 and raw({}) == 415
+        assert raw({"Content-Type": "application/json", "Origin": "https://elsewhere.test"}) == 403
+        assert server.chosen is None
         assert request(f"{base}/api/demo/start", {"scenario": "atlantis"})[0] == 400
         assert request(f"{base}/api/demo/start", {"scenario": "sundsvall2026", "kiosk": "yes"})[0] == 400
         assert request(f"{base}/api/demo/start", {"scenario": "sundsvall2026", "kiosk": True})[0] == 202
