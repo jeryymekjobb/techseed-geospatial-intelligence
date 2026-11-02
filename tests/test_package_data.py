@@ -117,3 +117,22 @@ def test_a_selection_without_the_map_or_terrain_is_warned_about(tmp_path, capsys
     complete = {"scenarios": ["flen2019"], "files": [{"path": path} for path in [
         "data/tiles/flen.mbtiles", "data/tiles/flen.SOURCE.json", "data/flen2024/terrain/layer.json", "data/flen2024/terrain/0/0/0.terrain"]]}
     assert package_data.missing_map_inputs(complete) == []
+
+
+def test_the_terms_recorded_with_the_data_are_shown_and_internal_use_is_warned_about(tmp_path, capsys):
+    root, selection, selected, output = fixture(tmp_path)
+    internal = root / "data/vasteras/municipal-basemap/karta"
+    shown = root / "data/sundsvall/municipal-basemap"
+    for folder, permission in ((internal, "The user confirmed that Techseed may use Västerås stad's data internally; no public showings."),
+                               (shown, "The user confirmed that the demo may show the map and keep it locally.")):
+        (folder / "12/1").mkdir(parents=True)
+        (folder / "12/1/2.png").write_bytes(b"synthetic tile")
+        (folder / "SOURCE.json").write_text(json.dumps({"permission": permission}), encoding="utf-8")
+    selected["files"] = ["data/vasteras/municipal-basemap/karta/12/1/2.png", "data/sundsvall/municipal-basemap/12/1/2.png",
+                         "data/example/a.json"]
+    selection.write_text(json.dumps(selected), encoding="utf-8")
+    assert package_data.main([str(selection), str(output), "--root", str(root), "--dry-run"]) == 0  # a warning, not a refusal
+    printed = capsys.readouterr().out
+    assert "WARNING: internal use only: data/vasteras/municipal-basemap/karta: The user confirmed" in printed
+    assert "Terms: data/sundsvall/municipal-basemap: The user confirmed that the demo may show" in printed
+    assert printed.count("data/example") == 0  # no terms recorded there

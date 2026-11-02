@@ -18,6 +18,10 @@ A package for Windows without Docker must carry each scenario's offline map and 
 terrain, which cannot be built there (no tilemaker, no ctb-tile). The tool warns, without
 refusing, when a listed scenario's map (data/tiles/<file>.mbtiles and its .SOURCE.json) or
 terrain (its layer.json and tiles) is not in the selection.
+
+It also shows the terms recorded with the data: the `permission` of every SOURCE.json
+in a folder the selection takes files from, with a warning where it allows internal use
+only (Västerås stad's maps). It does not refuse; the rights stay the caller's to judge.
 """
 
 from __future__ import annotations
@@ -72,6 +76,28 @@ def missing_map_inputs(manifest: dict) -> list[str]:
         if not any(path.startswith(f"{terrain}/") and not path.endswith("layer.json") for path in paths):
             missing.append(f"{terrain}/ (the terrain's tiles)")
     return list(dict.fromkeys(missing))
+
+
+# Words in a recorded permission that limit the data to internal use.
+INTERNAL_ONLY = ("internally", "internal use", "no public")
+
+
+def recorded_permissions(manifest: dict, root: Path) -> list[tuple[str, str, bool]]:
+    """(folder, permission, internal only) for each SOURCE.json with a permission in or above a packaged file's folder."""
+    found: dict[str, str] = {}
+    for item in manifest["files"]:
+        folder = Path(item["path"]).parent
+        for parent in (folder, *folder.parents):
+            source = root / parent / "SOURCE.json"
+            if parent.as_posix() in found or parent == Path(".") or not source.is_file():
+                continue
+            try:
+                permission = json.loads(source.read_text(encoding="utf-8")).get("permission")
+            except (OSError, ValueError, AttributeError):
+                continue
+            if isinstance(permission, str) and permission:
+                found[parent.as_posix()] = permission
+    return [(folder, text, any(word in text.lower() for word in INTERNAL_ONLY)) for folder, text in sorted(found.items())]
 
 
 def build(selection: Path, output: Path, root: Path, dry_run: bool = False) -> dict:
@@ -148,6 +174,8 @@ def main(argv: list[str] | None = None) -> int:
           f"for {', '.join(manifest['scenarios'])}; version {manifest['package_version']}.")
     for path in missing_map_inputs(manifest):
         print(f"Warning: {path} is not in the selection; Windows without Docker cannot build it (offline map or 3D terrain).")
+    for folder, permission, internal in recorded_permissions(manifest, args.root.resolve()):
+        print(f"{'WARNING: internal use only: ' if internal else 'Terms: '}{folder}: {permission}")
     return 0
 
 
