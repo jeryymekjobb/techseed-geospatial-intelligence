@@ -2565,3 +2565,316 @@ flöde eller vattenstånd gick över sitt rekord. Upptäcktssekvensen slutar med
 TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
 TECHSEED_SCENARIO=sundsvall-dec2020 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-dec2020-$(hostname)
 ```
+
+---
+
+# Del 15 – Skyfallet i Kramfors 2026
+
+## 34. Vad demon visar
+
+Scenariot `kramfors2026` spelar upp skyfallet över Kramfors 15–16 augusti 2026 med verkliga data,
+inte i realtid. SMHI varnade för skyfallsliknande regn. Det mesta föll på lördagskvällen i ett smalt
+stråk över Kramfors: SMHI:s station i Kramfors fick 77 mm på ett dygn, Härnösand mindre än en
+millimeter. SMHI:s data från augusti 2026 är ännu inte kvalitetsgranskade.
+
+Uppspelningen går från 15 augusti kl. 14 till 18 augusti kl. 02 svensk tid, som standard med
+10 minuter per sekund. Scenariot har en egen offline-karta, `kramfors.mbtiles`.
+
+Demon visar:
+
+- **Regnet (SMHI):** Lungö A och Västmarkum A per timme, åtta stationer per dygn, bland dem Kramfors,
+  Bollstabruk och Härnösand, och väderradarn.
+- **Givarna DV1–DV4 (syntetiska)** på de platser medierna rapporterade: väg 855, väg 856 vid Butjärn,
+  Ådalshallen och vägen vid Saltsjön. De mäter inget själva utan summerar SMHI:s radar över platsen.
+  Platserna är ungefärliga.
+- **Rapporterade händelser (lokala medier):** SMHI:s gula varning, väg 855 avstängd, mycket vatten på
+  väg 856, vatten i Ådalshallens källare, en enskild väg vid Saltsjön som raseras och spårfelet som
+  stoppade tågen mellan Sundsvall och Umeå, och när de gick igen. Platserna är ungefärliga.
+- **Satellitbilderna:** Sentinel-1 den 10, 16 och 17 augusti, två passager den 17, Sentinel-2 den 8 och
+  20 augusti och Landsat 8 den 12 och 21 augusti, alltså före och efter skyfallet.
+- **MCF:s karteringar:** 100-årsflödet och beräknat högsta flöde.
+- **Meteosats molntoppar, moln, blixtar från rymden och instabilitet** enligt Del 9, och ERA5-vinden.
+
+| Del | Riktigt, beräknat, modell eller syntetiskt |
+|---|---|
+| Regn och väderradar (SMHI) | Riktigt, uppmätt, ännu inte kvalitetsgranskat |
+| Sentinel-1, Sentinel-2, Landsat 8, Meteosat | Riktigt |
+| Händelserna på vägar och järnväg | Ur lokala medier, platser ungefärliga |
+| MCF:s karteringar, ERA5 | Modell |
+| Givarna DV1–DV4 | Syntetiska, beräknade ur radarn |
+
+## 35. Förbered demon
+
+Gör Del 1 först. Data hamnar i `data/kramfors2026/`. Konton: Space-Track (`~/.spacetrackrc`),
+Copernicus CDS (`~/.cdsapirc`, avsnitt 15) och EUMETSAT (`~/.eumdac/credentials`, avsnitt 2).
+
+```bash
+.venv/bin/python -m tools.fetch_scenario kramfors2026 --list
+.venv/bin/python -m tools.fetch_scenario kramfors2026
+```
+
+**Generalrepetitionen**, med kartjänsten på Kramfors karta. Den börjar den 16 augusti kl. 07 svensk
+tid. Vid regnets topp på lördagskvällen larmar 2 av 4 givare, och bedömningen blir "Possible flood":
+
+```bash
+TILES_FILE=kramfors.mbtiles docker compose up -d tiles
+TECHSEED_SCENARIO=kramfors2026 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-kramfors-$(hostname)
+```
+
+---
+
+# Del 16 – Höga flöden i Flen 2019
+
+## 36. Vad demon visar
+
+Scenariot `flen2019` spelar upp de höga flödena i Flens tätort i december 2019 med verkliga data, inte
+i realtid. Den 18 december varnade kommunen för höga flöden. Åpromenaden stängdes, och vägen vid bron
+mot Orrhammar stod under vatten.
+
+Uppspelningen går från 7 december kl. 01 till 29 december kl. 01 svensk tid, som standard med
+10 minuter per sekund. Scenariot delar karta (`flen.mbtiles`) och 3D-terräng med `flen2024`.
+
+Demon visar:
+
+- **Vattenföringen vid Hebylund Kvarnsjön (SMHI)**, regnet vid Floda A per timme, Granhed D och
+  Sköldinge per dygn, och väderradarn.
+- **Nivågivarna NG1 Åpromenaden, NG2 Bron mot Orrhammar och NG3 Vägen till Orrestaö (syntetiska).** De
+  står där tätorten svämmade över och följer SMHI:s station vid Hebylund.
+- **Rapporterade händelser (kommunen, via lokala medier), den 18 december:** varningen, den stängda
+  Åpromenaden, den delvis översvämmade gångvägen längs Lasarettssjön, vägen vid bron mot Orrhammar och
+  körfältet till Orrestaö.
+- **Satellitbilderna:** Sentinel-1 den 9, 16, 21 och 28 december och Sentinel-2 den 10 december, före
+  flödena.
+- **MCF:s karteringar:** 100-årsflödet för ett framtida klimat och beräknat högsta flöde.
+- **SMHI:s blixtar**, MET Norways prognoser som de utfärdades, Meteosats moln och ERA5-vinden.
+
+| Del | Riktigt, beräknat, modell eller syntetiskt |
+|---|---|
+| Vattenföring, regn, väderradar, blixtar (SMHI) | Riktigt, uppmätt |
+| Sentinel-1, Sentinel-2, Meteosat | Riktigt |
+| Händelserna den 18 december | Ur kommunen via lokala medier |
+| MCF:s karteringar, MET Norways prognoser, ERA5 | Modell |
+| Nivågivarna NG1–NG3 | Syntetiska |
+
+## 37. Förbered demon
+
+Gör Del 1 först. Data hamnar i `data/flen2019/`, och kartan och terrängen i `data/tiles/flen.mbtiles`
+och `data/flen2024/terrain/`. Konton: Space-Track, Copernicus CDS och EUMETSAT, som i avsnitt 35.
+
+```bash
+.venv/bin/python -m tools.fetch_scenario flen2019 --list
+.venv/bin/python -m tools.fetch_scenario flen2019 --with-optional
+```
+
+**Generalrepetitionen**, med kartjänsten på Flens karta. Den börjar den 21 december kl. 06 svensk tid.
+Då larmar alla tre givare, och bedömningen blir "Possible flood":
+
+```bash
+TILES_FILE=flen.mbtiles docker compose up -d tiles
+TECHSEED_SCENARIO=flen2019 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-flen2019-$(hostname)
+```
+
+---
+
+# Del 17 – Högt vatten i Flen 2024
+
+## 38. Vad demon visar
+
+Scenariot `flen2024` spelar upp det höga vattnet i Flens tätort vintern 2024 med verkliga data, inte i
+realtid. Töväder i slutet av januari och regn på snö i mitten av februari höjde flödena i Flens små
+vattendrag. Den 7 februari släckte kommunen belysningen längs Åpromenaden vid Flensån på grund av högt
+vattenstånd.
+
+Uppspelningen går från 20 januari kl. 01 till 23 februari kl. 01 svensk tid, som standard med
+10 minuter per sekund. Karta, terräng, stationer och givare är desamma som i Del 16.
+
+Skillnaderna mot Del 16:
+
+- **Nivågivarna NG1–NG3 (syntetiska)** står på samma platser som 2019, alltså där tätorten svämmade
+  över i december 2019, inte där det var högt vatten 2024. Säg det om någon frågar.
+- **Rapporterad händelse (kommunen):** den släckta belysningen längs Åpromenaden den 7 februari.
+- **Satellitbilderna:** Sentinel-1 den 24 och 29 januari och den 5 och 22 februari, Sentinel-2 den
+  18 januari, 5 februari och 17 februari, och Landsat 8 den 5 februari.
+
+Tabellen över riktigt, modell och syntetiskt är densamma som i avsnitt 36, med kommunen som källa till
+händelsen.
+
+## 39. Förbered demon
+
+Som avsnitt 37, med `flen2024`:
+
+```bash
+.venv/bin/python -m tools.fetch_scenario flen2024 --list
+.venv/bin/python -m tools.fetch_scenario flen2024 --with-optional
+```
+
+**Generalrepetitionen** börjar den 29 januari kl. 06 svensk tid. Då larmar alla tre givare, och
+bedömningen blir "Possible flood":
+
+```bash
+TILES_FILE=flen.mbtiles docker compose up -d tiles
+TECHSEED_SCENARIO=flen2024 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-flen2024-$(hostname)
+```
+
+---
+
+# Del 18 – Regnet i Flens kommun 2021
+
+## 40. Vad demon visar
+
+Scenariot `flenkommun2021` spelar upp regnet i Flens kommun i slutet av maj 2021 med verkliga data,
+inte i realtid. Det regnade kraftigt den 25 och 26 maj, och på morgonen den 27 maj stod väg 53 under
+vatten söder om Sparreholm.
+
+Uppspelningen går från 20 maj kl. 02 till 8 juni kl. 02 svensk tid, som standard med 10 minuter per
+sekund. Kartan, `flenkommun.mbtiles`, täcker hela kommunen och Nyköpingsån, och scenariot delar karta
+och 3D-terräng med `flenkommun2024`.
+
+Demon visar:
+
+- **Vattenföringen (SMHI)** vid Hebylund Kvarnsjön, Sibro 2 och Hallbosjön, regnet vid Floda A per
+  timme, sex stationer per dygn, bland dem Hälleforsnäs D och Björkvik D, och väderradarn.
+- **Nivågivarna NG1–NG8 (syntetiska):** NG1 Vedebyvägen, NG2 Tärnövägen och NG3 Skenalavägen, där
+  vägar korsar vattendragens 100-årsflöde, och NG4–NG8 längs Nyköpingsån. De följer SMHI:s stationer.
+- **Rapporterade händelser (lokala medier):** räddningstjänsten i Nyköping fick flera larm om
+  översvämningar den 26 maj, och väg 53 översvämmades söder om Sparreholm den 27 maj.
+- **Satellitbilderna:** Sentinel-1 den 20, 26 och 27 maj, samma morgon som vägen svämmade över, och den
+  1 och 2 juni. Sentinel-2 den 18 och 28 maj och den 2 juni.
+- **MCF:s karteringar:** 100-årsflödet för Nyköpingsån, beräknat för ett framtida klimat, och beräknat
+  högsta flöde.
+- **SMHI:s blixtar**, MET Norways prognoser som de utfärdades, Meteosats moln och ERA5-vinden.
+
+| Del | Riktigt, beräknat, modell eller syntetiskt |
+|---|---|
+| Vattenföring, regn, väderradar, blixtar (SMHI) | Riktigt, uppmätt |
+| Sentinel-1, Sentinel-2, Meteosat | Riktigt |
+| Händelserna den 26 och 27 maj | Ur lokala medier |
+| MCF:s karteringar, MET Norways prognoser, ERA5 | Modell |
+| Nivågivarna NG1–NG8 | Syntetiska |
+
+## 41. Förbered demon
+
+Gör Del 1 först. Data hamnar i `data/flenkommun2021/`, och kartan och terrängen i
+`data/tiles/flenkommun.mbtiles` och `data/flenkommun2024/terrain/`. Konton som i avsnitt 35.
+
+```bash
+.venv/bin/python -m tools.fetch_scenario flenkommun2021 --list
+.venv/bin/python -m tools.fetch_scenario flenkommun2021 --with-optional
+```
+
+**Generalrepetitionen**, med kartjänsten på kommunens karta. Den börjar den 27 maj kl. 07 svensk tid.
+Då larmar 1 av 8 givare, och bedömningen blir "Possible flood":
+
+```bash
+TILES_FILE=flenkommun.mbtiles docker compose up -d tiles
+TECHSEED_SCENARIO=flenkommun2021 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-flenkommun2021-$(hostname)
+```
+
+---
+
+# Del 19 – Höga flöden i Flens kommun 2024
+
+## 42. Vad demon visar
+
+Scenariot `flenkommun2024` spelar upp vinterns höga flöden 2024 i Flens kommun och Nyköpingsån med
+verkliga data, inte i realtid. Regn på snö i mitten av februari höjde flödena. Hallbosjön, söder om
+kommunen, nådde den 8 mars sitt nionde högsta flöde på 94 år.
+
+Uppspelningen går från 1 februari kl. 01 till 11 mars kl. 01 svensk tid, som standard med 10 minuter
+per sekund. Karta, terräng, stationer och givare är desamma som i Del 18.
+
+Skillnaderna mot Del 18:
+
+- **Nivågivarna NG1–NG8 (syntetiska)** följer här bara stationerna Sibro 2 och Hallbosjön längs
+  Nyköpingsån, inte Hebylund.
+- **Rapporterade händelser (kommunen och lokala medier):** den släckta belysningen längs Åpromenaden
+  den 7 februari, och den 27 februari att Nyköpingsån svämmade över igen vid Hallbosjön, som hade orange
+  varning, och att godståg kunde påverkas.
+- **Satellitbilderna:** Sentinel-1 den 29 januari, 5, 22 och 29 februari och 5 mars, Sentinel-2 den 5
+  och 17 februari och 8 mars, och Landsat 8 den 8 mars.
+
+Tabellen över riktigt, modell och syntetiskt är densamma som i avsnitt 40, med kommunen och lokala
+medier som källor till händelserna.
+
+## 43. Förbered demon
+
+Som avsnitt 41, med `flenkommun2024`:
+
+```bash
+.venv/bin/python -m tools.fetch_scenario flenkommun2024 --list
+.venv/bin/python -m tools.fetch_scenario flenkommun2024 --with-optional
+```
+
+**Generalrepetitionen** börjar den 22 februari kl. 06 svensk tid. Då larmar 1 av 8 givare, och
+bedömningen blir "Possible flood":
+
+```bash
+TILES_FILE=flenkommun.mbtiles docker compose up -d tiles
+TECHSEED_SCENARIO=flenkommun2024 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-flenkommun2024-$(hostname)
+```
+
+---
+
+# Del 20 – Regnet i Sundsvall, november 2023
+
+## 44. Vad demon visar
+
+Scenariot `sundsvall-nov2023` spelar upp det kraftiga regnet i Sundsvall den 3 och 4 november 2023 med
+uppmätta data, inte i realtid. Vid Sidsjön föll 51 mm den 4 november, årets regnigaste dygn. Havet stod
+lågt. Räddningstjänsten satte ut barriärer på Östermovägen i Skönsmon, och det kom vatten i källare.
+
+Uppspelningen går från 1 november kl. 01 till 7 november kl. 01 svensk tid, som standard med
+30 minuter per sekund. Scenariot delar karta, kommunens karta och data, höjddata, terräng och OSM-lager
+med översvämningsdemon i Del 5.
+
+Demon visar:
+
+- **Regnet:** kommunens mätare Fillan, Bredsand, Essvik, Bällsta och Stångom och SMHI:s Brämön A per
+  timme, Sidsjö D och Stordalen-Midlanda D per dygn, och väderradarn. Kommunens mätare kontrolleras
+  inte av SMHI.
+- **Flödena:** Skallböle (SMHI), och Selångersån och Sidsjöbäcken i SMHI:s modell S-HYPE, märkta
+  beräknade.
+- **Havet vid Spikarna** per timme.
+- **Bräddgivarna DV1–DV8 (syntetiska)** vid kommunens kritiska dagvattenpunkter, beräknade ur det
+  verkliga regnet, och **nivågivaren NG1 vid Himlabadet (syntetisk)**, som följer Sidsjöbäckens
+  beräknade flöde.
+- **Sidsjödammen som ett markerat "om":** byggnaderna längs Sidsjöbäcken nedströms dammen. Det finns
+  ingen dammbrottsmodell, och dammen brast inte.
+- **Rapporterade händelser (lokala medier), den 4 november:** barriärerna på Östermovägen och vatten i
+  källare i Sundsvall, Timrå och Härnösand.
+- **Radarbilderna:** Sentinel-1A den 6 november kl. 06:14 och 17:30 svensk tid, efter regnet. Det var
+  för molnigt för bilder i synligt ljus.
+- **SMHI:s blixtar**, MET Norways prognoser som de utfärdades, Meteosats molntoppar och moln enligt
+  Del 9, och ERA5-vinden.
+
+| Del | Riktigt, beräknat, modell eller syntetiskt |
+|---|---|
+| Regn, väderradar, vattenföring vid Skallböle, havsvattenstånd, blixtar | Riktigt, uppmätt; kommunens mätare kontrolleras inte av SMHI |
+| Sentinel-1, Meteosat | Riktigt |
+| Händelserna den 4 november | Ur lokala medier |
+| Selångersån och Sidsjöbäcken (S-HYPE), MET Norways prognoser, ERA5 | Modell |
+| Sidsjödammen | Ett markerat "om", ingen dammbrottsmodell |
+| Bräddgivarna DV1–DV8 och nivågivaren NG1 | Syntetiska |
+
+## 45. Förbered demon
+
+Gör Del 1 och Del 5 först, eftersom scenariot använder Sundsvalls karta och kommunens data. Data hamnar
+i `data/sundsvall-nov2023/`. Konton som i avsnitt 31.
+
+**S-HYPE-filerna** är samma som för Ljungan (avsnitt 27). Kopiera dem med bevarad tid:
+
+```bash
+mkdir -p data/sundsvall-nov2023/s-hype/raw
+cp -p data/ljungan-aug2023/s-hype/raw/*.xls data/sundsvall-nov2023/s-hype/raw/
+.venv/bin/python -m tools.fetch_scenario sundsvall-nov2023 --list
+.venv/bin/python -m tools.fetch_scenario sundsvall-nov2023 --with-optional
+```
+
+**Generalrepetitionen**, med kartjänsten på Sundsvalls karta. Den börjar den 4 november kl. 07 svensk
+tid. Vid regnets topp mitt på dagen larmar 5 av 9 givare, och bedömningen blir "Flood probable".
+Upptäcktssekvensen slutar med "Okänd", eftersom radarbilderna kom först två dagar efter regnet:
+
+```bash
+TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
+TECHSEED_SCENARIO=sundsvall-nov2023 .venv/bin/python -m tools.check_demo --headed --out ~/demo-check-nov2023-$(hostname)
+```
