@@ -247,6 +247,12 @@ B-03 gäller också frontend (`sensors.js:24`).
 **T-09 · Låg · lucka:** `fetch_mcf_flood_maps.py` och `fetch_municipal_features.py` saknar
 tester. Se också Q-08.
 
+**T-10 · Låg · brist · `tools/start_demo.py:152–170`** (upptäckt under AP2)
+- **Vad:** scenariomenyns server (`/api/demo/start`) läser JSON oavsett Content-Type och
+  kontrollerar inte Origin, alltså samma lucka som B-02 hade.
+- **Felscenario:** medan menyn visas kan en annan webbsida i webbläsaren på demodatorn välja
+  och starta ett scenario.
+
 **Kontrollerat och OK:**
 - `install_data` och `package_data`: sökvägar, manifest, storlek och SHA-256 före skrivning,
   ingen överskrivning. En kopiering som avbryts halvvägs måste dock städas för hand.
@@ -453,7 +459,7 @@ till ordning ovan.
 | **AP8 Dokumentation** | D-01–D-12, B-11 | README och `app/README.md` uppdateras. Operatörsguiden: den borttagna grenen, alla 16 scenarier, databasnamnen och mässformuleringarna. Inaktuella punkter i `CONTEXT.md` rättas. Kramfors i katalogen, avvikelsen från one-pagern om LLM, registrets grenhänvisning och antal, och kommentarerna i `scenario.py`. | Granskning mot koden |
 | **AP5 Backend i övrigt** | B-04, B-07, B-10, B-12, B-09 | Tid utan tidszon räknas som UTC. PostGIS-frågor får timeout. Talkön och listan `spoken` får tak. `/api/stream` får en nedre gräns för `from`. Falsterbo får inställningar för demokontrollen. | Enhetstester och `check_demo` för Falsterbo |
 | **AP7 Testluckor** | Q-03, Q-04, Q-06–Q-12, T-09 | `skipif` när data eller bibliotek saknas, i stället för att kontroller tyst hoppas över. Tester för token, för gränsen på 10 sensorer och för de två hämtverktygen. Katalogen kompletteras. Fast tid i stället för `sleep` och `now()`. Gemensamma fixturer i `conftest.py`. | Sviten med och utan `data/` |
-| **AP6 Drift** | T-05–T-08 | Docker-imagarna låses till de digests som finns lokalt, och digesten sparas i SOURCE.json. Paketlistorna rättas. `getuid` får skydd. `package_data` varnar för data med `permission` som bara tillåter intern användning. | Tester och en kontroll att tiles och terräng byggs |
+| **AP6 Drift** | T-05–T-08, T-10 | Docker-imagarna låses till de digests som finns lokalt, och digesten sparas i SOURCE.json. Paketlistorna rättas. `getuid` får skydd. `package_data` varnar för data med `permission` som bara tillåter intern användning. | Tester och en kontroll att tiles och terräng byggs |
 
 Paketen görs i den ordning som tabellen visar.
 
