@@ -32,9 +32,16 @@ def test_sensor_collection_records_the_flow_attribution_and_derivation_time() ->
     assert derived["derived_utc"] == "2026-10-24T00:00:00Z"
 
 
-def test_sensor_collection_is_stamped_with_the_time_of_deriving_by_default() -> None:
+def test_sensor_collection_is_stamped_with_the_time_of_deriving_by_default(monkeypatch) -> None:
+    from tools import derive_impact_sensor_points
+
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 11, 2, 15, 30, 45, tzinfo=tz)
+    monkeypatch.setattr(derive_impact_sensor_points, "datetime", Frozen)
     derived = with_measurement_provenance({"features": []}, "SMHI")
-    assert datetime.fromisoformat(derived["derived_utc"].replace("Z", "+00:00")) <= datetime.now(timezone.utc)
+    assert derived["derived_utc"] == "2026-11-02T15:30:45Z"
 
 
 def test_a_site_that_names_its_station_follows_it_rather_than_the_nearest() -> None:
