@@ -168,7 +168,7 @@ RAIN_GAUGES = getattr(_module, "RAIN_GAUGES", "SMHI:s mätare")
 # Copernicus EMS's mapped perimeters of a fire (tools/fetch_ems_perimeters.py).
 EMS_AREA = getattr(_module, "EMS_AREA", None)
 EMS_DIR = getattr(_module, "EMS_DIR", None)
-# MET Norway's archived weather forecasts for the fire (met_forecast.py); only Kårböle 2018 so far.
+# MET Norway's archived weather forecasts (met_forecast.py), in the scenarios that set it.
 MET_FORECAST_DIR = getattr(_module, "MET_FORECAST_DIR", None)
 # SMHI's observed lightning over the weather chart's area (tools/fetch_smhi_lightning.py, lightning.py).
 LIGHTNING_DIR = getattr(_module, "LIGHTNING_DIR", None)
@@ -196,7 +196,7 @@ RADAR_ANALYSIS_BBOX = getattr(_module, "RADAR_ANALYSIS_BBOX", None) or MAP_BBOX
 FLOOD_HAZARD_WMS = getattr(_module, "FLOOD_HAZARD_WMS", None)
 MUNICIPAL_WMS = getattr(_module, "MUNICIPAL_WMS", None)
 MUNICIPAL_DIR = getattr(_module, "MUNICIPAL_DIR", None)
-# The municipality's map as a locally kept base map (municipal_basemap.py); only Sundsvall 2026.
+# The municipality's map as a locally kept base map (municipal_basemap.py), in the scenarios that set it.
 MUNICIPAL_BASEMAP = getattr(_module, "MUNICIPAL_BASEMAP", None)
 # Several municipal maps, each {"id", "url", "layer", "label", "attribution", "dir", "names"?}, in the order the
 # screens offer them (Västerås stad's map, grey map and aerial photo); instead of MUNICIPAL_BASEMAP. An id is
@@ -210,7 +210,7 @@ MUNICIPAL_BASEMAP_BBOX = getattr(_module, "MUNICIPAL_BASEMAP_BBOX", None) or MAP
 MCF_DIR = getattr(_module, "MCF_DIR", None)
 SENTINEL1_ACQUISITIONS = getattr(_module, "SENTINEL1_ACQUISITIONS", [])
 # Roads and railways the incident damaged, as a report tells it, and those under heavy rain
-# computed from SMHI's radar (routes.py, tools/derive_route_exposure.py); only Västernorrland 2025.
+# computed from SMHI's radar (routes.py, tools/derive_route_exposure.py), in the scenarios that set it.
 ROUTE_IMPACTS = getattr(_module, "ROUTE_IMPACTS", [])
 ROUTE_REPORT = getattr(_module, "ROUTE_REPORT", "")
 # The damage layer's name, the short source label the screens show and the map's attribution.
