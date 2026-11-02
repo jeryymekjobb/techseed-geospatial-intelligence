@@ -428,3 +428,46 @@ Detta är förslag. Inget är beslutat.
 
 Om MVP:n bygger vidare på koden kan fynden föras in som krav av typen `K-CS` och `K-OPS`,
 eller som verifiering i `docs/mvp/kravmall.md`.
+
+## Åtgärdsplan
+
+Användaren godkände planen 2026-11-02 ("Vi kör enligt din plan"). Den ersätter förslaget
+till ordning ovan.
+
+**Arbetssätt:**
+- Varje arbetspaket görs på en egen gren från `main`, och varje logisk ändring blir en egen
+  commit.
+- För en bugg skrivs först ett test som visar felet, sedan rättningen.
+- Paketet visas fungera innan något stagas.
+- Handoffen i `CONTEXT.md` uppdateras i samma commit.
+
+### Arbetspaket
+
+| Paket | Fynd | Vad som görs | Verifiering |
+|---|---|---|---|
+| **AP0 Tester som kan skada en demo** | Q-01, Q-02 | Klart 2026-11-02 (`2249662`). Testerna körs bara med `TECHSEED_TEST_POSTGIS=1` respektive `TECHSEED_TEST_DOCKER=1`. | Sviten är grön: 802 passerade, 3 överhoppade |
+| **AP1 Robust datahämtning** | T-01–T-04 | `If-Range` med ETag eller Last-Modified, annars börjar nedladdningen om. Content-Length kontrolleras före `replace`. Skrivningarna blir atomiska (`.part` och `os.replace`) för kommunkartans tiles, webbiblioteken och rösten. Markören för ett klart steg skrivs sist, och rösten hashkontrolleras på disk. | Tester med en stub-server som bryter mitt i och byter fil mellan försöken |
+| **AP2 Säkerhet** | B-02, F-01, B-05, B-06 | `POST` kräver `Content-Type: application/json` och samma Origin eller ingen Origin, också för `/api/speak`. 2D escapar samma fält som 3D. Lantmäteriets proxy tar bara listade lager och kontrollerar z/x/y. `OSError` fångas. | Tester för fel Content-Type, främmande Origin och ett OSM-namn med HTML |
+| **AP3 Märkning** | B-03, F-04 | IoT-värden räknas som simulerade om inte `"simulated": false` står uttryckligen. Monitorn skriver tillbaka sin kreditering efter ett avbrott. | Test av IoT-flaggan och kontroll i webbläsaren |
+| **AP4 Demons läge** | B-01, F-02, F-03, F-05, F-06, B-08 | Läget hålls separat från listan med de 100 senaste händelserna. `flashedPasses` töms vid sync. Frågesvar får ett löpnummer så att inaktuella svar kastas. Mission control försöker igen och visar fel. `detectionKey` sätts först när svaret har kommit. En korrupt profilfil sparas undan och skrivs inte över. | Test med 150 händelser, profiltest och demokontroll i webbläsaren |
+| **AP8 Dokumentation** | D-01–D-12, B-11 | README och `app/README.md` uppdateras. Operatörsguiden: den borttagna grenen, alla 16 scenarier, databasnamnen och mässformuleringarna. Inaktuella punkter i `CONTEXT.md` rättas. Kramfors i katalogen, avvikelsen från one-pagern om LLM, registrets grenhänvisning och antal, och kommentarerna i `scenario.py`. | Granskning mot koden |
+| **AP5 Backend i övrigt** | B-04, B-07, B-10, B-12, B-09 | Tid utan tidszon räknas som UTC. PostGIS-frågor får timeout. Talkön och listan `spoken` får tak. `/api/stream` får en nedre gräns för `from`. Falsterbo får inställningar för demokontrollen. | Enhetstester och `check_demo` för Falsterbo |
+| **AP7 Testluckor** | Q-03, Q-04, Q-06–Q-12, T-09 | `skipif` när data eller bibliotek saknas, i stället för att kontroller tyst hoppas över. Tester för token, för gränsen på 10 sensorer och för de två hämtverktygen. Katalogen kompletteras. Fast tid i stället för `sleep` och `now()`. Gemensamma fixturer i `conftest.py`. | Sviten med och utan `data/` |
+| **AP6 Drift** | T-05–T-08 | Docker-imagarna låses till de digests som finns lokalt, och digesten sparas i SOURCE.json. Paketlistorna rättas. `getuid` får skydd. `package_data` varnar för data med `permission` som bara tillåter intern användning. | Tester och en kontroll att tiles och terräng byggs |
+
+Paketen görs i den ordning som tabellen visar.
+
+### Beslut 2026-11-02
+
+Användaren godkände förslagen:
+- **B-10:** `/api/stream` behålls, men med en nedre gräns för `from`. Den tas inte bort.
+- **T-05:** Docker-imagarna låses till de digests som finns lokalt nu, så att dagens kartor
+  och terräng kan byggas om likadant.
+- **D-06:** operatörsguiden behåller sin struktur. Bara mässformuleringarna och "brandkartan"
+  tas bort. Ingen omskrivning till en guide för intern demo nu.
+- **Ordning:** AP0, AP1, AP2, AP3, AP4, AP8, AP5, AP7, AP6.
+
+### Parkerat
+
+- **Q-05:** att köra `panel.js`, `map2d.js` och `control.js` i Node. Det kräver
+  omstrukturering av stora filer och väntar tills MVP:ns arkitektur är bestämd.
