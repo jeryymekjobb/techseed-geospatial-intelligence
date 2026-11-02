@@ -355,18 +355,46 @@ def describe(plan: list[Step], with_optional: bool) -> list[str]:
     return lines
 
 
+def expected_size(response) -> int | None:
+    """The whole file's size in bytes from the answer: Content-Range of a 206, else Content-Length."""
+    whole = (response.headers.get("Content-Range") or "").rpartition("/")[2]
+    if response.status == 206 and whole.isdigit():
+        return int(whole)
+    length = response.headers.get("Content-Length") or ""
+    return int(length) if response.status != 206 and length.isdigit() else None
+
+
 def download(url: str, target: Path) -> None:
-    """A large file, continued from where an earlier attempt stopped (HTTP Range), then renamed into place."""
+    """A large file, continued from where an earlier attempt stopped, then renamed into place.
+
+    An attempt is continued (HTTP Range) only with If-Range on the server's ETag or Last-Modified,
+    saved beside the part, so a file the server has replaced since (the OSM extract is rebuilt daily)
+    is fetched whole instead of joined to the old part. A part shorter than the server's size is kept
+    for the next run and never renamed into place."""
     part = target.with_name(target.name + ".part")
+    validator = target.with_name(target.name + ".part.validator")
     target.parent.mkdir(parents=True, exist_ok=True)
-    start = part.stat().st_size if part.is_file() else 0
-    headers = {"User-Agent": USER_AGENT, **({"Range": f"bytes={start}-"} if start else {})}
+    saved = validator.read_text(encoding="utf-8").strip() if validator.is_file() else ""
+    start = part.stat().st_size if part.is_file() and saved else 0
+    headers = {"User-Agent": USER_AGENT}
+    if start:
+        headers |= {"Range": f"bytes={start}-", "If-Range": saved}
     with urlopen(Request(url, headers=headers), timeout=120) as response:
-        mode = "ab" if start and response.status == 206 else "wb"
-        with part.open(mode) as stream:
+        resumed = bool(start) and response.status == 206
+        current = response.headers.get("ETag") or response.headers.get("Last-Modified") or ""
+        if not resumed:
+            validator.unlink(missing_ok=True)
+            if current:
+                validator.write_text(current, encoding="utf-8")
+        size = expected_size(response)
+        with part.open("ab" if resumed else "wb") as stream:
             while block := response.read(1 << 20):
                 stream.write(block)
+    got = part.stat().st_size
+    if size is not None and got != size:
+        raise OSError(f"{target.name}: {got} av {size} byte hämtade; kör samma kommando igen, så fortsätter det")
     part.replace(target)
+    validator.unlink(missing_ok=True)
 
 
 def run(plan: list[Step], force: bool = False, runner=subprocess.run) -> int:

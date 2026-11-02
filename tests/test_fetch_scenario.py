@@ -115,27 +115,70 @@ def test_the_optional_forecasts_run_only_when_asked() -> None:
     assert "met-forecasts" in [s.key for s in fetch.selected(plan, True)]
 
 
+class Response(io.BytesIO):
+    """A stand-in for urlopen's answer: status, headers and a body."""
+
+    def __init__(self, body: bytes, status: int = 200, headers: dict | None = None) -> None:
+        super().__init__(body)
+        self.status, self.headers = status, headers or {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def serve(monkeypatch, *answers: Response) -> list[dict]:
+    """Make fetch.download get the answers in turn; returns the headers of each request."""
+    asked, queue = [], list(answers)
+
+    def opener(request, timeout):
+        asked.append({key.lower(): value for key, value in request.header_items()})
+        return queue.pop(0)
+    monkeypatch.setattr(fetch, "urlopen", opener)
+    return asked
+
+
 def test_the_osm_extract_continues_an_interrupted_download(tmp_path: Path, monkeypatch) -> None:
     target = tmp_path / "sweden.osm.pbf"
     (tmp_path / "sweden.osm.pbf.part").write_bytes(b"first half ")
-    asked = []
-
-    class Response(io.BytesIO):
-        status = 206
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False
-
-    def opener(request, timeout):
-        asked.append(request.get_header("Range"))
-        return Response(b"second half")
-    monkeypatch.setattr(fetch, "urlopen", opener)
+    (tmp_path / "sweden.osm.pbf.part.validator").write_text('"v1"')
+    asked = serve(monkeypatch, Response(b"second half", 206, {"Content-Range": "bytes 11-21/22", "ETag": '"v1"'}))
     fetch.download("https://example.test/sweden.osm.pbf", target)
-    assert asked == ["bytes=11-"] and target.read_bytes() == b"first half second half"
-    assert not (tmp_path / "sweden.osm.pbf.part").exists()
+    assert asked[0]["range"] == "bytes=11-" and asked[0]["if-range"] == '"v1"'
+    assert target.read_bytes() == b"first half second half"
+    assert not (tmp_path / "sweden.osm.pbf.part").exists() and not (tmp_path / "sweden.osm.pbf.part.validator").exists()
+
+
+def test_a_file_replaced_on_the_server_is_fetched_whole_not_joined(tmp_path: Path, monkeypatch) -> None:
+    target = tmp_path / "sweden.osm.pbf"
+    (tmp_path / "sweden.osm.pbf.part").write_bytes(b"yesterday's ")
+    (tmp_path / "sweden.osm.pbf.part.validator").write_text('"v1"')
+    # If-Range no longer matches, so the server sends the whole new file with 200.
+    serve(monkeypatch, Response(b"today's file", 200, {"Content-Length": "12", "ETag": '"v2"'}))
+    fetch.download("https://example.test/sweden.osm.pbf", target)
+    assert target.read_bytes() == b"today's file"
+
+
+def test_a_part_without_its_validator_is_fetched_again_from_the_start(tmp_path: Path, monkeypatch) -> None:
+    target = tmp_path / "sweden.osm.pbf"
+    (tmp_path / "sweden.osm.pbf.part").write_bytes(b"of unknown age ")
+    asked = serve(monkeypatch, Response(b"whole", 200, {"Content-Length": "5"}))
+    fetch.download("https://example.test/sweden.osm.pbf", target)
+    assert "range" not in asked[0] and target.read_bytes() == b"whole"
+
+
+def test_a_cut_off_download_is_kept_as_a_part_and_continued_next_time(tmp_path: Path, monkeypatch) -> None:
+    target = tmp_path / "sweden.osm.pbf"
+    serve(monkeypatch,
+          Response(b"first ", 200, {"Content-Length": "11", "ETag": '"v1"'}),
+          Response(b"half!", 206, {"Content-Range": "bytes 6-10/11", "ETag": '"v1"'}))
+    with pytest.raises(OSError, match="6 av 11 byte"):
+        fetch.download("https://example.test/sweden.osm.pbf", target)
+    assert not target.exists() and (tmp_path / "sweden.osm.pbf.part").read_bytes() == b"first "
+    fetch.download("https://example.test/sweden.osm.pbf", target)
+    assert target.read_bytes() == b"first half!"
 
 
 def test_a_run_asks_first_and_never_fetches_without_an_answer(monkeypatch, capsys, tmp_path: Path) -> None:
