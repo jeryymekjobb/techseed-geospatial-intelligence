@@ -29,10 +29,10 @@ eller datum:
 | **Beror på** | Beror på ett beslut som inte är fattat. Beslutet anges i posten. |
 | **Osannolik** | Med i registret för att utesluta den uttryckligen. Skälet anges. |
 
-Tre poster har märkningen **P** sedan 2026-11-02: R-CS-03, R-GEO-02 och R-EM-02, den sista
-bara för myndighetens namn. CRA och AI-förordningens ändringar (R-CS-01, R-AI-02 och R-AI-03)
-kunde inte kontrolleras mot EUR-Lex, som inte lämnar ut texterna till automatisk hämtning.
-De har kvar märkningen **S** och ska kontrolleras för hand.
+Fyra poster har märkningen **P** sedan 2026-11-02: R-CS-01, R-CS-03, R-GEO-02 och R-EM-02,
+den sista bara för myndighetens namn. AI-förordningens ändringar (R-AI-02 och R-AI-03) har
+kvar märkningen **S** och ska kontrolleras för hand i EUR-Lex, som inte lämnar ut texterna
+till automatisk hämtning.
 
 ## Beslut som avgör tillämpligheten
 
@@ -53,7 +53,7 @@ Många poster beror på samma beslut, som ännu inte är fattade (se `CONTEXT.md
 
 | ID | Regelverk | Uppgift | Vad det gäller | Berör funktioner | Tillämplighet |
 |---|---|---|---|---|---|
-| R-CS-01 | Cyberresiliensförordningen (CRA), förordning (EU) 2024/2847 | S: rapporteringsplikten i artikel 14 gäller från 11 september 2026, övriga skyldigheter från 11 december 2027. EUR-Lex kunde inte hämtas 2026-11-02 | Krav på cybersäkerhet för produkter med digitala element som släpps ut på EU-marknaden, sårbarhetshantering och rapportering till ENISA | Hela programvaran; F-IOT-01, F-MC-03, F-OPS-03 | Beror på B-MARK. Programvara som bara används internt släpps inte ut på marknaden. En såld eller levererad MVP kan omfattas. |
+| R-CS-01 | Cyberresiliensförordningen (CRA), förordning (EU) 2024/2847 | P (kontrollerad 2026-11-02, artikel 71): antagen 23 oktober 2024, tillämpas från 11 december 2027. Artikel 14 (rapporteringsplikten) tillämpas från 11 september 2026 och kapitel IV (artiklarna 35–51, anmälan av organ för bedömning av överensstämmelse) från 11 juni 2026 | Krav på cybersäkerhet för produkter med digitala element som släpps ut på EU-marknaden, sårbarhetshantering och rapportering till ENISA | Hela programvaran; F-IOT-01, F-MC-03, F-OPS-03 | Beror på B-MARK. Programvara som bara används internt släpps inte ut på marknaden. En såld eller levererad MVP kan omfattas. |
 | R-CS-02 | NIS2-direktivet, direktiv (EU) 2022/2555 | A | Cybersäkerhet hos väsentliga och viktiga verksamheter, bland annat offentlig förvaltning och digital infrastruktur | Drift hos kund | Beror på B-KUND. Kravet ligger på beställarens verksamhet, inte direkt på MVP:n, men kan föras över till leverantören genom avtal. |
 | R-CS-03 | Cybersäkerhetslag (SFS 2025:1506) och cybersäkerhetsförordning (SFS 2025:1507) | P: båda utfärdade 11 december 2025 och i kraft 15 januari 2026. Lagen upphäver lag (2018:1174) om informationssäkerhet för samhällsviktiga och digitala tjänster (övergångsbestämmelserna) | Svensk genomförandelag för NIS2 | Som R-CS-02 | Beror på B-KUND. |
 | R-CS-04 | Radioutrustningsdirektivet, direktiv 2014/53/EU, med delegerad förordning (EU) 2022/30 om cybersäkerhet | A: den delegerade förordningen gäller från 1 augusti 2025 | Väsentliga krav för radioutrustning, bland annat skydd av nätverk, personuppgifter och mot bedrägeri | Riktiga IoT-noder (nRF91, se backloggen) | Beror på B-IOT. Osannolik med syntetiska sensorer. |
@@ -131,7 +131,7 @@ denna del har märkningen **A**.
 
 ## Nästa steg
 
-1. Kontrollera för hand i EUR-Lex R-CS-01, R-AI-02 och R-AI-03, och därefter övriga poster
+1. Kontrollera för hand i EUR-Lex R-AI-02 och R-AI-03, och därefter övriga poster
    med märkningen **S** och **A**, och lägg till länkar till primärkällorna.
 2. Gå igenom tillämpligheten när B-KUND, B-ANV och B-MARK är besvarade efter beställarens
    one-pager.
@@ -142,6 +142,7 @@ denna del har märkningen **A**.
 
 ## Primärkällor kontrollerade 2026-11-02
 
+- R-CS-01: [Förordning (EU) 2024/2847 (Cyber Resilience Act)](https://eur-lex.europa.eu/legal-content/SV/TXT/?uri=CELEX:32024R2847), artikel 71, EUR-Lex. Texten klistrades in av användaren.
 - R-CS-03: [Cybersäkerhetslag (2025:1506)](https://data.riksdagen.se/dokument/sfs-2025-1506.html) och [cybersäkerhetsförordning (2025:1507)](https://data.riksdagen.se/dokument/sfs-2025-1507.html), Riksdagen.
 - R-GEO-02: [Lag (2016:319) om skydd för geografisk information](https://data.riksdagen.se/dokument/sfs-2016-319.html), 9 och 10 §§, Riksdagen.
 - R-EM-02: [SFS 2025:1124, förordning om ändring i förordningen (2008:1002) med instruktion för Myndigheten för samhällsskydd och beredskap](https://svenskforfattningssamling.se/sites/default/files/sfs/2025-11/SFS2025-1124.pdf), Svensk författningssamling.
