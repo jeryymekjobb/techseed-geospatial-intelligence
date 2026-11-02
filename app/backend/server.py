@@ -893,8 +893,26 @@ class Handler(BaseHTTPRequestHandler):
             # The GUI closes the stream to pause or restart the playback.
             return
 
+    def foreign_post(self) -> HTTPStatus | None:
+        """Why a POST must be refused, if it may come from another web page in a browser on this computer.
+
+        Only JSON is taken: another page can send JSON only after a CORS preflight, which this server
+        never answers, so a 'no-cors' form or fetch from elsewhere is refused. A browser's Origin, when
+        sent, must be this server's own host and port."""
+        content_type = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if content_type != "application/json":
+            return HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+        origin = self.headers.get("Origin")
+        if origin is not None and urlsplit(origin).netloc.lower() != (self.headers.get("Host") or "").lower():
+            return HTTPStatus.FORBIDDEN
+        return None
+
     def do_POST(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
         path = urlsplit(self.path).path
+        refused = self.foreign_post()
+        if refused is not None:
+            self.send_json({"error": "json_from_this_page_only"}, refused)
+            return
         if path in ("/api/speak", "/api/speak/stop"):
             self.speak(path)
             return

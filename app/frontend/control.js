@@ -592,8 +592,9 @@ for (const button of document.querySelectorAll("[data-image]")) button.addEventL
 // STARTA OM DEMO: the backend stops, start_demo closes every screen and starts the same scenario again.
 async function demoExit(path, label, question, done) {
   if (!window.confirm(question)) return;
-  const headers = token ? { "X-Control-Token": token } : {};
-  const response = await fetch(path, { method: "POST", headers }).catch(() => null);
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["X-Control-Token"] = token;
+  const response = await fetch(path, { method: "POST", headers, body: "{}" }).catch(() => null);
   const error = response && !response.ok ? await response.json().catch(() => ({})) : null;
   $("command-status").textContent = !response ? `${label}: backend svarar inte.`
     : error ? `${label} gick inte: ${error.detail || error.error}` : done;

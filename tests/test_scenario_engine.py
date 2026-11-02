@@ -311,6 +311,32 @@ def first_events(url: str, count: int) -> list[tuple[str, dict]]:
     return events
 
 
+def raw_post(url: str, body: bytes, headers: dict) -> int:
+    try:
+        with urlopen(Request(url, data=body, headers=headers, method="POST"), timeout=10) as response:
+            return response.status
+    except HTTPError as exc:
+        return exc.code
+
+
+def test_another_web_page_cannot_send_commands(base_url: str) -> None:
+    """A page elsewhere, open in a browser on the demo computer, can send a form or a 'no-cors' fetch
+    without asking first; JSON needs a CORS preflight this server never answers, and its Origin shows."""
+    command = f"{base_url}/api/scenario/command"
+    host = base_url.removeprefix("http://")
+    body = json.dumps({"command": "play"}).encode()
+    token = {"X-Control-Token": "secret"}
+    for path in ("/api/scenario/command", "/api/demo/menu", "/api/demo/restart", "/api/speak", "/api/speak/stop"):
+        assert raw_post(f"{base_url}{path}", body, {**token, "Content-Type": "text/plain"}) == 415, path
+        assert raw_post(f"{base_url}{path}", body, token) == 415, path  # urllib's default is a form
+    assert raw_post(command, body, {**token, "Content-Type": "application/json", "Origin": "https://elsewhere.test"}) == 403
+    assert raw_post(command, body, {**token, "Content-Type": "application/json", "Origin": "http://127.0.0.1:1"}) == 403
+    assert raw_post(command, body, {**token, "Content-Type": "application/json; charset=utf-8", "Origin": f"http://{host}"}) == 200
+    assert raw_post(command, body, {**token, "Content-Type": "application/json"}) == 200  # tools without a browser send no Origin
+    with urlopen(f"{base_url}/api/scenario", timeout=10) as response:
+        assert json.loads(response.read())["playing"] is True
+
+
 def test_commands_need_the_token_and_change_the_shared_state(base_url: str) -> None:
     assert post(f"{base_url}/api/scenario/command", {"command": "play"}, token=None)[0] == 403
     assert post(f"{base_url}/api/scenario/command", {"command": "dance"})[0] == 400
