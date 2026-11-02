@@ -253,7 +253,7 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
                          Path(s.SENTINEL1_DIR) / "SOURCE.json", programs=native(tools, *GDAL), packages=IMAGES, size_mb=50))
     if get("SENTINEL1_WIND_DIR"):
         plan.append(Step("sentinel1-wind", "Sentinel-1:s vind över havet", tool("fetch_sentinel1_wind"), Path(s.SENTINEL1_WIND_DIR) / "wind.json",
-                         account="cdse", optional=True, size_mb=45))
+                         account="cdse", packages=("numpy",), optional=True, size_mb=45))
     if get("SWOT_DIR") and get("SWOT_AREA"):
         plan.append(Step("swot", "SWOT:s vattenhöjder i sjöar och älv", tool("fetch_swot", "--tools", tools), Path(s.SWOT_DIR) / "swot.json",
                          account="earthdata", optional=True, programs=native(tools, *GDAL), packages=("requests",), size_mb=200))

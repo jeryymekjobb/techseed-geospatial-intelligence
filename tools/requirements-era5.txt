@@ -1,4 +1,4 @@
-# Only for tools/fetch_era5_land.py; the app and the other tools use the standard library.
+# For tools/fetch_era5_land.py, fetch_era5_sea.py and fetch_met_forecasts.py (netCDF4); the app uses the standard library.
 # python3 -m venv .venv && .venv/bin/pip install -r tools/requirements-era5.txt
 cdsapi==0.7.7
 netCDF4==1.7.4

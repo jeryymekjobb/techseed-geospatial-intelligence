@@ -12,7 +12,7 @@
 #   see app/backend/iot.py). Started with `docker compose up -d mosquitto`.
 services:
   postgis:
-    image: postgis/postgis:16-3.4
+    image: postgis/postgis:16-3.4@sha256:44126d872ac91993766c341e369c539e8196614321765d36a6f1bab0419a5fa5
     environment:
       POSTGRES_DB: firemap
       POSTGRES_USER: firemap
@@ -27,7 +27,7 @@ services:
       retries: 20
 
   tiles:
-    image: maptiler/tileserver-gl:latest
+    image: maptiler/tileserver-gl:latest@sha256:3a9ccdb24820b6814c8119bcc8a4376c39867cb0ffe69d62919ef898b90c2427
     # The style tiles/styles/techseed.json draws roads, railways and water clearly and no text;
     # the GUI draws place and lake names itself. The config names the scenario's TILES_FILE.
     entrypoint: ["/bin/bash", "-c", "sed 's/__TILES_FILE__/${TILES_FILE:-vastmanland.mbtiles}/' /config/config.json > /tmp/config.json && exec /usr/src/app/docker-entrypoint.sh --config /tmp/config.json --port 8080"]
@@ -38,7 +38,7 @@ services:
       - ./tiles:/config:ro
 
   mosquitto:
-    image: eclipse-mosquitto:2
+    image: eclipse-mosquitto:2@sha256:38c0da4f2ef84284d47b3b3eeea1cb3bdeabe81ee10caf0cd5c5ff61ee3ea408
     ports:
       - "127.0.0.1:1883:1883"
     volumes:

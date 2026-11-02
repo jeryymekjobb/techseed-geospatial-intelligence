@@ -60,7 +60,8 @@ NDMI_COLOURS = [(-0.2, (140, 81, 10)), (0.0, (216, 179, 101)), (0.15, (246, 232,
                 (0.3, (199, 234, 229)), (0.45, (90, 180, 172)), (0.6, (1, 102, 94))]
 MIN_COVERAGE_PCT = 95.0  # a scene must have data over this share of the fire area
 RAW_BANDS = {"nir08": "B5", "swir16": "B6", "qa_pixel": "QA"}
-GDAL_IMAGE = "tumgis/ctb-quantized-mesh:latest"
+# Pinned to a digest, as tools/build_terrain.py pins the same image.
+GDAL_IMAGE = "tumgis/ctb-quantized-mesh:latest@sha256:31053c0cee60fe2f6651812786b2861e1dda03b25a88f2fa6325a4a9e266ad98"
 HOST_CA_BUNDLE = Path("/etc/ssl/certs/ca-certificates.crt")
 # The scenario's map area, as the offline map tiles (west, south, east, north), so the image
 # fills the whole map on a wide screen and where the 2D map can be panned; about 30 m per pixel.
@@ -172,7 +173,7 @@ def ndmi_image(out: Path, scene: str, size: tuple[int, int] = SIZE) -> tuple[flo
 
 
 def user() -> str:
-    return f"{os.getuid()}:{os.getgid()}"
+    return f"{os.getuid()}:{os.getgid()}" if hasattr(os, "getuid") else "0:0"  # Windows has no uid; Docker Desktop maps the files
 
 
 # A read from Planetary Computer that stalls is given up after GDAL_HTTP_TIMEOUT seconds and tried

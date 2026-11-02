@@ -47,10 +47,12 @@ DATA = REPO_ROOT / "data"
 # The scenario's map area: the map view with the margin the GUI allows for panning
 # (lon/lat, west,south,east,north).
 DEFAULT_BBOX = ",".join(str(value) for value in scenario.MAP_BBOX)
-TILEMAKER_IMAGE = "ghcr.io/systemed/tilemaker:master"
+# Pinned to the digest the offline maps were built with; its OpenMapTiles config comes from the image too.
+TILEMAKER_IMAGE = "ghcr.io/systemed/tilemaker:master@sha256:d3eda2790458de727bb0096eebce775984fc060f60901dac6dbfbbb79ae17370"
 PROCESS_DIR = REPO_ROOT / "tiles"
 PROCESS_FILE = "process-techseed.lua"
-OSMIUM_IMAGE = "debian:stable-slim"
+# Pinned to a digest; osmium-tool itself is installed with apt-get at each build, so its version is not.
+OSMIUM_IMAGE = "debian:stable-slim@sha256:5bc3287b25407c965a30f38e32603dc253a3869e1b12a21ac09bfc27fd8b13ce"
 # OSM's sea as polygons split into tiles, WGS 84 (osmdata.openstreetmap.de, ODbL).
 WATER_POLYGONS = DATA / "osm" / "water-polygons-split-4326.zip"
 WATER_POLYGONS_URL = "https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip"
@@ -68,7 +70,7 @@ def sha256_of(path: Path) -> str:
 
 
 def user() -> str:
-    return f"{os.getuid()}:{os.getgid()}"
+    return f"{os.getuid()}:{os.getgid()}" if hasattr(os, "getuid") else "0:0"  # Windows has no uid; Docker Desktop maps the files
 
 
 def extract_command(source: Path, area: Path, bbox: str) -> list[str]:

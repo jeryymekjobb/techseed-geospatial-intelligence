@@ -31,12 +31,13 @@ from tools import geo_tools, quantized_terrain
 
 DEM_DIR = scenario.DEM_DIR
 TERRAIN_DIR = scenario.TERRAIN_DIR
-CTB_IMAGE = "tumgis/ctb-quantized-mesh:latest"
+# Pinned to the digest the terrain was built with, so a clean install builds the same (the tag moves).
+CTB_IMAGE = "tumgis/ctb-quantized-mesh:latest@sha256:31053c0cee60fe2f6651812786b2861e1dda03b25a88f2fa6325a4a9e266ad98"
 NATIVE_BUILDER = "tools/quantized_terrain.py (GDAL, pydelatin 0.4.0, quantized-mesh-encoder 0.5.0)"
 
 
 def user() -> str:
-    return f"{os.getuid()}:{os.getgid()}"
+    return f"{os.getuid()}:{os.getgid()}" if hasattr(os, "getuid") else "0:0"  # Windows has no uid; Docker Desktop maps the files
 
 
 def build_script(tiles: list[str], bbox: str) -> str:
