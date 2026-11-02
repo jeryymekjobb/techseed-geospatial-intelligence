@@ -57,14 +57,21 @@ def tile_url(name: str) -> str:
 
 
 def download(url: str, target: Path) -> str:
-    """Download to target (through a .part file) and return its SHA-256."""
+    """Download to target (through a .part file) and return its SHA-256. A body shorter than the
+    server's Content-Length (a cut connection) is an error and never renamed into place."""
     digest = hashlib.sha256()
     partial = target.with_suffix(target.suffix + ".part")
     request = Request(url, headers={"User-Agent": "techseed-geospatial-intelligence/0.1"})
+    got = 0
     with urlopen(request, timeout=300) as response, partial.open("wb") as stream:
+        length = response.headers.get("Content-Length") or ""
         for block in iter(lambda: response.read(1 << 20), b""):
             digest.update(block)
             stream.write(block)
+            got += len(block)
+    if length.isdigit() and got != int(length):
+        partial.unlink(missing_ok=True)
+        raise OSError(f"{target.name}: {got} of {length} bytes received; run again")
     partial.replace(target)
     return digest.hexdigest()
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
+import io
 import json
 import threading
 from http.server import ThreadingHTTPServer
@@ -31,6 +33,29 @@ def test_tiles_cover_the_map_area_with_glo30_names() -> None:
 
 def test_the_gui_shows_the_attribution_the_licence_requires() -> None:
     assert scenario.ATTRIBUTION["copernicus_dem"] == fetch_copernicus_dem.ATTRIBUTION
+
+
+class Answer(io.BytesIO):
+    def __init__(self, body: bytes, length: int) -> None:
+        super().__init__(body)
+        self.headers = {"Content-Length": str(length)}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_a_cut_off_dem_tile_is_an_error_and_never_kept(tmp_path: Path, monkeypatch) -> None:
+    target = tmp_path / "tile.tif"
+    monkeypatch.setattr(fetch_copernicus_dem, "urlopen", lambda request, timeout: Answer(b"half", 8))
+    with pytest.raises(OSError, match="4 of 8 bytes"):
+        fetch_copernicus_dem.download("https://example.test/tile.tif", target)
+    assert not target.exists() and not (tmp_path / "tile.tif.part").exists()
+    monkeypatch.setattr(fetch_copernicus_dem, "urlopen", lambda request, timeout: Answer(b"whole", 5))
+    assert fetch_copernicus_dem.download("https://example.test/tile.tif", target) == hashlib.sha256(b"whole").hexdigest()
+    assert target.read_bytes() == b"whole"
 
 
 def test_build_script_cuts_the_area_and_writes_mesh_tiles_with_normals() -> None:
