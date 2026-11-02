@@ -250,7 +250,8 @@ local Mosquitto broker (`docker compose up -d mosquitto`, 127.0.0.1:1883,
 anonymous). For the exhibition demo they run **simulated** with
 `tools/mqtt_node_sim.py` (`--interval`, `--drop <node>` to try a silent node);
 their messages carry `"simulated": true` and the screens show them as
-"simulerad", not live. A node silent for 60 s is shown as offline.
+"simulerad", not live. Only a message with `"simulated": false` is shown as
+live; one without the flag counts as simulated. A node silent for 60 s is shown as offline.
 `GET /api/sensors` gives the latest readings.
 
 Three **synthetic sensors** in the fire area (`app/backend/sensor_sim.py`,

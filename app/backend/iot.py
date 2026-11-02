@@ -7,10 +7,12 @@ offline when it has been silent longer than the timeout. It needs no MQTT librar
 so it can be tested without a broker; `start()` connects it to the broker with
 paho-mqtt (app/requirements-iot.txt) and leaves the store `unavailable` without it.
 
-These readings are live values from real nodes; they are not part of the 2014
-replay, and the GUI keeps them apart from the synthetic sensors in the fire area.
-A message with `"simulated": true` comes from tools/mqtt_node_sim.py; its reading
-is kept with `real: false` so the GUI can say so.
+These readings are not part of the replay, and the GUI keeps them apart from the
+synthetic sensors in the fire area. Only a message that says `"simulated": false`
+counts as a real node's (`real: true`, shown as live); every other reading, among
+them those of tools/mqtt_node_sim.py (`"simulated": true`) and any without the flag,
+is kept with `real: false` and shown as simulated, so nothing is taken for live by
+mistake.
 """
 
 from __future__ import annotations
@@ -68,7 +70,8 @@ def parse(topic: str, payload: bytes) -> tuple[str, str, float | str, str | None
             measured = utc_text(datetime.fromisoformat(str(measured).replace("Z", "+00:00")))
         except ValueError as exc:
             raise Rejected("invalid time_utc") from exc
-    simulated = message.get("simulated", False)
+    # Simulated unless the node says otherwise: a publisher that leaves the flag out is never shown as live.
+    simulated = message.get("simulated", True)
     if not isinstance(simulated, bool):
         raise Rejected("simulated must be true or false")
     return node, kind, value, measured, simulated

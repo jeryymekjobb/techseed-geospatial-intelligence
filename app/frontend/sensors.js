@@ -17,11 +17,11 @@ function readingValue(reading) {
   return reading.value;
 }
 
-// One line per booth node: "TECHSEED TEMP booth-temp: 24,7 °C · live", or "simulerad"
-// when tools/mqtt_node_sim.py sent it.
+// One line per booth node: "TECHSEED TEMP booth-temp: 24,7 °C · live" only for a node that said it is
+// real ("simulated": false); every other reading is "simulerad".
 function realSensorLine(reading) {
   const kind = SENSOR_KINDS[reading.kind] || reading.kind.toUpperCase();
-  const state = !reading.online ? "OFFLINE" : reading.real === false ? "simulerad" : "live";
+  const state = !reading.online ? "OFFLINE" : reading.real === true ? "live" : "simulerad";
   return { level: reading.online ? "ok" : "alert", text: `TECHSEED ${kind} ${reading.node}: ${readingValue(reading)} · ${state}` };
 }
 

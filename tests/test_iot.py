@@ -39,11 +39,11 @@ def message(value: object, **extra: object) -> bytes:
 def test_valid_readings_are_kept_per_node_and_kind() -> None:
     sensors, _ = store()
 
-    temp = sensors.handle("techseed/booth-temp/temp", message(24.7, time_utc="2026-10-02T14:32:00Z"))
-    sensors.handle("techseed/booth-water/water", message(42))
-    sensors.handle("techseed/booth-air/air", message("NORMAL"))
-    sensors.handle("techseed/booth-ntn/ntn", message("ONLINE"))
-    latest = sensors.handle("techseed/booth-temp/temp", message(25.1))
+    temp = sensors.handle("techseed/booth-temp/temp", message(24.7, time_utc="2026-10-02T14:32:00Z", simulated=False))
+    sensors.handle("techseed/booth-water/water", message(42, simulated=False))
+    sensors.handle("techseed/booth-air/air", message("NORMAL", simulated=False))
+    sensors.handle("techseed/booth-ntn/ntn", message("ONLINE", simulated=False))
+    latest = sensors.handle("techseed/booth-temp/temp", message(25.1, simulated=False))
 
     assert temp == {
         "seq": 1, "node": "booth-temp", "kind": "temp", "value": 24.7, "unit": "°C",
@@ -86,6 +86,12 @@ def test_simulated_messages_are_kept_as_not_real() -> None:
 
     assert sensors.handle("techseed/booth-temp/temp", message(22.4, simulated=True))["real"] is False
     assert sensors.handle("techseed/booth-water/water", message(42, simulated=False))["real"] is True
+
+
+def test_a_message_without_the_flag_is_never_taken_for_live() -> None:
+    sensors, _ = store()
+
+    assert sensors.handle("techseed/booth-temp/temp", message(22.4))["real"] is False
 
 
 def test_a_silent_node_goes_offline_and_comes_back() -> None:
