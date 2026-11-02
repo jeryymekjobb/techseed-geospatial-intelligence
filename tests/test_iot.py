@@ -192,7 +192,9 @@ def test_every_process_has_its_own_client_id() -> None:
 @pytest.fixture
 def own_broker():
     """A Mosquitto of the test's own, on a free port, so the test's node never reaches the shared broker
-    on port 1883 and a backend listening there (a running demo, or the demo check) would not list it."""
+    on port 1883 and a backend listening there (a running demo, or the demo check) would not list it.
+    It starts a container, so only when asked for with TECHSEED_TEST_DOCKER=1."""
+    import os
     import shutil
     import socket
     import subprocess
@@ -200,6 +202,8 @@ def own_broker():
     import uuid
     from pathlib import Path
 
+    if os.environ.get("TECHSEED_TEST_DOCKER") != "1":
+        pytest.skip("starts a Docker container; set TECHSEED_TEST_DOCKER=1 to run it")
     if not shutil.which("docker"):
         pytest.skip("needs Docker for a broker of the test's own")
     with socket.socket() as probe:

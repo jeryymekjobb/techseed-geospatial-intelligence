@@ -1,9 +1,11 @@
-"""Tests for tools/load_postgis.py. The database tests run only when the local
-`postgis` service of docker-compose.yml is up (`docker compose up -d postgis`)."""
+"""Tests for tools/load_postgis.py. The database test reloads the demo's own database, so it runs only
+when asked for with TECHSEED_TEST_POSTGIS=1 and the local `postgis` service of docker-compose.yml is up
+(`docker compose up -d postgis`); a plain test run never touches a running demo's tables."""
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 
@@ -32,6 +34,8 @@ def test_sql_literals_and_polygons() -> None:
     assert len(statements) == 2 and statements[0].count("(1)") == 2
 
 
+@pytest.mark.skipif(os.environ.get("TECHSEED_TEST_POSTGIS") != "1",
+                    reason="reloads the demo's database; set TECHSEED_TEST_POSTGIS=1 to run it")
 @pytest.mark.skipif(not postgis_running(), reason="needs the postgis service of docker-compose.yml")
 def test_loaded_tables_and_a_spatial_query_match_python() -> None:
     load_postgis.main([])
