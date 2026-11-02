@@ -1,7 +1,8 @@
 """Backend for the demo map, for the scenario chosen in app/backend/scenario.py.
 
-Serves the GUI, the FIRMS detections of the fire, a playback stream that sends
-the detections to the GUI in compressed time (Server-Sent Events), the OSM
+Serves the GUI, the FIRMS detections of the fire, the shared scenario's stream that
+every screen follows (/api/scenario/stream; the older /api/stream, which plays the
+detections on its own, is kept for the tests), the OSM
 terrain layer, a proxy for Lantmäteriet services and the live readings of the
 TechSeed IoT nodes (MQTT, app/backend/iot.py).
 
@@ -380,7 +381,9 @@ def feature(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_utc(text: str) -> datetime:
-    return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(timezone.utc)
+    """A time from the API; one without a zone is UTC, as the API says, not the computer's local time."""
+    moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    return (moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
 
 
 def utc_text(moment: datetime) -> str:
@@ -769,7 +772,6 @@ class Handler(BaseHTTPRequestHandler):
             # The forecast as issued and published by the clock (`at`, UTC), or the shared scenario clock.
             try:
                 clock = parse_utc(query["at"]) if query.get("at") else parse_utc(self.engine.snapshot()["clock_utc"])
-                clock = clock if clock.tzinfo else clock.replace(tzinfo=timezone.utc)
             except ValueError:
                 self.send_json({"error": "invalid_at"}, HTTPStatus.BAD_REQUEST)
                 return
@@ -793,7 +795,6 @@ class Handler(BaseHTTPRequestHandler):
             # SMHI's flashes to the ground in the hour before the clock (`at`, UTC), or the shared clock.
             try:
                 clock = parse_utc(query["at"]) if query.get("at") else parse_utc(self.engine.snapshot()["clock_utc"])
-                clock = clock if clock.tzinfo else clock.replace(tzinfo=timezone.utc)
             except ValueError:
                 self.send_json({"error": "invalid_at"}, HTTPStatus.BAD_REQUEST)
                 return
@@ -803,7 +804,6 @@ class Handler(BaseHTTPRequestHandler):
             # The Lightning Imager's flashes in the hour before the clock (`at`, UTC), or the shared clock.
             try:
                 clock = parse_utc(query["at"]) if query.get("at") else parse_utc(self.engine.snapshot()["clock_utc"])
-                clock = clock if clock.tzinfo else clock.replace(tzinfo=timezone.utc)
             except ValueError:
                 self.send_json({"error": "invalid_at"}, HTTPStatus.BAD_REQUEST)
                 return
@@ -875,6 +875,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             speed = min(MAX_SPEED, max(MIN_SPEED, float(query.get("speed", 3600))))
             start = parse_utc(query["from"]) if query.get("from") else scenario.PLAYBACK_START
+            # Within the playback: a start years before it would keep a thread streaming for as long.
+            start = min(scenario.PLAYBACK_END, max(scenario.PLAYBACK_START, start))
         except ValueError:
             self.send_json({"error": "invalid_playback_parameters"}, HTTPStatus.BAD_REQUEST)
             return

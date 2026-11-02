@@ -644,3 +644,14 @@ def test_the_state_outlives_the_log_s_oldest_events() -> None:
         scenario.command("place_sensor", latitude=59.9, longitude=16.3)
     reset = scenario.command("reset")["status"]
     assert {key: reset[key] for key in initial_event_status()} == initial_event_status()
+
+
+def test_a_time_without_a_zone_is_utc_not_the_computer_s_local_time() -> None:
+    import subprocess
+    import sys
+    code = ("from app.backend import server, scenario_engine; "
+            "print(server.parse_utc('2018-07-15T12:00:00') == server.parse_utc('2018-07-15T12:00:00Z') "
+            "== scenario_engine.parse_utc('2018-07-15T12:00:00'))")
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
+                            env={**__import__("os").environ, "TZ": "Europe/Stockholm"})
+    assert result.stdout.strip() == "True"

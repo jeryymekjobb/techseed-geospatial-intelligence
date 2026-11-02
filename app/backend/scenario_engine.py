@@ -102,7 +102,9 @@ def utc_text(moment: datetime) -> str:
 
 
 def parse_utc(text: str) -> datetime:
-    return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(timezone.utc)
+    """A time from the API; one without a zone is UTC, as the API says, not the computer's local time."""
+    moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    return (moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
 
 
 def initial_event_status() -> dict[str, Any]:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer
 from unittest.mock import patch
 from urllib.error import HTTPError
@@ -13,7 +13,7 @@ from urllib.request import urlopen
 
 import pytest
 
-from app.backend import lantmateriet, server
+from app.backend import lantmateriet, scenario, server
 
 UTC = timezone.utc
 
@@ -178,6 +178,15 @@ def test_http_stream_sends_server_sent_events_until_the_end(base_url: str) -> No
     assert text.count("event: hotspot") == 4  # two VIIRS detections each on 2014-08-09 and 2014-08-10
     assert text.rstrip().endswith('data: {"sim_time_utc": "2014-08-15T00:00:00Z"}')
     assert get(f"{base_url}/api/stream?speed=fast")[0] == 400
+
+
+def test_the_old_stream_starts_no_earlier_than_the_playback(base_url: str) -> None:
+    with patch.object(server, "TICK_SECONDS", 0.0), patch("app.backend.server.time.sleep"):
+        status, body = get(f"{base_url}/api/stream?speed=345600&from=1900-01-01T00:00:00Z")
+    first = next(line for line in body.decode("utf-8").splitlines() if line.startswith('data: {"sim_time_utc"'))
+    first_clock = server.parse_utc(json.loads(first[6:])["sim_time_utc"])
+    # The first tick is one step (a day at this speed) after the start, which is the playback's own.
+    assert status == 200 and scenario.PLAYBACK_START < first_clock <= scenario.PLAYBACK_START + timedelta(days=1)
 
 
 def test_weather_has_both_stations_hourly_and_nearest_first() -> None:
