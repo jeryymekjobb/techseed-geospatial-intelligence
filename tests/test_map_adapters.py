@@ -154,3 +154,18 @@ def test_both_main_screens_can_take_the_panel_and_the_closing_view_away_and_brin
     # The closing view's [×] hides it until VISA SLUTBILD or the end of the stop, when it is shown again next time.
     assert "if (!shown) state.closingDismissed = false;" in panel
     assert '$("closing-show").hidden = !(shown && state.closingDismissed);' in panel
+
+
+def test_the_panel_follows_resets_and_drops_what_came_too_late() -> None:
+    """panel.js and control.js are not run in these tests (Q-05); these lines keep their fixes in place."""
+    panel = (FRONTEND / "panel.js").read_text(encoding="utf-8")
+    # A sync (RESET, seek, the kiosk's loop) lets the passes flash their satellite again.
+    assert re.search(r'addEventListener\("sync", \(event\) => \{[^}]*state\.flashedPasses\.clear\(\);', panel)
+    # Only the latest question's answer is drawn; RENSA SVARET and RESET count as newer.
+    assert "const asked = ++state.answerSeq;" in panel and panel.count("if (!current()) return;") == 2
+    assert panel.count("state.answerSeq += 1;") == 2
+    # A failed /api/detection is asked again with the next state.
+    assert "state.detectionKey = undefined;  // failed: the next state tries this step again" in panel
+    control = (FRONTEND / "control.js").read_text(encoding="utf-8")
+    assert "setTimeout(loadConfig, CONFIG_RETRY_MS);" in control and "}).catch(() => {});" not in control
+    assert "Scenariots inställningar kunde inte laddas – försöker igen …" in control

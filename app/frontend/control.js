@@ -6,6 +6,8 @@
 
 const $ = (id) => document.getElementById(id);
 const token = new URLSearchParams(window.location.search).get("token");
+// How long mission control waits before asking again for the backend's settings.
+const CONFIG_RETRY_MS = 3000;
 const localTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short" });
 const localDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium" });
 const shortTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -623,8 +625,9 @@ $("apply-speed").addEventListener("click", () => {
     $("command-status").textContent = `Hastigheten kunde inte ändras: ${error.message}`;
   });
 });
-// The scenario's name in the header.
-fetch("/api/config").then((response) => response.json()).then((loaded) => {
+// The scenario's name in the header. Without the backend's settings mission control has no lists and
+// no startup RESET: it says so and tries again until they come.
+function setupFromConfig(loaded) {
   addBaseMapTexts(loaded.layers?.municipal_basemaps);
   config = loaded;
   setupImageTypes(config.layers.landsat);
@@ -656,7 +659,27 @@ fetch("/api/config").then((response) => response.json()).then((loaded) => {
   resetAfterMissionControlLoad();
   // Only the buttons of the scenario's kind of incident (styles.css).
   document.body.dataset.incident = config.incident;
-}).catch(() => {});
+}
+
+function loadConfig() {
+  fetch("/api/config").then((response) => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  }).then((loaded) => {
+    try {
+      setupFromConfig(loaded);
+      if ($("command-status").dataset.configError) $("command-status").textContent = "";
+      delete $("command-status").dataset.configError;
+    } catch (error) {
+      $("command-status").textContent = `Mission control kunde inte starta: ${error.message}`;
+    }
+  }).catch(() => {
+    $("command-status").textContent = "Scenariots inställningar kunde inte laddas – försöker igen …";
+    $("command-status").dataset.configError = "yes";
+    setTimeout(loadConfig, CONFIG_RETRY_MS);
+  });
+}
+loadConfig();
 fetch("/api/sensors").then((response) => response.json()).then((snapshot) => {
   iotConnection = snapshot;
   showIot();

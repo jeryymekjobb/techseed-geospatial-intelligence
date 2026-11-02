@@ -53,6 +53,8 @@ const state = {
   monitor: null,  // satmonitor.js, always on screen
   passCache: new Map(),  // "norad|day" -> passes over the fire that scenario day
   flashedPasses: new Set(),
+  // Counts the questions asked and cleared, so only the latest question's answer is shown.
+  answerSeq: 0,
   // The Landsat 8 scene (config.layers.landsat): shown from its acquisition time.
   landsat: null,
   imageTypes: ["swir"],  // the image types "auto" follows (landsat.js imageTypesShown)
@@ -1566,7 +1568,11 @@ async function followDetection(detection) {
   }
   if (state.detection?.pass_utc !== detection.pass_utc) {
     const info = await getJson("/api/detection").catch(() => null);
-    if (state.detectionKey !== key || !info) return;  // a newer step came while waiting
+    if (state.detectionKey !== key) return;  // a newer step came while waiting
+    if (!info) {
+      state.detectionKey = undefined;  // failed: the next state tries this step again
+      return;
+    }
     state.detection = { pass_utc: info.pass_utc, pass: info.pass, classification: info.classification };
     state.monitor?.setMark({ atMs: Date.parse(info.pass.pass_utc), firms: info.pass.satellite, norad: info.pass.norad });
   }
@@ -1719,6 +1725,7 @@ function applyQuestion(status, previous) {
   if (!question || (previous && previous.question?.seq === question.seq)) return;
   if (question.id) askQuestion(question.id);
   else if (previous) {
+    state.answerSeq += 1;  // an answer still on its way is dropped
     state.map.drawQueryResult(null);
     $("answer").hidden = true;
   }
@@ -1876,18 +1883,23 @@ function showAssessment(result) {
 
 // Prepared questions (app/backend/spatial.py): the answer, its SQL and the result on the map.
 async function askQuestion(id) {
+  // An answer that comes after RENSA SVARET, RESET or a newer question is dropped.
+  const asked = ++state.answerSeq;
+  const current = () => state.answerSeq === asked;
   $("answer").hidden = false;
   $("answer-text").textContent = "Frågar PostGIS …";
   $("answer-meta").textContent = "";
   try {
     const response = await fetch(`/api/ask?q=${encodeURIComponent(id)}`);
     const body = await response.json();
+    if (!current()) return;
     if (!response.ok) throw new Error(body.detail || body.error || `HTTP ${response.status}`);
     $("answer-text").textContent = body.answer;
     $("answer-meta").textContent = `${body.source} · ${String(body.elapsed_ms).replace(".", ",")} ms · scenariotid ${formatLocal(body.clock_utc)}`;
     $("answer-sql").textContent = body.sql || "Ingen SQL – svaret kommer från bedömningen ovan.";
     state.map.drawQueryResult(body.features);
   } catch (error) {
+    if (!current()) return;
     $("answer-text").textContent = `Frågan kunde inte besvaras: ${error.message}`;
     state.map.drawQueryResult(null);
   }
@@ -1903,6 +1915,7 @@ async function setupQuestions() {
     $("questions").append(button);
   }
   $("answer-clear").addEventListener("click", () => {
+    state.answerSeq += 1;
     state.map.drawQueryResult(null);
     $("answer").hidden = true;
   });
@@ -2061,6 +2074,8 @@ function connectScenario() {
     source.addEventListener("sync", (event) => {
       const data = JSON.parse(event.data);
       state.map.clearHotspots();
+      // A sync follows RESET, a seek and the kiosk's loop: the passes may flash their satellite again.
+      state.flashedPasses.clear();
       for (const feature of data.features) state.map.addHotspot(feature);
       applyState(data.state);
       resolve();
