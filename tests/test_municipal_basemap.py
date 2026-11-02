@@ -54,11 +54,36 @@ def test_the_fetch_writes_the_tiles_and_its_source_and_a_second_run_asks_nothing
     monkeypatch.setattr(fetch, "fetch_image", lambda url: asked.append(url) or Image.new("RGBA", (side, side), (200, 220, 200, 255)))
     assert fetch.main(["--min-zoom", "8", "--max-zoom", "10", "--out", str(tmp_path)]) == 0
     assert len(asked) == 4 and len(list(tmp_path.rglob("*.png"))) == 2 + 6 + 12
+    assert not list(tmp_path.rglob("*.part"))  # each tile was written through a part file, then renamed
     source = json.loads((tmp_path / "SOURCE.json").read_text(encoding="utf-8"))
     assert (source["layer"], source["min_zoom"], source["max_zoom"], source["bbox_west_south_east_north"]) == ("Kartan", 8, 10, list(BBOX))
     asked.clear()
     assert fetch.main(["--min-zoom", "8", "--max-zoom", "10", "--out", str(tmp_path)]) == 0
     assert asked == []
+
+
+def test_a_tile_cut_off_while_written_is_asked_again(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP", BASEMAP)
+    monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP_BBOX", BBOX)
+    monkeypatch.setattr(fetch.time, "sleep", lambda seconds: None)
+    side = fetch.META * fetch.TILE_PX + 2 * fetch.MARGIN_PX
+    asked: list[str] = []
+    monkeypatch.setattr(fetch, "fetch_image", lambda url: asked.append(url) or Image.new("RGBA", (side, side), (200, 220, 200, 255)))
+
+    def stopped(source, destination):
+        raise KeyboardInterrupt  # Ctrl+C after the first tile's bytes were written, before it was in place
+    monkeypatch.setattr(fetch.os, "replace", stopped)
+    with pytest.raises(KeyboardInterrupt):
+        fetch.main(["--min-zoom", "8", "--max-zoom", "8", "--out", str(tmp_path)])
+    assert not list(tmp_path.rglob("*.png"))
+    monkeypatch.undo()
+    monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP", BASEMAP)
+    monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP_BBOX", BBOX)
+    monkeypatch.setattr(fetch.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(fetch, "fetch_image", lambda url: asked.append(url) or Image.new("RGBA", (side, side), (200, 220, 200, 255)))
+    asked.clear()
+    assert fetch.main(["--min-zoom", "8", "--max-zoom", "8", "--out", str(tmp_path)]) == 0
+    assert asked and len(list(tmp_path.rglob("*.png"))) == 2
 
 
 def test_a_map_white_outside_the_municipality_keeps_its_white_transparent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

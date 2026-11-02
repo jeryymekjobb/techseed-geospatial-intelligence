@@ -170,7 +170,10 @@ def fetch_map(item: dict, bbox: tuple[float, float, float, float], min_zoom: int
             for (x, y), piece in cut(image, z, mx, my, wanted).items():
                 path = tile_path(out, z, x, y)
                 path.parent.mkdir(parents=True, exist_ok=True)
-                (clear_white(piece) if white_outside else piece).save(path, optimize=True)
+                # Through a part file: a tile that exists is never asked again, so it must be whole.
+                part = path.with_suffix(".part")
+                (clear_white(piece) if white_outside else piece).save(part, format="PNG", optimize=True)
+                os.replace(part, path)
             fetched += 1
             time.sleep(pause)
         x0, y0, x1, y1 = wanted
