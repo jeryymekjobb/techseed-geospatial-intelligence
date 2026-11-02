@@ -18,6 +18,25 @@ def test_the_steps_follow_the_demo_and_end_with_reset() -> None:
     assert names[-1] == "10 RESET inom 5 s" and check_demo.RESET_LIMIT_S == 5.0
 
 
+def test_a_scenario_without_radar_passes_gets_the_short_check() -> None:
+    """Falsterbo's erosion has no detection sequence or flood assessment, so it does not inherit the fire's
+    or the flood's expected values."""
+    import json
+    import os
+    import subprocess
+    import sys
+    code = "from tools import check_demo; import json; print(json.dumps([name for name, _ in check_demo.STEPS]))"
+    names = {}
+    for name in ("falsterbo", "flen2019"):
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
+                                env={**os.environ, "TECHSEED_SCENARIO": name})
+        names[name] = json.loads(result.stdout)
+    assert [step.split(" ", 1)[1] for step in names["falsterbo"]] == [
+        "Öppning: jorden till Falsterbonäset", "SPACE VIEW och RETURN TO INCIDENT", "IOT PÅ/AV",
+        "GOD VIEW med filter", "RESET inom 5 s"]
+    assert any("SATELLITE DETECTION" in step for step in names["flen2019"])
+
+
 def test_the_report_passes_only_when_every_step_does_and_there_are_no_errors() -> None:
     report = check_demo.Report("http://127.0.0.1:8765", True, "2026-10-05T12:00:00Z")
     assert not report.passed  # no steps yet

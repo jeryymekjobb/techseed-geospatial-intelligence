@@ -483,8 +483,18 @@ FLOOD_STEPS: list[tuple[str, Callable[[Demo], str]]] = [
     ("8 GOD VIEW med filter", god_view),
     ("9 RESET inom 5 s", reset),
 ]
+# A scenario without radar passes (Falsterbo's coastal erosion) has no detection sequence, no flood that the
+# sensors confirm and no flood assessment, so it does not take the flood's values: the screens, the IoT
+# switch, GOD VIEW and RESET.
+SHORT_STEPS: list[tuple[str, Callable[[Demo], str]]] = [
+    (f"1 Öppning: jorden till {scenario.INCIDENT_PLACE}", opening),
+    ("2 SPACE VIEW och RETURN TO INCIDENT", flood_space_view),
+    ("3 IOT PÅ/AV", iot_switch),
+    ("4 GOD VIEW med filter", god_view),
+    ("5 RESET inom 5 s", reset),
+]
 # The manuscript of the scenario chosen by TECHSEED_SCENARIO (the backend it starts gets the same).
-STEPS = FIRE_STEPS if scenario.WILDFIRE else FLOOD_STEPS
+STEPS = FIRE_STEPS if scenario.WILDFIRE else FLOOD_STEPS if scenario.SENTINEL1_ACQUISITIONS else SHORT_STEPS
 
 
 def frames_per_second(demo: Demo, seconds: float = 3.0) -> float:
