@@ -29,10 +29,11 @@ eller datum:
 | **Beror på** | Beror på ett beslut som inte är fattat. Beslutet anges i posten. |
 | **Osannolik** | Med i registret för att utesluta den uttryckligen. Skälet anges. |
 
-Fyra poster har märkningen **P** sedan 2026-11-02: R-CS-01, R-CS-03, R-GEO-02 och R-EM-02,
-den sista bara för myndighetens namn. AI-förordningens ändringar (R-AI-02 och R-AI-03) har
-kvar märkningen **S** och ska kontrolleras för hand i EUR-Lex, som inte lämnar ut texterna
-till automatisk hämtning.
+Fem poster har märkningen **P** sedan 2026-11-02: R-CS-01, R-CS-03, R-GEO-02, R-EM-02 (bara
+myndighetens namn) och R-AI-02, och R-AI-01 har den för det allmänna tillämpningsdatumet.
+Ikraftträdandet för 2026/1744 och datumet för märkningsplikten (R-AI-03) har kvar märkningen
+**S** och ska kontrolleras för hand i EUR-Lex, som inte lämnar ut texterna till automatisk
+hämtning.
 
 ## Beslut som avgör tillämpligheten
 
@@ -64,8 +65,8 @@ Många poster beror på samma beslut, som ännu inte är fattade (se `CONTEXT.md
 
 | ID | Regelverk | Uppgift | Vad det gäller | Berör funktioner | Tillämplighet |
 |---|---|---|---|---|---|
-| R-AI-01 | AI-förordningen, förordning (EU) 2024/1689 | A för grundtexten | Krav på AI-system efter risknivå, öppenhet och AI-kunnighet | F-AN-01–F-AN-05, F-AN-08, F-COM-02 | Beror på B-ANV. Dagens bedömningar är regelbaserade, och det är öppet om de räknas som AI-system enligt förordningens definition. Säkerhetskomponenter i kritisk infrastruktur och vissa system för räddningstjänst finns i bilaga III. Om MVP:n hamnar där måste prövas. |
-| R-AI-02 | Digital omnibus om AI, som ändrar R-AI-01 | S: källorna anger förordning (EU) 2026/1744 och att den trädde i kraft i juli 2026. Uppgifterna om datum skiljer sig. EUR-Lex kunde inte hämtas 2026-11-02, så beteckningen ska kontrolleras för hand i EUT | Senarelägger högriskkraven: system i bilaga III till 2 december 2027 och system i produkter enligt bilaga I till 2 augusti 2028 | Som R-AI-01 | Beror på B-ANV. |
+| R-AI-01 | AI-förordningen, förordning (EU) 2024/1689 | P för att förordningen i övrigt tillämpas från 2 augusti 2026 (skälet i 2026/1744). Grundtexten i övrigt A | Krav på AI-system efter risknivå, öppenhet och AI-kunnighet | F-AN-01–F-AN-05, F-AN-08, F-COM-02 | Beror på B-ANV. Dagens bedömningar är regelbaserade, och det är öppet om de räknas som AI-system enligt förordningens definition. Säkerhetskomponenter i kritisk infrastruktur och vissa system för räddningstjänst finns i bilaga III. Om MVP:n hamnar där måste prövas. |
+| R-AI-02 | Digital omnibus om AI, som ändrar R-AI-01 | P (kontrollerad 2026-11-02): förordning (EU) 2026/1744 av den 8 juli 2026, publicerad i EUT 24 juli 2026, som också ändrar (EU) 2018/1139 och (EU) 2023/1230. Den nya artikel 113 c i AI-förordningen: kapitel III avsnitt 1–3 (utom artikel 6.5) tillämpas från 2 december 2027 för system enligt artikel 6.2 och bilaga III och från 2 augusti 2028 för system enligt artikel 6.1 och bilaga I. S för ikraftträdandet | Senarelägger högriskkraven i kapitel III avsnitt 1–3 (utom artikel 6.5): system enligt artikel 6.2 och bilaga III till 2 december 2027, system enligt artikel 6.1 och bilaga I till 2 augusti 2028 | Som R-AI-01 | Beror på B-ANV. |
 | R-AI-03 | Krav på märkning och öppenhet för syntetiskt innehåll, artikel 50 i AI-förordningen | S: enligt en enda källa gäller märkningsplikten från 2 december 2026 efter omnibusen. Ska kontrolleras för hand mot R-AI-02 i EUT | Märkning av innehåll som skapats eller ändrats av AI, och information om att man interagerar med AI | F-COM-02 (syntetisk röst), F-COM-03 | Beror på B-ANV. Uppläsningen är syntetiskt tal av loggtext. Det är öppet om den omfattas. |
 
 ## C. Geodata, rymddata och öppna data
@@ -131,7 +132,7 @@ denna del har märkningen **A**.
 
 ## Nästa steg
 
-1. Kontrollera för hand i EUR-Lex R-AI-02 och R-AI-03, och därefter övriga poster
+1. Kontrollera för hand i EUR-Lex ikraftträdandet för 2026/1744 och R-AI-03, och därefter övriga poster
    med märkningen **S** och **A**, och lägg till länkar till primärkällorna.
 2. Gå igenom tillämpligheten när B-KUND, B-ANV och B-MARK är besvarade efter beställarens
    one-pager.
@@ -143,6 +144,7 @@ denna del har märkningen **A**.
 ## Primärkällor kontrollerade 2026-11-02
 
 - R-CS-01: [Förordning (EU) 2024/2847 (Cyber Resilience Act)](https://eur-lex.europa.eu/legal-content/SV/TXT/?uri=CELEX:32024R2847), artikel 71, EUR-Lex. Texten klistrades in av användaren.
+- R-AI-01 och R-AI-02: [Förordning (EU) 2026/1744 (Digital Omnibus on AI)](https://eur-lex.europa.eu/legal-content/SV/TXT/?uri=CELEX:32026R1744), rubriken, skälet om artikel 113 och den nya artikel 113 c, EUR-Lex. Texten klistrades in av användaren.
 - R-CS-03: [Cybersäkerhetslag (2025:1506)](https://data.riksdagen.se/dokument/sfs-2025-1506.html) och [cybersäkerhetsförordning (2025:1507)](https://data.riksdagen.se/dokument/sfs-2025-1507.html), Riksdagen.
 - R-GEO-02: [Lag (2016:319) om skydd för geografisk information](https://data.riksdagen.se/dokument/sfs-2016-319.html), 9 och 10 §§, Riksdagen.
 - R-EM-02: [SFS 2025:1124, förordning om ändring i förordningen (2008:1002) med instruktion för Myndigheten för samhällsskydd och beredskap](https://svenskforfattningssamling.se/sites/default/files/sfs/2025-11/SFS2025-1124.pdf), Svensk författningssamling.
