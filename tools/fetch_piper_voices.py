@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -39,6 +40,18 @@ def fetch(address: str) -> bytes:
         return response.read()
 
 
+def put(target: Path, data: bytes, sha256: str | None = None) -> None:
+    """Write through a part file, check the file on disk against its pinned SHA-256, then rename it into place."""
+    part = target.with_name(target.name + ".part")
+    part.write_bytes(data)
+    if sha256 is not None:
+        digest = hashlib.sha256(part.read_bytes()).hexdigest()
+        if digest != sha256:
+            part.unlink()
+            raise SystemExit(f"{target.name}: fel kontrollsumma {digest}")
+    os.replace(part, target)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", type=Path, default=VOICE_DIR, help="where the voices go (default: data/voices)")
@@ -51,12 +64,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{name}: finns redan")
                 continue
             data = fetch(url(voice, name))
-            digest = hashlib.sha256(data).hexdigest()
-            if digest != SHA256[name]:
-                raise SystemExit(f"{name}: fel kontrollsumma {digest}")
-            target.write_bytes(data)
+            put(target, data, SHA256[name])
             print(f"{name}: hämtad ({len(data) / 1e6:.1f} MB)")
-        (args.out / f"{model}.MODEL_CARD").write_bytes(fetch(url(voice, "MODEL_CARD")))
+        # Written last, so fetch_scenario takes the last voice's model card as the sign that all is in place.
+        put(args.out / f"{model}.MODEL_CARD", fetch(url(voice, "MODEL_CARD")))
     return 0
 
 

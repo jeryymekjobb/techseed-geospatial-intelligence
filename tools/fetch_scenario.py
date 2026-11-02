@@ -135,9 +135,9 @@ def steps(name: str, tools: str = "docker") -> list[Step]:
     tiles = DATA / "tiles" / s.TILES_FILE
     plan = [
         Step("web-vendor", "Webbibliotek (Cesium, satellite.js)", tool("fetch_web_vendor"),
-             REPO_ROOT / "app/frontend/vendor/cesium-1.146.0/Cesium.js", size_mb=40),
+             REPO_ROOT / "app/frontend/vendor/satellite.js-7.1.0/index.js", size_mb=40),
         Step("voices", "Röster för uppläsningen (Piper)", tool("fetch_piper_voices"),
-             DATA / "voices" / "sv_SE-alma-medium.onnx", size_mb=121),
+             DATA / "voices" / "sv_SE-alma-medium.MODEL_CARD", size_mb=121),
     ]
     if not (tiles.is_file() and tiles.stat().st_size > 0):
         plan.append(Step("osm-extract", "OpenStreetMap-utdrag för Sverige", None, OSM_EXTRACT, size_mb=930,

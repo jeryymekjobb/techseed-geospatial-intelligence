@@ -96,6 +96,22 @@ def test_without_a_piper_voice_espeak_ng_reads_and_without_anything_the_log_stay
 def test_the_installed_voices_are_the_pinned_ones() -> None:
     assert set(fetch_piper_voices.SHA256) == {f"{model}{suffix}" for model in speech.VOICES.values() for suffix in (".onnx", ".onnx.json")}
     assert fetch_piper_voices.url("alma", "MODEL_CARD").endswith("/sv/sv_SE/alma/medium/MODEL_CARD")
+
+
+def test_a_voice_file_is_put_in_place_only_when_its_checksum_holds(tmp_path: Path) -> None:
+    import hashlib
+    target = tmp_path / "voice.onnx"
+    with pytest.raises(SystemExit, match="fel kontrollsumma"):
+        fetch_piper_voices.put(target, b"broken", hashlib.sha256(b"model").hexdigest())
+    assert not target.exists() and not (tmp_path / "voice.onnx.part").exists()
+    fetch_piper_voices.put(target, b"model", hashlib.sha256(b"model").hexdigest())
+    assert target.read_bytes() == b"model"
+
+
+def test_fetch_scenario_takes_the_last_voice_s_model_card_as_the_sign_that_all_are_in_place() -> None:
+    from tools import fetch_scenario
+    marker = next(step.marker for step in fetch_scenario.steps("flen2019") if step.key == "voices")
+    assert marker == speech.VOICE_DIR / f"{list(speech.VOICES.values())[-1]}.MODEL_CARD"
     assert "alma (CC BY 4.0)" in speech.CREDIT and "nst (CC0)" not in speech.CREDIT  # only alma is heard
 
 

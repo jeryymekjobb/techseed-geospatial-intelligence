@@ -50,9 +50,12 @@ def download(name: str, version: str) -> bytes:
 
 
 def unpack(data: bytes, keep: str, license_member: str, target: Path) -> int:
-    if target.exists():
-        shutil.rmtree(target)
-    target.mkdir(parents=True)
+    """Unpack into a directory beside target and put it in place only when whole, so an interrupted
+    run leaves the old directory or none, never half of one."""
+    staging = target.with_name(target.name + ".part")
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir(parents=True)
     count = 0
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
         for member in archive.getmembers():
@@ -61,11 +64,14 @@ def unpack(data: bytes, keep: str, license_member: str, target: Path) -> int:
                 relative = Path(name[len(keep):]) if name.startswith(keep) else Path(Path(name).name)
                 if ".." in relative.parts or relative.is_absolute():
                     raise ValueError(f"unsafe path in package: {name}")
-                destination = target / relative
+                destination = staging / relative
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 with archive.extractfile(member) as source, destination.open("wb") as stream:
                     shutil.copyfileobj(source, stream)
                 count += 1
+    if target.exists():
+        shutil.rmtree(target)
+    staging.rename(target)
     return count
 
 

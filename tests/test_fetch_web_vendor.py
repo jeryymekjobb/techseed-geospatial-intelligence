@@ -57,6 +57,34 @@ def test_unpack_refuses_paths_out_of_the_target(tmp_path: Path) -> None:
         fetch_web_vendor.unpack(data, "package/dist/", "package/LICENSE", tmp_path / "out")
 
 
+def test_an_interrupted_unpack_leaves_the_old_directory_whole(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    data = tarball({"package/dist/index.js": b"new", "package/dist/more.js": b"new", "package/LICENSE": b"l"})
+    target = tmp_path / "satellite.js"
+    target.mkdir()
+    (target / "index.js").write_text("old")
+    copies = []
+
+    def cut(source, stream):
+        copies.append(1)
+        if len(copies) == 2:
+            raise KeyboardInterrupt  # Ctrl+C halfway through the package
+        stream.write(source.read())
+    monkeypatch.setattr(fetch_web_vendor.shutil, "copyfileobj", cut)
+    with pytest.raises(KeyboardInterrupt):
+        fetch_web_vendor.unpack(data, "package/dist/", "package/LICENSE", target)
+    assert [path.name for path in target.iterdir()] == ["index.js"] and (target / "index.js").read_text() == "old"
+    monkeypatch.undo()
+    assert fetch_web_vendor.unpack(data, "package/dist/", "package/LICENSE", target) == 3
+    assert (target / "more.js").read_text() == "new" and not (tmp_path / "satellite.js.part").exists()
+
+
+def test_fetch_scenario_takes_the_last_package_as_the_sign_that_all_are_in_place() -> None:
+    from tools import fetch_scenario
+    name, spec = list(fetch_web_vendor.PACKAGES.items())[-1]
+    marker = next(step.marker for step in fetch_scenario.steps("flen2019") if step.key == "web-vendor")
+    assert marker == fetch_web_vendor.VENDOR / f"{name}-{spec['version']}" / "index.js"
+
+
 def test_a_wrong_checksum_stops_before_unpacking(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(fetch_web_vendor, "VENDOR", tmp_path)
     monkeypatch.setattr(fetch_web_vendor, "download", lambda name, version: b"tampered")
