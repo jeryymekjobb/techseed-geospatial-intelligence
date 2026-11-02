@@ -1,6 +1,6 @@
-# Fire map: Västmanland 2014
+# Geospatial demonstrator: wildfire, flood and erosion scenarios
 
-Exhibition prototype in two parts:
+Demonstrator built for IoTDagen 2026 and now used internally, in two parts:
 
 - **Backend** (`app/backend/`, Python standard library; paho-mqtt only for the
   IoT nodes): reads the FIRMS archive
@@ -22,7 +22,7 @@ Exhibition prototype in two parts:
   sensors in the fire area, a traceable fire assessment and prepared spatial
   questions answered with PostGIS.
 
-All fire data is **historical (2014) and replayed, not live**; the GUI says so.
+All data is **historical and replayed, not live**; the GUI says so.
 
 To run the demo in the booth, see the operator guide `docs/operatorsguide.md` (Swedish).
 
@@ -55,9 +55,10 @@ continues from there).
 
 Everything that belongs to one demo - area, period, titles, data files, database,
 map tiles, camera route, satellites and Landsat scenes - is in a module of its own in
-`app/backend/scenarios/`; `app/backend/scenario.py` loads the chosen one:
-`vastmanland2014`, the default, and `sundsvall2026`, a flood scenario built on the real
-rain of August 2026, whose data the tools fetch but whose screens are not built yet.
+`app/backend/scenarios/`; `app/backend/scenario.py` loads the chosen one. There are 16
+(`AVAILABLE` in `app/backend/scenarios/__init__.py`): two wildfires (`vastmanland2014`,
+the default, and `ljusdal2018`), thirteen floods and the coastal erosion at Falsterbo
+(`falsterbo`, built as a flood scenario); the operator guide describes them.
 Choose with `--scenario` or the environment variable `TECHSEED_SCENARIO`; the tools in
 `tools/` read the same variable:
 
@@ -142,16 +143,21 @@ others can only watch.
 |---|---|---|
 | PLAY, PAUSE, RESET | `play`, `pause`, `reset` | RESET also clears every event and filter |
 | ANVÄND TIDER (Start, Stopp) | `playback_window` with `target` `<start>/<stop>` | RESET goes to the start and keeps the start and stop; the playback stops at the stop |
-| UPPLÄSNING | `speech` with `target` `on` or `off` | The satellite monitor sends new log lines to `POST /api/speak` (only from this computer), and the backend reads them aloud in Swedish with Piper (`app/requirements-speech.txt`; voices nst for satellite events and alma for the others, from `tools/fetch_piper_voices.py`), else with `spd-say -l sv`; saved in the profile |
+| UPPLÄSNING | `speech` with `target` `on` or `off` | The satellite monitor sends new log lines to `POST /api/speak` (only from this computer), and the backend reads them aloud in Swedish with Piper (`app/requirements-speech.txt`; the voice alma, from `tools/fetch_piper_voices.py`), else with `spd-say -l sv`; saved in the profile |
 | SPARA PROFIL FÖR SCENARIOT | `save_profile` | Saves the ticks, the demo's start and stop and its speed for the scenario (`data/display-profiles.json`) |
-| SATELLITE DETECTION | `satellite_detection` | Banner (synthetic event) |
-| SENSOR FAILURE | `sensor_failure` with `target` `sensor-17` | The synthetic sensor drops out of the IoT count |
+| SENSOR FAILURE | `sensor_failure` with `target` `sensor-17` (wildfire) or `dv-01` (flood) | The synthetic sensor drops out of the IoT count |
+| IOT PÅ/AV | `iot` (toggle) | Leaves every sensor out of the screens and the assessment |
+| SATELLITE DETECTION, NÄSTA ▸ | `satellite_detection`, `next` | The detection sequence from space, one step per NÄSTA |
+| RENSA SVARET | `clear_answer` | Takes away the answer to the last question |
+| VISA 2D / VISA 3D | `view` with `target` `2d` or `3d` | The main screen changes page |
+| AUTOSLINGA | `loop` with `target` `on` or `off` | The kiosk's loop: play from the start and reset at the stop |
+| BYT SCENARIO, STARTA OM DEMO | `POST /api/demo/menu`, `/api/demo/restart` | The backend stops so `tools/start_demo.py` shows its menu or starts the scenario again |
 | SATCOM FAILURE (again: restore) | `satcom_failure`, `satcom_restore` | See below |
 | ROAD CLOSED, POWER FAILURE | `road_closed`, `power_failure` | Status text only, marked synthetic; no road closure or power-grid data |
 | +60 MIN | `plus60` (toggle) | The shortest forecast horizon (3 h; the forecast has no 1 h horizon) |
 | GOD VIEW | `god_view` (toggle) | Camera out to Europe and back; the filter list on the map |
 | SPACE VIEW (again: RETURN TO INCIDENT) | `space_view` (toggle) | The 3D camera out to the satellites' orbits and back to the fire |
-| Filter SPACE, IOT, INFRASTRUCTURE, WEATHER | `filter` with `target` | Hides or shows hotspots, synthetic sensors, the last answer, wind and SMHI stations |
+| Kartans lager (tick boxes for space, IoT, infrastructure and weather) | `filter` with `target` | Hides or shows hotspots, synthetic sensors, the last answer, wind and SMHI stations |
 
 Maritime, aviation and emergency are greyed out and marked as not part of the
 demo. Every event is stored with its scenario time; the stream sends each new
