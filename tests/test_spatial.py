@@ -83,6 +83,17 @@ def test_postgis_errors_become_unavailable(reply: str, message: str) -> None:
         spatial.ask("nearest_village", CLOCK, fake_psql(reply), dict)
 
 
+def test_a_psql_that_does_not_answer_is_stopped_and_the_next_query_starts_a_new_one() -> None:
+    import time
+    psql = spatial.Psql([sys.executable, "-c", "import time; time.sleep(60)"], timeout=0.5)
+    started = time.monotonic()
+    with pytest.raises(spatial.Unavailable, match="svarade inte inom 0.5 s"):
+        psql.query("SELECT 1")
+    assert time.monotonic() - started < 5 and psql.process is None and not psql.lock.locked()
+    psql.command = [sys.executable, "-c", FAKE_PSQL, "42"]
+    assert psql.query("SELECT 1") == "42"
+
+
 def test_a_missing_psql_command_is_unavailable() -> None:
     with pytest.raises(spatial.Unavailable, match="kunde inte startas"):
         spatial.Psql(["/nonexistent/psql"]).query("SELECT 1")

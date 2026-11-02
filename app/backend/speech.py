@@ -46,6 +46,10 @@ from app.backend.scenarios import REPO_ROOT
 
 MAX_QUEUED = 4
 MAX_SENT = 2 * MAX_QUEUED  # lines in one POST /api/speak; the queue keeps the newest MAX_QUEUED
+# Lines sent with `keep` (a summary) wait up to this many, far more than any summary has.
+MAX_KEPT = 32
+# The lines spoken, kept for the tests; only the latest, so a kiosk running for days does not grow.
+MAX_SPOKEN = 100
 MAX_TEXT = 300
 VOICE_DIR = REPO_ROOT / "data" / "voices"
 # The Piper voices (rhasspy/piper-voices on Hugging Face), both trained on the NST Swedish data of
@@ -211,7 +215,7 @@ class Speaker:
                 text = " ".join(str(text).split())[:MAX_TEXT]
                 if text:
                     self.queue.append((text, voice if voice in VOICES else "alma"))
-            while not keep and len(self.queue) > MAX_QUEUED:
+            while len(self.queue) > (MAX_KEPT if keep else MAX_QUEUED):
                 self.queue.popleft()
             if self.thread is None:
                 self.thread = threading.Thread(target=self._run, daemon=True)
@@ -270,6 +274,7 @@ class Speaker:
                 with self.condition:
                     self.current = process
                     self.spoken.append((used, text))
+                    del self.spoken[:-MAX_SPOKEN]
                 try:
                     code = process.wait(timeout=60)
                     if code:

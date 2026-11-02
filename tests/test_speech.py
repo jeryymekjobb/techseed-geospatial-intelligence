@@ -79,6 +79,18 @@ def test_the_summary_s_lines_all_wait_until_ordinary_lines_come() -> None:
     wait_for(lambda: speaker.spoken[-1] == ("alma", "rad 16"))
     assert len(speaker.spoken) <= 8 + 1 + speech.MAX_QUEUED
 
+def test_the_summary_s_lines_and_the_spoken_lines_are_bounded(monkeypatch) -> None:
+    speaker = speech.Speaker(fake_voices("alma"), PLAY, PLAY, CANCEL)
+    speaker.thread = threading.Thread(target=lambda: None)  # nothing reads: the queue only fills
+    speaker.say([(f"rad {n}", "alma") for n in range(40)], keep=True)
+    assert len(speaker.queue) == speech.MAX_KEPT and speaker.queue[-1] == ("rad 39", "alma")
+    monkeypatch.setattr(speech, "MAX_SPOKEN", 3)
+    reading = speech.Speaker(fake_voices("alma"), PLAY, PLAY, CANCEL)
+    reading.say([(f"rad {n}", "alma") for n in range(5)], keep=True)
+    wait_for(lambda: reading.spoken and reading.spoken[-1] == ("alma", "rad 4"))
+    assert [text for _, text in reading.spoken] == ["rad 2", "rad 3", "rad 4"]
+
+
 def test_without_a_piper_voice_espeak_ng_reads_and_without_anything_the_log_stays_silent() -> None:
     speaker = speech.Speaker(fake_voices("nst"), PLAY, PLAY, CANCEL)
     speaker.say([("Bräddgivare DV1 Bergsåker bräddar", "alma")])

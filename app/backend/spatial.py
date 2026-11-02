@@ -14,6 +14,7 @@ takes milliseconds instead of a new `docker exec` per question.
 from __future__ import annotations
 
 import json
+import queue
 import subprocess
 import threading
 import time
@@ -26,6 +27,8 @@ SOURCE = scenario.SPATIAL_SOURCE
 DISTANCE_M = 5000
 FORECAST_HORIZON_H = 6
 MAX_ROWS = 1000
+# How long a question waits for PostGIS before psql is stopped and the question answered as unavailable.
+QUERY_TIMEOUT_SECONDS = 30.0
 FRONT = """front AS (
   SELECT pass_time, geom FROM fronts WHERE pass_time <= {clock}::timestamptz ORDER BY pass_time DESC LIMIT 1
 )"""
@@ -188,11 +191,14 @@ def sql_for(question_id: str, clock: datetime, points: list[tuple[str, float, fl
 class Psql:
     """One `psql` process kept open; a query is sent with a marker and read up to it."""
 
-    def __init__(self, command: list[str] | None = None) -> None:
+    def __init__(self, command: list[str] | None = None, timeout: float = QUERY_TIMEOUT_SECONDS) -> None:
         self.command = command or postgres.command(scenario.DATABASE, interactive=True)
         self.process: subprocess.Popen[str] | None = None
         self.lock = threading.Lock()
         self.count = 0
+        self.timeout = timeout
+        # psql's output lines, read by a thread of their own so a query never waits longer than the timeout.
+        self.lines: queue.Queue[str | None] = queue.Queue()
 
     def _start(self) -> subprocess.Popen[str]:
         if self.process is None or self.process.poll() is not None:
@@ -203,7 +209,23 @@ class Psql:
                 )
             except OSError as exc:
                 raise Unavailable(f"psql kunde inte startas: {exc}") from exc
+            self.lines = queue.Queue()
+            threading.Thread(target=self._read, args=(self.process.stdout, self.lines), daemon=True).start()
         return self.process
+
+    @staticmethod
+    def _read(stream: Any, lines: queue.Queue[str | None]) -> None:
+        for line in stream:
+            lines.put(line)
+        lines.put(None)  # psql has ended
+
+    def _stop(self) -> None:
+        """Stop a psql that does not answer; the next query starts a new one."""
+        try:
+            self.process.kill()
+        except (AttributeError, OSError):
+            pass
+        self.process = None
 
     def query(self, sql: str) -> str:
         """The output lines of one query; raises Unavailable when PostGIS cannot answer."""
@@ -219,8 +241,13 @@ class Psql:
                 process.stdin.write(f"{sql}\n\\echo {marker}\n")
                 process.stdin.flush()
                 lines = []
+                deadline = time.monotonic() + self.timeout
                 while True:
-                    line = process.stdout.readline()
+                    try:
+                        line = self.lines.get(timeout=max(0.0, deadline - time.monotonic()))
+                    except queue.Empty:
+                        self._stop()
+                        raise Unavailable(f"PostGIS svarade inte inom {self.timeout:g} s") from None
                     if not line:
                         raise Unavailable(postgres.unavailable_message())
                     if line.strip() == marker:
