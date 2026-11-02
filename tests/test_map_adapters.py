@@ -72,9 +72,34 @@ def test_barb_images_are_stand_alone_svg_with_inlined_styles_and_cached() -> Non
     assert image == same and image != calm
 
 
+def escape_text(text: str) -> str:
+    """panel.js's escapeText, shared by both maps, run in Node with a stand-in for the DOM."""
+    function = re.search(r"^function escapeText\(text\) \{.*?^\}", (FRONTEND / "panel.js").read_text(encoding="utf-8"), re.S | re.M).group(0)
+    code = (
+        'const document = { createElement: () => ({ set textContent(t) { this.innerHTML = '
+        't.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); } }) };'
+        f"{function} console.log(JSON.stringify(escapeText({json.dumps(text)})));"
+    )
+    return json.loads(subprocess.run(["node", "-e", code], check=True, capture_output=True, text=True).stdout)
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_osm_names_are_escaped_before_they_reach_the_info_box() -> None:
-    assert node('escapeText("<b>Sjö & Å</b>")') == "&lt;b&gt;Sjö &amp; Å&lt;/b&gt;"
+    assert escape_text("<b>Sjö & Å</b>") == "&lt;b&gt;Sjö &amp; Å&lt;/b&gt;"
+    assert escape_text('<img src=x onerror="alert(1)">') == '&lt;img src=x onerror="alert(1)"&gt;'
+
+
+def test_both_maps_escape_names_from_data_before_they_become_html() -> None:
+    """2D's popups and tooltips take HTML as 3D's info boxes do; text from OSM, PostGIS and the scenario
+    goes through the shared escapeText in both, and only panel.js defines it."""
+    two_d = (FRONTEND / "map2d.js").read_text(encoding="utf-8")
+    for call in ("escapeText(feature.properties.name)", "escapeText(feature.properties.osm_tag)",
+                 'escapeText(piece.ref || piece.name || (piece.kind === "rail" ? "Järnväg" : "Väg"))',
+                 'escapeText(place.names.join(", "))', "escapeText(sensor.name)", "escapeText(result.label)",
+                 "escapeText(queryLabel(feature.properties))"):
+        assert call in two_d, call
+    assert "function escapeText" not in two_d and "function escapeText" not in (FRONTEND / "map3d.js").read_text(encoding="utf-8")
+    assert "${sensor.name}" not in two_d and "${place.names" not in two_d
 
 
 def test_the_3d_wms_layers_ask_for_maps_only_as_the_backend_forwards() -> None:

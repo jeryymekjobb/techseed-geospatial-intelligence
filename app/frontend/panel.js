@@ -82,6 +82,14 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+// Text from data (OSM and PostGIS names, scenario texts) as HTML that shows it as text, for the maps' popups,
+// tooltips and info boxes, which take HTML.
+function escapeText(text) {
+  const element = document.createElement("span");
+  element.textContent = text;
+  return element.innerHTML;
+}
+
 function hoursBetween(later, earlier) {
   return (later - earlier) / 3600000;
 }

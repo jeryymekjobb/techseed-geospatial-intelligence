@@ -187,8 +187,8 @@ function createLeafletMap(config) {
           weight: 0.4, fillOpacity: 0.22, opacity: 0.5,
         }),
         onEachFeature: (feature, item) => {
-          const name = feature.properties.name ? `<br>${feature.properties.name}` : "";
-          item.bindPopup(`<strong>${feature.properties.terrain}</strong>${name}<br><small>OSM ${feature.properties.osm_tag}</small>`);
+          const name = feature.properties.name ? `<br>${escapeText(feature.properties.name)}` : "";
+          item.bindPopup(`<strong>${escapeText(feature.properties.terrain)}</strong>${name}<br><small>OSM ${escapeText(feature.properties.osm_tag)}</small>`);
         },
       });
       overlays["Terräng (OSM)"] = layer;
@@ -666,7 +666,7 @@ function createLeafletMap(config) {
         routeExposureLayer.clearLayers();
         for (const piece of pieces) {
           L.polyline(piece.coords, { color: ROUTE_EXPOSURE_COLOURS[piece.level], weight: piece.kind === "rail" ? 5 : 4, opacity: 0.9 })
-            .bindTooltip(`${piece.ref || piece.name || (piece.kind === "rail" ? "Järnväg" : "Väg")}: ${Math.round(piece.rain)} mm regn sedan start `
+            .bindTooltip(`${escapeText(piece.ref || piece.name || (piece.kind === "rail" ? "Järnväg" : "Väg"))}: ${Math.round(piece.rain)} mm regn sedan start `
               + "(beräknat ur radar – inte observerade skador)", { sticky: true })
             .addTo(routeExposureLayer);
         }
@@ -713,7 +713,7 @@ function createLeafletMap(config) {
       }).addTo(forecastLayer);
       for (const place of current.places_within_24h) {
         L.circleMarker([place.latitude, place.longitude], { radius: 4, color: "#202020", weight: 1, fillColor: "#ffd54a", fillOpacity: 1 })
-          .bindTooltip(`${place.names.join(", ")}: inom ${place.span} (spann)`, { direction: "top" })
+          .bindTooltip(`${escapeText(place.names.join(", "))}: inom ${escapeText(place.span)} (spann)`, { direction: "top" })
           .addTo(forecastLayer);
       }
     },
@@ -775,8 +775,8 @@ function createLeafletMap(config) {
       for (const sensor of result.sensors) {
         L.circleMarker([sensor.latitude, sensor.longitude], {
           radius: 8, color: "#202020", weight: 2, dashArray: "3 2", fillColor: SYNTHETIC_COLORS[syntheticState(sensor)], fillOpacity: 0.9,
-        }).bindTooltip(sensor.name, { permanent: true, direction: "right", offset: [8, 0] })
-          .bindPopup(`<strong>${sensor.name} (syntetisk)</strong><br>${syntheticSensorText(sensor)}<br><small>${result.label}</small>`)
+        }).bindTooltip(escapeText(sensor.name), { permanent: true, direction: "right", offset: [8, 0] })
+          .bindPopup(`<strong>${escapeText(sensor.name)} (syntetisk)</strong><br>${escapeText(syntheticSensorText(sensor))}<br><small>${escapeText(result.label)}</small>`)
           .addTo(syntheticLayer);
       }
     },
@@ -804,7 +804,7 @@ function createLeafletMap(config) {
       const layer = L.geoJSON(collection, {
         style: { color: QUERY_COLOR, weight: 4, opacity: 0.85 },
         pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 6, color: "#ffffff", weight: 2, fillColor: QUERY_COLOR, fillOpacity: 1 }),
-        onEachFeature: (feature, item) => item.bindTooltip(queryLabel(feature.properties)),
+        onEachFeature: (feature, item) => item.bindTooltip(escapeText(queryLabel(feature.properties))),
       }).addTo(queryLayer);
       map.flyToBounds(layer.getBounds().pad(0.1), { maxZoom: 13, duration: 2 });
     },

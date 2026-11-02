@@ -45,12 +45,6 @@ function distanceForZoom(zoom) {
   return 40_000_000 / 2 ** zoom;
 }
 
-function escapeText(text) {
-  const element = document.createElement("span");
-  element.textContent = text;
-  return element.innerHTML;
-}
-
 function svgImage(svg, size) {
   const sized = svg.replace(/^<svg /, `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" `);
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sized)}`;
