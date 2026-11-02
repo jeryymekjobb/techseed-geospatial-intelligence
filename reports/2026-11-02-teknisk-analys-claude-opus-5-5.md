@@ -382,6 +382,10 @@ tester. Se också Q-08.
 - **Vad:** kontrollen av `SCENARIO_CONTROL_TOKEN` testas inte. Katalogen anger
   `test_mission_control.py`, som aldrig nämner token, och alla serverfixturer sätter
   `"control_token": None`.
+- **Rättat 2026-11-02:** fyndet var fel om testet. Fixturen i `test_scenario_engine.py` sätter
+  `"control_token": "secret"`, och `test_commands_need_the_token_and_change_the_shared_state`
+  kontrollerar att ett kommando utan token ger 403. Det som stämmer är att katalogens F-MC-03
+  pekar på fel testfil. Det rättas i AP8.
 
 **Q-07 · Medel · lucka · `scenario_engine.py:394`, katalogens F-IOT-05**
 - **Vad:** gränsen på 10 placerade sensorer testas inte. `test_scenario_engine.py:408`
@@ -458,9 +462,9 @@ till ordning ovan.
 | **AP2 Säkerhet** | B-02, F-01, B-05, B-06 | `POST` kräver `Content-Type: application/json` och samma Origin eller ingen Origin, också för `/api/speak`. 2D escapar samma fält som 3D. Lantmäteriets proxy tar bara listade lager och kontrollerar z/x/y. `OSError` fångas. | Tester för fel Content-Type, främmande Origin och ett OSM-namn med HTML |
 | **AP3 Märkning** | B-03, F-04 | IoT-värden räknas som simulerade om inte `"simulated": false` står uttryckligen. Monitorn skriver tillbaka sin kreditering efter ett avbrott. | Test av IoT-flaggan och kontroll i webbläsaren |
 | **AP4 Demons läge** | B-01, F-02, F-03, F-05, F-06, B-08 | Läget hålls separat från listan med de 100 senaste händelserna. `flashedPasses` töms vid sync. Frågesvar får ett löpnummer så att inaktuella svar kastas. Mission control försöker igen och visar fel. `detectionKey` sätts först när svaret har kommit. En korrupt profilfil sparas undan och skrivs inte över. | Test med 150 händelser, profiltest och demokontroll i webbläsaren |
-| **AP8 Dokumentation** | D-01–D-12, B-11 | README och `app/README.md` uppdateras. Operatörsguiden: den borttagna grenen, alla 16 scenarier, databasnamnen och mässformuleringarna. Inaktuella punkter i `CONTEXT.md` rättas. Kramfors i katalogen, avvikelsen från one-pagern om LLM, registrets grenhänvisning och antal, och kommentarerna i `scenario.py`. | Granskning mot koden |
+| **AP8 Dokumentation** | D-01–D-12, B-11, Q-06 (katalogen) | README och `app/README.md` uppdateras. Operatörsguiden: den borttagna grenen, alla 16 scenarier, databasnamnen och mässformuleringarna. Inaktuella punkter i `CONTEXT.md` rättas. Kramfors i katalogen, avvikelsen från one-pagern om LLM, registrets grenhänvisning och antal, och kommentarerna i `scenario.py`. | Granskning mot koden |
 | **AP5 Backend i övrigt** | B-04, B-07, B-10, B-12, B-09 | Tid utan tidszon räknas som UTC. PostGIS-frågor får timeout. Talkön och listan `spoken` får tak. `/api/stream` får en nedre gräns för `from`. Falsterbo får inställningar för demokontrollen. | Enhetstester och `check_demo` för Falsterbo |
-| **AP7 Testluckor** | Q-03, Q-04, Q-06, Q-08–Q-12, T-09 | `skipif` när data eller bibliotek saknas, i stället för att kontroller tyst hoppas över. Tester för token och för de två hämtverktygen. Katalogen kompletteras. Fast tid i stället för `sleep` och `now()`. Gemensamma fixturer i `conftest.py`. | Sviten med och utan `data/` |
+| **AP7 Testluckor** | Q-03, Q-04, Q-08–Q-12, T-09 | `skipif` när data eller bibliotek saknas, i stället för att kontroller tyst hoppas över. Tester för de två hämtverktygen. Katalogen kompletteras. Fast tid i stället för `sleep` och `now()`. Gemensamma fixturer i `conftest.py`. | Sviten med och utan `data/` |
 | **AP6 Drift** | T-05–T-08, T-10 | Docker-imagarna låses till de digests som finns lokalt, och digesten sparas i SOURCE.json. Paketlistorna rättas. `getuid` får skydd. `package_data` varnar för data med `permission` som bara tillåter intern användning. | Tester och en kontroll att tiles och terräng byggs |
 
 Paketen görs i den ordning som tabellen visar.
