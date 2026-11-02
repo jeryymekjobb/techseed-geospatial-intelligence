@@ -119,6 +119,12 @@ denna del har märkningen **A**.
 | R-STD-09 | EN 301 549 och WCAG 2.1 eller 2.2 | Tillgänglighet | Alla skärmar | Beror på R-ACC-01. |
 | R-STD-10 | MQTT 3.1.1 och 5 (OASIS) samt TLS 1.2 och 1.3 | Protokoll och transportskydd för IoT | F-IOT-01 | Beror på B-IOT. Backloggen tar redan upp ett skyddat MQTT. |
 | R-STD-11 | CAP (Common Alerting Protocol, OASIS) och EDXL | Utbyte av varningar och lägesinformation | F-COM-01, F-AN-05 | Beror på B-ANV. Det är en möjlig export för delning med räddningstjänst. |
+| R-STD-12 | Esris ArcGIS REST API (Map, Feature och Image Service). Det är en leverantörsspecifikation, inte en formell standard | Inläsning från ArcGIS Server, ArcGIS Online och ArcGIS Enterprise | Saknas i dag. ArcGIS Server läses bara via WMS (F-MAP-06) | Trolig, enligt beslutet D-2026-11-02. |
+| R-STD-13 | OGC API – Features (del 1 också som ISO 19168-1) | Inläsning av objekt från moderna GIS-tjänster, efterföljaren till WFS | Saknas i dag. WFS används i datainhämtningen (F-OPS-05) | Trolig, enligt beslutet D-2026-11-02. |
+| R-STD-14 | OGC GeoPackage | Filformat för vektor- och rasterdata, öppnas i ArcGIS och QGIS | Saknas i dag | Trolig, enligt beslutet D-2026-11-02. Även för utlämning i MVP:ns roadmap. |
+| R-STD-15 | Esri Shapefile (Esris tekniska beskrivning, 1998) | Vanligt filformat för vektordata | Saknas som inläsning i MVP:n. Används i datainhämtningen för Copernicus EMS (F-SAT-08) | Trolig, enligt beslutet D-2026-11-02. |
+| R-STD-16 | GeoJSON, RFC 7946 (IETF) | Filformat för vektordata i WGS 84 | Används internt, till exempel för sensorer och kommunens objekt. Saknas som inläsning av användarens filer | Trolig, enligt beslutet D-2026-11-02. |
+| R-STD-17 | OpenStreetMap: datamodellen, ODbL 1.0 och OSMF:s riktlinjer för användning av data och tiles | Baskarta och källa för vägar, byggnader och orter | F-MAP-02, F-MAP-03, F-MAP-10 | Trolig, enligt beslutet D-2026-11-02. Licensen finns också under R-GEO-05. |
 
 ## Nästa steg
 
