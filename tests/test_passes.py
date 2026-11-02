@@ -27,6 +27,8 @@ needs_sgp4 = pytest.mark.skipif(not passes.available(), reason="needs sgp4 (app/
 def test_the_backend_finds_the_same_passes_as_the_satellite_monitor(tmp_path: Path) -> None:
     if shutil.which("node") is None:
         pytest.skip("needs Node.js")
+    if not (FRONTEND / "vendor" / "satellite.js-7.1.0").is_dir():
+        pytest.skip("needs satellite.js (tools/fetch_web_vendor.py)")
     backend = passes.passes_between(passes.Orbit([ELEMENT]), *DAY, *SUNDSVALL, 145.0)
     # satellite.js is an ES module in the vendored copy; give it a package.json of its own to load it in Node.
     library = tmp_path / "satjs"

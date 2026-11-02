@@ -148,14 +148,14 @@ def test_http_questions_and_answers(base_url: str) -> None:
     assert status == 200 and why["sql"] is None and why["answer"].startswith("Wildfire probable")
 
 
-def postgis_running() -> bool:
+def postgis_loaded() -> bool:
     try:
         return spatial.Psql().query("SELECT count(*) FROM fronts").strip().isdigit()
     except spatial.Unavailable:
         return False
 
 
-@pytest.mark.skipif(not postgis_running(), reason="needs the postgis service loaded with tools/load_postgis.py")
+@pytest.mark.skipif(not postgis_loaded(), reason="needs the postgis service loaded with tools/load_postgis.py")
 def test_the_real_queries_answer_within_a_second() -> None:
     psql = spatial.Psql()
     for question_id in ["infrastructure_5km", "forecast_places_6h", "nearest_village"]:

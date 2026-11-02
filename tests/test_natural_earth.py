@@ -49,4 +49,6 @@ def test_the_2d_map_loads_natural_earth_and_cuts_the_offline_map() -> None:
     assert "naturalEarthLayer(" in map2d
     assert 'clippedTileLayer("/tiles/{z}/{x}/{y}.png", config.map_bounds' in map2d
     source = FRONTEND / "vendor" / "cesium-1.146.0" / "Assets" / "Textures" / "NaturalEarthII" / "2"
+    if not source.parent.is_dir():
+        pytest.skip("needs Cesium's own Natural Earth II (tools/fetch_web_vendor.py)")
     assert len(list(source.glob("*/*.jpg"))) == 32

@@ -221,12 +221,10 @@ if scenario.WIND_FILE.exists():
 """
     lines = run_flood(code).splitlines()
     assert lines[0] == "True"
-    if lines[1] == "True":  # data/ is not in the repository; fetched with tools/fetch_era5_land.py and fetch_era5_sea.py
-        # 39 ERA5-Land points on land; with the sea file also the 11 at sea from ERA5. Over the map
-        # area grown to Härnösand and Kramfors (2026-10-15): 130 on land, 346 with the sea.
-        assert lines[2] in ("39 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39", "50 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39",
-                            "130 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 130",
-                            "346 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 130")
+    if lines[1] != "True":
+        pytest.skip("needs data/sundsvall2026/era5-land/ (tools/fetch_era5_land.py)")
+    # 39 ERA5-Land points on land; with the sea file (tools/fetch_era5_sea.py) also the 11 at sea from ERA5.
+    assert lines[2] in ("39 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39", "50 2026-08-14T00:00:00Z 2026-08-22T23:00:00Z 39")
 
 
 def test_the_flood_s_words_come_from_the_scenario() -> None:
@@ -302,8 +300,9 @@ if (scenario.MCF_DIR / "mcf-100ar.geojson").is_file():  # data/ is not in the re
     assert lines[1] == ("1 byggnader inom det klimatanpassade 100-årsflödet (Kävlingeån (MCF, klimatanpassat): 1). "
                         "MCF:s modell för slutet av seklet, inte observationer.")
     assert lines[2] == "3 ['12']"  # REST layer 3 and WMS layer 12: the climate-adapted 100-year flow
-    if len(lines) > 3:
-        assert lines[3] == "False True"  # no municipal stormwater points, MCF's areas with their label
+    if len(lines) <= 3:
+        pytest.skip("needs data/skane2024/mcf/ (tools/fetch_mcf_flood_maps.py) for the loader's rows")
+    assert lines[3] == "False True"  # no municipal stormwater points, MCF's areas with their label
 
 
 def level_points(tmp_path: Path) -> Path:

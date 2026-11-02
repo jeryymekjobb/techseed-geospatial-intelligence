@@ -113,5 +113,7 @@ def test_the_panel_s_choices_follow_the_kind_of_incident() -> None:
         return subprocess.run([sys.executable, "-c", code], cwd=FRONTEND.parents[1], env={**os.environ, "TECHSEED_SCENARIO": name},
                               capture_output=True, text=True, check=True).stdout.strip()
     assert run("vastmanland2014") in ("['horizon', 'weather_station'] ['3', '6', '12', '24'] None", "['horizon'] ['3', '6', '12', '24'] None")
-    skane = run("skane2024")  # data/ is not in the repository: without it there are no stations
-    assert skane in ("['hydro_station', 'rain_station'] [] 2176:3", "[] [] None")
+    skane = run("skane2024")
+    if skane == "[] [] None":
+        pytest.skip("needs data/skane2024/ (its SMHI stations; tools.fetch_scenario skane2024)")
+    assert skane == "['hydro_station', 'rain_station'] [] 2176:3"
