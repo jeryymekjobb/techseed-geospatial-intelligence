@@ -414,6 +414,8 @@ tester. Katalogen täcker dem bara med mönstret `test_fetch_*.py`.
   (`test_load_postgis.py:17`, `test_spatial.py:140`). Fixturerna `node()` och `base_url` är
   kopierade i ett tiotal filer.
 - **Inaktuellt:** `CONTEXT.md` säger fortfarande "360 tests passed".
+- **Delvis rättat 2026-11-02:** "360 tests passed" är daterade verifieringar, inte inaktuella
+  uppgifter.
 
 **Bra:**
 - Sviten är grön och snabb.
