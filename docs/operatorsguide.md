@@ -2734,8 +2734,9 @@ Demon visar:
 
 - **Vattenföringen (SMHI)** vid Hebylund Kvarnsjön, Sibro 2 och Hallbosjön, regnet vid Floda A per
   timme, sex stationer per dygn, bland dem Hälleforsnäs D och Björkvik D, och väderradarn.
-- **Nivågivarna NG1–NG8 (syntetiska):** NG1 Vedebyvägen, NG2 Tärnövägen och NG3 Skenalavägen, där
-  vägar korsar vattendragens 100-årsflöde, och NG4–NG8 längs Nyköpingsån. De följer SMHI:s stationer.
+- **Nivågivarna NG1–NG8 (syntetiska), alla vid Nyköpingsån:** NG1 Vedebyvägen, NG2 Tärnövägen och NG3
+  Skenalavägen, där vägarna korsar ån, och NG4–NG8 på andra platser längs ån. Var och en följer en av
+  SMHI:s stationer.
 - **Rapporterade händelser (lokala medier):** räddningstjänsten i Nyköping fick flera larm om
   översvämningar den 26 maj, och väg 53 översvämmades söder om Sparreholm den 27 maj.
 - **Satellitbilderna:** Sentinel-1 den 20, 26 och 27 maj, samma morgon som vägen svämmade över, och den
@@ -2839,7 +2840,7 @@ Demon visar:
   verkliga regnet, och **nivågivaren NG1 vid Himlabadet (syntetisk)**, som följer Sidsjöbäckens
   beräknade flöde.
 - **Sidsjödammen som ett markerat "om":** byggnaderna längs Sidsjöbäcken nedströms dammen. Det finns
-  ingen dammbrottsmodell, och dammen brast inte.
+  ingen dammbrottsmodell.
 - **Rapporterade händelser (lokala medier), den 4 november:** barriärerna på Östermovägen och vatten i
   källare i Sundsvall, Timrå och Härnösand.
 - **Radarbilderna:** Sentinel-1A den 6 november kl. 06:14 och 17:30 svensk tid, efter regnet. Det var
@@ -2872,7 +2873,7 @@ cp -p data/ljungan-aug2023/s-hype/raw/*.xls data/sundsvall-nov2023/s-hype/raw/
 
 **Generalrepetitionen**, med kartjänsten på Sundsvalls karta. Den börjar den 4 november kl. 07 svensk
 tid. Vid regnets topp mitt på dagen larmar 5 av 9 givare, och bedömningen blir "Flood probable".
-Upptäcktssekvensen slutar med "Okänd", eftersom radarbilderna kom först två dagar efter regnet:
+Upptäcktssekvensen slutar med "Okänd":
 
 ```bash
 TILES_FILE=sundsvall.mbtiles docker compose up -d tiles
