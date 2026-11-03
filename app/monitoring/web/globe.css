@@ -16,5 +16,9 @@ header h1 { margin: 0; font-size: 1.2rem; }
 .pressure-centre { font: 700 22px system-ui, sans-serif; transform: translate(-50%, -50%); text-shadow: 0 0 3px #fff; white-space: nowrap; }
 .pressure-centre.high { color: #1565c0; } .pressure-centre.low { color: #c62828; }
 .pressure-centre small { font-size: 11px; margin-left: 2px; }
+.place-label .place-name { display: block; transform: translate(-50%, -50%); white-space: nowrap; color: #1d1d1b;
+  font: 600 12px system-ui, sans-serif; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+.place-label .place-name.town { font-size: 15px; font-weight: 700; }
+.place-label .place-name.hamlet { font-size: 11px; font-weight: 500; }
 .thunder-mark { font-size: 20px; transform: translate(-50%, -50%); }
 .credits { padding: 2px 16px 4px; font-size: 0.75rem; color: #b8b8b8; background: #101010; }

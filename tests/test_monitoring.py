@@ -19,6 +19,7 @@ from app.monitoring import alarms, briefing, events, geo, rules, satellites, ser
 from app.monitoring.areas import flenkommun
 
 NOW = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
+NO_SCENES = lambda url, body: b'{"features": []}'  # noqa: E731 - Planetary Computer's search, empty
 MS = lambda moment: int(moment.timestamp() * 1000)  # noqa: E731
 # A square around Flen, in WGS 84.
 BORDER = {"type": "Polygon", "coordinates": [[[16.4, 58.85], [17.05, 58.85], [17.05, 59.24], [16.4, 59.24], [16.4, 58.85]]]}
@@ -26,6 +27,8 @@ BORDER = {"type": "Polygon", "coordinates": [[[16.4, 58.85], [17.05, 58.85], [17
 
 def area(**changes):
     values = {name: getattr(flenkommun, name) for name in dir(flenkommun) if name.isupper()}
+    # The scenarios' OSM targets and MCF's flood zone are unversioned data: the tests use none.
+    values.update(OSM_TARGETS_FILE=Path("/nonexistent/targets.geojson"), FLOOD_ZONE_FILES=[])
     values.update(changes)
     return SimpleNamespace(**values)
 
@@ -320,6 +323,7 @@ def grid_answer(url: str) -> bytes:
 def live_answers() -> dict[str, bytes]:
     return {"createdtime.json": json.dumps({"createdTime": "2026-11-03T11:00:00Z"}).encode(),
             "Basdata/Kommuner": json.dumps({"features": [{"geometry": BORDER}]}).encode(),
+            "gis.flen.se": json.dumps({"features": []}).encode(),
             "corrected-archive": ARCHIVE.encode(),
             "parameter/2/station/": flow_answer([45.0, 50.0]),
             "parameter/7/station/": json.dumps({"value": []}).encode(),
@@ -332,7 +336,7 @@ def live_answers() -> dict[str, bytes]:
 
 def test_a_poll_reads_every_source_and_raises_the_alarms(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("FIRMS_MAP_KEY", "KEY")
-    monitor = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch(live_answers()), tmp_path)
+    monitor = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch(live_answers()), tmp_path, NO_SCENES)
     (monitor.inbox).mkdir()
     (monitor.inbox / "in.tsv").write_text("2026-11-03\t10:15\tbrand\t59.0\t16.6\tEPSG:4326\t\n", encoding="utf-8")
     summary = monitor.poll()
@@ -355,7 +359,7 @@ def test_a_failing_source_is_reported_and_the_others_go_on(tmp_path: Path, monke
             raise OSError(f"refused {url}")
         return fake_fetch(answers)(url)
 
-    summary = service.Monitor(area(DATA_DIR=tmp_path), fetch, tmp_path).poll()
+    summary = service.Monitor(area(DATA_DIR=tmp_path), fetch, tmp_path, NO_SCENES).poll()
     status = {item["source"]: item for item in summary["sources"]}
     assert not status["smhi_warnings"]["ok"] and "timed out" in status["smhi_warnings"]["error"]
     assert not status["firms"]["ok"] and "SECRETKEY" not in status["firms"]["error"]
@@ -365,7 +369,7 @@ def test_a_failing_source_is_reported_and_the_others_go_on(tmp_path: Path, monke
 @pytest.fixture
 def server(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("FIRMS_MAP_KEY", "KEY")
-    monitor = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch(live_answers()), tmp_path)
+    monitor = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch(live_answers()), tmp_path, NO_SCENES)
     monitor.poll()
     handler = type("TestHandler", (service.Handler,), {"monitor": monitor})
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -409,7 +413,7 @@ def test_the_screens_are_served_at_the_demos_paths_and_only_their_own_json_can_a
 
 def test_the_config_offers_the_municipal_map_once_fetched_with_osm_under_and_over(tmp_path: Path, monkeypatch) -> None:
     item = {**flenkommun.MUNICIPAL_BASEMAPS[0], "dir": tmp_path / "flen"}
-    monitor = service.Monitor(area(MUNICIPAL_BASEMAPS=[item]), fake_fetch({}), tmp_path)
+    monitor = service.Monitor(area(MUNICIPAL_BASEMAPS=[item]), fake_fetch({}), tmp_path, NO_SCENES)
     monkeypatch.setattr(service.offline_tiles, "available", lambda: False)
     maps = monitor.config()["maps"]
     assert maps["municipal"] == [] and maps["offline"] is None and maps["online"]["url"].startswith("https://tile.openstreetmap.org/")
@@ -455,7 +459,7 @@ def test_the_screens_set_text_from_the_sources_as_text() -> None:
     globe = (Path(service.WEB_DIR) / "globe.js").read_text(encoding="utf-8")
     assert "description: escapeText(" in globe and "name: escapeText(" in globe
     flat = (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
-    assert "bindTooltip(tip(" in flat and flat.count("bindTooltip(") == 1
+    assert flat.count("bindTooltip(") == flat.count("bindTooltip(tip(") > 0 and "html: label" in flat
 
 
 # --- satellites ------------------------------------------------------------------------------
@@ -591,12 +595,13 @@ def test_thunder_is_marked_once_per_hundred_kilometres_from_thirty_percent() -> 
     assert weather.thunder_marks(lat, lon, probability) == [[59.0, 16.1], [61.0, 16.0]]
 
 
-def test_mission_control_shows_or_hides_the_wind_and_the_chart(server: int) -> None:
-    assert json.loads(request(server, "GET", "/api/view")[1])["layers"] == {"wind": True, "chart": False}
+def test_mission_control_shows_or_hides_the_layers(server: int) -> None:
+    layers = json.loads(request(server, "GET", "/api/view")[1])["layers"]
+    assert layers == service.LAYERS and layers["chart"] is False and layers["facilities"] is True
     assert request(server, "POST", "/api/layers", b'{"chart": "yes"}', {"Content-Type": "application/json"})[0] == 400
     assert request(server, "POST", "/api/layers", b'{"rain": true}', {"Content-Type": "application/json"})[0] == 400
-    status, body = request(server, "POST", "/api/layers", b'{"chart": true}', {"Content-Type": "application/json"})
-    assert status == 200 and json.loads(body)["layers"] == {"wind": True, "chart": True}
+    status, body = request(server, "POST", "/api/layers", b'{"chart": true, "names": false}', {"Content-Type": "application/json"})
+    assert status == 200 and json.loads(body)["layers"]["chart"] is True and json.loads(body)["layers"]["names"] is False
     status, body = request(server, "GET", "/api/weather")
     assert status == 200 and len(json.loads(body)["wind"]) == 20
     assert request(server, "GET", "/wind_barbs.js")[0] == 200
@@ -616,3 +621,148 @@ def test_the_road_numbers_are_clipped_to_the_municipality() -> None:
     assert clipped.getpixel((max(0, int(west_x) - 5), 128))[3] == 255
     assert clipped.getpixel((min(255, int(west_x) + 45), 128))[3] == 0
     assert service.clip_to_border(tile.getvalue(), None, 12, 2236, 1210) == tile.getvalue()
+
+
+# --- the municipality's GIS, the weather stations, the satellite image, reading aloud and IoT ----
+
+def test_the_gis_keeps_only_what_the_check_allows_and_finds_what_an_alarm_threatens(tmp_path: Path) -> None:
+    import numpy as np
+
+    from app.monitoring import gis
+
+    def fetch(url: str) -> bytes:
+        if "/10/query" in url:  # preschools, one of them twice
+            points = [{"attributes": {"Namn": "Björkliden förskola"}, "geometry": {"x": 16.6099, "y": 59.0575}}] * 2
+        elif "Samhallsservice" in url:  # care units: only those for the elderly are kept
+            points = [{"attributes": {"Namn": "Hemgården", "Beskrivnin": "Äldre", "Beskrivn_1": "Särskilt boende"},
+                       "geometry": {"x": 16.6, "y": 59.06}},
+                      {"attributes": {"Namn": "Gökstigen", "Beskrivnin": "Funktionsnedsättning", "Beskrivn_1": "Gruppbostad"},
+                       "geometry": {"x": 16.6, "y": 59.06}}]
+        elif "/5/query" in url:  # health care as a multipoint
+            points = [{"attributes": {"Vårdcentral": "Flen"}, "geometry": {"points": [[16.59, 59.06]]}}]
+        elif "Prim%C3%A4rkarta_Flen" in url:
+            points = [{"geometry": {"rings": [[[16.588, 59.058], [16.589, 59.058], [16.589, 59.059], [16.588, 59.058]]]}}]
+        else:
+            points = []
+        assert "Adress" not in url and "Fastighet" not in url
+        return json.dumps({"features": points}).encode()
+
+    assets = gis.Assets(area(), tmp_path, fetch)
+    data = assets.load()
+    assert [(item["name"], item["category"]) for item in data["facilities"]] == [
+        ("Björkliden förskola", "Förskola"), ("Flen", "Vårdcentral"), ("Hemgården", "Äldreomsorg: Särskilt boende")]
+    near = assets.exposure({"key": "radar-cloudburst", "latitude": 59.058, "longitude": 16.59})
+    # The preschool lies 1.1 km away: outside.
+    assert near["where"] == "inom 1,0 km" and near["buildings"] == 1 and len(near["facilities"]) == 2
+    assert assets.exposure({"key": "vma-1", "latitude": None}) is None
+    square = [[[[16.0, 59.0], [17.0, 59.0], [17.0, 60.0], [16.0, 60.0], [16.0, 59.0]],
+               [[16.4, 59.4], [16.6, 59.4], [16.6, 59.6], [16.4, 59.6], [16.4, 59.4]]]]
+    assert gis.inside(np.array([[59.2, 16.2], [59.5, 16.5], [58.5, 16.5]]), square).tolist() == [True, False, False]
+
+
+def test_the_weather_stations_give_their_latest_values() -> None:
+    def fetch(url: str) -> bytes:
+        if "/parameter/1/" in url:
+            return json.dumps({"position": [{"latitude": 59.06, "longitude": 16.39}],
+                               "value": [{"date": MS(NOW - timedelta(hours=1)), "value": "4.0"}, {"date": MS(NOW), "value": "5.5"}]}).encode()
+        if "/parameter/5/" in url:  # the rain by the day: its period's end as "to"
+            return json.dumps({"position": [{"latitude": 59.06, "longitude": 16.39}],
+                               "value": [{"from": MS(NOW - timedelta(days=1)), "to": MS(NOW), "ref": "2026-11-02", "value": "2.5"}]}).encode()
+        raise OSError("no such parameter")
+
+    (station,) = sources.read_weather_stations({"96040": {"name": "Floda A", "parameters": [1, 4, 5]}}, fetch)
+    assert station["values"] == {"temp_c": 5.5, "rain_day_mm": 2.5} and station["times"]["temp_c"] == "2026-11-03T12:00:00Z"
+    assert sources.read_weather_stations({"1": {"name": "Tyst", "parameters": [4]}}, fetch) == []
+
+
+def test_the_latest_clear_sentinel2_datatake_is_chosen_and_laid_together(tmp_path: Path) -> None:
+    import io
+
+    from PIL import Image
+
+    from app.monitoring import sentinel2
+
+    def item(name, when, cloud):
+        return {"id": name, "properties": {"datetime": when, "eo:cloud_cover": cloud, "platform": "Sentinel-2A"}}
+
+    found = [item("A1", "2026-11-01T10:21:00Z", 100), item("A2", "2026-11-01T10:21:01Z", 98),
+             item("B1", "2026-10-29T10:20:00Z", 40), item("B2", "2026-10-29T10:20:02Z", 30)]
+    takes = sentinel2.datatakes(found)
+    assert [take["items"] for take in takes] == [["A1", "A2"], ["B1", "B2"]] and takes[1]["cloud"] == 35
+    assert sentinel2.choose(takes, NOW)["items"] == ["B1", "B2"]
+    assert sentinel2.choose([{**takes[0], "time_utc": "2026-10-10T10:00:00Z"}], NOW)["cloud"] == 99
+
+    def png(colour):
+        out = io.BytesIO()
+        Image.new("RGBA", (4, 4), colour).save(out, "PNG")
+        return out.getvalue()
+
+    asked = []
+    latest = sentinel2.Latest(flenkommun.BBOX, tmp_path, lambda url: asked.append(url) or png((0, 200, 0, 255)),
+                              lambda url, body: json.dumps({"features": found}).encode())
+    meta = latest.update(NOW)
+    assert meta["items"] == ["B1", "B2"] and meta["recent"] and latest.png.startswith(b"\x89PNG")
+    assert all("assets=B04" in url and "rescale=1000%2C3600" in url for url in asked) and len(asked) == 2
+    assert latest.update(NOW + timedelta(minutes=10)) == meta and len(asked) == 2
+
+
+def test_new_alarms_are_read_aloud_only_with_upplasning_on(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("FIRMS_MAP_KEY", "KEY")
+    monitor = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch(live_answers()), tmp_path, NO_SCENES)
+    said = []
+    monitor.say = lambda texts: said.extend(texts)
+    monitor.poll()
+    assert said == []
+    monitor.speech = True
+    monitor.store.state["alarms"].clear()
+    monitor.poll()
+    assert any(text.startswith("Nytt larm i Flens kommun: ") for text in said)
+    count = len(said)
+    monitor.poll()
+    assert len(said) == count  # the same alarms are not read again
+
+
+def test_the_service_serves_the_objects_the_image_and_the_iot_and_switches_reading_aloud(server: int) -> None:
+    status, body = request(server, "GET", "/api/assets")
+    assert status == 200 and set(json.loads(body)) == {"facilities", "places", "attribution"}
+    status, body = request(server, "GET", "/api/satellite.png")
+    assert status == 200 and body.startswith(b"\x89PNG")
+    state = json.loads(request(server, "GET", "/api/state")[1])
+    assert state["speech"] is False and state["iot"]["sensors"] == []
+    assert request(server, "POST", "/api/speech", b'{"speech": 1}', {"Content-Type": "application/json"})[0] == 400
+    status, body = request(server, "POST", "/api/speech", b'{"speech": true}', {"Content-Type": "application/json"})
+    assert status == 200 and json.loads(body) == {"speech": True}
+
+
+def test_sentinel1_shows_water_outside_the_lakes_in_red_and_groups_a_pass() -> None:
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    from app.monitoring import sentinel1
+
+    # SYNTHETIC backscatter: land at -10 dB, a lake at -22 dB, a flooded field and one speck at -24 dB.
+    vv = np.full((40, 40), 0.1, dtype="f4")
+    lake = np.zeros((40, 40), dtype=bool)
+    lake[0:10, 0:10] = True
+    vv[lake] = 0.0063
+    vv[20:26, 20:26] = 0.004
+    vv[5, 35] = 0.004
+    grey, water, stats = sentinel1.images(vv, lake)
+    mask = np.array(Image.open(io.BytesIO(water)))
+    assert mask[23, 23].tolist() == [255, 0, 0, 220] and mask[5, 5, 3] == 0 and mask[5, 35, 3] == 0
+    assert stats["separable"] and abs(stats["threshold_db"] + 22.0) < 0.1 and stats["new_water_pct"] > 2
+    assert np.array(Image.open(io.BytesIO(grey))).shape == (40, 40, 4)
+    found = sentinel1.passes([
+        {"id": "S1C_IW_A", "properties": {"datetime": "2026-11-03T05:14:36Z", "sat:orbit_state": "descending"}},
+        {"id": "S1C_IW_B", "properties": {"datetime": "2026-11-03T05:14:11Z", "sat:orbit_state": "descending"}},
+        {"id": "S1D_IW_C", "properties": {"datetime": "2026-11-02T16:37:13Z", "sat:orbit_state": "ascending"}}])
+    assert [item["items"] for item in found] == [["S1C_IW_A", "S1C_IW_B"], ["S1D_IW_C"]]
+    assert found[0]["time_utc"] == "2026-11-03T05:14:11Z" and found[0]["platform"] == "Sentinel-1C"
+
+
+def test_the_stations_and_the_objects_have_their_own_marks() -> None:
+    for name in ("map2d.js", "globe.js"):
+        script = (Path(service.WEB_DIR) / name).read_text(encoding="utf-8")
+        assert 'STATION_MARKS = { weather: "#1565c0", flow: "#c62828" }' in script and "#ffd600" in script, name

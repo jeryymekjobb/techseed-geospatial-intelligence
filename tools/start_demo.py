@@ -359,7 +359,9 @@ def run_monitoring(area_name: str, *, services: str = "docker", browser: str = "
     tiles = getattr(area, "TILES_FILE", None)
     if tiles and services == "docker":
         print(f"1/3 Kartservern med {tiles} …", flush=True)
-        subprocess.run(["docker", "compose", "up", "-d", "tiles"], cwd=REPO_ROOT, env={**os.environ, "TILES_FILE": tiles}, check=True)
+        # The tiles and, for the IoT nodes, the MQTT broker, as for the demos.
+        subprocess.run(["docker", "compose", "up", "-d", "tiles", "mosquitto"], cwd=REPO_ROOT, env={**os.environ, "TILES_FILE": tiles},
+                       check=True)
         try:
             wait_until(lambda: served_tiles_file(offline_tiles.url_template()) == tiles, 90, f"the tiles service did not serve {tiles}")
         except SystemExit as exc:

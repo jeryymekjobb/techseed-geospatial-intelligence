@@ -37,6 +37,7 @@ class Candidate:
     notes: list[str] = field(default_factory=list)
     simulated: bool = False
     extent: str | None = None
+    exposure: dict[str, Any] | None = None
 
     def fact(self, text: str, source: str, time_utc: str | None = None, uncertain: bool = False) -> None:
         self.facts.append({"text": text, "source": source, "time_utc": time_utc, "uncertain": uncertain})
@@ -46,7 +47,7 @@ class Candidate:
                 "severity": self.severity, "title": self.title, "place": self.place, "latitude": self.latitude,
                 "longitude": self.longitude, "facts": self.facts, "confirmations": self.confirmations,
                 "single_source": not self.confirmations, "notes": self.notes, "simulated": self.simulated,
-                "extent": self.extent}
+                "extent": self.extent, "exposure": self.exposure}
 
 
 def _number(value: float) -> str:

@@ -156,7 +156,7 @@ def test_the_monitoring_starts_its_tiles_service_and_its_screens_and_returns_byt
     monkeypatch.setattr(start_demo, "served_tiles_file", lambda template: "flenkommun.mbtiles")
     monkeypatch.setattr(start_demo, "answers", lambda url: True)
     assert start_demo.run_monitoring("flenkommun") == start_demo.MENU_EXIT
-    assert commands[0] == (["docker", "compose", "up", "-d", "tiles"], "flenkommun.mbtiles")
+    assert commands[0] == (["docker", "compose", "up", "-d", "tiles", "mosquitto"], "flenkommun.mbtiles")
     assert commands[1][0][1:] == ["-m", "app.monitoring", "--area", "flenkommun", "--port", str(start_demo.PORT)]
     assert commands[1][1] == str(start_demo.MENU_EXIT)
     assert commands[2][0][1:4] == ["-m", "tools.open_screens", "--base-url"]

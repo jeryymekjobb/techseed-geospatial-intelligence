@@ -113,6 +113,12 @@ class Radar:
             out = io.BytesIO()
             Image.fromarray(smhi.colours(latest["rates"]), "RGBA").save(out, "PNG", optimize=True)
             self.png, self.png_key = out.getvalue(), latest_key
-        return {"frames": len(self.frames), "latest_utc": latest["time"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+        # The highest rate in the municipality in each frame, for mission control's chart.
+        series = []
+        for frame in sorted(self.frames.values(), key=lambda item: item["time"]):
+            masked = np.where(self.mask, frame["rates"], np.nan)
+            series.append({"time_utc": frame["time"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                           "max_mm_h": round(float(np.nanmax(masked)), 1) if np.isfinite(masked).any() else 0.0})
+        return {"frames": len(self.frames), "latest_utc": latest["time"].strftime("%Y-%m-%dT%H:%M:%SZ"), "series": series,
                 "max_mm_h": round(peak, 1), "hour_mm": round(float(np.nanmax(hour)) if hour.size else 0.0, 1), "max_at": at,
                 "bbox": list(self.bbox)}

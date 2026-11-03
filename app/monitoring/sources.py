@@ -47,6 +47,10 @@ ATTRIBUTION = {
     "smhi_warnings": "SMHI:s vädervarningar, öppna data (CC BY 4.0 SE)",
     "smhi_fire_risk": "SMHI:s brandriskprognos (FWI), öppna data (CC BY 4.0 SE)",
     "smhi_forecast": "SMHI:s väderprognos, öppna data (CC BY 4.0 SE)",
+    "sentinel1": "Innehåller bearbetade Copernicus Sentinel-data (Microsoft Planetary Computer)",
+    "sentinel2": "Innehåller Copernicus Sentinel-data (Microsoft Planetary Computer)",
+    "flen_gis": "Flens kommun (GIS) och OpenStreetMap – intern användning",
+    "smhi_stations": "SMHI öppna data, meteorologiska observationer (CC BY 4.0 SE)",
     "smhi_grid": "SMHI:s väderprognos (snow1g), öppna data (CC BY 4.0 SE); prognos, inte observationer",
     "smhi_radar": "SMHI öppna data, väderradar (CC BY 4.0 SE); uppskattat ur radarn, inte mätt på marken",
     "krisinformation": "Krisinformation.se (MCF); villkor inte kontrollerade",
@@ -196,8 +200,48 @@ def read_rain(stations: dict[str, str], fetch: Fetch) -> list[dict[str, Any]]:
         items.append({"station": station, "name": name, "latitude": position.get("latitude"),
                       "longitude": position.get("longitude"), "mm_24h": round(sum(float(row["value"]) for row in recent), 1),
                       "mm_last_hour": float(last["value"]) if last else None,
+                      "series": [{"time_utc": utc_text(_utc(row["date"])), "mm": float(row["value"])}
+                                 for row in sorted(recent, key=lambda row: row["date"])],
                       "hours": len(recent), "latest_utc": utc_text(latest),
                       "unchecked": any(row.get("quality") != "G" for row in recent)})
+    return items
+
+
+# --- SMHI's weather stations -----------------------------------------------------------------
+
+# metobs parameters: air temperature, wind direction, wind speed, rain in the hour, rain by the day (06-06).
+STATION_PARAMETERS = {1: ("temp_c", "latest-hour"), 3: ("wind_from_deg", "latest-hour"), 4: ("wind_ms", "latest-hour"),
+                      7: ("rain_1h_mm", "latest-hour"), 5: ("rain_day_mm", "latest-day")}
+
+
+def station_url(parameter: int, station: str, period: str) -> str:
+    return f"{METOBS_API}/parameter/{parameter}/station/{station}/period/{period}/data.json"
+
+
+def read_weather_stations(stations: dict[str, dict[str, Any]], fetch: Fetch) -> list[dict[str, Any]]:
+    """The latest values of SMHI's weather stations: for each its parameters, the last value and its time.
+    A parameter that does not answer is left out; the others go on."""
+    items = []
+    for station, settings in stations.items():
+        item = {"station": station, "name": settings["name"], "latitude": None, "longitude": None, "values": {}, "times": {}}
+        for parameter in settings["parameters"]:
+            key, period = STATION_PARAMETERS[parameter]
+            try:
+                data = json.loads(fetch(station_url(parameter, station, period)))
+            except Exception:  # noqa: BLE001 - one parameter missing leaves the others
+                continue
+            rows = [row for row in data.get("value") or [] if row.get("value") not in (None, "")]
+            if not rows:
+                continue
+            # Hourly values carry their time as "date"; the rain by the day its period's end as "to".
+            moment = lambda row: row.get("date") or row.get("to")  # noqa: E731
+            last = max(rows, key=moment)
+            item["values"][key] = float(last["value"])
+            item["times"][key] = utc_text(_utc(moment(last)))
+            position = (data.get("position") or [{}])[-1]
+            item["latitude"], item["longitude"] = position.get("latitude"), position.get("longitude")
+        if item["latitude"] is not None:
+            items.append(item)
     return items
 
 

@@ -1,8 +1,9 @@
 // The 2D main screen of the monitoring (app/monitoring/service.py), the other page of mission
 // control's VISA 2D / VISA 3D as in the scenarios (app/frontend/kiosk.js viewPage): the municipality's
-// map with OSM under and over it (/api/config's maps), the border, SMHI's stations, FIRMS's
-// detections, the events in and the current alarms from /api/state. It follows mission control's
-// choice of view (/api/view) and goes to the 3D globe when it changes. Tooltips are set as text.
+// map with OSM under and over it (/api/config's maps), the border, SMHI's stations, the protected
+// objects and place names (/api/assets), FIRMS's detections, the events in and the current alarms
+// from /api/state. It follows mission control's choice of view and map layers (/api/view) and goes to
+// the 3D globe when the view changes. Tooltips and labels are set as text.
 "use strict";
 
 const STATE_MS = 30000;
@@ -14,6 +15,14 @@ function tip(text) {
 }
 
 const map = L.map("map");
+// Mission control's map layers (service.LAYERS), each a group shown or hidden by showLayers.
+const named = {};
+for (const name of ["municipal", "flood", "radar", "satellite", "s1radar", "s1water", "stations", "facilities", "names", "firms"]) {
+  named[name] = L.layerGroup();
+}
+// The hamlets' names, part of the names layer, shown only close in, where they do not crowd.
+const hamlets = L.layerGroup();
+const HAMLET_MIN_ZOOM = 12;
 
 // The base maps as the screens share them (/api/config's maps): the municipality's map over the
 // offline OpenStreetMap, which shows where the municipal map is white, and OSM's road numbers and
@@ -40,26 +49,74 @@ function addBaseMaps(maps) {
   for (const item of maps.municipal) {
     const [west, south, east, north] = item.bbox;
     L.tileLayer(item.url, { minZoom: item.min_zoom, maxNativeZoom: item.max_zoom, maxZoom: 18, zIndex: 3, attribution: item.attribution,
-      bounds: [[south, west], [north, east]] }).addTo(map);
+      bounds: [[south, west], [north, east]] }).addTo(named.municipal);
   }
   if (maps.overlay && maps.municipal.length) {
-    L.tileLayer(maps.overlay.url, { minZoom: OFFLINE_MIN_ZOOM, maxZoom: 18, zIndex: 4, attribution: maps.overlay.attribution }).addTo(map);
+    L.tileLayer(maps.overlay.url, { minZoom: OFFLINE_MIN_ZOOM, maxZoom: 18, zIndex: 4, attribution: maps.overlay.attribution })
+      .addTo(named.municipal);
   }
 }
 
-// The scenarios' overlays: MCF's flood map (WMS) and SMHI's radar, whose image is asked again after
-// every poll (/api/state's polled_utc), when a newer one may have come.
+// The scenarios' overlays: MCF's flood map (WMS), SMHI's radar and the latest Sentinel-2 image, whose
+// images are asked again after every poll (/api/state's polled_utc), when newer ones may have come.
 let radarLayer = null;
 let radarShown = null;
+let imageLayer = null;
+let imageShown = null;
 function addOverlays(config) {
   const flood = config.layers.flood;
   if (flood) {
     L.tileLayer.wms(flood.url, { layers: flood.layers, format: "image/png", transparent: true, opacity: 0.6, styles: "",
-      attribution: flood.attribution }).addTo(map);
+      attribution: flood.attribution, zIndex: 5 }).addTo(named.flood);
   }
   const [west, south, east, north] = config.layers.radar.bbox;
   radarLayer = L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 0.85, attribution: config.layers.radar.attribution })
-    .addTo(map);
+    .addTo(named.radar);
+  imageLayer = L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 1 }).addTo(named.satellite);
+  s1Layers = {
+    radar: L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 0.9 }).addTo(named.s1radar),
+    water: L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 1 }).addTo(named.s1water),
+  };
+}
+
+// Sentinel-1's latest pass: the grey radar image and the water outside the lakes in red.
+let s1Layers = null;
+let s1Shown = null;
+function drawRadarPass(meta) {
+  if (!s1Layers || !meta || meta.time_utc === s1Shown) return;
+  s1Shown = meta.time_utc;
+  s1Layers.radar.setUrl(`/api/s1radar.png?at=${encodeURIComponent(meta.time_utc)}`);
+  s1Layers.water.setUrl(`/api/s1water.png?at=${encodeURIComponent(meta.time_utc)}`);
+  map.attributionControl.addAttribution(meta.attribution);
+}
+
+function drawImage(meta) {
+  if (!imageLayer || !meta || meta.time_utc === imageShown) return;
+  imageShown = meta.time_utc;
+  imageLayer.setUrl(`/api/satellite.png?at=${encodeURIComponent(meta.time_utc)}`);
+  imageLayer.getElement()?.setAttribute("title", `${meta.platform} ${meta.time_utc}, ${meta.cloud} % moln`);
+  map.attributionControl.addAttribution(meta.attribution);
+}
+
+// The protected objects from the municipality's GIS and the place names (/api/assets), drawn once.
+// The marks, as the user asked: SMHI's stations round with a white ring, blue for the weather
+// stations and red for the flow stations; the protected objects and other places of interest small,
+// round and yellow.
+const STATION_MARKS = { weather: "#1565c0", flow: "#c62828" };
+const OBJECT_MARK = { radius: 4, color: "#5d4300", weight: 1, fillColor: "#ffd600", fillOpacity: 1 };
+function drawAssets(assets) {
+  for (const item of assets.facilities || []) {
+    L.circleMarker([item.latitude, item.longitude], OBJECT_MARK)
+      .bindTooltip(tip(`${item.name} (${item.category}) – ${item.source}`)).addTo(named.facilities);
+  }
+  for (const place of assets.places || []) {
+    const label = document.createElement("span");
+    label.textContent = place.name;
+    label.className = `place-name ${place.type}`;
+    L.marker([place.latitude, place.longitude], { icon: L.divIcon({ className: "place-label", html: label, iconSize: [0, 0] }),
+      interactive: false, keyboard: false }).addTo(place.type === "hamlet" ? hamlets : named.names);
+  }
+  if (assets.attribution) map.attributionControl.addAttribution(assets.attribution);
 }
 
 function drawRadar(radar, polled) {
@@ -79,6 +136,8 @@ function marker(layer, lat, lon, style, text) {
 function drawMap(state) {
   const context = state.context || {};
   drawRadar(context.radar, state.polled_utc);
+  drawImage(context.satellite_image);
+  drawRadarPass(context.radar_pass);
   refreshWeather(context.weather);
   if (!placed) {
     const [west, south, east, north] = state.area.bbox;
@@ -91,18 +150,20 @@ function drawMap(state) {
     L.geoJSON(context.border, { style: { color: "#1565c0", weight: 2, fill: false } }).addTo(layers.border);
   }
   layers.sites.clearLayers();
+  named.stations.clearLayers();
+  named.firms.clearLayers();
   for (const flow of context.flows || []) {
     if (flow.latitude == null) continue;
     const limits = flow.limits ? ` (högt över ${flow.limits.high}, rekord ${flow.limits.record})` : "";
-    marker(layers.sites, flow.latitude, flow.longitude, { radius: 6, color: "#0277bd" },
-      `${flow.name}: ${flow.value} m³/s ${flow.time_utc}${limits} – SMHI`);
+    marker(named.stations, flow.latitude, flow.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: STATION_MARKS.flow, fillOpacity: 1 },
+      `Vattenföring ${flow.name}: ${flow.value} m³/s ${flow.time_utc}${limits} – SMHI`);
   }
-  for (const rain of context.rain || []) {
-    if (rain.latitude == null) continue;
-    marker(layers.sites, rain.latitude, rain.longitude, { radius: 5, color: "#2e7d32" }, `${rain.name}: ${rain.mm_24h} mm senaste 24 h – SMHI`);
+  for (const station of context.weather_stations || []) {
+    marker(named.stations, station.latitude, station.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: STATION_MARKS.weather,
+      fillOpacity: 1 }, stationText(station));
   }
   for (const point of context.firms || []) {
-    marker(layers.sites, point.latitude, point.longitude, { radius: 4, color: "#e65100" },
+    marker(named.firms, point.latitude, point.longitude, { radius: 4, color: "#e65100" },
       `FIRMS ${point.instrument} ${point.satellite} ${point.time_utc}`);
   }
   for (const event of state.events || []) {
@@ -115,6 +176,18 @@ function drawMap(state) {
     if (c.latitude == null || !alarm.current || alarm.state === "dismissed") continue;
     marker(layers.alarms, c.latitude, c.longitude, { radius: 11, color: alarm.state === "new" ? "#c62828" : "#1565c0", weight: 3 }, c.title);
   }
+}
+
+// A weather station's latest values, as SMHI gives them.
+function stationText(station) {
+  const v = station.values;
+  const parts = [];
+  if (v.temp_c !== undefined) parts.push(`${v.temp_c} °C`);
+  if (v.wind_ms !== undefined) parts.push(`vind ${v.wind_ms} m/s${v.wind_from_deg !== undefined ? ` från ${v.wind_from_deg}°` : ""}`);
+  if (v.rain_1h_mm !== undefined) parts.push(`regn ${v.rain_1h_mm} mm senaste timmen`);
+  if (v.rain_day_mm !== undefined) parts.push(`regn ${v.rain_day_mm} mm senaste dygnet (06–06)`);
+  const time = Object.values(station.times).sort().pop();
+  return `SMHI ${station.name}: ${parts.join(", ")}${time ? ` – ${time}` : ""}`;
 }
 
 async function getJson(path) {
@@ -171,11 +244,14 @@ function refreshWeather(summary) {
   getJson("/api/weather").then(drawWeather).catch(() => { weatherShown = null; });
 }
 
-// The arrows show only from this zoom, so they do not crowd into one blot over Scandinavia.
+// The arrows show only from this zoom, so they do not crowd into one blot over Scandinavia; the
+// place names likewise.
 const WIND_MIN_ZOOM = 8;
 function showLayers(layers) {
-  const wanted = { wind: layers.wind && map.getZoom() >= WIND_MIN_ZOOM, chart: layers.chart };
-  for (const [name, layer] of [["wind", windLayer], ["chart", chartLayer]]) {
+  const close = map.getZoom() >= WIND_MIN_ZOOM;
+  const wanted = { ...layers, wind: layers.wind && close, names: layers.names && close,
+    hamlets: layers.names && map.getZoom() >= HAMLET_MIN_ZOOM };
+  for (const [name, layer] of [["wind", windLayer], ["chart", chartLayer], ["hamlets", hamlets], ...Object.entries(named)]) {
     if (wanted[name] && !map.hasLayer(layer)) layer.addTo(map);
     if (!wanted[name] && map.hasLayer(layer)) map.removeLayer(layer);
   }
@@ -196,6 +272,7 @@ getJson("/api/config").then((config) => {
   document.title = `Övervakning – ${config.area.name} – 2D`;
   addBaseMaps(config.maps);
   addOverlays(config);
+  getJson("/api/assets").then(drawAssets).catch(() => null);
 }).finally(() => {
   const refresh = () => getJson("/api/state").then(drawMap).catch(() => null);
   refresh();

@@ -90,15 +90,41 @@ is never logged or shown.
   proposals.
 - **Alarms** (`alarms.py`): new until the operator confirms or dismisses them; every action is
   logged. Nothing is sent onward.
+- **What an alarm may threaten** (`gis.py`): from Flens kommun's own GIS (`gis.flen.se`), as the
+  one-pager makes GIS the default: preschools, schools, the upper secondary school, health centres,
+  district nurses and dental care (Kommunala_verksamheter) and the primary map's 13 466 buildings;
+  from OpenStreetMap only what the municipality's services lack, marked so: the railway station,
+  churches and the roads and railways (the comprehensive plan's transport and care layers give no
+  geometry). Within 1 km of a fire, cloudburst or reported event, or in MCF's 100-year flow for a high
+  flow. Kept after the check of laws and rules on 2026-11-03: no addresses or property designations,
+  no housing for people with disabilities (until its security and data protection are reviewed),
+  no water, sewage, power or protected objects; internal use only.
 - **Briefing** (`briefing.py`): `/briefing/<id>`, a printable page with the facts, their sources
   and times, what is uncertain, the context and the contacts by role.
-- **Layers:** SMHI's radar image and MCF's climate-adapted 100-year flow of Nyköpingsån (WMS) on
+- **Layers**, each switched in mission control: the municipal map, SMHI's radar image and MCF's climate-adapted 100-year flow of Nyköpingsån (WMS) on
   the 2D map and the globe, as in the Flen scenarios; the wind arrows over the area and the weather
   chart over Scandinavia (isobars every 2 hPa with highs and lows, the hour's rain, thunder), from
   SMHI's forecast grid snow1g for the next whole hour (`weather.py`, with the scenarios'
   `tools/isobars.py` and `wind_barbs.js`), fetched again for a new run or hour and marked as a
-  forecast; mission control's VINDPILAR and VÄDERKARTA show them on the main screen (the arrows
-  start on, the chart off, as in the scenarios); mission control's Läget nu gives the radar, the
+  forecast; the protected objects, the place names (OSM), SMHI's flow and weather stations (Floda A,
+  Eskilstuna A, Kolmården-Strömsfors A, Höksta and the daily rain stations, with their latest values),
+  FIRMS's detections, and the latest Sentinel-2 image (`sentinel2.py`: Planetary Computer's catalogue
+  and data API, the newest datatake of 14 days with at most 60 % cloud, else the clearest of 30 days,
+  in true colour as the scenarios'); the latest Sentinel-1 radar pass (`sentinel1.py`: Planetary
+  Computer's terrain-corrected sentinel-1-rtc, VV), as the scenarios' radar images: the grey radar
+  image, which shows wet and rough ground bright, and the water outside OpenStreetMap's lakes in red
+  (darker than the median over the lakes, five of nine neighbours) – a computed mask, not a mapped
+  flood; the weather chart, the optical image and the grey radar image start off;
+- **Marks**, as the user asked: SMHI's stations round with a white ring, blue for the weather
+  stations and red for the flow stations; the protected objects and other places of interest small,
+  round and yellow;
+- **Charts** in mission control: each station's flow of the last day with its limits, the hour's rain
+  at Floda A, the radar's highest rate in the municipality in the last hour.
+- **UPPLÄSNING** in mission control reads new alarms aloud with the scenarios' voice alma
+  (`app/backend/speech.py`); off at the start.
+- **IoT**: the demos' MQTT nodes (`techseed/<node>/<kind>` on 127.0.0.1:1883, `app/backend/iot.py`;
+  `--mqtt`), simulated unless they say otherwise, listed in mission control; `start_demo` starts
+  Mosquitto with the tiles. mission control's Läget nu gives the radar, the
   fire risk, the forecast and the flows.
 - **Screens** (`web/`): mission control (`control.*`) with the map, the alarms, the sources, the
   events in and BYT; the 3D globe (`globe.*`) with the border, stations, detections, events, current
@@ -118,5 +144,7 @@ is never logged or shown.
 - Landslides have no live rule: Flens kommun's stability mapping (1992-1996, map 1A) is not
   published by MCF as zones, and SGI's quick-clay and landslide layers answer only SGI's own viewer.
   SMHI's lightning comes a day late, and there is no coast for erosion.
+- The comprehensive plan's care units for the elderly have no position in the municipality's
+  services, so they are not placed; bus stops likewise.
 - Not included: terrain on the globe, Sentinel images and passes, drones, reading the log aloud,
   kiosk mode, forwarding of alarms, fire models.

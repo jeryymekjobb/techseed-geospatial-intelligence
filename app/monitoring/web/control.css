@@ -1,6 +1,10 @@
 /* The monitoring's mission control on top of the scenarios' styles (app/frontend/styles.css,
    body.control): only the alarm cards, the sources' table and the lists are its own. */
-.control .control-row.view-row { grid-template-columns: repeat(2, 1fr); }
+.control .control-row.view-row { grid-template-columns: repeat(3, 1fr); }
+.control button[aria-pressed="true"] { border-color: #ffd54a; background: #ffd54a; color: #202020; }
+.charts { display: grid; gap: 10px; }
+.chart h3 { margin: 0 0 2px; font-size: 0.85rem; color: #d0d0d0; font-weight: 600; }
+.chart canvas { display: block; width: 100%; height: 90px; background: #1e1e1e; border-radius: 4px; }
 .control .control-layout h2 + .status { margin-top: -4px; }
 .alarm { margin: 8px 0; padding: 8px 10px; border: 1px solid #444; border-left: 6px solid #e53935; border-radius: 6px; background: #1e1e1e; }
 .alarm.confirmed { border-left-color: #4fc3f7; }

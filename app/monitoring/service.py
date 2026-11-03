@@ -36,7 +36,8 @@ from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from app.backend import offline_tiles
-from app.monitoring import areas, briefing, events, geo, radar, rules, satellites, sources, weather
+from app.backend import iot
+from app.monitoring import areas, briefing, events, geo, gis, radar, rules, satellites, sentinel1, sentinel2, sources, weather
 from app.monitoring.alarms import Store
 
 log = logging.getLogger("app.monitoring")
@@ -55,6 +56,9 @@ STATIC = {"/control.html": (WEB_DIR / "control.html", HTML), "/control.js": (WEB
           "/styles.css": (FRONTEND_DIR / "styles.css", CSS)}
 TILE = re.compile(r"/(tiles|tiles-overlay)/(\d{1,2})/(\d+)/(\d+)\.png")
 BASEMAP_TILE = re.compile(r"/basemap/([a-z]+)/(\d{1,2})/(\d+)/(\d+)\.png")
+# The map layers mission control switches on the main screen, and whether each starts on.
+LAYERS = {"municipal": True, "flood": True, "radar": True, "wind": True, "chart": False, "facilities": True, "names": True,
+          "stations": True, "firms": True, "satellite": False, "s1radar": False, "s1water": True}
 # OpenStreetMap's standard map outside the municipality, the one-pager's fallback where there is no
 # GIS map: it has land cover at every zoom and no edge; the demos' offline map takes its place only
 # when it does not answer.
@@ -64,7 +68,8 @@ ONLINE_OSM = {"url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png", "attribut
 class Monitor:
     """One area's sources, rules and alarms."""
 
-    def __init__(self, area: ModuleType, fetch: sources.Fetch = sources.fetch_url, data_dir: Path | None = None) -> None:
+    def __init__(self, area: ModuleType, fetch: sources.Fetch = sources.fetch_url, data_dir: Path | None = None,
+                 post: sentinel2.Post = sentinel2.post_json) -> None:
         self.area = area
         self.fetch = fetch
         self.data_dir = data_dir or area.DATA_DIR
@@ -75,9 +80,19 @@ class Monitor:
         self.view = "3d"
         self.radar = radar.Radar(area.BBOX, fetch)
         self.weather = weather.Weather(area.BBOX, fetch)
-        # Mission control's VINDPILAR and VÄDERKARTA: shown on the main screen or not; as in the
-        # scenarios, the wind arrows start on and the weather chart off.
-        self.layers = {"wind": True, "chart": False}
+        self.assets = gis.Assets(area, self.data_dir, fetch) if hasattr(area, "GIS_FACILITIES") else None
+        self.image = sentinel2.Latest(area.BBOX, self.data_dir, fetch, post)
+        self.radar_pass = sentinel1.Latest(area.BBOX, self.data_dir, getattr(area, "TERRAIN_FILE", None), fetch, post)
+        # The IoT nodes, as the demos' (app/backend/iot.py): MQTT techseed/<node>/<kind>, simulated
+        # unless a node says otherwise; connected by main() when a broker is given.
+        self.sensors = iot.SensorStore()
+        self.places = gis.places(area.OSM_TARGETS_FILE, area.PLACE_TYPES) if hasattr(area, "OSM_TARGETS_FILE") else []
+        # Mission control's map layers: shown on the main screen or not; as in the scenarios, the
+        # weather chart and the satellite image start off.
+        self.layers = dict(LAYERS)
+        # UPPLÄSNING: new alarms read aloud (app/backend/speech.py); off at the start, as in the scenarios.
+        self.speech = False
+        self.speaker: Any = None
 
     def _firms(self) -> list[dict[str, Any]]:
         key = sources.firms_key()
@@ -104,10 +119,14 @@ class Monitor:
             results["smhi_warnings"] = sources.guarded(
                 "smhi_warnings", lambda: sources.read_warnings(area.SMHI_COUNTY_ID, border, fetch))
             results["smhi_radar"] = sources.guarded("smhi_radar", lambda: [self.radar.update(border)])
-            results["smhi_grid"] = sources.guarded("smhi_grid", lambda: [self.weather.summary() or {}] if self.weather.update() else [])
+            results["smhi_grid"] = sources.guarded("smhi_grid", lambda: [self.weather.update()] and [self.weather.summary()])
             results["smhi_fire_risk"] = sources.guarded(
                 "smhi_fire_risk", lambda: sources.read_fire_risk(*area.FIRE_RISK_POINT, fetch))
             results["smhi_forecast"] = sources.guarded("smhi_forecast", lambda: sources.read_forecast(*area.FORECAST_POINT, fetch))
+            results["sentinel2"] = sources.guarded("sentinel2", lambda: [meta] if (meta := self.image.update()) else [])
+            results["sentinel1"] = sources.guarded("sentinel1", lambda: [meta] if (meta := self.radar_pass.update()) else [])
+            results["smhi_stations"] = sources.guarded(
+                "smhi_stations", lambda: sources.read_weather_stations(getattr(area, "WEATHER_STATIONS", {}), fetch))
             results["krisinformation"] = sources.guarded(
                 "krisinformation", lambda: sources.read_krisinformation(area.KRISINFO_WORDS, fetch))
             results["mcf_fire_ban"] = sources.guarded("mcf_fire_ban", lambda: sources.read_fire_ban(area.MUNICIPALITY_CODE, fetch))
@@ -120,13 +139,22 @@ class Monitor:
                     "warnings": results["smhi_warnings"].items, "krisinfo": results["krisinformation"].items,
                     "fire_ban": results["mcf_fire_ban"].items, "firms": results["firms"].items,
                     "radar": results["smhi_radar"].items[0] if results["smhi_radar"].items else None,
-                    "fire_risk": results["smhi_fire_risk"].items, "forecast": results["smhi_forecast"].items}
+                    "fire_risk": results["smhi_fire_risk"].items, "forecast": results["smhi_forecast"].items,
+                    "weather_stations": results["smhi_stations"].items}
+            assets = sources.guarded("flen_gis", lambda: [self.assets.load()] if self.assets else [])
             candidates, filtered = rules.detect(poll, recent, area)
-            status = [result.as_json() for result in (*results.values(), stats)]
+            # What each alarm may threaten, from the municipality's GIS (gis.py).
+            if assets.ok and self.assets:
+                for candidate in candidates:
+                    candidate.exposure = self.assets.exposure(candidate.as_json())
+            status = [result.as_json() for result in (*results.values(), stats, assets)]
             status.append({"source": "inbox", "ok": True, "fetched_utc": sources.utc_text(datetime.now(timezone.utc)), "count": len(batch.events),
                            "error": None, "note": f"{len(batch.refused)} avvisade rader" if batch.refused else None,
                            "attribution": "Händelser in (inkorgen)"})
-            self.store.apply(candidates, status, filtered, self._context(poll, stats))
+            raised = self.store.apply(candidates, status, filtered, self._context(poll, stats))
+            if self.speech and raised:
+                self.say([f"{'Simulerat larm' if alarm['simulated'] else 'Nytt larm'} i {area.NAME}: {alarm['title']}."
+                          for alarm in raised])
             for result in status:
                 if not result["ok"]:
                     log.warning("Källa %s: %s", result["source"], result["error"])
@@ -137,14 +165,17 @@ class Monitor:
 
     def _context(self, poll: dict[str, Any], stats: sources.Result) -> dict[str, Any]:
         limits = stats.items[0] if stats.items else {}
+        # The flows with their latest day for mission control's charts.
         flows = [{"station": item["station"], "name": item["name"], "latitude": item["latitude"], "longitude": item["longitude"],
                   "value": item["readings"][-1]["value"], "time_utc": item["readings"][-1]["time_utc"],
-                  "quality": item["readings"][-1]["quality"], "limits": limits.get(item["station"])}
+                  "quality": item["readings"][-1]["quality"], "limits": limits.get(item["station"]),
+                  "series": [{"time_utc": reading["time_utc"], "value": reading["value"]} for reading in item["readings"]]}
                  for item in poll["flows"] if item["readings"]]
         return {"border": poll["border"], "flows": flows, "rain": poll["rain"], "warnings": poll["warnings"],
                 "fire_ban": poll["fire_ban"], "news": [item for item in poll["krisinfo"] if item["kind"] == "news"],
                 "firms": poll["firms"], "radar": poll["radar"], "fire_risk": poll["fire_risk"], "forecast": poll["forecast"],
-                "weather": self.weather.summary()}
+                "weather": self.weather.summary(), "satellite_image": self.image.meta, "radar_pass": self.radar_pass.meta,
+                "weather_stations": poll.get("weather_stations", [])}
 
     def state(self) -> dict[str, Any]:
         state = self.store.snapshot()
@@ -153,10 +184,18 @@ class Monitor:
         alarms.sort(key=lambda alarm: (alarm["state"] != "new", not alarm["current"]))
         return {"area": {"name": self.area.NAME, "bbox": self.area.BBOX, "centre": self.area.CENTRE,
                          "poll_seconds": self.area.POLL_SECONDS, "contacts_note": self.area.CONTACTS_NOTE},
-                "view": self.view, "layers": self.layers,
+                "view": self.view, "layers": self.layers, "speech": self.speech, "iot": self.sensors.snapshot(),
                 "polled_utc": state.get("polled_utc"), "alarms": alarms, "sources": state["sources"],
                 "filtered": state["filtered"], "events": state["events"][-50:], "refused": state["refused"][-50:],
                 "context": state["context"]}
+
+    def say(self, texts: list[str]) -> None:
+        """Read the lines aloud with the scenarios' voice alma, Piper's synthetic Swedish voice."""
+        if self.speaker is None:
+            from app.backend import speech
+
+            self.speaker = speech.Speaker()
+        self.speaker.say([(text, "alma") for text in texts])
 
     def municipal_maps(self) -> list[dict[str, Any]]:
         """The area's municipal maps that are fetched (their SOURCE.json written), for the screens."""
@@ -257,6 +296,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(self.monitor.radar.png or radar.EMPTY_PNG, "image/png")
         elif path == "/api/view":
             self.send_json({"view": self.monitor.view, "layers": self.monitor.layers})
+        elif path == "/api/satellite.png":
+            png = self.monitor.image.png
+            self.send_body(png or radar.EMPTY_PNG, "image/png")
+        elif path in ("/api/s1radar.png", "/api/s1water.png"):
+            png = self.monitor.radar_pass.png("radar" if path == "/api/s1radar.png" else "water")
+            self.send_body(png or radar.EMPTY_PNG, "image/png")
+        elif path == "/api/assets":
+            self.send_json(gis.public(self.monitor.assets.data if self.monitor.assets else None, self.monitor.places))
         elif path == "/api/weather":
             self.send_json(self.monitor.weather.latest or {"wind": [], "chart": None})
         elif path == "/api/satellites":
@@ -339,6 +386,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/layers":
             self.set_layers()
             return
+        if path == "/api/speech":
+            self.set_speech()
+            return
         parts = path.split("/")
         if len(parts) != 5 or parts[:3] != ["", "api", "alarms"] or parts[4] not in ("confirm", "dismiss"):
             self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
@@ -374,8 +424,23 @@ class Handler(BaseHTTPRequestHandler):
         self.monitor.view = view
         self.send_json({"view": view})
 
+    def set_speech(self) -> None:
+        """UPPLÄSNING in mission control: {"speech": bool}; off stops what is being read."""
+        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            body = json.loads(self.rfile.read(length)) if 0 < length <= 64 else {}
+        except ValueError:
+            body = None
+        if not isinstance(body, dict) or not isinstance(body.get("speech"), bool):
+            self.send_json({"error": 'speech needs true or false'}, HTTPStatus.BAD_REQUEST)
+            return
+        self.monitor.speech = body["speech"]
+        if not self.monitor.speech and self.monitor.speaker is not None:
+            self.monitor.speaker.stop()
+        self.send_json({"speech": self.monitor.speech})
+
     def set_layers(self) -> None:
-        """VINDPILAR and VÄDERKARTA in mission control: {"wind": bool} or {"chart": bool}."""
+        """The map layers in mission control: {"<layer>": bool, ...}, of LAYERS."""
         length = int(self.headers.get("Content-Length") or 0)
         try:
             body = json.loads(self.rfile.read(length)) if 0 < length <= 256 else {}
@@ -383,7 +448,7 @@ class Handler(BaseHTTPRequestHandler):
             body = None
         if not isinstance(body, dict) or not body or any(key not in self.monitor.layers or not isinstance(value, bool)
                                                          for key, value in body.items()):
-            self.send_json({"error": 'layers needs "wind" or "chart" as true or false'}, HTTPStatus.BAD_REQUEST)
+            self.send_json({"error": "layers needs known layers as true or false"}, HTTPStatus.BAD_REQUEST)
             return
         self.monitor.layers.update(body)
         self.send_json({"layers": self.monitor.layers})
@@ -417,6 +482,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8770)
     parser.add_argument("--once", action="store_true", help="poll once, print a summary and exit")
     parser.add_argument("--data-dir", type=Path, help="the state, inbox and log (default: the area's DATA_DIR)")
+    parser.add_argument("--mqtt", default=os.environ.get("IOT_MQTT_BROKER", "127.0.0.1:1883"),
+                        help="the MQTT broker of the IoT nodes, host:port, or 'off'")
     arguments = parser.parse_args(argv)
     area = areas.load(arguments.area)
     data_dir = arguments.data_dir or area.DATA_DIR
@@ -433,6 +500,9 @@ def main(argv: list[str] | None = None) -> int:
         for item in summary["filtered"]:
             print(f"Utelämnat: {item['what']} – {item['reason']}")
         return 0
+    if arguments.mqtt != "off":
+        host, _, port = arguments.mqtt.rpartition(":")
+        iot.start(monitor.sensors, host or "127.0.0.1", int(port))
     stop = threading.Event()
     threading.Thread(target=poll_loop, args=(monitor, stop), daemon=True).start()
     Handler.monitor = monitor

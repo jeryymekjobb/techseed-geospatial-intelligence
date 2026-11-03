@@ -20,20 +20,29 @@
       <div id="polled" class="status">Ansluter …</div>
       <div class="control-row pick-row view-row">
         <button id="view-toggle" type="button">VISA 2D</button>
+        <button id="speech-toggle" type="button" aria-pressed="false">UPPLÄSNING AV</button>
         <button id="switch-demo" type="button" class="danger">BYT</button>
-        <button id="wind-toggle" type="button" data-layer="wind">VINDPILAR PÅ</button>
-        <button id="chart-toggle" type="button" data-layer="chart">VÄDERKARTA AV</button>
       </div>
       <div id="command-status" class="status" aria-live="polite"></div>
       <h2>Läget nu</h2>
       <ul id="situation" class="scenario-status"></ul>
-      <h2>Källor</h2>
-      <table id="sources" class="source-table"></table>
+      <fieldset id="map-layers" class="image-types"><legend>Kartlager på huvudskärmen</legend></fieldset>
     </section>
     <section>
       <h2>Larm</h2>
       <p class="status">Inget skickas vidare automatiskt. Operatören bekräftar eller avfärdar.</p>
       <div id="alarms"></div>
+    </section>
+    <section>
+      <h2>Diagram</h2>
+      <div id="charts" class="charts"></div>
+      <h2>Satellitbild</h2>
+      <p id="satellite-image" class="status">Ingen bild än.</p>
+      <h2>IoT</h2>
+      <p id="iot-connection" class="status">–</p>
+      <ul id="iot-sensors" class="scenario-status"></ul>
+      <h2>Källor</h2>
+      <table id="sources" class="source-table"></table>
     </section>
     <section>
       <h2>Händelser in</h2>

@@ -984,10 +984,18 @@ förhöjd brandrisk enligt SMHI:s brandriskprognos och bränder från NASA FIRMS
 från inkorgen. Radarbilden och MCF:s 100-årsflöde för Nyköpingsån visas på kartan, och **Läget nu** i
 mission control visar radarn, brandrisken, prognosen och flödena. I mission control bekräftar eller
 avfärdar operatören larmen och öppnar briefingen; inget skickas vidare automatiskt. **VISA 2D / VISA 3D**
-växlar huvudskärmen mellan 2D-kartan och 3D-globen. **VINDPILAR** visar vinden över kommunen och
-**VÄDERKARTA** isobarerna, högtrycken och lågtrycken, regnet och åskan över Skandinavien; båda är SMHI:s
-prognos för den närmaste hela timmen, inte observationer. Med väderkartan på visar huvudskärmen
-Skandinavien, och när den stängs kommunen igen. **BYT** överst i mission control avslutar övervakningen
+växlar huvudskärmen mellan 2D-kartan och 3D-globen, och **Kartlager på huvudskärmen** slår av och på
+varje lager: kommunens karta, översvämning, väderradar, vindpilar och väderkarta (SMHI:s prognos för
+den närmaste hela timmen, inte observationer), SMHI:s stationer, skyddsvärda objekt ur kommunens GIS,
+ortnamn, brandpunkter, den senaste satellitbilden från Sentinel-2 och den senaste radarpassagen från
+Sentinel-1: radarbilden i grått, där fuktig och ojämn mark är ljus, och vatten utanför sjöarna i rött
+(en beräknad mask, inte en kartlagd översvämning). SMHI:s stationer är runda med vit ring, blå för
+väderstationerna och röda för vattenföringen; skyddsvärda objekt och andra platser av intresse är små
+och gula. Med väderkartan på visar
+huvudskärmen Skandinavien. Varje larm räknar upp skyddsvärda objekt och byggnader som kan beröras.
+Diagrammen visar flödena, regnet och radarn det senaste dygnet. **UPPLÄSNING** läser upp nya larm,
+och **IoT** visar sensorerna, märkta som simulerade om de inte anger annat. Datat från kommunens GIS
+är för intern användning; boenden för personer med funktionsnedsättning ingår inte. **BYT** överst i mission control avslutar övervakningen
 och visar startsidan igen. `app/monitoring/README.md` beskriver övervakningen.
 
 Låt terminalen stå öppen hela dagen. **BYT SCENARIO** längst ned i mission controls vänstra kolumn

@@ -72,9 +72,11 @@ class Store:
             return list(kept)
 
     def apply(self, candidates: list[Candidate], sources: list[dict[str, Any]], filtered: list[dict[str, Any]],
-              context: dict[str, Any]) -> None:
-        """One poll's candidates into the alarms."""
+              context: dict[str, Any]) -> list[dict[str, Any]]:
+        """One poll's candidates into the alarms; the alarms raised by it, new or come back at a higher
+        severity, which UPPLÄSNING reads aloud."""
         now = _now()
+        raised: list[dict[str, Any]] = []
         with self.lock:
             alarms = self.state["alarms"]
             seen = set()
@@ -86,11 +88,13 @@ class Store:
                     alarms[candidate.key] = {"id": candidate.key, "state": "new", "created_utc": now, "updated_utc": now,
                                              "current": True, "candidate": data,
                                              "history": [{"time_utc": now, "action": "larm", "note": data["title"]}]}
+                    raised.append(data)
                     continue
                 rose = SEVERITY.get(data["severity"], 0) > SEVERITY.get(alarm["candidate"]["severity"], 0)
                 if alarm["state"] == "dismissed" and rose:
                     alarm["state"] = "new"
                     alarm["history"].append({"time_utc": now, "action": "larm", "note": f"Högre nivå: {data['title']}"})
+                    raised.append(data)
                 if not alarm["current"]:
                     alarm["history"].append({"time_utc": now, "action": "aktuellt igen", "note": data["title"]})
                 alarm.update(candidate=data, current=True, updated_utc=now)
@@ -104,6 +108,7 @@ class Store:
             self.state["context"] = context
             self.state["polled_utc"] = now
             self._write()
+        return raised
 
     def act(self, alarm_id: str, action: str, note: str = "") -> dict[str, Any]:
         """The operator confirms or dismisses an alarm. Nothing is sent onward."""

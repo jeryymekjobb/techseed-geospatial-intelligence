@@ -29,6 +29,7 @@ def build(alarm: dict[str, Any], context: dict[str, Any], area: ModuleType) -> d
         "title": candidate["title"], "kind": candidate["kind_word"], "state": STATE_WORDS[alarm["state"]],
         "current": alarm["current"], "simulated": candidate["simulated"], "area": area.NAME, "place": place,
         "extent": candidate["extent"], "facts": candidate["facts"], "confirmations": candidate["confirmations"],
+        "exposure": candidate.get("exposure"),
         "uncertain": uncertain, "context": context, "contacts": area.CONTACTS.get(candidate["kind"], []),
         "contacts_note": area.CONTACTS_NOTE, "history": alarm["history"], "created_utc": alarm["created_utc"],
         "made_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -64,6 +65,20 @@ def _context_lines(context: dict[str, Any]) -> list[str]:
     return lines
 
 
+def exposure_lines(exposure: dict[str, Any] | None) -> list[str]:
+    """What the alarm may threaten, as the briefing lists it: the protected objects by name and kind,
+    the buildings, roads and railways as counts and names."""
+    if not exposure:
+        return []
+    lines = [f"{item['name']} ({item['category']}) – {item['source']}" for item in exposure["facilities"]]
+    lines.append(f"{exposure['buildings']} byggnader {exposure['where']} – {exposure['attribution']}")
+    if exposure["roads"]:
+        lines.append(f"{exposure['roads']} vägavsnitt {exposure['where']}: {', '.join(exposure['road_kinds'])} – © OpenStreetMap contributors")
+    if exposure["railways"]:
+        lines.append(f"Järnväg {exposure['where']} – © OpenStreetMap contributors")
+    return lines
+
+
 def render(briefing: dict[str, Any]) -> str:
     """The briefing as a page of its own."""
     facts = "".join(
@@ -93,6 +108,9 @@ table {{ border-collapse: collapse; width: 100%; font-size: 0.92rem; }} td, th {
 <p><b>Omfattning:</b> {escape(briefing['extent'] or 'Inte känd ur källorna')}</p>
 <h2>Fakta och källor</h2>
 <table><tr><th>Fakta</th><th>Källa</th><th>Tid (UTC)</th></tr>{facts}</table>
+<h2>Skyddsvärda objekt och bebyggelse{(' ' + escape(briefing['exposure']['where'])) if briefing.get('exposure') else ''}</h2>
+<p class="meta">Intern – bygger på Flens kommuns GIS. Äldreomsorgens enheter och boenden för personer med
+funktionsnedsättning ingår inte.</p>{_list(exposure_lines(briefing.get('exposure')))}
 <h2>Bekräftelser från andra källor</h2>{_list(briefing['confirmations'])}
 <h2>Osäkert</h2>{_list(briefing['uncertain'])}
 <h2>Läget i övrigt</h2>{_list(_context_lines(briefing['context']))}
