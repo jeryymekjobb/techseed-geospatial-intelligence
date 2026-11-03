@@ -19,8 +19,10 @@ build/
 .DS_Store
 Thumbs.db
 
-# Editor backup files
+# Editor backup files, and Emacs's autosave and lock files
 *~
+\#*#
+.#*
 
 # Browser libraries for the 3D map; fetch with tools/fetch_web_vendor.py
 app/frontend/vendor/cesium-*/
