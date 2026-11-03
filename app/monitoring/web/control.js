@@ -13,7 +13,7 @@ const STATE_WORDS = { new: "Nytt", confirmed: "Bekräftat", dismissed: "Avfärda
 const SOURCE_WORDS = {
   mcf_border: "Kommungräns (MCF)", smhi_flow: "Vattenföring (SMHI)", smhi_flow_statistics: "Flödesstatistik (SMHI)",
   smhi_rain: "Nederbörd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
-  smhi_radar: "Väderradar (SMHI)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
+  smhi_radar: "Väderradar (SMHI)", smhi_grid: "Vind och väderkarta (SMHI)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
   mcf_fire_ban: "Eldningsförbud (MCF)", firms: "Brandpunkter (NASA FIRMS)", inbox: "Händelser in (inkorgen)",
 };
 
@@ -84,6 +84,10 @@ function drawSituation(state) {
   for (const item of context.forecast || []) {
     lines.push(`Prognos: ${item.rain_24h_mm} mm regn närmaste dygnet, ${item.rain_48h_mm} mm två dygn, ${item.temp_min}–${item.temp_max} °C`);
   }
+  const wind = context.weather?.centre_wind;
+  if (wind) {
+    lines.push(`Vind ${localTime.format(new Date(context.weather.valid_utc))}: ${wind.speed_ms} m/s från ${wind.from_deg}° (prognos, SMHI)`);
+  }
   for (const flow of context.flows || []) lines.push(`${flow.name}: ${flow.value} m³/s`);
   const list = document.getElementById("situation");
   list.replaceChildren(...lines.map((text) => element("li", text, "info")));
@@ -116,6 +120,7 @@ async function refresh() {
     document.getElementById("control-label").textContent = `Övervakning: ${state.area.name} – live`;
     document.title = `TechSeed Mission Control – ${state.area.name}`;
     showView(state.view);
+    showLayers(state.layers);
     document.getElementById("polled").textContent = state.polled_utc
       ? `Senaste avläsning ${localTime.format(new Date(state.polled_utc))}, var ${state.area.poll_seconds / 60}:e minut` : "Ingen avläsning än";
     drawAlarms(state);
@@ -137,6 +142,26 @@ document.getElementById("switch-demo").addEventListener("click", async () => {
   status.textContent = response?.ok ? "Övervakningen avslutas – startsidan visas strax här."
     : response?.status === 409 ? "BYT fungerar bara när övervakningen är startad från startsidan." : "Tjänsten svarar inte.";
 });
+
+// VINDPILAR and VÄDERKARTA: SMHI's wind arrows and weather chart on the main screen, on or off.
+const LAYER_WORDS = { wind: "VINDPILAR", chart: "VÄDERKARTA" };
+let layersShown = { wind: true, chart: false };
+function showLayers(layers) {
+  layersShown = { ...layersShown, ...(layers || {}) };
+  for (const [name, word] of Object.entries(LAYER_WORDS)) {
+    const button = document.getElementById(`${name}-toggle`);
+    button.textContent = `${word} ${layersShown[name] ? "PÅ" : "AV"}`;
+    button.setAttribute("aria-pressed", String(Boolean(layersShown[name])));
+  }
+}
+for (const name of Object.keys(LAYER_WORDS)) {
+  document.getElementById(`${name}-toggle`).addEventListener("click", async () => {
+    const response = await fetch("/api/layers", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [name]: !layersShown[name] }) }).catch(() => null);
+    if (response?.ok) showLayers((await response.json()).layers);
+    else document.getElementById("command-status").textContent = "Växlingen gick inte – tjänsten svarar inte.";
+  });
+}
 
 // VISA 2D / VISA 3D: the main screen's map; the button names the other one.
 let view = "3d";

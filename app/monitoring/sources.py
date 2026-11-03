@@ -17,6 +17,7 @@ the network. A source that fails gives its error; the others go on.
 from __future__ import annotations
 
 import csv
+import gzip
 import io
 import json
 import math
@@ -46,6 +47,7 @@ ATTRIBUTION = {
     "smhi_warnings": "SMHI:s vädervarningar, öppna data (CC BY 4.0 SE)",
     "smhi_fire_risk": "SMHI:s brandriskprognos (FWI), öppna data (CC BY 4.0 SE)",
     "smhi_forecast": "SMHI:s väderprognos, öppna data (CC BY 4.0 SE)",
+    "smhi_grid": "SMHI:s väderprognos (snow1g), öppna data (CC BY 4.0 SE); prognos, inte observationer",
     "smhi_radar": "SMHI öppna data, väderradar (CC BY 4.0 SE); uppskattat ur radarn, inte mätt på marken",
     "krisinformation": "Krisinformation.se (MCF); villkor inte kontrollerade",
     "mcf_fire_ban": "Eldningsförbud, MCF:s spegling av länsstyrelsernas karttjänst; villkor inte kontrollerade",
@@ -57,8 +59,10 @@ Fetch = Callable[[str], bytes]
 
 
 def fetch_url(url: str, timeout: float = 60.0) -> bytes:
-    with urlopen(Request(url, headers={"User-Agent": USER_AGENT}), timeout=timeout) as response:
-        return response.read()
+    """The body of a GET; gzip is asked for and unpacked, as SMHI's forecast grid requires it."""
+    with urlopen(Request(url, headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip"}), timeout=timeout) as response:
+        body = response.read()
+        return gzip.decompress(body) if response.headers.get("Content-Encoding") == "gzip" else body
 
 
 def _utc(milliseconds: float) -> datetime:

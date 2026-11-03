@@ -18,16 +18,32 @@ const map = L.map("map");
 // The base maps as the screens share them (/api/config's maps): the municipality's map over the
 // offline OpenStreetMap, which shows where the municipal map is white, and OSM's road numbers and
 // railway tunnels over both; online OSM only when neither is there.
+const OFFLINE_MIN_ZOOM = 8;
+// The offline map takes the place of OpenStreetMap's own after this many tiles it could not fetch.
+const ONLINE_FAILURES = 5;
+
+// The base maps (/api/config's maps): OpenStreetMap's standard map everywhere, which has land cover
+// at every zoom and no edge; the municipality's own map over it; and over that, only inside the
+// municipality, the road numbers and railway tunnels it lacks. Without the net the demos' offline
+// map takes OpenStreetMap's place over its area.
 function addBaseMaps(maps) {
-  if (maps.offline) L.tileLayer(maps.offline.url, { maxZoom: 18, attribution: maps.offline.attribution }).addTo(map);
+  let failures = 0;
+  let offline = null;
+  const online = L.tileLayer(maps.online.url, { maxZoom: 18, zIndex: 1, attribution: maps.online.attribution }).addTo(map);
+  online.on("tileerror", () => {
+    failures += 1;
+    if (offline || !maps.offline || failures < ONLINE_FAILURES) return;
+    const [west, south, east, north] = maps.offline.bbox;
+    offline = L.tileLayer(maps.offline.url, { minZoom: OFFLINE_MIN_ZOOM, maxZoom: 18, zIndex: 2, attribution: maps.offline.attribution,
+      bounds: [[south, west], [north, east]] }).addTo(map);
+  });
   for (const item of maps.municipal) {
     const [west, south, east, north] = item.bbox;
-    L.tileLayer(item.url, { minZoom: item.min_zoom, maxNativeZoom: item.max_zoom, maxZoom: 18, attribution: item.attribution,
+    L.tileLayer(item.url, { minZoom: item.min_zoom, maxNativeZoom: item.max_zoom, maxZoom: 18, zIndex: 3, attribution: item.attribution,
       bounds: [[south, west], [north, east]] }).addTo(map);
   }
-  if (maps.overlay) L.tileLayer(maps.overlay.url, { maxZoom: 18, attribution: maps.overlay.attribution }).addTo(map);
-  if (!maps.offline && !maps.municipal.length) {
-    L.tileLayer(maps.online.url, { maxZoom: 18, attribution: maps.online.attribution }).addTo(map);
+  if (maps.overlay && maps.municipal.length) {
+    L.tileLayer(maps.overlay.url, { minZoom: OFFLINE_MIN_ZOOM, maxZoom: 18, zIndex: 4, attribution: maps.overlay.attribution }).addTo(map);
   }
 }
 
@@ -63,9 +79,11 @@ function marker(layer, lat, lon, style, text) {
 function drawMap(state) {
   const context = state.context || {};
   drawRadar(context.radar, state.polled_utc);
+  refreshWeather(context.weather);
   if (!placed) {
     const [west, south, east, north] = state.area.bbox;
-    map.fitBounds([[south, west], [north, east]]);
+    areaBounds = [[south, west], [north, east]];
+    map.fitBounds(areaBounds);
     placed = true;
   }
   layers.border.clearLayers();
@@ -105,8 +123,72 @@ async function getJson(path) {
   return response.json();
 }
 
+// SMHI's forecast grid (/api/weather), as the scenarios' wind arrows and weather chart: the arrows
+// over the area (wind_barbs.js) and the chart over Scandinavia, isobars with highs and lows, the hour's
+// rain and the thunder. Mission control's VINDPILAR and VÄDERKARTA show them (/api/view's layers);
+// the chart shows Scandinavia, and the area again when it goes.
+const CHART_BOUNDS = [[55, 4], [70, 31]];
+const windLayer = L.layerGroup();
+const chartLayer = L.layerGroup();
+let weatherShown = null;
+let shownLayers = {};
+let areaBounds = null;
+
+function drawWeather(data) {
+  windLayer.clearLayers();
+  for (const point of data.wind || []) {
+    const svg = windBarbSvg(point.speed_ms).replace("<svg ", `<svg style="transform: rotate(${(point.from_deg + 180) % 360}deg)" `);
+    L.marker([point.latitude, point.longitude], { icon: L.divIcon({ className: "barb-icon", html: svg, iconSize: [0, 0] }),
+      interactive: false, keyboard: false }).addTo(windLayer);
+  }
+  chartLayer.clearLayers();
+  const chart = data.chart;
+  if (!chart) return;
+  const [west, south, east, north] = chart.bbox;
+  L.imageOverlay(chart.rain_png, [[south, west], [north, east]], { opacity: 0.85, interactive: false }).addTo(chartLayer);
+  for (const line of chart.lines) {
+    const main = line.hpa % 8 === 0;
+    L.polyline(line.coords, { color: "#1f3a7a", weight: main ? 1.8 : 0.9, opacity: main ? 0.9 : 0.6, interactive: false }).addTo(chartLayer);
+    if (main) {
+      L.marker(line.coords[Math.floor(line.coords.length / 2)], { icon: L.divIcon({ className: "isobar-label", html: String(line.hpa),
+        iconSize: [0, 0] }), interactive: false, keyboard: false }).addTo(chartLayer);
+    }
+  }
+  for (const centre of chart.centres) {
+    L.marker([centre.latitude, centre.longitude], { icon: L.divIcon({ className: `pressure-centre ${centre.kind === "H" ? "high" : "low"}`,
+      html: `${centre.kind}<small>${centre.hpa}</small>`, iconSize: [0, 0] }), interactive: false, keyboard: false }).addTo(chartLayer);
+  }
+  for (const [lat, lon] of chart.thunder) {
+    L.marker([lat, lon], { icon: L.divIcon({ className: "thunder-mark", html: "⚡", iconSize: [0, 0] }), interactive: false, keyboard: false })
+      .addTo(chartLayer);
+  }
+}
+
+function refreshWeather(summary) {
+  const key = summary ? `${summary.created_utc}|${summary.valid_utc}` : null;
+  if (!key || key === weatherShown) return;
+  weatherShown = key;
+  getJson("/api/weather").then(drawWeather).catch(() => { weatherShown = null; });
+}
+
+// The arrows show only from this zoom, so they do not crowd into one blot over Scandinavia.
+const WIND_MIN_ZOOM = 8;
+function showLayers(layers) {
+  const wanted = { wind: layers.wind && map.getZoom() >= WIND_MIN_ZOOM, chart: layers.chart };
+  for (const [name, layer] of [["wind", windLayer], ["chart", chartLayer]]) {
+    if (wanted[name] && !map.hasLayer(layer)) layer.addTo(map);
+    if (!wanted[name] && map.hasLayer(layer)) map.removeLayer(layer);
+  }
+  if (layers.chart && !shownLayers.chart) map.fitBounds(CHART_BOUNDS);
+  if (!layers.chart && shownLayers.chart && areaBounds) map.fitBounds(areaBounds);
+  shownLayers = { ...layers };
+}
+
 function followView() {
-  getJson("/api/view").then((body) => { if (body.view === "3d") window.location.assign("/3d.html"); }).catch(() => null);
+  getJson("/api/view").then((body) => {
+    if (body.view === "3d") window.location.assign("/3d.html");
+    else showLayers(body.layers || {});
+  }).catch(() => null);
 }
 
 getJson("/api/config").then((config) => {

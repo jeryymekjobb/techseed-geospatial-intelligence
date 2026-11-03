@@ -6,4 +6,15 @@ header h1 { margin: 0; font-size: 1.2rem; }
 .alarms { font-weight: 700; color: #ffd54a; }
 .clock { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
 #globe, #map { flex: 1; min-height: 0; position: relative; }
+/* The scenarios' wind arrows and weather chart (app/frontend/styles.css), for the monitoring's maps. */
+.barb-icon { pointer-events: none; }
+.barb-icon svg { width: 100px; height: 100px; overflow: visible; margin: -50px 0 0 -50px; }
+.barb path, .barb circle { fill: none; stroke: #0b3d91; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.barb .halo { stroke: #fff; stroke-width: 4.5; opacity: 0.85; }
+.barb .pennant { fill: #0b3d91; }
+.isobar-label { color: #1f3a7a; font: 600 11px system-ui, sans-serif; white-space: nowrap; transform: translate(-50%, -50%); text-shadow: 0 0 3px #fff; }
+.pressure-centre { font: 700 22px system-ui, sans-serif; transform: translate(-50%, -50%); text-shadow: 0 0 3px #fff; white-space: nowrap; }
+.pressure-centre.high { color: #1565c0; } .pressure-centre.low { color: #c62828; }
+.pressure-centre small { font-size: 11px; margin-left: 2px; }
+.thunder-mark { font-size: 20px; transform: translate(-50%, -50%); }
 .credits { padding: 2px 16px 4px; font-size: 0.75rem; color: #b8b8b8; background: #101010; }

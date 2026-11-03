@@ -36,25 +36,33 @@ async function getJson(path) {
   return response.json();
 }
 
+// As the 2D map (map2d.js addBaseMaps): OpenStreetMap's standard map over Natural Earth, the
+// municipality's map over it, the road numbers and railway tunnels only inside the municipality, and
+// the demos' offline map in OpenStreetMap's place when it cannot be fetched.
+const ONLINE_FAILURES = 5;
 function addBaseMaps(viewer, maps) {
   const rectangle = (bbox) => Cesium.Rectangle.fromDegrees(...bbox);
-  if (maps.offline) {
-    viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+  const online = new Cesium.UrlTemplateImageryProvider({ url: maps.online.url, maximumLevel: 18 });
+  const onlineLayer = viewer.imageryLayers.addImageryProvider(online);
+  credit(maps.online.attribution);
+  let failures = 0;
+  let offline = null;
+  online.errorEvent.addEventListener(() => {
+    failures += 1;
+    if (offline || !maps.offline || failures < ONLINE_FAILURES) return;
+    offline = new Cesium.ImageryLayer(new Cesium.UrlTemplateImageryProvider({
       url: maps.offline.url, maximumLevel: 18, rectangle: rectangle(maps.offline.bbox) }));
-    credit(maps.offline.attribution);
-  }
+    viewer.imageryLayers.add(offline, viewer.imageryLayers.indexOf(onlineLayer) + 1);
+  });
   for (const item of maps.municipal) {
     viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
-      url: item.url, minimumLevel: item.min_zoom, maximumLevel: item.max_zoom, rectangle: rectangle(item.bbox) }));
+      url: item.url, minimumLevel: Math.max(item.min_zoom, MUNICIPAL_MIN_LEVEL), maximumLevel: item.max_zoom,
+      rectangle: rectangle(item.bbox) }));
     credit(item.attribution);
   }
-  if (maps.overlay) {
+  if (maps.overlay && maps.municipal.length) {
     viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
-      url: maps.overlay.url, maximumLevel: 18, rectangle: rectangle(maps.offline?.bbox || maps.municipal[0]?.bbox) }));
-  }
-  if (!maps.offline && !maps.municipal.length) {
-    viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({ url: maps.online.url, maximumLevel: 18 }));
-    credit(maps.online.attribution);
+      url: maps.overlay.url, maximumLevel: 18, rectangle: rectangle(maps.municipal[0].bbox) }));
   }
 }
 
@@ -85,6 +93,89 @@ function radarDrawer(viewer, radar) {
   };
 }
 
+// SMHI's forecast grid (/api/weather) as the scenarios' globe draws ERA5-Land's wind and MET Norway's
+// chart (map3d.js): barbs lying on the ground, and the isobars, highs and lows, rain and thunder over
+// Scandinavia. Mission control's VINDPILAR and VÄDERKARTA show them (/api/view's layers).
+const BARB_STYLE = "<style>path,circle{fill:none;stroke:#0b3d91;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}"
+  + ".halo{stroke:#fff;stroke-width:4.5;opacity:.85}.pennant{fill:#0b3d91}</style>";
+const CHART_VIEW = { lon: 17, lat: 62, height: 3_600_000 };
+// The arrows show only near the area, so they do not crowd into one blot over Scandinavia.
+const WIND_SHOWN_M = 400_000;
+// As the scenarios' globe (map3d.js MUNICIPAL_MIN_LEVEL): the municipal map from this level, the
+// offline OpenStreetMap below it, so its names are not drawn huge and blurred from afar.
+const MUNICIPAL_MIN_LEVEL = 11;
+const barbImages = new Map();
+function barbImage(speed) {
+  const svg = windBarbSvg(speed);
+  if (!barbImages.has(svg)) {
+    const sized = svg.replace(/^<svg /, '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" ').replace(/^(<svg [^>]*>)/, `$1${BARB_STYLE}`);
+    barbImages.set(svg, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sized)}`);
+  }
+  return barbImages.get(svg);
+}
+
+function weatherDrawer(viewer) {
+  const wind = new Cesium.CustomDataSource("wind");
+  const chart = new Cesium.CustomDataSource("chart");
+  viewer.dataSources.add(wind);
+  viewer.dataSources.add(chart);
+  let rain = null;
+  let shown = null;
+  let layers = { wind: true, chart: false };
+  const apply = () => {
+    wind.show = Boolean(layers.wind);
+    chart.show = Boolean(layers.chart);
+    if (rain) rain.show = Boolean(layers.chart);
+  };
+  const draw = (data) => {
+    wind.entities.removeAll();
+    for (const point of data.wind || []) {
+      wind.entities.add({ position: Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude),
+        billboard: { image: barbImage(point.speed_ms), alignedAxis: Cesium.Cartesian3.UNIT_Z, width: 64, height: 64,
+          rotation: -Cesium.Math.toRadians((point.from_deg + 180) % 360), heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, WIND_SHOWN_M) } });
+    }
+    chart.entities.removeAll();
+    if (rain) viewer.imageryLayers.remove(rain);
+    rain = null;
+    if (!data.chart) return apply();
+    rain = viewer.imageryLayers.addImageryProvider(new Cesium.SingleTileImageryProvider({ url: data.chart.rain_png,
+      rectangle: Cesium.Rectangle.fromDegrees(...data.chart.bbox), tileWidth: 256, tileHeight: 256 }));
+    for (const line of data.chart.lines) {
+      const main = line.hpa % 8 === 0;
+      chart.entities.add({ polyline: { positions: line.coords.map(([lat, lon]) => Cesium.Cartesian3.fromDegrees(lon, lat)),
+        width: main ? 2 : 1, material: color("#1f3a7a", main ? 0.9 : 0.6), clampToGround: true } });
+    }
+    for (const centre of data.chart.centres) {
+      chart.entities.add({ position: Cesium.Cartesian3.fromDegrees(centre.longitude, centre.latitude),
+        label: { text: `${centre.kind} ${centre.hpa}`, font: "bold 22px system-ui, sans-serif",
+          fillColor: color(centre.kind === "H" ? "#1565c0" : "#c62828"), outlineColor: color("#ffffff"), outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE, disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+    }
+    for (const [lat, lon] of data.chart.thunder) {
+      chart.entities.add({ position: Cesium.Cartesian3.fromDegrees(lon, lat),
+        label: { text: "⚡", font: "22px system-ui, sans-serif", disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+    }
+    apply();
+  };
+  return {
+    refresh(summary) {
+      const key = summary ? `${summary.created_utc}|${summary.valid_utc}` : null;
+      if (!key || key === shown) return;
+      shown = key;
+      getJson("/api/weather").then((data) => { draw(data); credit(data.attribution); }).catch(() => { shown = null; });
+    },
+    show(next, home) {
+      const opened = next.chart && !layers.chart;
+      const closed = !next.chart && layers.chart;
+      layers = { ...next };
+      apply();
+      if (opened) viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(CHART_VIEW.lon, CHART_VIEW.lat, CHART_VIEW.height), duration: 2 });
+      if (closed) home();
+    },
+  };
+}
+
 async function start() {
   const config = await getJson("/api/config");
   document.getElementById("title").textContent = `Övervakning – ${config.area.name}`;
@@ -100,12 +191,16 @@ async function start() {
   addBaseMaps(viewer, config.maps);
   addFlood(viewer, config.layers.flood);
   const drawRadar = radarDrawer(viewer, config.layers.radar);
+  const weather = weatherDrawer(viewer);
   // From the south and above, as the demos' view of the incident (map3d.js FIRE_VIEW), far enough
   // to see the whole municipality.
   const [lat, lon] = config.area.centre;
-  viewer.camera.lookAt(Cesium.Cartesian3.fromDegrees(lon, lat),
-    new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-55), VIEW_RANGE_M));
-  viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  const home = () => {
+    viewer.camera.lookAt(Cesium.Cartesian3.fromDegrees(lon, lat),
+      new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-55), VIEW_RANGE_M));
+    viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  };
+  home();
 
   const sites = new Cesium.CustomDataSource("sites");
   const satelliteLayer = new Cesium.CustomDataSource("satellites");
@@ -116,6 +211,7 @@ async function start() {
   const drawState = (state) => {
     const context = state.context || {};
     drawRadar(context.radar, state.polled_utc);
+    weather.refresh(context.weather);
     if (context.border && !border) {
       border = Cesium.GeoJsonDataSource.load(context.border, { stroke: color("#2979ff"), strokeWidth: 3, fill: color("#2979ff", 0.04),
         clampToGround: true }).then((source) => viewer.dataSources.add(source));
@@ -165,8 +261,10 @@ async function start() {
   refreshState();
   setInterval(refreshState, STATE_MS);
   // VISA 2D in mission control: this main screen goes to the 2D map.
-  setInterval(() => getJson("/api/view").then((body) => { if (body.view === "2d") window.location.assign("/2d.html"); })
-    .catch(() => null), VIEW_MS);
+  setInterval(() => getJson("/api/view").then((body) => {
+    if (body.view === "2d") window.location.assign("/2d.html");
+    else weather.show(body.layers || {}, home);
+  }).catch(() => null), VIEW_MS);
 
   const data = await getJson("/api/satellites");
   credit(data.available ? `${data.label}. ${data.attribution}` : data.note);

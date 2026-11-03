@@ -984,7 +984,10 @@ förhöjd brandrisk enligt SMHI:s brandriskprognos och bränder från NASA FIRMS
 från inkorgen. Radarbilden och MCF:s 100-årsflöde för Nyköpingsån visas på kartan, och **Läget nu** i
 mission control visar radarn, brandrisken, prognosen och flödena. I mission control bekräftar eller
 avfärdar operatören larmen och öppnar briefingen; inget skickas vidare automatiskt. **VISA 2D / VISA 3D**
-växlar huvudskärmen mellan 2D-kartan och 3D-globen. **BYT** överst i mission control avslutar övervakningen
+växlar huvudskärmen mellan 2D-kartan och 3D-globen. **VINDPILAR** visar vinden över kommunen och
+**VÄDERKARTA** isobarerna, högtrycken och lågtrycken, regnet och åskan över Skandinavien; båda är SMHI:s
+prognos för den närmaste hela timmen, inte observationer. Med väderkartan på visar huvudskärmen
+Skandinavien, och när den stängs kommunen igen. **BYT** överst i mission control avslutar övervakningen
 och visar startsidan igen. `app/monitoring/README.md` beskriver övervakningen.
 
 Låt terminalen stå öppen hela dagen. **BYT SCENARIO** längst ned i mission controls vänstra kolumn

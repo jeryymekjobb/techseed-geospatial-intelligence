@@ -128,6 +128,8 @@ ARCHIVE = ("Stationsnamn;Stationsnummer\nSIBRO 2;2587\n\nDatum (svensk sommartid
 
 def fake_fetch(answers: dict[str, bytes]):
     def fetch(url: str) -> bytes:
+        if "/geotype/multipoint/" in url and "createdtime.json" in answers:
+            return grid_answer(url)
         for part, answer in answers.items():
             if part in url:
                 return answer
@@ -304,8 +306,20 @@ def test_the_briefing_names_each_source_and_marks_what_is_uncertain(tmp_path: Pa
 
 # --- the service -----------------------------------------------------------------------------
 
+def grid_answer(url: str) -> bytes:
+    """A SYNTHETIC answer of SMHI's forecast grid for the parameter in the URL: 4 rows of 5 points
+    over Flen, row by row, the longitude jumping back west at each row's start."""
+    parameter = url.split("/parameter/")[1].split("/")[0]
+    points = [[16.4 + 0.15 * column, 58.9 + 0.1 * row] for row in range(4) for column in range(5)]
+    value = {"wind_speed": 6.0, "wind_from_direction": 225.0, "precipitation_amount_mean": 0.0,
+             "thunderstorm_probability": 0.0}.get(parameter)
+    values = [value if value is not None else 1000.0 + 4 * (index % 5) for index in range(len(points))]
+    return json.dumps({"geometry": {"coordinates": points}, "timeSeries": [{"data": {parameter: values}}]}).encode()
+
+
 def live_answers() -> dict[str, bytes]:
-    return {"Basdata/Kommuner": json.dumps({"features": [{"geometry": BORDER}]}).encode(),
+    return {"createdtime.json": json.dumps({"createdTime": "2026-11-03T11:00:00Z"}).encode(),
+            "Basdata/Kommuner": json.dumps({"features": [{"geometry": BORDER}]}).encode(),
             "corrected-archive": ARCHIVE.encode(),
             "parameter/2/station/": flow_answer([45.0, 50.0]),
             "parameter/7/station/": json.dumps({"value": []}).encode(),
@@ -417,7 +431,7 @@ def test_the_radar_image_is_an_empty_one_until_the_radar_is_fetched(server: int)
 
 
 def test_mission_control_switches_the_main_screen_between_3d_and_2d(server: int) -> None:
-    assert json.loads(request(server, "GET", "/api/view")[1]) == {"view": "3d"}
+    assert json.loads(request(server, "GET", "/api/view")[1])["view"] == "3d"
     assert request(server, "POST", "/api/view", json.dumps({"view": "4d"}).encode(), {"Content-Type": "application/json"})[0] == 400
     assert request(server, "POST", "/api/view", b'{"view": "2d"}', {"Content-Type": "text/plain"})[0] == 415
     status, body = request(server, "POST", "/api/view", b'{"view": "2d"}', {"Content-Type": "application/json"})
@@ -540,3 +554,65 @@ def test_the_forecast_sums_the_rain_of_the_next_days() -> None:
              for hour in range(0, 60, 6)]
     (item,) = sources.read_forecast(59.06, 16.73, fake_fetch({"snow1g": json.dumps({"timeSeries": steps}).encode()}))
     assert (item["rain_24h_mm"], item["rain_48h_mm"], item["max_step_mm"]) == (7.5, 13.5, 1.5)
+
+
+# --- wind and weather chart ------------------------------------------------------------------
+
+def test_the_forecast_grid_gives_the_area_s_wind_and_the_weather_chart_once_a_run() -> None:
+    from app.monitoring import weather
+
+    asked = []
+    answers = live_answers()
+
+    def fetch(url: str) -> bytes:
+        asked.append(url)
+        return fake_fetch(answers)(url)
+
+    station = weather.Weather(flenkommun.BBOX, fetch)
+    data = station.update(NOW)
+    assert data["valid_utc"] == "2026-11-03T13:00:00Z" and len(data["wind"]) == 20
+    assert data["wind"][0] == {"latitude": 58.9, "longitude": 16.4, "speed_ms": 6.0, "from_deg": 225}
+    assert data["chart"]["lines"] and data["chart"]["rain_png"].startswith("data:image/png;base64,") and data["chart"]["thunder"] == []
+    assert station.summary()["centre_wind"]["speed_ms"] == 6.0
+    count = len(asked)
+    station.update(NOW + timedelta(minutes=10))
+    assert len(asked) == count + 1  # only createdtime.json: the same run and hour
+    station.update(NOW + timedelta(hours=1))
+    assert len(asked) > count + 2
+
+
+def test_thunder_is_marked_once_per_hundred_kilometres_from_thirty_percent() -> None:
+    import numpy as np
+
+    from app.monitoring import weather
+
+    lat, lon = np.meshgrid([59.0, 59.1, 61.0], [16.0, 16.1, 16.2], indexing="ij")
+    probability = np.array([[50, 60, 0], [10, 0, 0], [35, 0, 20]], dtype=float)
+    assert weather.thunder_marks(lat, lon, probability) == [[59.0, 16.1], [61.0, 16.0]]
+
+
+def test_mission_control_shows_or_hides_the_wind_and_the_chart(server: int) -> None:
+    assert json.loads(request(server, "GET", "/api/view")[1])["layers"] == {"wind": True, "chart": False}
+    assert request(server, "POST", "/api/layers", b'{"chart": "yes"}', {"Content-Type": "application/json"})[0] == 400
+    assert request(server, "POST", "/api/layers", b'{"rain": true}', {"Content-Type": "application/json"})[0] == 400
+    status, body = request(server, "POST", "/api/layers", b'{"chart": true}', {"Content-Type": "application/json"})
+    assert status == 200 and json.loads(body)["layers"] == {"wind": True, "chart": True}
+    status, body = request(server, "GET", "/api/weather")
+    assert status == 200 and len(json.loads(body)["wind"]) == 20
+    assert request(server, "GET", "/wind_barbs.js")[0] == 200
+
+
+def test_the_road_numbers_are_clipped_to_the_municipality() -> None:
+    import io
+
+    from PIL import Image
+
+    tile = io.BytesIO()
+    Image.new("RGBA", (256, 256), (200, 0, 0, 255)).save(tile, "PNG")
+    # The tile z12 x2236 y1210 holds Flen's town (59.06 N, 16.59 E); the square border covers its west part.
+    border = {"type": "Polygon", "coordinates": [[[16.40, 59.0], [16.6, 59.0], [16.6, 59.2], [16.40, 59.2], [16.40, 59.0]]]}
+    clipped = Image.open(io.BytesIO(service.clip_to_border(tile.getvalue(), border, 12, 2236, 1210)))
+    west_x, _ = geo.tile_pixel(59.06, 16.59, 12, 2236, 1210)
+    assert clipped.getpixel((max(0, int(west_x) - 5), 128))[3] == 255
+    assert clipped.getpixel((min(255, int(west_x) + 45), 128))[3] == 0
+    assert service.clip_to_border(tile.getvalue(), None, 12, 2236, 1210) == tile.getvalue()

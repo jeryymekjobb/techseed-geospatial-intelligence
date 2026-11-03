@@ -80,6 +80,14 @@ def _vertices(geometry: dict[str, Any] | None) -> Iterable[tuple[float, float]]:
                 yield lat, lon
 
 
+def tile_pixel(lat: float, lon: float, z: int, x: int, y: int, size: int = 256) -> tuple[float, float]:
+    """A point's pixel position in the Web Mercator tile z/x/y."""
+    n = 2 ** z
+    px = ((lon + 180.0) / 360.0 * n - x) * size
+    py = ((1.0 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2.0 * n - y) * size
+    return px, py
+
+
 def overlaps(first: dict[str, Any] | None, second: dict[str, Any] | None) -> bool:
     """Whether two polygons share land: a corner of one lies in the other. Two polygons that only
     cross without either having a corner inside the other are missed; for a county's warning area

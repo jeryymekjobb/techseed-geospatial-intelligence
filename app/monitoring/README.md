@@ -38,9 +38,12 @@ Bakgrundskarta, fetched once and kept locally for internal use, as the user deci
 .venv/bin/python -m tools.fetch_municipal_basemap --area flenkommun
 ```
 
-The demos' offline OpenStreetMap (`data/tiles/flenkommun.mbtiles`) shows under it where it is white,
-outside the municipality, and OSM's road numbers and railway tunnels lie over it. Online
-OpenStreetMap is used only when neither the municipal map nor the tiles service is there.
+Outside the municipality, where the municipal map is transparent, OpenStreetMap's standard map lies
+under it, online: it has land cover at every zoom and no edge, which the demos' offline map
+(`data/tiles/flenkommun.mbtiles`) lacks at low zooms and at its area's edges. The offline map takes
+its place only when OpenStreetMap cannot be fetched. The offline map's road numbers and railway
+tunnels, which the municipal map lacks, lie over it, clipped by the backend to the municipality's
+border (`service.clip_to_border`), since OpenStreetMap's own map has them outside.
 
 The satellites are those whose data the monitoring uses, NASA FIRMS's Suomi NPP, NOAA-20, NOAA-21,
 Terra and Aqua. Their current element sets come from Space-Track (class `gp`) with the account in
@@ -90,7 +93,12 @@ is never logged or shown.
 - **Briefing** (`briefing.py`): `/briefing/<id>`, a printable page with the facts, their sources
   and times, what is uncertain, the context and the contacts by role.
 - **Layers:** SMHI's radar image and MCF's climate-adapted 100-year flow of Nyköpingsån (WMS) on
-  the 2D map and the globe, as in the Flen scenarios; mission control's Läget nu gives the radar, the
+  the 2D map and the globe, as in the Flen scenarios; the wind arrows over the area and the weather
+  chart over Scandinavia (isobars every 2 hPa with highs and lows, the hour's rain, thunder), from
+  SMHI's forecast grid snow1g for the next whole hour (`weather.py`, with the scenarios'
+  `tools/isobars.py` and `wind_barbs.js`), fetched again for a new run or hour and marked as a
+  forecast; mission control's VINDPILAR and VÄDERKARTA show them on the main screen (the arrows
+  start on, the chart off, as in the scenarios); mission control's Läget nu gives the radar, the
   fire risk, the forecast and the flows.
 - **Screens** (`web/`): mission control (`control.*`) with the map, the alarms, the sources, the
   events in and BYT; the 3D globe (`globe.*`) with the border, stations, detections, events, current

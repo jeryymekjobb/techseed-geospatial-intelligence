@@ -20,6 +20,7 @@ OpenStreetMap from the tiles service (/tiles/) and its road numbers and railway 
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import logging
 import mimetypes
@@ -35,7 +36,7 @@ from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from app.backend import offline_tiles
-from app.monitoring import areas, briefing, events, radar, rules, satellites, sources
+from app.monitoring import areas, briefing, events, geo, radar, rules, satellites, sources, weather
 from app.monitoring.alarms import Store
 
 log = logging.getLogger("app.monitoring")
@@ -50,12 +51,14 @@ STATIC = {"/control.html": (WEB_DIR / "control.html", HTML), "/control.js": (WEB
           "/globe.js": (WEB_DIR / "globe.js", JS), "/globe.css": (WEB_DIR / "globe.css", CSS),
           "/2d.html": (WEB_DIR / "map2d.html", HTML), "/map2d.js": (WEB_DIR / "map2d.js", JS),
           "/monitor.html": (WEB_DIR / "satellites.html", HTML), "/satellites.js": (WEB_DIR / "satellites.js", JS),
-          "/orbits.js": (FRONTEND_DIR / "orbits.js", JS), "/satmonitor.js": (FRONTEND_DIR / "satmonitor.js", JS),
+          "/orbits.js": (FRONTEND_DIR / "orbits.js", JS), "/wind_barbs.js": (FRONTEND_DIR / "wind_barbs.js", JS), "/satmonitor.js": (FRONTEND_DIR / "satmonitor.js", JS),
           "/styles.css": (FRONTEND_DIR / "styles.css", CSS)}
 TILE = re.compile(r"/(tiles|tiles-overlay)/(\d{1,2})/(\d+)/(\d+)\.png")
 BASEMAP_TILE = re.compile(r"/basemap/([a-z]+)/(\d{1,2})/(\d+)/(\d+)\.png")
-ONLINE_OSM = {"url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-              "attribution": "© OpenStreetMap contributors – reserv, ingen GIS-karta tillgänglig"}
+# OpenStreetMap's standard map outside the municipality, the one-pager's fallback where there is no
+# GIS map: it has land cover at every zoom and no edge; the demos' offline map takes its place only
+# when it does not answer.
+ONLINE_OSM = {"url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png", "attribution": "© OpenStreetMap contributors"}
 
 
 class Monitor:
@@ -71,6 +74,10 @@ class Monitor:
         # The main screen's map chosen in mission control, "3d" or "2d"; it starts on the globe.
         self.view = "3d"
         self.radar = radar.Radar(area.BBOX, fetch)
+        self.weather = weather.Weather(area.BBOX, fetch)
+        # Mission control's VINDPILAR and VÄDERKARTA: shown on the main screen or not; as in the
+        # scenarios, the wind arrows start on and the weather chart off.
+        self.layers = {"wind": True, "chart": False}
 
     def _firms(self) -> list[dict[str, Any]]:
         key = sources.firms_key()
@@ -97,6 +104,7 @@ class Monitor:
             results["smhi_warnings"] = sources.guarded(
                 "smhi_warnings", lambda: sources.read_warnings(area.SMHI_COUNTY_ID, border, fetch))
             results["smhi_radar"] = sources.guarded("smhi_radar", lambda: [self.radar.update(border)])
+            results["smhi_grid"] = sources.guarded("smhi_grid", lambda: [self.weather.summary() or {}] if self.weather.update() else [])
             results["smhi_fire_risk"] = sources.guarded(
                 "smhi_fire_risk", lambda: sources.read_fire_risk(*area.FIRE_RISK_POINT, fetch))
             results["smhi_forecast"] = sources.guarded("smhi_forecast", lambda: sources.read_forecast(*area.FORECAST_POINT, fetch))
@@ -135,7 +143,8 @@ class Monitor:
                  for item in poll["flows"] if item["readings"]]
         return {"border": poll["border"], "flows": flows, "rain": poll["rain"], "warnings": poll["warnings"],
                 "fire_ban": poll["fire_ban"], "news": [item for item in poll["krisinfo"] if item["kind"] == "news"],
-                "firms": poll["firms"], "radar": poll["radar"], "fire_risk": poll["fire_risk"], "forecast": poll["forecast"]}
+                "firms": poll["firms"], "radar": poll["radar"], "fire_risk": poll["fire_risk"], "forecast": poll["forecast"],
+                "weather": self.weather.summary()}
 
     def state(self) -> dict[str, Any]:
         state = self.store.snapshot()
@@ -144,7 +153,7 @@ class Monitor:
         alarms.sort(key=lambda alarm: (alarm["state"] != "new", not alarm["current"]))
         return {"area": {"name": self.area.NAME, "bbox": self.area.BBOX, "centre": self.area.CENTRE,
                          "poll_seconds": self.area.POLL_SECONDS, "contacts_note": self.area.CONTACTS_NOTE},
-                "view": self.view,
+                "view": self.view, "layers": self.layers,
                 "polled_utc": state.get("polled_utc"), "alarms": alarms, "sources": state["sources"],
                 "filtered": state["filtered"], "events": state["events"][-50:], "refused": state["refused"][-50:],
                 "context": state["context"]}
@@ -177,6 +186,12 @@ class Monitor:
                                      "attribution": radar.ATTRIBUTION},
                            "flood": getattr(self.area, "FLOOD_HAZARD_WMS", None)}}
 
+    def border(self) -> dict[str, Any] | None:
+        try:
+            return json.loads((self.data_dir / "border.geojson").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
     def satellites(self) -> dict[str, Any]:
         return satellites.satellites(self.area)
 
@@ -187,6 +202,24 @@ class Monitor:
             return None
         context = {key: value for key, value in state["context"].items() if key not in ("border", "firms")}
         return briefing.render(briefing.build(alarm, context, self.area))
+
+
+def clip_to_border(png: bytes, border: dict[str, Any] | None, z: int, x: int, y: int) -> bytes:
+    """A tile with everything outside the municipality's border made transparent; unchanged without a border."""
+    if not border:
+        return png
+    from PIL import Image, ImageChops, ImageDraw
+
+    tile = Image.open(io.BytesIO(png)).convert("RGBA")
+    mask = Image.new("L", tile.size, 0)
+    draw = ImageDraw.Draw(mask)
+    for polygon in geo.polygons(border):
+        for index, ring in enumerate(polygon):
+            draw.polygon([geo.tile_pixel(lat, lon, z, x, y, tile.size[0]) for lon, lat, *_ in ring], fill=0 if index else 255)
+    tile.putalpha(ImageChops.multiply(tile.getchannel("A"), mask))
+    out = io.BytesIO()
+    tile.save(out, "PNG")
+    return out.getvalue()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -223,7 +256,9 @@ class Handler(BaseHTTPRequestHandler):
             # An empty image until the first poll has fetched the radar.
             self.send_body(self.monitor.radar.png or radar.EMPTY_PNG, "image/png")
         elif path == "/api/view":
-            self.send_json({"view": self.monitor.view})
+            self.send_json({"view": self.monitor.view, "layers": self.monitor.layers})
+        elif path == "/api/weather":
+            self.send_json(self.monitor.weather.latest or {"wind": [], "chart": None})
         elif path == "/api/satellites":
             self.send_json(self.monitor.satellites())
         elif tile:
@@ -264,6 +299,10 @@ class Handler(BaseHTTPRequestHandler):
         except offline_tiles.Unavailable:
             self.send_json({"error": "tiles_unavailable"}, HTTPStatus.BAD_GATEWAY)
         else:
+            # The road numbers and railway tunnels only over the municipal map, which lacks them;
+            # OpenStreetMap's own map outside it has them already.
+            if overlay:
+                body, content_type = clip_to_border(body, self.monitor.border(), z, x, y), "image/png"
             self.send_body(body, content_type)
 
     def municipal_tile(self, map_id: str, z: int, x: int, y: int) -> None:
@@ -296,6 +335,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/view":
             self.set_view()
+            return
+        if path == "/api/layers":
+            self.set_layers()
             return
         parts = path.split("/")
         if len(parts) != 5 or parts[:3] != ["", "api", "alarms"] or parts[4] not in ("confirm", "dismiss"):
@@ -331,6 +373,20 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.monitor.view = view
         self.send_json({"view": view})
+
+    def set_layers(self) -> None:
+        """VINDPILAR and VÄDERKARTA in mission control: {"wind": bool} or {"chart": bool}."""
+        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            body = json.loads(self.rfile.read(length)) if 0 < length <= 256 else {}
+        except ValueError:
+            body = None
+        if not isinstance(body, dict) or not body or any(key not in self.monitor.layers or not isinstance(value, bool)
+                                                         for key, value in body.items()):
+            self.send_json({"error": 'layers needs "wind" or "chart" as true or false'}, HTTPStatus.BAD_REQUEST)
+            return
+        self.monitor.layers.update(body)
+        self.send_json({"layers": self.monitor.layers})
 
     def demo_menu(self) -> None:
         """BYT in mission control: stop with the exit code tools/start_demo.py set in
