@@ -5,9 +5,12 @@ Det som är märkt **Förslag** är inte beslutat.
 
 ## Syfte
 
-1. **Rädda liv och skydda egendom.** Detta är det viktigaste syftet. Geospatial Intelligence
-   övervakar dygnet runt, upptäcker brand, översvämning, erosion och skred tidigt, larmar ansvarig
-   operatör och ger räddningsledaren en lägesbild med fakta.
+1. **Rädda liv och skydda egendom och kritisk infrastruktur.** Detta är det viktigaste syftet.
+   Geospatial Intelligence övervakar dygnet runt och upptäcker tidigt brand, översvämning, erosion
+   och skred som hotar människor, bebyggelse och kritisk infrastruktur. Med kritisk infrastruktur
+   menas till exempel elnät, vatten och avlopp, vägar, järnvägar, telekommunikation och anläggningar
+   för vård och räddning. Tjänsten larmar ansvarig operatör och ger räddningsledaren och den som
+   ansvarar för infrastrukturen en lägesbild med fakta.
 2. **Visa vad som går att åstadkomma.** Demonstratorn spelar upp verkliga, historiska händelser
    med satellit-, väder- och kartdata, så att beslutsfattare ser vad som är möjligt. Den har
    16 scenarier i dag.
@@ -57,7 +60,7 @@ Bakgrund: det finns ett nationellt intresse av att kommuner och regioner använd
 **Ingår**
 
 - Kommunens GIS-lager in, med OSM som reserv och skyddsvärda objekt som eget lager. Exempel på
-  skyddsvärda objekt: skolor, äldreboenden, vattenverk och vägar.
+  skyddsvärda objekt: skolor, äldreboenden, vattenverk, vägar, järnvägar och elanläggningar.
 - Händelser in i formatet ovan, och ett urval aktuella källor i nära realtid, till exempel SMHI:s
   varningar och observationer, NASA FIRMS brandpunkter och Sentinel-bilder.
 - Upptäckt och **larm som operatören bekräftar** innan något skickas vidare. Ingen åtgärd sker
@@ -103,10 +106,14 @@ Underlaget finns i `docs/mvp/regelverksregister.md`.
 - **AI-förordningen**, om bedömning eller briefing räknas som AI-system. För högrisksystem som är
   avsedda för myndigheter gäller kraven senast 2 augusti 2030: R-AI-01–03.
 - **Cybersäkerhet**, om drift hos kommun eller region: R-CS-02 och R-CS-03.
-- **Säkerhetsskydd**, för sammanställda lägesbilder över infrastruktur: R-CS-06.
+- **Säkerhetsskydd:** sammanställda lägesbilder över kritisk infrastruktur kan bli
+  säkerhetsskyddsklassificerade (R-CS-06). För den som äger infrastrukturen kan även NIS2 och
+  cybersäkerhetslagen bli aktuella (R-CS-02 och R-CS-03).
 
 ## Öppna frågor
 
 - Vem som är beställare och användare, och om beställaren får nämnas.
 - Vilken händelsetyp och vilket område MVP:n börjar med.
 - Om MVP:n levereras till kommuner och regioner eller körs av Techseed.
+- Om elnätet från OSM får visas (beslut B3 i `CONTEXT.md`), och vilka data om kritisk
+  infrastruktur som får användas.
