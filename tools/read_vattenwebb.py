@@ -26,46 +26,17 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from app.backend import scenario
+from app.monitoring.geo import sweref99tm_to_wgs84
 
 ATTRIBUTION = "SMHI Vattenwebb, modellerad vattenföring (S-HYPE), öppna data (CC BY 4.0 SE); urval av period"
 DOWNLOAD_PAGE = "https://vattenwebb.smhi.se/modelarea/"
 STATISTICS = ("MQ", "MHQ", "HQ2", "HQ5", "HQ10", "HQ25", "HQ50")
 EXCEL_EPOCH = date(1899, 12, 30)
-
-
-def sweref99tm_to_wgs84(northing: float, easting: float) -> tuple[float, float]:
-    """Latitude and longitude (degrees) of a SWEREF 99 TM point: Lantmäteriet's formulas for the
-    inverse Gauss-Krüger projection on GRS 80, central meridian 15 E, scale 0.9996, false easting 500 km."""
-    axis, flattening = 6378137.0, 1 / 298.257222101
-    central, scale, false_easting = math.radians(15.0), 0.9996, 500000.0
-    e2 = flattening * (2 - flattening)
-    n = flattening / (2 - flattening)
-    a_roof = axis / (1 + n) * (1 + n * n / 4 + n ** 4 / 64)
-    d1 = n / 2 - 2 * n ** 2 / 3 + 37 * n ** 3 / 96 - n ** 4 / 360
-    d2 = n ** 2 / 48 + n ** 3 / 15 - 437 * n ** 4 / 1440
-    d3 = 17 * n ** 3 / 480 - 37 * n ** 4 / 840
-    d4 = 4397 * n ** 4 / 161280
-    xi = northing / (scale * a_roof)
-    eta = (easting - false_easting) / (scale * a_roof)
-    xi_prim = (xi - d1 * math.sin(2 * xi) * math.cosh(2 * eta) - d2 * math.sin(4 * xi) * math.cosh(4 * eta)
-               - d3 * math.sin(6 * xi) * math.cosh(6 * eta) - d4 * math.sin(8 * xi) * math.cosh(8 * eta))
-    eta_prim = (eta - d1 * math.cos(2 * xi) * math.sinh(2 * eta) - d2 * math.cos(4 * xi) * math.sinh(4 * eta)
-                - d3 * math.cos(6 * xi) * math.sinh(6 * eta) - d4 * math.cos(8 * xi) * math.sinh(8 * eta))
-    phi_star = math.asin(math.sin(xi_prim) / math.cosh(eta_prim))
-    delta_lambda = math.atan(math.sinh(eta_prim) / math.cos(xi_prim))
-    a = e2 + e2 ** 2 + e2 ** 3 + e2 ** 4
-    b = -(7 * e2 ** 2 + 17 * e2 ** 3 + 30 * e2 ** 4) / 6
-    c = (224 * e2 ** 3 + 889 * e2 ** 4) / 120
-    d = -(4279 * e2 ** 4) / 1260
-    s2 = math.sin(phi_star) ** 2
-    phi = phi_star + math.sin(phi_star) * math.cos(phi_star) * (a + b * s2 + c * s2 ** 2 + d * s2 ** 3)
-    return math.degrees(phi), math.degrees(central + delta_lambda)
 
 
 def excel_day(value: float) -> date:

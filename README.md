@@ -10,6 +10,7 @@ A repeatable geospatial-intelligence demonstrator, built for IoTDagen 2026 and n
 - `docs/operatorsguide.md` — operator guide (Swedish) for running the demo: preparation, start, the two-minute script, what is real or simulated, troubleshooting.
 - `docs/mvp/` — groundwork for an MVP: the inventory of today's functions, the register of regulations and the requirements template.
 - `app/` — the demonstrator: backend with one module per scenario, 2D map and 3D globe, mission control, satellite monitor, IoT, assessment and spatial questions; see `app/README.md`.
+- `app/monitoring/` — a first version of the MVP's continuous monitoring of Flens kommun with live sources, alarms the operator confirms and a sourced briefing; see `app/monitoring/README.md`.
 - `data/` — the scenarios' fetched data (not versioned; fetch with `tools.fetch_scenario`).
 - `satellite_data/firms/` — NASA FIRMS archive extracts for summer 2014.
 - `weather_data/smhi/` — SMHI hourly station observations for the fire period.

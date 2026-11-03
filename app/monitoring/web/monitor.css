@@ -1,0 +1,34 @@
+:root {
+  --bg: #f6f7f9; --panel: #fff; --text: #15181d; --muted: #5b6270; --line: #d9dde3;
+  --new: #c62828; --confirmed: #1565c0; --dismissed: #8a8f98; --sim: #ffe08a;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14171c; --panel: #1d2128; --text: #e8eaee; --muted: #9aa1ad; --line: #333a45; --sim: #6b5a1e; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+header { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { font-size: 1.1rem; margin: 0; }
+.live { background: var(--new); color: #fff; font-weight: 700; font-size: 0.75rem; padding: 2px 6px; border-radius: 3px; }
+.meta { color: var(--muted); font-size: 0.85rem; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; height: calc(100vh - 45px); }
+#map { height: 100%; min-height: 320px; }
+aside { overflow-y: auto; padding: 8px 16px; background: var(--panel); border-left: 1px solid var(--line); }
+h2 { font-size: 1rem; margin: 14px 0 4px; } h3 { font-size: 0.9rem; margin: 10px 0 4px; }
+.alarm { border: 1px solid var(--line); border-left: 6px solid var(--new); padding: 6px 8px; margin: 6px 0; border-radius: 4px; }
+.alarm.confirmed { border-left-color: var(--confirmed); } .alarm.dismissed { border-left-color: var(--dismissed); opacity: 0.75; }
+.alarm .head { font-weight: 600; } .alarm .tags span { display: inline-block; font-size: 0.75rem; padding: 0 5px; margin: 2px 4px 2px 0; border: 1px solid var(--line); border-radius: 3px; }
+.alarm .tags .sim { background: var(--sim); }
+.alarm ul { margin: 4px 0; padding-left: 18px; font-size: 0.85rem; }
+.alarm .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.alarm input { flex: 1 1 140px; min-width: 0; }
+button, input { font: inherit; font-size: 0.85rem; }
+table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+td { border-top: 1px solid var(--line); padding: 3px 4px; vertical-align: top; }
+.bad { color: var(--new); font-weight: 600; }
+.list { font-size: 0.8rem; } .list div { border-top: 1px solid var(--line); padding: 3px 0; }
+@media (max-width: 800px) {
+  main { grid-template-columns: 1fr; height: auto; }
+  #map { height: 50vh; }
+  aside { border-left: 0; }
+}

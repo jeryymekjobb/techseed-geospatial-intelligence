@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Övervakning – operatör</title>
+  <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css">
+  <link rel="stylesheet" href="/monitor.css">
+</head>
+<body>
+  <header>
+    <span class="live">LIVE</span>
+    <h1 id="title">Övervakning</h1>
+    <span id="polled" class="meta"></span>
+  </header>
+  <main>
+    <div id="map" aria-label="Karta"></div>
+    <aside>
+      <section>
+        <h2>Larm</h2>
+        <p class="meta">Inget skickas vidare automatiskt. Operatören bekräftar eller avfärdar.</p>
+        <div id="alarms"></div>
+      </section>
+      <section>
+        <h2>Källor</h2>
+        <table id="sources"></table>
+      </section>
+      <section>
+        <h2>Händelser in</h2>
+        <div id="events"></div>
+        <h3>Avvisade rader</h3>
+        <div id="refused"></div>
+      </section>
+      <section>
+        <h2>Utelämnat av reglerna</h2>
+        <div id="filtered"></div>
+      </section>
+    </aside>
+  </main>
+  <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+  <script src="/monitor.js"></script>
+</body>
+</html>

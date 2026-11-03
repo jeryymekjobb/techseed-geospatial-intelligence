@@ -1,0 +1,390 @@
+"""Tests for the continuous monitoring (app/monitoring/): the events in, the live sources' readers,
+the rules, the alarms, the briefing and the operator page's server. SYNTHETIC answers in the
+sources' layouts; no network."""
+
+from __future__ import annotations
+
+import json
+import logging
+import threading
+from datetime import datetime, timedelta, timezone
+from http.client import HTTPConnection
+from http.server import ThreadingHTTPServer
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from app.monitoring import alarms, briefing, events, geo, rules, service, sources
+from app.monitoring.areas import flenkommun
+
+NOW = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
+MS = lambda moment: int(moment.timestamp() * 1000)  # noqa: E731
+# A square around Flen, in WGS 84.
+BORDER = {"type": "Polygon", "coordinates": [[[16.4, 58.85], [17.05, 58.85], [17.05, 59.24], [16.4, 59.24], [16.4, 58.85]]]}
+
+
+def area(**changes):
+    values = {name: getattr(flenkommun, name) for name in dir(flenkommun) if name.isupper()}
+    values.update(changes)
+    return SimpleNamespace(**values)
+
+
+# --- events in -------------------------------------------------------------------------------
+
+def test_a_tsv_line_in_wgs84_and_one_in_sweref_come_in() -> None:
+    text = ("datum\tklockslag\thändelse\tkoordinat 1\tkoordinat 2\tkoordinatsystem\tkälla\n"
+            "2026-11-03\t10:15\tbrand\t59.05\t16.59\tEPSG:4326\tSOS Alarm\tnej\n"
+            "2026-11-03\t10:20:30\tskred\t6580822\t674032\tEPSG:3006\tKommunen\n")
+    batch = events.parse_text(text, "in.tsv")
+    assert not batch.refused
+    first, second = batch.events
+    assert (first.kind, first.latitude, first.longitude, first.simulated, first.simulated_stated) == ("fire", 59.05, 16.59, False, True)
+    assert first.time == datetime(2026, 11, 3, 10, 15, tzinfo=timezone.utc) and first.origin == "in.tsv:2"
+    # gdaltransform -s_srs EPSG:3006 -t_srs EPSG:4326, as in test_read_vattenwebb.py.
+    assert abs(second.latitude - 59.3302312261) < 1e-7 and abs(second.longitude - 18.0591897364) < 1e-7
+    # Not stated: counted as simulated.
+    assert second.kind == "landslide" and second.simulated and not second.simulated_stated
+
+
+def test_a_line_without_a_source_is_logged_and_refused(caplog) -> None:
+    text = "2026-11-03,10:15,översvämning,59.1,16.7,EPSG:4326,\n"
+    with caplog.at_level(logging.WARNING, logger="app.monitoring.events"):
+        batch = events.parse_text(text, "in.csv")
+    assert batch.events == []
+    assert [(item.origin, item.reason, item.line) for item in batch.refused] == [("in.csv:1", "källa saknas", text.strip())]
+    (record,) = caplog.records
+    assert "källa saknas" in record.getMessage() and "in.csv:1" in record.getMessage() and text.strip() in record.getMessage()
+
+
+def test_the_log_comes_before_the_refusal_is_kept(monkeypatch) -> None:
+    order = []
+    monkeypatch.setattr(events.log, "warning", lambda *args: order.append("logged"))
+    original = events.Refusal
+
+    def kept(*args):
+        order.append("refused")
+        return original(*args)
+
+    monkeypatch.setattr(events, "Refusal", kept)
+    events.parse_text("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:4326\t \n", "in.tsv")
+    assert order == ["logged", "refused"]
+
+
+@pytest.mark.parametrize(("line", "reason"), [
+    ("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:4326", "fel antal fält"),
+    ("2026-11-03\t10:15\tstorm\t59.1\t16.7\tEPSG:4326\tSMHI", "okänd händelse"),
+    ("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:3857\tSMHI", "okänt koordinatsystem"),
+    ("2026-11-31\t10:15\tbrand\t59.1\t16.7\tEPSG:4326\tSMHI", "ogiltig tid"),
+    ("2026-11-03\t10:15\tbrand\t99.1\t16.7\tEPSG:4326\tSMHI", "utanför WGS 84"),
+    ("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:3006\tSMHI", "utanför SWEREF 99 TM"),
+    ("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:4326\tSMHI\tkanske", "simulerad"),
+])
+def test_other_faults_are_logged_and_refused_with_their_reason(line: str, reason: str, caplog) -> None:
+    with caplog.at_level(logging.WARNING, logger="app.monitoring.events"):
+        batch = events.parse_text(line + "\n", "in.tsv")
+    assert not batch.events and reason in batch.refused[0].reason and reason in caplog.records[0].getMessage()
+
+
+def test_json_events_come_in_and_the_inbox_moves_what_it_has_read(tmp_path: Path) -> None:
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / "a.json").write_text(json.dumps([
+        {"date": "2026-11-03", "time": "09:00", "event": "flood", "coord1": 59.0, "coord2": 16.6, "crs": "EPSG:4326",
+         "source": "Nivågivare", "simulated": True},
+        {"date": "2026-11-03", "time": "09:00", "event": "flood", "coord1": 59.0, "coord2": 16.6, "crs": "EPSG:4326"},
+    ]), encoding="utf-8")
+    (inbox / "b.pdf").write_bytes(b"%PDF")
+    batch = events.read_inbox(inbox)
+    assert [event.source for event in batch.events] == ["Nivågivare"] and batch.events[0].simulated_stated
+    assert sorted(item.reason for item in batch.refused) == ["källa saknas", "okänd filtyp: .pdf"]
+    assert sorted(path.name for path in inbox.iterdir() if path.is_file()) == []
+    assert len(list((inbox / "processed").iterdir())) == 2
+    assert events.read_inbox(inbox).events == []
+
+
+# --- geometry --------------------------------------------------------------------------------
+
+def test_points_and_polygons() -> None:
+    assert geo.contains(BORDER, 59.0, 16.7) and not geo.contains(BORDER, 59.5, 16.7)
+    holed = {"type": "Polygon", "coordinates": BORDER["coordinates"] + [[[16.6, 59.0], [16.8, 59.0], [16.8, 59.1], [16.6, 59.1], [16.6, 59.0]]]}
+    assert not geo.contains(holed, 59.05, 16.7)
+    county = {"type": "MultiPolygon", "coordinates": [[[[16.0, 58.5], [17.5, 58.5], [17.5, 59.5], [16.0, 59.5], [16.0, 58.5]]]]}
+    assert geo.overlaps(county, BORDER) and not geo.overlaps(county, {"type": "Polygon", "coordinates": [[[10, 55], [11, 55], [11, 56], [10, 55]]]})
+    assert abs(geo.distance_km(59.0, 16.0, 59.0, 17.0) - 57.3) < 0.2
+
+
+# --- the sources' readers --------------------------------------------------------------------
+
+def flow_answer(values: list[float], quality: str = "O") -> bytes:
+    return json.dumps({"position": [{"latitude": 58.95, "longitude": 16.88}],
+                       "value": [{"date": MS(NOW - timedelta(minutes=15 * (len(values) - index))), "value": value, "quality": quality}
+                                 for index, value in enumerate(values)]}).encode()
+
+
+ARCHIVE = ("Stationsnamn;Stationsnummer\nSIBRO 2;2587\n\nDatum (svensk sommartid);Vattenföring (Dygn);Kvalitet\n"
+           + "".join(f"2020-01-{day:02d};{day}.0;G\n" for day in range(1, 31)) + "2024-02-27;40.0;G\n")
+
+
+def fake_fetch(answers: dict[str, bytes]):
+    def fetch(url: str) -> bytes:
+        for part, answer in answers.items():
+            if part in url:
+                return answer
+        raise AssertionError(f"unexpected URL {url}")
+    return fetch
+
+
+def test_flows_rain_and_statistics_are_read(tmp_path: Path) -> None:
+    fetch = fake_fetch({"parameter/2/station/2587": flow_answer([1.0, 2.0]), "corrected-archive": ARCHIVE.encode(),
+                        "parameter/7/station/96040": json.dumps({"position": [{"latitude": 59.06, "longitude": 16.39}], "value": [
+                            {"date": MS(NOW - timedelta(hours=30)), "value": "50.0", "quality": "G"},
+                            {"date": MS(NOW - timedelta(hours=2)), "value": "4.5", "quality": "G"},
+                            {"date": MS(NOW - timedelta(hours=1)), "value": "6.0", "quality": "Y"}]}).encode()})
+    (flow,) = sources.read_flows({"2587": "Sibro 2"}, fetch)
+    assert [reading["value"] for reading in flow["readings"]] == [1.0, 2.0] and flow["latitude"] == 58.95
+    (rain,) = sources.read_rain({"96040": "Floda A"}, fetch)
+    assert rain["mm_24h"] == 10.5 and rain["hours"] == 2 and rain["unchecked"]
+    path = tmp_path / "stats.json"
+    stats = sources.cached_statistics({"2587": "Sibro 2"}, 99.0, path, fetch)
+    assert stats["2587"]["record"] == 40.0 and stats["2587"]["record_day"] == "2024-02-27" and 29 < stats["2587"]["high"] < 40
+    assert sources.cached_statistics({"2587": "Sibro 2"}, 99.0, path, fake_fetch({})) == stats
+
+
+def test_warnings_in_the_county_or_over_the_border_count_and_others_not() -> None:
+    def warning(code, group, county, polygon, level="YELLOW"):
+        return {"id": len(code), "event": {"sv": code.title(), "code": code, "mhoClassification": {"code": group}},
+                "warningAreas": [{"id": 1, "areaName": {"sv": "Område"}, "warningLevel": {"sv": "Gul", "code": level},
+                                  "eventDescription": {"sv": code}, "affectedAreas": [{"id": county}],
+                                  "area": {"geometry": polygon}, "descriptions": [{"text": {"sv": "Text"}}]}]}
+    far = {"type": "Polygon", "coordinates": [[[13, 55.5], [14, 55.5], [14, 56], [13, 55.5]]]}
+    answer = [warning("HIGH_FLOW", "HYD", 4, far), warning("FIRE", "FIRE", 12, BORDER), warning("WIND", "MET", 12, far),
+              warning("WATER_SHORTAGE", "HYD", 4, far, "MESSAGE")]
+    found = sources.read_warnings(4, BORDER, fake_fetch({"warning.json": json.dumps(answer).encode()}))
+    assert [(item["event"], item["kind"]) for item in found] == [("High_Flow", "flood"), ("Fire", "fire"), ("Water_Shortage", "other")]
+
+
+def test_krisinformation_fire_bans_and_firms_are_read() -> None:
+    vma = [{"identifier": "7", "headline": "Brand i Flen", "preamble": "Stäng fönster", "published": "2026-11-03T12:00:00+01:00",
+            "web": "https://example.invalid", "area": [{"description": "Flens kommun"}]},
+           {"identifier": "8", "headline": "Annat", "area": [{"description": "Gotlands län"}]}]
+    fetch = fake_fetch({"/vmas": json.dumps(vma).encode(), "/news": b"[]"})
+    (item,) = sources.read_krisinformation(("Södermanland", "Flen"), fetch)
+    assert item["id"] == "vma-7" and item["published_utc"] == "2026-11-03T11:00:00Z"
+    ban = {"features": [{"attributes": {"KOMMUNNAMN": "Flen", "STATUS": "Eldningsförbud", "STARTDATUM": MS(NOW), "REVDATUM": None}}]}
+    assert sources.read_fire_ban("0482", fake_fetch({"Eldningsforbud": json.dumps(ban).encode()}))[0]["status"] == "Eldningsförbud"
+    csv_text = ("latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight\n"
+                "59.05,16.59,330.1,0.4,0.4,2026-11-03,105,N20,VIIRS,n,2.0NRT,280.0,4.5,D\n")
+    (point,) = sources.read_firms("KEY", ("VIIRS_NOAA20_NRT",), flenkommun.BBOX, 1, fake_fetch({"/VIIRS_NOAA20_NRT/": csv_text.encode()}))
+    assert point["time_utc"] == "2026-11-03T01:05:00Z" and point["frp"] == 4.5
+    with pytest.raises(RuntimeError) as error:
+        sources.read_firms("KEY", ("MODIS_NRT",), flenkommun.BBOX, 1, fake_fetch({"MODIS": b"Invalid MAP_KEY KEY."}))
+    assert "KEY" not in str(error.value).replace("MAP_KEY", "")
+
+
+def test_the_firms_key_comes_from_the_environment_or_the_file(tmp_path: Path) -> None:
+    assert sources.firms_key({"FIRMS_MAP_KEY": " abc "}, tmp_path / "none") == "abc"
+    (tmp_path / "key").write_text("def\n")
+    assert sources.firms_key({}, tmp_path / "key") == "def"
+    result = sources.guarded("firms", lambda: [{"key": sources.firms_key({}, tmp_path / "none")}])
+    assert not result.ok and result.note == "nyckel saknas"
+
+
+# --- rules -----------------------------------------------------------------------------------
+
+STATS = {"2587": {"high": 10.0, "high_percentile": 99.0, "record": 17.2, "record_day": "2024-02-27",
+                  "archive_from": "2012-06-22", "archive_to": "2026-11-02"}}
+
+
+def flow_station(values, quality="O"):
+    return [{"station": "2587", "name": "Sibro 2", "latitude": 58.95, "longitude": 16.88,
+             "readings": [{"time_utc": f"2026-11-03T1{index}:00:00Z", "value": value, "quality": quality} for index, value in enumerate(values)]}]
+
+
+def test_a_high_flow_needs_two_readings_and_a_record_is_marked() -> None:
+    assert rules.flow_candidates(flow_station([9.0, 12.0]), STATS, [], [], area()) == []
+    (high,) = rules.flow_candidates(flow_station([11.0, 12.0]), STATS, [], [], area())
+    assert high.severity == "high" and high.as_json()["single_source"] and high.facts[0]["uncertain"]
+    rain = [{"name": "Floda A", "mm_24h": 12.0}]
+    (record,) = rules.flow_candidates(flow_station([16.0, 18.0], "G"), STATS, rain, [], area())
+    assert record.severity == "record" and record.confirmations == ["Regn 12 mm senaste 24 h vid Floda A (SMHI)"]
+    assert not record.facts[0]["uncertain"]
+
+
+def test_fires_are_clustered_confirmed_by_passes_and_known_heat_sources_left_out() -> None:
+    firms = [{"latitude": 59.05, "longitude": 16.59, "time_utc": "2026-04-30T01:05:00Z", "satellite": "N20", "instrument": "VIIRS",
+              "confidence": "n", "frp": 3.0},
+             {"latitude": 59.052, "longitude": 16.592, "time_utc": "2026-04-30T02:45:00Z", "satellite": "N", "instrument": "VIIRS",
+              "confidence": "l", "frp": 2.0},
+             {"latitude": 59.15, "longitude": 16.9, "time_utc": "2026-04-30T01:05:00Z", "satellite": "N20", "instrument": "VIIRS",
+              "confidence": "h", "frp": 9.0},
+             {"latitude": 60.0, "longitude": 16.9, "time_utc": "2026-04-30T01:05:00Z", "satellite": "N20", "instrument": "VIIRS",
+              "confidence": "h", "frp": 9.0}]
+    filtered = []
+    found = rules.fire_candidates(firms, [], BORDER, [{"status": "Eldningsförbud", "description": None, "revised_utc": None}],
+                                  area(KNOWN_HEAT_SOURCES=[("Värmeverk", 59.15, 16.9, 0.5)]), filtered)
+    (fire,) = found
+    assert fire.severity == "confirmed" and "Samma plats vid 2 passager" in fire.confirmations
+    assert "Sett av 2 satelliter" in fire.confirmations and fire.facts[1]["uncertain"]
+    assert any("valborgsmässoafton" in note for note in fire.notes)
+    assert any("Eldningsförbud" in fact["text"] for fact in fire.facts)
+    assert filtered == [{"what": "FIRMS N20 2026-04-30T01:05:00Z", "reason": "känd värmekälla: Värmeverk", "latitude": 59.15, "longitude": 16.9}]
+
+
+def test_events_in_the_area_become_candidates_and_others_are_left_out() -> None:
+    def event(origin, lat, simulated=True, stated=False, hours=1, kind="fire"):
+        return {"origin": origin, "kind": kind, "latitude": lat, "longitude": 16.59, "coordinates": [lat, 16.59], "crs": "EPSG:4326",
+                "source": "Rapport", "simulated": simulated, "simulated_stated": stated,
+                "time_utc": (NOW - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    firms = [{"latitude": 59.051, "longitude": 16.59}]
+    filtered = []
+    ban = [{"status": "Inget eldningsförbud", "description": None, "revised_utc": None}]
+    found = rules.event_candidates([event("a", 59.05), event("b", 60.5), event("c", 59.05, hours=30)], BORDER, firms, ban, [],
+                                   area(), NOW, filtered)
+    (item,) = found
+    assert item.simulated and item.confirmations == ["1 värmedetektioner från FIRMS inom 1 km"]
+    assert "räknas som simulerad" in item.notes[0]
+    assert any(fact["text"] == "Eldningsförbud: Inget eldningsförbud" for fact in item.facts)
+    assert [entry["reason"] for entry in filtered] == ["utanför Flens kommun"]
+
+
+def test_only_yellow_orange_and_red_flood_and_fire_warnings_and_vma_alarm() -> None:
+    warnings = [{"id": "1", "kind": "flood", "level_code": "YELLOW", "level": "Gul", "description": "Höga flöden", "event": "x",
+                 "area": "Södermanlands län", "published_utc": "2026-11-03T08:00:00Z", "text": ""},
+                {"id": "2", "kind": "flood", "level_code": "MESSAGE", "level": "Meddelande", "description": "", "event": "x",
+                 "area": "", "published_utc": None, "text": ""},
+                {"id": "3", "kind": "other", "level_code": "RED", "level": "Röd", "description": "", "event": "x",
+                 "area": "", "published_utc": None, "text": ""}]
+    assert [item.key for item in rules.warning_candidates(warnings)] == ["warning-1"]
+    vma = [{"id": "vma-7", "kind": "vma", "headline": "Brand", "preamble": "", "published_utc": None, "areas": ["Flens kommun"]},
+           {"id": "news-1", "kind": "news", "headline": "Nyhet", "preamble": "", "published_utc": None, "areas": []}]
+    assert [item.key for item in rules.vma_candidates(vma, area())] == ["vma-7"]
+
+
+# --- alarms and briefing ---------------------------------------------------------------------
+
+def candidate(severity="high"):
+    item = rules.Candidate("flow-2587", "flood", severity, "Högt flöde vid Sibro 2", "Sibro 2", 58.95, 16.88)
+    item.fact("Vattenföring 12 m³/s", "SMHI", "2026-11-03T11:00:00Z", uncertain=True)
+    return item
+
+
+def test_alarms_are_new_until_the_operator_acts_and_come_back_only_when_they_rise(tmp_path: Path) -> None:
+    store = alarms.Store(tmp_path / "state.json")
+    store.apply([candidate()], [], [], {})
+    assert store.snapshot()["alarms"]["flow-2587"]["state"] == "new"
+    store.act("flow-2587", "dismiss", "Känd reglering")
+    store.apply([candidate()], [], [], {})
+    assert store.snapshot()["alarms"]["flow-2587"]["state"] == "dismissed"
+    store.apply([candidate("record")], [], [], {})
+    alarm = store.snapshot()["alarms"]["flow-2587"]
+    assert alarm["state"] == "new" and [item["action"] for item in alarm["history"]] == ["larm", "avfärdat", "larm"]
+    store.apply([], [], [], {})
+    assert not alarms.Store(tmp_path / "state.json").snapshot()["alarms"]["flow-2587"]["current"]
+    with pytest.raises(KeyError):
+        store.act("none", "confirm")
+    with pytest.raises(ValueError):
+        store.act("flow-2587", "send")
+
+
+def test_the_briefing_names_each_source_and_marks_what_is_uncertain(tmp_path: Path) -> None:
+    store = alarms.Store(tmp_path / "state.json")
+    item = candidate()
+    item.simulated = True
+    store.apply([item], [], [], {})
+    store.act("flow-2587", "confirm", "<script>")
+    alarm = store.snapshot()["alarms"]["flow-2587"]
+    content = briefing.build(alarm, {"rain": [{"name": "Floda A", "mm_24h": 0.0, "latest_utc": "2026-11-03T11:00:00Z"}]}, flenkommun)
+    assert content["uncertain"][:2] == ["Larmet bygger på en enda källa.", "Vattenföring 12 m³/s"]
+    assert content["contacts"] == flenkommun.CONTACTS["flood"]
+    page = briefing.render(content)
+    assert "SIMULERAD HÄNDELSE" in page and "(osäkert)" in page and "Floda A" in page and "Exempel" in page
+    assert "<script>" not in page and "&lt;script&gt;" in page
+
+
+# --- the service -----------------------------------------------------------------------------
+
+def live_answers() -> dict[str, bytes]:
+    return {"Basdata/Kommuner": json.dumps({"features": [{"geometry": BORDER}]}).encode(),
+            "corrected-archive": ARCHIVE.encode(),
+            "parameter/2/station/": flow_answer([45.0, 50.0]),
+            "parameter/7/station/": json.dumps({"value": []}).encode(),
+            "warning.json": b"[]", "/vmas": b"[]", "/news": b"[]",
+            "Eldningsforbud": json.dumps({"features": []}).encode(),
+            "firms.modaps": b"latitude,longitude,acq_date,acq_time,satellite,instrument,confidence,frp\n"}
+
+
+def test_a_poll_reads_every_source_and_raises_the_alarms(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("FIRMS_MAP_KEY", "KEY")
+    monitor = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch(live_answers()), tmp_path)
+    (monitor.inbox).mkdir()
+    (monitor.inbox / "in.tsv").write_text("2026-11-03\t10:15\tbrand\t59.0\t16.6\tEPSG:4326\t\n", encoding="utf-8")
+    summary = monitor.poll()
+    assert all(item["ok"] for item in summary["sources"]), summary["sources"]
+    assert {item["key"] for item in summary["candidates"]} == {"flow-2614", "flow-2587", "flow-1273"}
+    assert summary["refused"] == 1
+    state = monitor.state()
+    assert state["refused"][0]["reason"] == "källa saknas" and state["alarms"][0]["state"] == "new"
+    assert "Sibro 2" in monitor.briefing_page("flow-2587") and monitor.briefing_page("none") is None
+
+
+def test_a_failing_source_is_reported_and_the_others_go_on(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("FIRMS_MAP_KEY", "SECRETKEY")
+    answers = live_answers()
+
+    def fetch(url: str) -> bytes:
+        if "warning.json" in url:
+            raise OSError("timed out")
+        if "firms.modaps" in url:
+            raise OSError(f"refused {url}")
+        return fake_fetch(answers)(url)
+
+    summary = service.Monitor(area(DATA_DIR=tmp_path), fetch, tmp_path).poll()
+    status = {item["source"]: item for item in summary["sources"]}
+    assert not status["smhi_warnings"]["ok"] and "timed out" in status["smhi_warnings"]["error"]
+    assert not status["firms"]["ok"] and "SECRETKEY" not in status["firms"]["error"]
+    assert status["smhi_flow"]["ok"] and len(summary["candidates"]) == 3
+
+
+@pytest.fixture
+def server(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("FIRMS_MAP_KEY", "KEY")
+    monitor = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch(live_answers()), tmp_path)
+    monitor.poll()
+    handler = type("TestHandler", (service.Handler,), {"monitor": monitor})
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    yield httpd.server_address[1]
+    httpd.shutdown()
+    httpd.server_close()
+
+
+def request(port: int, method: str, path: str, body: bytes | None = None, headers: dict[str, str] | None = None):
+    connection = HTTPConnection("127.0.0.1", port, timeout=10)
+    connection.request(method, path, body=body, headers=headers or {})
+    response = connection.getresponse()
+    return response.status, response.read()
+
+
+def test_the_operator_page_is_served_and_only_its_own_json_can_act(server: int) -> None:
+    status, page = request(server, "GET", "/")
+    assert status == 200 and b"monitor.js" in page
+    assert request(server, "GET", "/vendor/leaflet-1.9.4/leaflet.js")[0] == 200
+    assert request(server, "GET", "/vendor/leaflet-1.9.4/../../index.html")[0] == 404
+    status, body = request(server, "GET", "/api/state")
+    assert status == 200 and json.loads(body)["area"]["name"] == "Flens kommun"
+    assert request(server, "POST", "/api/alarms/flow-2587/confirm", b"note=x",
+                   {"Content-Type": "application/x-www-form-urlencoded"})[0] == 415
+    assert request(server, "POST", "/api/alarms/flow-2587/confirm", b"{}",
+                   {"Content-Type": "application/json", "Origin": "http://evil.example"})[0] == 403
+    status, body = request(server, "POST", "/api/alarms/flow-2587/confirm", json.dumps({"note": "Kontrollerat"}).encode(),
+                           {"Content-Type": "application/json", "Origin": f"http://127.0.0.1:{server}"})
+    assert status == 200 and json.loads(body)["state"] == "confirmed"
+    assert request(server, "POST", "/api/alarms/none/confirm", b"{}", {"Content-Type": "application/json"})[0] == 404
+    status, page = request(server, "GET", "/briefing/flow-2587")
+    assert status == 200 and "Bekräftat av operatören".encode() in page
+
+
+def test_the_operator_page_sets_text_from_the_sources_as_text() -> None:
+    script = (Path(service.WEB_DIR) / "monitor.js").read_text(encoding="utf-8")
+    assert "innerHTML" not in script and "insertAdjacentHTML" not in script
