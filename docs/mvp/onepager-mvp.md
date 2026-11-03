@@ -22,7 +22,8 @@ Bakgrund: det finns ett nationellt intresse av att kommuner och regioner använd
 - **Kartor.** Kommunens eller kundens GIS-kartor är standard. OpenStreetMap används bara som
   reserv när GIS-data saknas. Olika slags GIS-data ska stödjas: ArcGIS, WMS och WFS, GeoPackage,
   Shapefile och GeoJSON. Lösningen från scenariot Sundsvall 2026 används genomgående där den behövs:
-  kommunens karta hämtas via WMS och sparas lokalt, med OSM:s vägnummer och järnvägstunnlar ovanpå.
+  kommunens karta hämtas via WMS och sparas lokalt, och det kartan saknar läggs till från OSM ovanpå.
+  I Sundsvall är det vägnummer och märkning av järnvägstunnlar.
 - **Händelser in**, som JSON eller CSV/TSV. En händelse kan upptäckas genom en mätning eller på
   annat sätt, till exempel en satellitdetektion, en observation eller en rapport. Varje rad är:
 
