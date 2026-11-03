@@ -68,8 +68,10 @@ def query_path(start: str, end: str) -> str:
             "/orderby/NORAD_CAT_ID,EPOCH/format/json")
 
 
-def fetch(credentials: dict[str, str], start: str, end: str, base_url: str = BASE_URL) -> list[dict[str, Any]]:
-    """Log in, run the one query and log out; the session cookie stays in this function."""
+def fetch(credentials: dict[str, str], start: str, end: str, base_url: str = BASE_URL,
+          path: str | None = None) -> list[dict[str, Any]]:
+    """Log in, run the one query (the scenario's history, or `path`) and log out; the session cookie
+    stays in this function."""
     opener = build_opener(HTTPCookieProcessor(CookieJar()))
     opener.addheaders = [("User-Agent", USER_AGENT)]
 
@@ -86,7 +88,7 @@ def fetch(credentials: dict[str, str], start: str, end: str, base_url: str = BAS
     if b"Failed" in reply:
         raise FetchError("Space-Track refused the login (check ~/.spacetrackrc)")
     try:
-        body = call(query_path(start, end))
+        body = call(path or query_path(start, end))
     finally:
         try:
             call("/ajaxauth/logout")

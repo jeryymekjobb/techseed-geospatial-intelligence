@@ -1,0 +1,20 @@
+/* The monitoring's mission control on top of the scenarios' styles (app/frontend/styles.css,
+   body.control): only the alarm cards, the sources' table and the lists are its own. */
+.control .control-row.view-row { grid-template-columns: repeat(2, 1fr); }
+.control .control-layout h2 + .status { margin-top: -4px; }
+.alarm { margin: 8px 0; padding: 8px 10px; border: 1px solid #444; border-left: 6px solid #e53935; border-radius: 6px; background: #1e1e1e; }
+.alarm.confirmed { border-left-color: #4fc3f7; }
+.alarm.dismissed { border-left-color: #777; opacity: 0.7; }
+.alarm .head { font-weight: 700; font-size: 1.05rem; }
+.alarm .tags span { display: inline-block; margin: 4px 4px 2px 0; padding: 0 6px; border: 1px solid #555; border-radius: 4px; font-size: 0.8rem; color: #d0d0d0; }
+.alarm .tags .sim { border-color: #e040fb; color: #e040fb; font-weight: 700; }
+.alarm ul { margin: 6px 0; padding-left: 18px; font-size: 0.9rem; color: #d0d0d0; }
+.alarm .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
+.alarm .actions input { grid-column: 1 / -1; min-width: 0; padding: 8px; border: 1px solid #555; border-radius: 6px; background: #141414; color: #f2f2f2; font-size: 1rem; }
+.alarm .actions a { display: grid; place-items: center; min-height: 64px; border: 2px solid #5b5b57; border-radius: 8px; background: #2a2a2a; color: #ffd54a; font-weight: 700; text-decoration: none; }
+.source-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.source-table td { padding: 4px 6px; border-top: 1px solid #333; vertical-align: top; }
+.source-table .bad { color: #ff7961; font-weight: 700; }
+.list { font-size: 0.85rem; }
+.list div { padding: 3px 0 3px 8px; border-left: 4px solid #555; margin: 2px 0; }
+.list .meta { color: #b8b8b8; border-left-color: transparent; }

@@ -14,11 +14,16 @@ only once it is there. The user confirmed on 2026-10-14 that the demo may show S
 keep it locally, and on 2026-10-28 that Techseed may use Västerås stad's data internally.
 
 A map that is white outside the municipality ("white_outside" in MUNICIPAL_BASEMAP; Kartan) has its
-pure white made transparent, so the screens' OSM map shows through there; inside the municipality
+pure white, or the colour it has there ("outside_colour"; Flens kommun's 253, 253, 253), made transparent, so the screens' OSM map shows through there; inside the municipality
 Kartan has no pure white (checked on 2026-10-29 at zooms 12-16). `--clear-white` does the same to
 the tiles already fetched, without asking the service.
 
     TECHSEED_SCENARIO=sundsvall2026 .venv/bin/python -m tools.fetch_municipal_basemap
+    .venv/bin/python -m tools.fetch_municipal_basemap --area flenkommun   # the monitoring's map
+
+A map without WMS ("kind": "arcgis", Flens kommun's Bakgrundskarta_AGOL) is asked by ArcGIS REST
+export instead, with the same box and size. The user decided on 2026-11-03 that the monitoring of
+Flens kommun uses the municipality's map the same way as Sundsvall's and Västerås's.
 """
 
 from __future__ import annotations
@@ -48,6 +53,7 @@ ATTEMPTS = 3
 MIN_ZOOM = 8
 MAX_ZOOM = 16
 HALF_WORLD_M = 20037508.342789244
+WHITE = (255, 255, 255)
 
 
 def tile_range(bbox: tuple[float, float, float, float], z: int) -> tuple[int, int, int, int]:
@@ -76,17 +82,40 @@ def meta_tiles(bbox: tuple[float, float, float, float], z: int) -> list[tuple[in
     return [(mx, my) for my in range(y0 - y0 % META, y1 + 1, META) for mx in range(x0 - x0 % META, x1 + 1, META)]
 
 
-def getmap_url(service: str, layer: str, z: int, mx: int, my: int) -> str:
-    """GetMap for the block whose first tile is (mx, my), with MARGIN_PX around it."""
+def block_box_m(z: int, mx: int, my: int) -> tuple[float, float, float, float, int]:
+    """The box in Web Mercator metres (left, bottom, right, top) of the block whose first tile is
+    (mx, my), with MARGIN_PX around it, and its side in pixels."""
     left, _, _, top = tile_bounds_m(z, mx, my)
     metres_per_px = 2 * HALF_WORLD_M / 2 ** z / TILE_PX
     margin = MARGIN_PX * metres_per_px
     right = left + META * TILE_PX * metres_per_px
     bottom = top - META * TILE_PX * metres_per_px
-    side = META * TILE_PX + 2 * MARGIN_PX
+    return left - margin, bottom - margin, right + margin, top + margin, META * TILE_PX + 2 * MARGIN_PX
+
+
+def export_url(service: str, z: int, mx: int, my: int) -> str:
+    """ArcGIS REST export of a MapServer for the block, for a map without WMS (Flens kommun's
+    Bakgrundskarta_AGOL): the same box and size as GetMap, in Web Mercator."""
+    left, bottom, right, top, side = block_box_m(z, mx, my)
+    return f"{service}/export?" + urlencode({
+        "bbox": f"{left},{bottom},{right},{top}", "bboxSR": 3857, "imageSR": 3857, "size": f"{side},{side}",
+        "format": "png", "transparent": "false", "f": "image",
+    })
+
+
+def block_url(item: dict, z: int, mx: int, my: int) -> str:
+    """The request for one block: ArcGIS REST export for a map of kind "arcgis", else WMS GetMap."""
+    if item.get("kind") == "arcgis":
+        return export_url(item["url"], z, mx, my)
+    return getmap_url(item["url"], item["layer"], z, mx, my)
+
+
+def getmap_url(service: str, layer: str, z: int, mx: int, my: int) -> str:
+    """GetMap for the block whose first tile is (mx, my), with MARGIN_PX around it."""
+    left, bottom, right, top, side = block_box_m(z, mx, my)
     return f"{service}?" + urlencode({
         "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap", "LAYERS": layer, "STYLES": "",
-        "CRS": "EPSG:3857", "BBOX": f"{left - margin},{bottom - margin},{right + margin},{top + margin}",
+        "CRS": "EPSG:3857", "BBOX": f"{left},{bottom},{right},{top}",
         "WIDTH": side, "HEIGHT": side, "FORMAT": "image/png",
     })
 
@@ -106,23 +135,29 @@ def cut(image: Image.Image, z: int, mx: int, my: int, wanted: tuple[int, int, in
     return tiles
 
 
-def clear_white(image: Image.Image) -> Image.Image:
-    """The image with its pure white pixels transparent."""
+def outside_colour(item: dict) -> tuple[int, int, int]:
+    """The colour a map has outside the municipality: pure white (Sundsvall's Kartan), or the map's own
+    ("outside_colour"; Flens kommun's Bakgrundskarta is 253, 253, 253 there and has pure white roads)."""
+    return tuple(item.get("outside_colour", WHITE))
+
+
+def clear_white(image: Image.Image, colour: tuple[int, int, int] = WHITE) -> Image.Image:
+    """The image with its pixels of the colour outside the municipality (pure white) transparent."""
     pixels = np.array(image.convert("RGBA"))
-    pixels[(pixels[..., :3] == 255).all(axis=-1), 3] = 0
+    pixels[(pixels[..., :3] == colour).all(axis=-1), 3] = 0
     return Image.fromarray(pixels, "RGBA")
 
 
-def clear_white_tiles(out: Path) -> int:
-    """Makes the pure white of the fetched tiles transparent; returns how many tiles changed."""
+def clear_white_tiles(out: Path, colour: tuple[int, int, int] = WHITE) -> int:
+    """Makes the colour outside the municipality of the fetched tiles transparent; returns how many tiles changed."""
     changed = 0
     for path in sorted(out.glob("*/*/*.png")):
         with Image.open(path) as opened:
             pixels = np.array(opened.convert("RGBA"))
-        if not ((pixels[..., :3] == 255).all(axis=-1) & (pixels[..., 3] > 0)).any():
+        if not ((pixels[..., :3] == colour).all(axis=-1) & (pixels[..., 3] > 0)).any():
             continue
         part = path.with_suffix(".part")
-        clear_white(Image.fromarray(pixels, "RGBA")).save(part, format="PNG", optimize=True)
+        clear_white(Image.fromarray(pixels, "RGBA"), colour).save(part, format="PNG", optimize=True)
         os.replace(part, path)
         changed += 1
     return changed
@@ -150,7 +185,7 @@ def fetch_image(url: str) -> Image.Image:
 def fetch_map(item: dict, bbox: tuple[float, float, float, float], min_zoom: int, max_zoom: int, pause: float) -> int:
     """Fetch one map's tiles into its directory; write its SOURCE.json once every request succeeded. The
     number of failed requests."""
-    out, service, layer = item["dir"], item["url"], item["layer"]
+    out, service, layer = item["dir"], item["url"], item.get("layer")
     white_outside = item.get("white_outside", False)
     failed = 0
     for z in range(min_zoom, max_zoom + 1):
@@ -162,7 +197,7 @@ def fetch_map(item: dict, bbox: tuple[float, float, float, float], min_zoom: int
             if not missing:
                 continue
             try:
-                image = fetch_image(getmap_url(service, layer, z, mx, my))
+                image = fetch_image(block_url(item, z, mx, my))
             except (OSError, ValueError) as exc:
                 failed += 1
                 print(f"{item['id']} z{z} block {mx},{my}: {exc}")
@@ -172,7 +207,7 @@ def fetch_map(item: dict, bbox: tuple[float, float, float, float], min_zoom: int
                 path.parent.mkdir(parents=True, exist_ok=True)
                 # Through a part file: a tile that exists is never asked again, so it must be whole.
                 part = path.with_suffix(".part")
-                (clear_white(piece) if white_outside else piece).save(part, format="PNG", optimize=True)
+                (clear_white(piece, outside_colour(item)) if white_outside else piece).save(part, format="PNG", optimize=True)
                 os.replace(part, path)
             fetched += 1
             time.sleep(pause)
@@ -181,7 +216,7 @@ def fetch_map(item: dict, bbox: tuple[float, float, float, float], min_zoom: int
     if failed:
         return failed
     (out / "SOURCE.json").write_text(json.dumps({
-        "service": service, "layer": layer, "attribution": item["attribution"],
+        "service": service, "layer": layer, "kind": item.get("kind", "wms"), "attribution": item["attribution"],
         "crs": "EPSG:3857", "tile_px": TILE_PX, "min_zoom": min_zoom, "max_zoom": max_zoom,
         "bbox_west_south_east_north": list(bbox),
         "fetched_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -199,11 +234,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pause", type=float, default=PAUSE_SECONDS, help="seconds between the requests")
     parser.add_argument("--map", help="only this map's id (default: every municipal map of the scenario)")
     parser.add_argument("--clear-white", action="store_true", help="make the fetched tiles' white transparent; fetch nothing")
+    parser.add_argument("--area", help="a monitoring area's map (app/monitoring/areas/) instead of the scenario's")
     parser.add_argument("--out", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
-    items = [item for item in municipal_basemap.maps() if args.map in (None, item["id"])]
+    bbox = scenario.MUNICIPAL_BASEMAP_BBOX
+    if args.area:
+        from app.monitoring import areas
+
+        area = areas.load(args.area)
+        maps, bbox, owner = list(area.MUNICIPAL_BASEMAPS), area.MUNICIPAL_BASEMAP_BBOX, f"the area {args.area}"
+    else:
+        maps, owner = municipal_basemap.maps(), f"the scenario {scenario.NAME}"
+    items = [item for item in maps if args.map in (None, item["id"])]
     if not items:
-        parser.exit(1, f"fetch_municipal_basemap: the scenario {scenario.NAME} has no municipal map {args.map or ''}\n")
+        parser.exit(1, f"fetch_municipal_basemap: {owner} has no municipal map {args.map or ''}\n")
     if args.out is not None:  # one map into another directory (the tests)
         items = [{**items[0], "dir": args.out}]
     if args.clear_white:
@@ -211,13 +255,14 @@ def main(argv: list[str] | None = None) -> int:
         if not white:
             parser.exit(1, "fetch_municipal_basemap: no map of the scenario is white outside the municipality\n")
         for item in white:
-            print(f"fetch_municipal_basemap: {item['id']}: {clear_white_tiles(item['dir'])} tiles made transparent where white")
+            changed = clear_white_tiles(item["dir"], outside_colour(item))
+            print(f"fetch_municipal_basemap: {item['id']}: {changed} tiles made transparent outside the municipality")
             record = item["dir"] / "SOURCE.json"
             if record.is_file():
                 source = json.loads(record.read_text(encoding="utf-8"))
                 record.write_text(json.dumps({**source, "white_transparent": True}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return 0
-    failed = sum(fetch_map(item, scenario.MUNICIPAL_BASEMAP_BBOX, args.min_zoom, args.max_zoom, args.pause) for item in items)
+    failed = sum(fetch_map(item, bbox, args.min_zoom, args.max_zoom, args.pause) for item in items)
     if failed:
         print(f"{failed} requests failed; run again to fetch them")
         return 1

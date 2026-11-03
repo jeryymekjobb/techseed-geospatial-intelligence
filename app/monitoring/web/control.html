@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TechSeed Mission Control – övervakning</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/control.css">
+  <link rel="icon" href="data:,">
+</head>
+<!-- The scenarios' mission control (app/frontend/control.html) in look and layout, for the monitoring. -->
+<body class="control">
+  <header class="topbar">
+    <h1>TECHSEED MISSION CONTROL</h1>
+    <span id="control-label" class="data-label">Övervakning – live</span>
+  </header>
+  <main class="control-layout">
+    <section class="control-clock">
+      <div id="live-time" class="sim-time">–</div>
+      <div id="polled" class="status">Ansluter …</div>
+      <div class="control-row pick-row view-row">
+        <button id="view-toggle" type="button">VISA 2D</button>
+        <button id="switch-demo" type="button" class="danger">BYT</button>
+      </div>
+      <div id="command-status" class="status" aria-live="polite"></div>
+      <h2>Källor</h2>
+      <table id="sources" class="source-table"></table>
+    </section>
+    <section>
+      <h2>Larm</h2>
+      <p class="status">Inget skickas vidare automatiskt. Operatören bekräftar eller avfärdar.</p>
+      <div id="alarms"></div>
+    </section>
+    <section>
+      <h2>Händelser in</h2>
+      <div id="events"></div>
+      <h2>Avvisade rader</h2>
+      <div id="refused"></div>
+      <h2>Utelämnat av reglerna</h2>
+      <div id="filtered"></div>
+    </section>
+  </main>
+  <script src="/control.js"></script>
+</body>
+</html>

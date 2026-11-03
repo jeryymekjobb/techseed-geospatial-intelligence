@@ -968,10 +968,20 @@ och kör:
 .venv/bin/python -m tools.start_demo
 ```
 
-Först öppnas bara mission control, med menyn **Techseed Geospatial Intelligence Demos** och en
-knapp per demo. Klicka på **Skogsbranden i Västmanland 2014**. Kommandot skriver steg 1/4 till
-4/4 och sedan "Demon går", och då öppnas alla tre skärmarna i demon. Med demons namn,
-`.venv/bin/python -m tools.start_demo vastmanland2014`, hoppar det över menyn.
+Först öppnas bara mission control, med startsidan **Techseed Geospatial Intelligence** och två val:
+**Övervakning** och **Scenarier**. Klicka på **Scenarier**, så kommer menyn med en knapp per demo,
+och klicka på **Skogsbranden i Västmanland 2014**. Kommandot skriver steg 1/4 till 4/4 och sedan
+"Demon går", och då öppnas alla tre skärmarna i demon. **Tillbaka** går till startsidan igen. Med
+demons namn, `.venv/bin/python -m tools.start_demo vastmanland2014`, hoppar det över startsidan.
+
+**Övervakning** visar de kommuner som har kontinuerlig övervakning, i dag **Flens kommun**. Den går
+live mot SMHI, MCF, Krisinformation och NASA FIRMS och har inget kioskläge. Ett klick startar
+kartservern med Flens offlinekarta, övervakningstjänsten och de tre skärmarna på samma platser som för
+demona: satellitmonitorn med FIRMS-satelliternas banor och passager över kommunen just nu, huvudskärmen
+med 3D-globen över kommunen (kommunens egen karta, med OSM:s vägnummer och järnvägstunnlar ovanpå) och
+mission control med larmen. I mission control bekräftar eller avfärdar operatören larmen och öppnar
+briefingen; inget skickas vidare automatiskt. **BYT** överst i mission control avslutar övervakningen
+och visar startsidan igen. `app/monitoring/README.md` beskriver övervakningen.
 
 Låt terminalen stå öppen hela dagen. **BYT SCENARIO** längst ned i mission controls vänstra kolumn
 avslutar demon, stänger satellitmonitorn och huvudskärmen och visar menyn i mission control igen.
@@ -987,7 +997,7 @@ GEOSPATIAL INTELLIGENCE – Physical world. Space. Data. Intelligence. – From 
 under det scenariots namn och att datan inte är i realtid. Den står kvar tills du trycker RESET,
 PLAY eller hoppar i tiden.
 
-**Kioskläge, när ingen står vid demon.** Tryck **KIOSKLÄGE AV** överst i menyn så att det står
+**Kioskläge, när ingen står vid demon.** Tryck **KIOSKLÄGE AV** överst i menyn under **Scenarier** så att det står
 **KIOSKLÄGE PÅ**, och välj sedan demo (eller starta med `--kiosk`). Då sköter demon sig själv:
 
 - Sammanfattningen visas i 20 sekunder ("Startar av sig själv om … s"), sedan spelas demon upp.

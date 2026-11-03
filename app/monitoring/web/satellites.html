@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Satellitbevakning – övervakning</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:,">
+</head>
+<body class="monitor-page">
+  <header class="topbar">
+    <h1>SATELLITBEVAKNING</h1>
+    <span id="monitor-label" class="data-label live-label">LIVE</span>
+    <span id="monitor-clock" class="monitor-clock">–</span>
+  </header>
+  <main id="monitor" class="monitor-main"></main>
+  <section class="monitor-log" aria-label="Satellit- och larmhändelser">
+    <h2>SATELLITPASSAGER, DETEKTIONER OCH LARM <small>senaste dygnet och närmaste timmarna, senaste överst</small></h2>
+    <ol id="monitor-log-lines"></ol>
+  </section>
+  <ul id="monitor-list" class="monitor-list"></ul>
+  <div id="monitor-note" class="monitor-note"></div>
+  <script src="/orbits.js"></script>
+  <script src="/satmonitor.js"></script>
+  <script src="/satellites.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Övervakning – 3D</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/vendor/cesium-1.146.0/Widgets/widgets.css">
+  <link rel="stylesheet" href="/globe.css">
+</head>
+<body>
+  <header>
+    <span class="live">LIVE</span>
+    <h1 id="title">Övervakning</h1>
+    <span id="alarms" class="alarms"></span>
+    <span id="clock" class="clock">–</span>
+  </header>
+  <div id="globe" aria-label="3D-glob"></div>
+  <div id="credits" class="credits"></div>
+  <script src="/vendor/cesium-1.146.0/Cesium.js"></script>
+  <script src="/orbits.js"></script>
+  <script src="/globe.js"></script>
+</body>
+</html>

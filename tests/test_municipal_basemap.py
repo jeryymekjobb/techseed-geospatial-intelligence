@@ -32,6 +32,15 @@ def test_the_tiles_cover_the_box_and_the_blocks_hold_them() -> None:
     assert all(mx % fetch.META == 0 and my % fetch.META == 0 for mx, my in blocks)
 
 
+def test_a_map_without_wms_is_asked_by_arcgis_export_with_the_same_box_and_size() -> None:
+    wms = fetch.getmap_url("https://example.invalid/wms", "Kartan", 12, 2200, 1200)
+    export = fetch.block_url({"kind": "arcgis", "url": "https://example.invalid/MapServer"}, 12, 2200, 1200)
+    left, bottom, right, top, side = fetch.block_box_m(12, 2200, 1200)
+    assert export.startswith("https://example.invalid/MapServer/export?") and f"size={side}%2C{side}" in export
+    assert "bboxSR=3857" in export and "imageSR=3857" in export and "f=image" in export
+    assert f"{left}%2C{bottom}%2C{right}%2C{top}" in export and f"{left}%2C{bottom}%2C{right}%2C{top}" in wms
+
+
 def test_a_block_is_asked_with_its_margin_and_cut_into_tiles() -> None:
     url = fetch.getmap_url("https://example.invalid/wms", "Kartan", 1, 0, 0)
     side = fetch.META * fetch.TILE_PX + 2 * fetch.MARGIN_PX
@@ -84,6 +93,16 @@ def test_a_tile_cut_off_while_written_is_asked_again(tmp_path: Path, monkeypatch
     asked.clear()
     assert fetch.main(["--min-zoom", "8", "--max-zoom", "8", "--out", str(tmp_path)]) == 0
     assert asked and len(list(tmp_path.rglob("*.png"))) == 2
+
+
+def test_a_map_with_its_own_colour_outside_keeps_that_transparent_and_its_white_roads() -> None:
+    image = Image.new("RGBA", (2, 1))
+    image.putpixel((0, 0), (253, 253, 253, 255))
+    image.putpixel((1, 0), (255, 255, 255, 255))
+    colour = fetch.outside_colour({"outside_colour": (253, 253, 253)})
+    cleared = fetch.clear_white(image, colour)
+    assert cleared.getpixel((0, 0))[3] == 0 and cleared.getpixel((1, 0)) == (255, 255, 255, 255)
+    assert fetch.outside_colour({}) == (255, 255, 255)
 
 
 def test_a_map_white_outside_the_municipality_keeps_its_white_transparent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

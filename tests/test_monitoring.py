@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.monitoring import alarms, briefing, events, geo, rules, service, sources
+from app.monitoring import alarms, briefing, events, geo, rules, satellites, service, sources
 from app.monitoring.areas import flenkommun
 
 NOW = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
@@ -366,11 +366,17 @@ def request(port: int, method: str, path: str, body: bytes | None = None, header
     return response.status, response.read()
 
 
-def test_the_operator_page_is_served_and_only_its_own_json_can_act(server: int) -> None:
-    status, page = request(server, "GET", "/")
-    assert status == 200 and b"monitor.js" in page
+def test_the_screens_are_served_at_the_demos_paths_and_only_their_own_json_can_act(server: int) -> None:
+    status, _ = request(server, "GET", "/")
+    assert status == 302
+    for path, marker in (("/control.html", b"view-toggle"), ("/3d.html", b"globe.js"), ("/2d.html", b"map2d.js"),
+                         ("/monitor.html", b"satellites.js"),
+                         ("/orbits.js", b"function subpoint"), ("/satmonitor.js", b"createSatelliteMonitor")):
+        status, body = request(server, "GET", path)
+        assert status == 200 and marker in body, path
     assert request(server, "GET", "/vendor/leaflet-1.9.4/leaflet.js")[0] == 200
     assert request(server, "GET", "/vendor/leaflet-1.9.4/../../index.html")[0] == 404
+    assert request(server, "GET", "/vendor/other/x.js")[0] == 404
     status, body = request(server, "GET", "/api/state")
     assert status == 200 and json.loads(body)["area"]["name"] == "Flens kommun"
     assert request(server, "POST", "/api/alarms/flow-2587/confirm", b"note=x",
@@ -385,6 +391,71 @@ def test_the_operator_page_is_served_and_only_its_own_json_can_act(server: int) 
     assert status == 200 and "Bekräftat av operatören".encode() in page
 
 
-def test_the_operator_page_sets_text_from_the_sources_as_text() -> None:
-    script = (Path(service.WEB_DIR) / "monitor.js").read_text(encoding="utf-8")
-    assert "innerHTML" not in script and "insertAdjacentHTML" not in script
+def test_the_config_offers_the_municipal_map_once_fetched_with_osm_under_and_over(tmp_path: Path, monkeypatch) -> None:
+    item = {**flenkommun.MUNICIPAL_BASEMAPS[0], "dir": tmp_path / "flen"}
+    monitor = service.Monitor(area(MUNICIPAL_BASEMAPS=[item]), fake_fetch({}), tmp_path)
+    monkeypatch.setattr(service.offline_tiles, "available", lambda: False)
+    maps = monitor.config()["maps"]
+    assert maps["municipal"] == [] and maps["offline"] is None and maps["online"]["url"].startswith("https://tile.openstreetmap.org/")
+    (item["dir"] / "12" / "2200").mkdir(parents=True)
+    (item["dir"] / "12" / "2200" / "1200.png").write_bytes(b"PNG")
+    (item["dir"] / "SOURCE.json").write_text(json.dumps({"min_zoom": 8, "max_zoom": 16, "bbox_west_south_east_north": [16.4, 58.85, 17.06, 59.25]}))
+    monkeypatch.setattr(service.offline_tiles, "available", lambda: True)
+    maps = monitor.config()["maps"]
+    assert maps["municipal"][0]["url"] == "/basemap/flen/{z}/{x}/{y}.png" and "intern användning" in maps["municipal"][0]["attribution"]
+    assert maps["offline"]["url"] == "/tiles/{z}/{x}/{y}.png" and maps["overlay"]["url"] == "/tiles-overlay/{z}/{x}/{y}.png"
+
+
+def test_mission_control_switches_the_main_screen_between_3d_and_2d(server: int) -> None:
+    assert json.loads(request(server, "GET", "/api/view")[1]) == {"view": "3d"}
+    assert request(server, "POST", "/api/view", json.dumps({"view": "4d"}).encode(), {"Content-Type": "application/json"})[0] == 400
+    assert request(server, "POST", "/api/view", b'{"view": "2d"}', {"Content-Type": "text/plain"})[0] == 415
+    status, body = request(server, "POST", "/api/view", b'{"view": "2d"}', {"Content-Type": "application/json"})
+    assert status == 200 and json.loads(body) == {"view": "2d"}
+    assert json.loads(request(server, "GET", "/api/state")[1])["view"] == "2d"
+    for name, other in (("globe.js", '"/2d.html"'), ("map2d.js", '"/3d.html"')):
+        assert other in (Path(service.WEB_DIR) / name).read_text(encoding="utf-8")
+
+
+def test_byt_stops_the_service_only_when_started_from_the_start_page(server: int, monkeypatch) -> None:
+    assert request(server, "POST", "/api/demo/menu", b"{}", {"Content-Type": "application/json"})[0] == 409
+    monkeypatch.setenv("TECHSEED_DEMO_MENU_EXIT", "3")
+    assert request(server, "POST", "/api/demo/menu", b"{}", {"Content-Type": "text/plain"})[0] == 415
+    assert request(server, "POST", "/api/demo/menu", b"{}", {"Content-Type": "application/json"})[0] == 202
+
+
+def test_the_screens_set_text_from_the_sources_as_text() -> None:
+    for name in ("control.js", "satellites.js", "map2d.js"):
+        script = (Path(service.WEB_DIR) / name).read_text(encoding="utf-8")
+        assert "innerHTML" not in script and "insertAdjacentHTML" not in script, name
+    globe = (Path(service.WEB_DIR) / "globe.js").read_text(encoding="utf-8")
+    assert "description: escapeText(" in globe and "name: escapeText(" in globe
+    flat = (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
+    assert "bindTooltip(tip(" in flat and flat.count("bindTooltip(") == 1
+
+
+# --- satellites ------------------------------------------------------------------------------
+
+LINE1 = "1 37849U 11061A   26306.91494491  .00000105  00000+0  70340-4 0  9990"
+LINE2 = "2 37849  98.7339 238.0297 0001412  86.3640 273.7695 14.19533328772063"
+
+
+def test_current_elements_are_fetched_once_a_day_and_kept_when_a_fetch_fails(tmp_path: Path) -> None:
+    asked = []
+    records = [{"NORAD_CAT_ID": "37849", "EPOCH": "2026-11-02 21:57:31.240224", "TLE_LINE1": LINE1, "TLE_LINE2": LINE2},
+               {"NORAD_CAT_ID": "99999", "EPOCH": "2026-11-02 21:57:31", "TLE_LINE1": LINE1, "TLE_LINE2": LINE2}]
+    fetch = lambda path: asked.append(path) or records  # noqa: E731
+    path = tmp_path / "current.json"
+    data = satellites.satellites(flenkommun, fetch, path, NOW)
+    assert data["available"] and [item["name"] for item in data["satellites"]] == ["Suomi NPP"]
+    assert data["satellites"][0]["elements"] == [{"epoch_utc": "2026-11-02T21:57:31.240224Z", "line1": LINE1, "line2": LINE2}]
+    assert "Inga aktuella banelement för NOAA-20" in data["note"] and "/class/gp/NORAD_CAT_ID/" in asked[0]
+    satellites.satellites(flenkommun, fetch, path, NOW + timedelta(hours=23))
+    assert len(asked) == 1
+
+    def failing(path):
+        raise OSError("down")
+
+    later = satellites.satellites(flenkommun, failing, path, NOW + timedelta(hours=25))
+    assert later["available"] and "kunde inte hämtas" in later["note"]
+    assert not satellites.satellites(flenkommun, failing, tmp_path / "none.json", NOW)["available"]

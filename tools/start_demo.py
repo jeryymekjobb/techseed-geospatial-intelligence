@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
-"""Start the demos for the day: a menu of demos, then the chosen one, and back to the menu.
+"""Start the demos for the day: the start page, then the chosen demo or monitoring, and back to it.
 
     .venv/bin/python -m tools.start_demo                    # the menu on the three screens
     .venv/bin/python -m tools.start_demo sundsvall2026      # straight to a demo
     .venv/bin/python -m tools.start_demo --kiosk            # the menu, with kiosk mode on
 
 Without a name only mission control's window opens (tools/open_screens.py --menu), with
-the menu "Techseed Geospatial Intelligence Demos" served here on the backend's port; the
-other screens open once a demo is chosen. A click on a demo starts it, in order: the docker-compose.yml services with the scenario's map
+the start page "Techseed Geospatial Intelligence" served here on the backend's port: first a choice
+between Övervakning and Scenarier. Scenarier gives the menu of demos, with KIOSKLÄGE; Övervakning
+gives the areas with continuous monitoring (app/monitoring/areas/), live and without kiosk mode. The
+other screens open once a demo or an area is chosen.
+
+An area chosen under Övervakning starts, in order: the tiles service with the area's offline map
+(TILES_FILE; Docker only, and the monitoring goes on without it), the monitoring service
+(app/monitoring/) on the backend's port, and its three screens in the demos' places: the satellite
+monitor, the 3D globe and mission control with the alarms. BYT in its mission control stops it with
+MENU_EXIT and the start page comes back; Ctrl+C stops it. A click on a demo starts it, in order: the docker-compose.yml services with the scenario's map
 tiles (it waits until the tiles service serves them), the backend for the scenario,
 the simulated booth nodes (their lines go to data/node-sim.log) and the screens in
 their places, at the scenario's starting time (or --at, with a name). BYT SCENARIO in
@@ -74,7 +82,10 @@ FRONTEND = REPO_ROOT / "app" / "frontend"
 PORT = 8765
 MENU_EXIT = 3  # the backend's exit code for BYT SCENARIO (TECHSEED_DEMO_MENU_EXIT)
 RESTART_EXIT = 4  # the backend's exit code for STARTA OM DEMO (TECHSEED_DEMO_RESTART_EXIT)
-MENU_TITLE = "Techseed Geospatial Intelligence Demos"
+MENU_TITLE = "Techseed Geospatial Intelligence"
+# The start page's choice of an area to monitor, as the menu server's chosen name.
+MONITORING_PREFIX = "monitoring:"
+MONITORING_LABEL = "Live – SMHI, MCF, Krisinformation och NASA FIRMS"
 # Kiosk mode: how often the nodes and screens are looked after, and the wait before a stopped demo starts again.
 WATCH_SECONDS = 10.0
 RETRY_SECONDS = 10.0
@@ -119,6 +130,13 @@ def demos() -> list[dict[str, Any]]:
     return found
 
 
+def monitoring_areas() -> list[dict[str, Any]]:
+    """The start page's areas with continuous monitoring: each one's name, title and label."""
+    from app.monitoring import areas
+
+    return [{"name": name, "title": areas.load(name).NAME, "label": MONITORING_LABEL} for name in areas.AVAILABLE]
+
+
 class MenuHandler(BaseHTTPRequestHandler):
     """The menu page (app/frontend/menu.html), the demos, and the choice of one."""
 
@@ -142,7 +160,8 @@ class MenuHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
         path = self.path.split("?", 1)[0]
         if path == "/api/demos":
-            self.send_json(HTTPStatus.OK, {"title": MENU_TITLE, "demos": demos(), "kiosk": self.server.kiosk})
+            self.send_json(HTTPStatus.OK, {"title": MENU_TITLE, "demos": demos(), "monitoring": monitoring_areas(),
+                                           "kiosk": self.server.kiosk})
         elif path == "/styles.css":
             self.send_body(HTTPStatus.OK, (FRONTEND / "styles.css").read_bytes(), "text/css; charset=utf-8")
         elif path in ("/", "/menu.html"):
@@ -167,6 +186,14 @@ class MenuHandler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length") or 0)
             body = json.loads(self.rfile.read(min(length, 1024))) if 0 < length <= 1024 else {}
+            if "monitoring" in body:
+                area = body["monitoring"]
+                if area not in {item["name"] for item in monitoring_areas()} or self.server.chosen:
+                    raise ValueError(area)
+                self.server.chosen = f"{MONITORING_PREFIX}{area}"
+                self.send_json(HTTPStatus.ACCEPTED, {"monitoring": area})
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+                return
             name, kiosk = body["scenario"], body.get("kiosk", self.server.kiosk)
         except (ValueError, KeyError, TypeError, AttributeError):
             name, kiosk = None, None
@@ -194,9 +221,10 @@ def browser_flags(browser: str) -> list[str]:
 
 
 def choose_demo(browser: str = "chrome", kiosk: bool = False) -> tuple[str, bool]:
-    """Show the menu in mission control's window until a demo is chosen; its name and whether kiosk mode is on."""
+    """Show the start page in mission control's window until a demo or an area is chosen; the demo's name (an
+    area's as MONITORING_PREFIX and its name) and whether kiosk mode is on."""
     server = menu_server(kiosk=kiosk)
-    print(f"Menyn: {MENU_TITLE} i mission control – välj en demo (Ctrl+C avslutar).", flush=True)
+    print(f"Startsidan: {MENU_TITLE} i mission control – välj övervakning eller ett scenario (Ctrl+C avslutar).", flush=True)
     subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--menu", "--base-url", f"http://127.0.0.1:{PORT}", *browser_flags(browser)],
                    cwd=REPO_ROOT, check=False)
     try:
@@ -322,6 +350,50 @@ def run_demo(name: str, at: str | None, *, kiosk: bool = False, native_env: dict
                     process.kill()
 
 
+def run_monitoring(area_name: str, *, services: str = "docker", browser: str = "chrome") -> int:
+    """Start an area's monitoring and run it until it stops; its exit code (MENU_EXIT for BYT), 0 after Ctrl+C."""
+    from app.monitoring import areas
+
+    area = areas.load(area_name)
+    base_url = f"http://127.0.0.1:{PORT}"
+    tiles = getattr(area, "TILES_FILE", None)
+    if tiles and services == "docker":
+        print(f"1/3 Kartservern med {tiles} …", flush=True)
+        subprocess.run(["docker", "compose", "up", "-d", "tiles"], cwd=REPO_ROOT, env={**os.environ, "TILES_FILE": tiles}, check=True)
+        try:
+            wait_until(lambda: served_tiles_file(offline_tiles.url_template()) == tiles, 90, f"the tiles service did not serve {tiles}")
+        except SystemExit as exc:
+            print(f"{exc} – övervakningen visar kommunens karta utan OSM under", flush=True)
+    else:
+        print("1/3 Kartservern startas inte (inga offline-kartor) …", flush=True)
+    print(f"2/3 Övervakningen av {area.NAME} …", flush=True)
+    env = {**os.environ, "TECHSEED_DEMO_MENU_EXIT": str(MENU_EXIT)}
+    service = subprocess.Popen([str(PYTHON), "-m", "app.monitoring", "--area", area_name, "--port", str(PORT)], cwd=REPO_ROOT, env=env)
+    try:
+        wait_until(lambda: service.poll() is not None or answers(f"{base_url}/api/config"), 60, "the monitoring did not answer")
+        if service.poll() is not None:
+            raise SystemExit(f"start_demo: the monitoring stopped (exit {service.returncode})")
+        print("3/3 Skärmarna …", flush=True)
+        subprocess.run([str(PYTHON), "-m", "tools.open_screens", "--base-url", base_url, *browser_flags(browser)], cwd=REPO_ROOT, check=False)
+        print(f"Övervakningen går: {area.NAME} på {base_url}. BYT i mission control ger startsidan; Ctrl+C stoppar.", flush=True)
+        service.wait()
+        if service.returncode == MENU_EXIT:
+            print("BYT: tillbaka till startsidan …", flush=True)
+            return MENU_EXIT
+        print(f"start_demo: the monitoring stopped (exit {service.returncode})")
+        return service.returncode or 1
+    except KeyboardInterrupt:
+        print("\nStoppar övervakningen …")
+        return 0
+    finally:
+        if service.poll() is None:
+            service.terminate()
+            try:
+                service.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                service.kill()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("scenario", nargs="?", choices=AVAILABLE, help="the demo to start (default: the menu)")
@@ -352,6 +424,12 @@ def main(argv: list[str] | None = None) -> int:
             if name is None:
                 (name, kiosk), at = choose_demo(kiosk=kiosk, **browser_options), None
                 from_menu = True
+            if name.startswith(MONITORING_PREFIX):
+                code = run_monitoring(name[len(MONITORING_PREFIX):], services=args.services, **browser_options)
+                if code != MENU_EXIT:
+                    return code
+                name = None
+                continue
             missing = missing_data(name)
             if missing:
                 print(f"start_demo: {name} saknar data ({len(missing)} filer, till exempel {missing[0]}); "

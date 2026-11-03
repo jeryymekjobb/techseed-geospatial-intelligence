@@ -1,22 +1,20 @@
-// The operator page of the monitoring (app/monitoring/service.py): the map, the alarms with their
-// confirm and dismiss buttons, the sources' status, the events in, the refused lines and what the
-// rules left out. Reads /api/state every 30 s. Text from the sources is set as text, never as HTML.
+// Mission control of the monitoring (app/monitoring/service.py): the alarms with their confirm and
+// dismiss buttons and briefing, the sources' status, the events in, the refused lines and what the
+// rules left out; VISA 2D / VISA 3D, which switches the main screen between the 2D map and the 3D
+// globe as in the scenarios; and BYT back to the start page. Reads /api/state every 30 s. Text from
+// the sources is set as text, never as HTML.
 
 const REFRESH_MS = 30000;
+const localTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short",
+  hour: "2-digit", minute: "2-digit" });
+const clockTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", year: "numeric",
+  hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const STATE_WORDS = { new: "Nytt", confirmed: "Bekräftat", dismissed: "Avfärdat" };
 const SOURCE_WORDS = {
   mcf_border: "Kommungräns (MCF)", smhi_flow: "Vattenföring (SMHI)", smhi_flow_statistics: "Flödesstatistik (SMHI)",
   smhi_rain: "Nederbörd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
   mcf_fire_ban: "Eldningsförbud (MCF)", firms: "Brandpunkter (NASA FIRMS)", inbox: "Händelser in (inkorgen)",
 };
-
-const map = L.map("map");
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 18,
-  attribution: "© OpenStreetMap contributors – reserv, kommunens GIS används inte än",
-}).addTo(map);
-const layers = { border: L.layerGroup().addTo(map), sites: L.layerGroup().addTo(map), alarms: L.layerGroup().addTo(map) };
-let placed = false;
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -25,46 +23,6 @@ function element(tag, text, className) {
   return node;
 }
 
-function drawMap(state) {
-  const context = state.context || {};
-  if (!placed) {
-    const [west, south, east, north] = state.area.bbox;
-    map.fitBounds([[south, west], [north, east]]);
-    placed = true;
-  }
-  layers.border.clearLayers();
-  if (context.border) {
-    L.geoJSON(context.border, { style: { color: "#1565c0", weight: 2, fill: false } }).addTo(layers.border);
-  }
-  layers.sites.clearLayers();
-  for (const flow of context.flows || []) {
-    if (flow.latitude == null) continue;
-    const limits = flow.limits ? ` (högt över ${flow.limits.high}, rekord ${flow.limits.record})` : "";
-    L.circleMarker([flow.latitude, flow.longitude], { radius: 6, color: "#0277bd" })
-      .bindTooltip(`${flow.name}: ${flow.value} m³/s ${flow.time_utc}${limits} – SMHI`).addTo(layers.sites);
-  }
-  for (const rain of context.rain || []) {
-    if (rain.latitude == null) continue;
-    L.circleMarker([rain.latitude, rain.longitude], { radius: 5, color: "#2e7d32" })
-      .bindTooltip(`${rain.name}: ${rain.mm_24h} mm senaste 24 h – SMHI`).addTo(layers.sites);
-  }
-  for (const point of context.firms || []) {
-    L.circleMarker([point.latitude, point.longitude], { radius: 4, color: "#e65100" })
-      .bindTooltip(`FIRMS ${point.instrument} ${point.satellite} ${point.time_utc}`).addTo(layers.sites);
-  }
-  for (const event of state.events || []) {
-    L.circleMarker([event.latitude, event.longitude], { radius: 5, color: event.simulated ? "#b8860b" : "#6a1b9a" })
-      .bindTooltip(`${event.kind_word} ${event.time_utc} – ${event.source}${event.simulated ? " (simulerad)" : ""}`)
-      .addTo(layers.sites);
-  }
-  layers.alarms.clearLayers();
-  for (const alarm of state.alarms) {
-    const c = alarm.candidate;
-    if (c.latitude == null || !alarm.current) continue;
-    L.circleMarker([c.latitude, c.longitude], { radius: 11, color: alarm.state === "new" ? "#c62828" : "#1565c0", weight: 3 })
-      .bindTooltip(c.title).addTo(layers.alarms);
-  }
-}
 
 async function act(alarmId, action, note) {
   const response = await fetch(`/api/alarms/${encodeURIComponent(alarmId)}/${action}`, {
@@ -77,7 +35,7 @@ async function act(alarmId, action, note) {
 function drawAlarms(state) {
   const box = document.getElementById("alarms");
   box.replaceChildren();
-  if (!state.alarms.length) box.append(element("p", "Inga larm.", "meta"));
+  if (!state.alarms.length) box.append(element("p", "Inga larm.", "status"));
   for (const alarm of state.alarms) {
     const c = alarm.candidate;
     const card = element("div", null, `alarm ${alarm.state}`);
@@ -136,11 +94,11 @@ async function refresh() {
   try {
     const response = await fetch("/api/state", { cache: "no-store" });
     const state = await response.json();
-    document.getElementById("title").textContent = `Övervakning – ${state.area.name}`;
-    document.title = `Övervakning – ${state.area.name}`;
+    document.getElementById("control-label").textContent = `Övervakning: ${state.area.name} – live`;
+    document.title = `TechSeed Mission Control – ${state.area.name}`;
+    showView(state.view);
     document.getElementById("polled").textContent = state.polled_utc
-      ? `Senaste avläsning ${state.polled_utc} (UTC), var ${state.area.poll_seconds / 60} min` : "Ingen avläsning än";
-    drawMap(state);
+      ? `Senaste avläsning ${localTime.format(new Date(state.polled_utc))}, var ${state.area.poll_seconds / 60}:e minut` : "Ingen avläsning än";
     drawAlarms(state);
     drawSources(state);
     drawList("events", state.events, (e) => `${e.time_utc} ${e.kind_word} – ${e.source}${e.simulated ? " (simulerad)" : ""} [${e.origin}]`);
@@ -151,5 +109,32 @@ async function refresh() {
   }
 }
 
+document.getElementById("switch-demo").addEventListener("click", async () => {
+  if (!window.confirm("Avsluta övervakningen på skärmarna och visa startsidan här i mission control?")) return;
+  const status = document.getElementById("command-status");
+  const response = await fetch("/api/demo/menu", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+    .catch(() => null);
+  status.textContent = response?.ok ? "Övervakningen avslutas – startsidan visas strax här."
+    : response?.status === 409 ? "BYT fungerar bara när övervakningen är startad från startsidan." : "Tjänsten svarar inte.";
+});
+
+// VISA 2D / VISA 3D: the main screen's map; the button names the other one.
+let view = "3d";
+function showView(value) {
+  view = value || "3d";
+  document.getElementById("view-toggle").textContent = view === "2d" ? "VISA 3D" : "VISA 2D";
+}
+document.getElementById("view-toggle").addEventListener("click", async () => {
+  const wanted = view === "2d" ? "3d" : "2d";
+  const response = await fetch("/api/view", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ view: wanted }) }).catch(() => null);
+  if (response?.ok) showView((await response.json()).view);
+  else document.getElementById("command-status").textContent = "Växlingen gick inte – tjänsten svarar inte.";
+});
+
+// The live clock in Swedish time, where the scenarios show the scenario clock.
+const tick = () => { document.getElementById("live-time").textContent = `${clockTime.format(new Date())} – svensk tid, live`; };
+tick();
+setInterval(tick, 1000);
 refresh();
 setInterval(refresh, REFRESH_MS);

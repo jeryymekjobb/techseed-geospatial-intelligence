@@ -1,9 +1,12 @@
 """Flens kommun: the first area of the continuous monitoring.
 
 The stations are those of the Flen scenarios (app/backend/scenarios/flenkommun2024.py), checked
-there on 2026-10-21; the municipality's border is MCF's (Basdata/Kommuner, kommunkod 0482). Flens
-kommun's own maps are not used until the municipality allows it (CONTEXT.md), so the operator page
-shows OpenStreetMap as the fallback the one-pager names.
+there on 2026-10-21; the municipality's border is MCF's (Basdata/Kommuner, kommunkod 0482). The base
+map is the municipality's own, as the one-pager makes GIS the default: the user decided on
+2026-11-03 to use it the same way as Sundsvall's and Västerås's, fetched once and kept locally
+(tools/fetch_municipal_basemap.py --area flenkommun), for internal use. OpenStreetMap lies under it,
+where the municipal map is white, and its road numbers and railway tunnels over it (the demo's
+offline map flenkommun.mbtiles).
 
 Its state, cached border and statistics and the inbox live in the unversioned
 data/monitoring/flenkommun/.
@@ -27,6 +30,40 @@ CENTRE = (59.06, 16.73)
 
 DATA_DIR = REPO_ROOT / "data" / "monitoring" / "flenkommun"
 POLL_SECONDS = 300
+
+# Flens kommun's background map (the folder Flenkartan of gis.flen.se, ArcGIS Server 11.3; copyright
+# "Lantmäteriet/GIS"): it covers the whole municipality and is white outside it, and it has no WMS, so
+# it is fetched by ArcGIS REST export (checked 2026-11-03). Internal use, as the user decided.
+MUNICIPAL_BASEMAPS = [{
+    "id": "flen",
+    "kind": "arcgis",
+    "url": "https://gis.flen.se/arcgis/rest/services/Flenkartan/Bakgrundskarta_AGOL/MapServer",
+    "label": "Flens kommun (Bakgrundskarta)",
+    "attribution": "Karta © Flens kommun, Lantmäteriet – intern användning",
+    "white_outside": True,
+    # Not pure white outside the municipality but 253, 253, 253, at every zoom; its roads are pure
+    # white and stay (checked 2026-11-03).
+    "outside_colour": (253, 253, 253),
+    "permission": "The user decided on 2026-11-03 that Techseed may use Flens kommun's map internally and keep it locally.",
+    "note": "Flens kommun's Bakgrundskarta_AGOL (Lantmäteriet/GIS), white outside the municipality.",
+    "dir": DATA_DIR / "municipal-basemap" / "flen",
+}]
+# The municipality (16.42-17.04 E, 58.87-59.24 N in OpenStreetMap) with a small margin.
+MUNICIPAL_BASEMAP_BBOX = (16.4, 58.85, 17.06, 59.25)
+# The demo's offline OpenStreetMap of the Flen scenarios (data/tiles/), served by the tiles service.
+TILES_FILE = "flenkommun.mbtiles"
+MAP_BBOX = (16.3, 58.8, 17.1, 59.28)
+
+# The satellites whose data the monitoring uses, as the demos show only those that send data: NASA
+# FIRMS's VIIRS and MODIS satellites, by NORAD number. Their current element sets come from
+# Space-Track (sources.read_satellites).
+SATELLITES = {
+    "37849": {"name": "Suomi NPP", "firms": "SNPP", "instrument": "VIIRS", "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0},
+    "43013": {"name": "NOAA-20", "firms": "N20", "instrument": "VIIRS", "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0},
+    "54234": {"name": "NOAA-21", "firms": "N21", "instrument": "VIIRS", "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0},
+    "25994": {"name": "Terra", "firms": "Terra", "instrument": "MODIS", "role": "FIRMS-detektioner (MODIS)", "half_swath_km": 1165.0},
+    "27424": {"name": "Aqua", "firms": "Aqua", "instrument": "MODIS", "role": "FIRMS-detektioner (MODIS)", "half_swath_km": 1165.0},
+}
 
 # SMHI's stations with the flow every 15 minutes (hydroobs parameter 2), all in Nyköpingsån's
 # catchment; Hallbosjön lies just south of the municipality.

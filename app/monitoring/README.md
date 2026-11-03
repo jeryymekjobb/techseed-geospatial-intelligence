@@ -8,6 +8,19 @@ simulated unless they say otherwise.
 
 ## Run
 
+From the start page, as the demos (`docs/operatorsguide.md`, section 7):
+
+```bash
+.venv/bin/python -m tools.start_demo      # Övervakning → Flens kommun
+```
+
+`start_demo` starts the tiles service with the area's offline map (`TILES_FILE`), the monitoring on
+the demos' port 8765 and the three screens in the demos' places: the satellite monitor
+(`/monitor.html`), the 3D globe (`/3d.html`) and mission control with the alarms (`/control.html`).
+BYT in mission control returns to the start page.
+
+On its own:
+
 ```bash
 .venv/bin/python -m app.monitoring --area flenkommun            # http://127.0.0.1:8770/
 .venv/bin/python -m app.monitoring --area flenkommun --once     # one poll, a summary, exit
@@ -16,6 +29,24 @@ simulated unless they say otherwise.
 `--port` sets the port, `--data-dir` keeps the state, inbox and log elsewhere (for a trial). The
 service polls every 5 minutes (`POLL_SECONDS`) and runs as long as the process runs; it is not a
 24/7 operated service. It needs no packages beyond the standard library.
+
+The base map is the municipality's own, as the one-pager makes GIS the default: Flens kommun's
+Bakgrundskarta, fetched once and kept locally for internal use, as the user decided on 2026-11-03
+(the same solution as Sundsvall's and Västerås's):
+
+```bash
+.venv/bin/python -m tools.fetch_municipal_basemap --area flenkommun
+```
+
+The demos' offline OpenStreetMap (`data/tiles/flenkommun.mbtiles`) shows under it where it is white,
+outside the municipality, and OSM's road numbers and railway tunnels lie over it. Online
+OpenStreetMap is used only when neither the municipal map nor the tiles service is there.
+
+The satellites are those whose data the monitoring uses, NASA FIRMS's Suomi NPP, NOAA-20, NOAA-21,
+Terra and Aqua. Their current element sets come from Space-Track (class `gp`) with the account in
+`~/.spacetrackrc`, kept in `data/monitoring/tle/current.json` and fetched again at most once a day
+(`satellites.py`). The screens compute where they are now with satellite.js; the positions are
+computed, not observed.
 
 NASA FIRMS needs a free MAP_KEY (https://firms.modaps.eosdis.nasa.gov/api/map_key/), kept outside
 the repository:
@@ -52,8 +83,11 @@ is never logged or shown.
   logged. Nothing is sent onward.
 - **Briefing** (`briefing.py`): `/briefing/<id>`, a printable page with the facts, their sources
   and times, what is uncertain, the context and the contacts by role.
-- **Operator page** (`web/`): OpenStreetMap as the fallback, since Flens kommun's own maps are not
-  used until the municipality allows it, with the border, stations, detections and alarms.
+- **Screens** (`web/`): mission control (`control.*`) with the map, the alarms, the sources, the
+  events in and BYT; the 3D globe (`globe.*`) with the border, stations, detections, events, current
+  alarms and the satellites with their orbits; the satellite monitor (`satellites.*`, with the demos'
+  `orbits.js` and `satmonitor.js`) with the passes over the area and a log of passes, detections and
+  alarms.
 
 ## Limits
 
@@ -63,5 +97,6 @@ is never logged or shown.
 - SMHI's warning codes were mapped from the warnings active on 2026-11-03.
 - The terms of Krisinformation's API and MCF's services are not checked
   (`reports/2026-11-03-mcf-data-och-tjanster-claude-opus-5-5.md`).
-- Not included: Flens kommun's GIS, Sentinel images and passes, drones, forwarding of alarms, fire
-  models.
+- Flens kommun's map is for internal use; ask the municipality before it is shown publicly.
+- Not included: terrain on the globe, Sentinel images and passes, drones, reading the log aloud,
+  kiosk mode, forwarding of alarms, fire models.

@@ -82,9 +82,11 @@ def test_the_menu_page_serves_the_demos_and_takes_one_valid_choice() -> None:
     base = f"http://127.0.0.1:{server.server_address[1]}"
     try:
         status, page = request(f"{base}/")
-        assert status == 200 and b"Techseed Geospatial Intelligence Demos" in page
+        assert status == 200 and b"Techseed Geospatial Intelligence" in page
+        assert b"choose-monitoring" in page and b"choose-scenarios" in page
         status, body = request(f"{base}/api/demos")
-        assert status == 200 and json.loads(body)["title"] == "Techseed Geospatial Intelligence Demos"
+        assert status == 200 and json.loads(body)["title"] == "Techseed Geospatial Intelligence"
+        assert json.loads(body)["monitoring"] == [{"name": "flenkommun", "title": "Flens kommun", "label": start_demo.MONITORING_LABEL}]
         assert json.loads(body)["kiosk"] is False
         body = json.dumps({"scenario": "sundsvall2026", "kiosk": True}).encode()
         def raw(headers: dict) -> int:
@@ -106,6 +108,58 @@ def test_the_menu_page_serves_the_demos_and_takes_one_valid_choice() -> None:
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_an_area_chosen_under_monitoring_is_taken_once() -> None:
+    server = start_demo.menu_server(0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        assert request(f"{base}/api/demo/start", {"monitoring": "atlantis"})[0] == 400
+        assert request(f"{base}/api/demo/start", {"monitoring": "flenkommun"})[0] == 202
+        thread.join(timeout=10)
+        assert not thread.is_alive() and server.chosen == f"{start_demo.MONITORING_PREFIX}flenkommun"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_monitoring_goes_back_to_the_start_page_on_byt_and_scenarios_still_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    choices = iter([(f"{start_demo.MONITORING_PREFIX}flenkommun", False), ("flen2019", False)])
+    monitored, started = [], []
+    monkeypatch.setattr(start_demo, "port_in_use", lambda port: False)
+    monkeypatch.setattr(start_demo, "missing_data", lambda name: [])
+    monkeypatch.setattr(start_demo, "choose_demo", lambda kiosk=False, **options: next(choices))
+    monkeypatch.setattr(start_demo, "run_monitoring", lambda area, **options: monitored.append((area, options)) or start_demo.MENU_EXIT)
+    monkeypatch.setattr(start_demo, "run_demo", lambda name, at, **options: started.append(name) or 0)
+    assert start_demo.main([]) == 0
+    assert monitored == [("flenkommun", {"services": "docker"})] and started == ["flen2019"]
+
+
+def test_the_monitoring_starts_its_tiles_service_and_its_screens_and_returns_byt(monkeypatch: pytest.MonkeyPatch) -> None:
+    commands = []
+
+    class Service:
+        returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self, timeout=None):
+            self.returncode = start_demo.MENU_EXIT
+            return self.returncode
+
+    service = Service()
+    monkeypatch.setattr(start_demo.subprocess, "run", lambda command, **kwargs: commands.append((command, kwargs.get("env", {}).get("TILES_FILE"))))
+    monkeypatch.setattr(start_demo.subprocess, "Popen", lambda command, **kwargs: commands.append((command, kwargs["env"]["TECHSEED_DEMO_MENU_EXIT"])) or service)
+    monkeypatch.setattr(start_demo, "served_tiles_file", lambda template: "flenkommun.mbtiles")
+    monkeypatch.setattr(start_demo, "answers", lambda url: True)
+    assert start_demo.run_monitoring("flenkommun") == start_demo.MENU_EXIT
+    assert commands[0] == (["docker", "compose", "up", "-d", "tiles"], "flenkommun.mbtiles")
+    assert commands[1][0][1:] == ["-m", "app.monitoring", "--area", "flenkommun", "--port", str(start_demo.PORT)]
+    assert commands[1][1] == str(start_demo.MENU_EXIT)
+    assert commands[2][0][1:4] == ["-m", "tools.open_screens", "--base-url"]
 
 
 def test_byt_demo_goes_back_to_the_menu_and_ctrl_c_ends(monkeypatch: pytest.MonkeyPatch) -> None:
