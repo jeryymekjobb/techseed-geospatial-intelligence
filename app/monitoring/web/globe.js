@@ -58,6 +58,33 @@ function addBaseMaps(viewer, maps) {
   }
 }
 
+// The scenarios' overlays: MCF's flood map (WMS) and SMHI's radar as one image over the area, put
+// back after every poll, when a newer one may have come.
+function addFlood(viewer, flood) {
+  if (!flood) return;
+  const layer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapServiceImageryProvider({
+    url: flood.url, layers: flood.layers, parameters: { format: "image/png", transparent: true, styles: "" } }));
+  layer.alpha = 0.6;
+  credit(flood.attribution);
+}
+
+function radarDrawer(viewer, radar) {
+  let layer = null;
+  let shown = null;
+  return (stats, polled) => {
+    const key = `${stats?.latest_utc}|${polled}`;
+    if (!stats?.latest_utc || key === shown) return;
+    shown = key;
+    const next = viewer.imageryLayers.addImageryProvider(new Cesium.SingleTileImageryProvider({
+      url: `/api/radar.png?at=${encodeURIComponent(key)}`, rectangle: Cesium.Rectangle.fromDegrees(...radar.bbox),
+      tileWidth: 256, tileHeight: 256 }));
+    next.alpha = 0.85;
+    if (layer) viewer.imageryLayers.remove(layer);
+    layer = next;
+    credit(radar.attribution);
+  };
+}
+
 async function start() {
   const config = await getJson("/api/config");
   document.getElementById("title").textContent = `Övervakning – ${config.area.name}`;
@@ -71,6 +98,8 @@ async function start() {
   viewer.bottomContainer.style.display = "none";
   credit("Natural Earth II");
   addBaseMaps(viewer, config.maps);
+  addFlood(viewer, config.layers.flood);
+  const drawRadar = radarDrawer(viewer, config.layers.radar);
   // From the south and above, as the demos' view of the incident (map3d.js FIRE_VIEW), far enough
   // to see the whole municipality.
   const [lat, lon] = config.area.centre;
@@ -86,6 +115,7 @@ async function start() {
 
   const drawState = (state) => {
     const context = state.context || {};
+    drawRadar(context.radar, state.polled_utc);
     if (context.border && !border) {
       border = Cesium.GeoJsonDataSource.load(context.border, { stroke: color("#2979ff"), strokeWidth: 3, fill: color("#2979ff", 0.04),
         clampToGround: true }).then((source) => viewer.dataSources.add(source));

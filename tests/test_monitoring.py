@@ -311,6 +311,8 @@ def live_answers() -> dict[str, bytes]:
             "parameter/7/station/": json.dumps({"value": []}).encode(),
             "warning.json": b"[]", "/vmas": b"[]", "/news": b"[]",
             "Eldningsforbud": json.dumps({"features": []}).encode(),
+            "fwif1g": json.dumps({"timeSeries": []}).encode(), "snow1g": json.dumps({"timeSeries": []}).encode(),
+            "opendata-download-radar": json.dumps({"files": []}).encode(),
             "firms.modaps": b"latitude,longitude,acq_date,acq_time,satellite,instrument,confidence,frp\n"}
 
 
@@ -406,6 +408,14 @@ def test_the_config_offers_the_municipal_map_once_fetched_with_osm_under_and_ove
     assert maps["offline"]["url"] == "/tiles/{z}/{x}/{y}.png" and maps["overlay"]["url"] == "/tiles-overlay/{z}/{x}/{y}.png"
 
 
+def test_the_radar_image_is_an_empty_one_until_the_radar_is_fetched(server: int) -> None:
+    status, body = request(server, "GET", "/api/radar.png")
+    assert status == 200 and body.startswith(b"\x89PNG")
+    status, body = request(server, "GET", "/api/config")
+    layers = json.loads(body)["layers"]
+    assert layers["radar"]["url"] == "/api/radar.png" and layers["flood"]["layers"] == "12"
+
+
 def test_mission_control_switches_the_main_screen_between_3d_and_2d(server: int) -> None:
     assert json.loads(request(server, "GET", "/api/view")[1]) == {"view": "3d"}
     assert request(server, "POST", "/api/view", json.dumps({"view": "4d"}).encode(), {"Content-Type": "application/json"})[0] == 400
@@ -459,3 +469,74 @@ def test_current_elements_are_fetched_once_a_day_and_kept_when_a_fetch_fails(tmp
     later = satellites.satellites(flenkommun, failing, path, NOW + timedelta(hours=25))
     assert later["available"] and "kunde inte hämtas" in later["note"]
     assert not satellites.satellites(flenkommun, failing, tmp_path / "none.json", NOW)["available"]
+
+
+# --- radar, fire risk and forecast -----------------------------------------------------------
+
+def radar_tiff(value: int) -> bytes:
+    """A SYNTHETIC radar image in SMHI's layout: 8-bit values on 2 km pixels in SWEREF 99 TM, over Flen."""
+    import io
+
+    from PIL import Image, TiffImagePlugin
+
+    info = TiffImagePlugin.ImageFileDirectory_v2()
+    info[33922] = (0.0, 0.0, 0.0, 500000.0, 6650000.0, 0.0)
+    info.tagtype[33922] = 12
+    info[33550] = (2000.0, 2000.0, 0.0)
+    info.tagtype[33550] = 12
+    out = io.BytesIO()
+    Image.new("L", (100, 100), value).save(out, format="TIFF", tiffinfo=info)
+    return out.getvalue()
+
+
+def radar_answers(value: int) -> dict[str, bytes]:
+    files = [{"key": f"radar_261103{hour:02d}{minute:02d}", "formats": [{"key": "tif", "link": f"https://radar.invalid/{hour:02d}{minute:02d}.tif"}]}
+             for hour in (11, 12) for minute in range(0, 60, 5)]
+    return {"product/comp/2026/11/03": json.dumps({"files": files}).encode(), "radar.invalid": radar_tiff(value)}
+
+
+def test_the_radar_keeps_the_last_hour_in_the_municipality_and_draws_it() -> None:
+    from app.monitoring import radar
+
+    # 192 is about 46.8 dBZ, some 30 mm/h by Z = 200 R^1.6.
+    station = radar.Radar(flenkommun.BBOX, fake_fetch(radar_answers(192)))
+    stats = station.update(BORDER, NOW)
+    assert stats["frames"] == 12 and stats["latest_utc"] == "2026-11-03T12:00:00Z"
+    assert 28 < stats["max_mm_h"] < 33 and 28 < stats["hour_mm"] < 33
+    # In the border, to the grid's half pixel (0.0025 degrees east-west).
+    lat, lon = stats["max_at"]
+    assert 58.85 - 0.002 <= lat <= 59.24 + 0.002 and 16.4 - 0.003 <= lon <= 17.05 + 0.003 and station.png.startswith(b"\x89PNG")
+    # No echo: no rain.
+    assert radar.Radar(flenkommun.BBOX, fake_fetch(radar_answers(0))).update(BORDER, NOW)["max_mm_h"] == 0.0
+
+
+def test_a_cloudburst_needs_the_radar_s_limit_and_is_confirmed_by_a_gauge() -> None:
+    stats = {"frames": 12, "latest_utc": "2026-11-03T11:55:00Z", "max_mm_h": 31.0, "hour_mm": 30.5, "max_at": [59.06, 16.6]}
+    assert rules.cloudburst_candidates({**stats, "max_mm_h": 12.0}, [], [], area()) == []
+    (burst,) = rules.cloudburst_candidates(stats, [{"name": "Floda A", "mm_last_hour": 14.0}], [], area())
+    assert burst.kind == "flood" and burst.confirmations == ["Floda A: 14 mm senaste timmen (SMHI)"]
+    assert all(fact["uncertain"] for fact in burst.facts[:2])
+    (alone,) = rules.cloudburst_candidates(stats, [{"name": "Floda A", "mm_last_hour": 0.0}], [], area())
+    assert alone.as_json()["single_source"]
+
+
+def test_fire_risk_is_read_and_raised_from_class_five_today_or_tomorrow() -> None:
+    answer = {"approvedTime": "2026-07-01T06:00:00Z", "timeSeries": [
+        {"validTime": f"2026-07-0{day}T12:00:00Z", "parameters": [{"name": "fwiindex", "values": [index]}, {"name": "grassfire", "values": [grass]},
+                                                                    {"name": "fwi", "values": [20.0]}]}
+        for day, index, grass in ((1, 4, 3), (2, 5, 6), (3, 6, 6))]}
+    days = sources.read_fire_risk(59.06, 16.73, fake_fetch({"fwif1g": json.dumps(answer).encode()}))
+    assert [(day["day_utc"], day["fwi_word"]) for day in days] == [("2026-07-01", "stor"), ("2026-07-02", "mycket stor"),
+                                                                     ("2026-07-03", "extremt stor")]
+    found = rules.fire_risk_candidates(days, area(), datetime(2026, 7, 1, 8, tzinfo=timezone.utc))
+    assert [item.title for item in found] == ["Förhöjd brandrisk 2026-07-02: extremt stor"]
+    off = [{**day, "fwi_class": -1, "grass_class": -1, "fwi_word": None, "grass_word": None} for day in days]
+    assert rules.fire_risk_candidates(off, area(), datetime(2026, 7, 1, tzinfo=timezone.utc)) == []
+
+
+def test_the_forecast_sums_the_rain_of_the_next_days() -> None:
+    steps = [{"time": (NOW + timedelta(hours=hour)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "data": {"precipitation_amount_mean": 1.5, "air_temperature": 5.0 + hour / 10, "wind_speed_of_gust": 8.0}}
+             for hour in range(0, 60, 6)]
+    (item,) = sources.read_forecast(59.06, 16.73, fake_fetch({"snow1g": json.dumps({"timeSeries": steps}).encode()}))
+    assert (item["rain_24h_mm"], item["rain_48h_mm"], item["max_step_mm"]) == (7.5, 13.5, 1.5)

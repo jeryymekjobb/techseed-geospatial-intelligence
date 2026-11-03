@@ -13,6 +13,7 @@ const STATE_WORDS = { new: "Nytt", confirmed: "Bekräftat", dismissed: "Avfärda
 const SOURCE_WORDS = {
   mcf_border: "Kommungräns (MCF)", smhi_flow: "Vattenföring (SMHI)", smhi_flow_statistics: "Flödesstatistik (SMHI)",
   smhi_rain: "Nederbörd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
+  smhi_radar: "Väderradar (SMHI)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
   mcf_fire_ban: "Eldningsförbud (MCF)", firms: "Brandpunkter (NASA FIRMS)", inbox: "Händelser in (inkorgen)",
 };
 
@@ -70,6 +71,24 @@ function drawAlarms(state) {
   }
 }
 
+// Läget nu: the radar, the fire risk and the forecast, as the scenarios' Läge.
+function drawSituation(state) {
+  const context = state.context || {};
+  const lines = [];
+  const radar = context.radar;
+  lines.push(radar?.frames ? `Väderradar ${localTime.format(new Date(radar.latest_utc))}: som mest ${radar.max_mm_h} mm/h i kommunen, `
+    + `${radar.hour_mm} mm senaste timmen (uppskattat)` : "Väderradar: ingen bild än");
+  const today = new Date().toISOString().slice(0, 10);
+  const risk = (context.fire_risk || []).find((day) => day.day_utc === today);
+  if (risk) lines.push(`Brandrisk i dag: ${risk.fwi_word || "utanför brandsäsongen"}${risk.grass_word ? `, gräsbrand ${risk.grass_word}` : ""}`);
+  for (const item of context.forecast || []) {
+    lines.push(`Prognos: ${item.rain_24h_mm} mm regn närmaste dygnet, ${item.rain_48h_mm} mm två dygn, ${item.temp_min}–${item.temp_max} °C`);
+  }
+  for (const flow of context.flows || []) lines.push(`${flow.name}: ${flow.value} m³/s`);
+  const list = document.getElementById("situation");
+  list.replaceChildren(...lines.map((text) => element("li", text, "info")));
+}
+
 function drawSources(state) {
   const table = document.getElementById("sources");
   table.replaceChildren();
@@ -100,6 +119,7 @@ async function refresh() {
     document.getElementById("polled").textContent = state.polled_utc
       ? `Senaste avläsning ${localTime.format(new Date(state.polled_utc))}, var ${state.area.poll_seconds / 60}:e minut` : "Ingen avläsning än";
     drawAlarms(state);
+    drawSituation(state);
     drawSources(state);
     drawList("events", state.events, (e) => `${e.time_utc} ${e.kind_word} – ${e.source}${e.simulated ? " (simulerad)" : ""} [${e.origin}]`);
     drawList("refused", state.refused, (r) => `${r.logged_utc} ${r.origin}: ${r.reason} – ${r.line}`);

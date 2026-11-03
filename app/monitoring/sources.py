@@ -4,6 +4,8 @@
   statistics of each station's corrected archive of daily flows (parameter 1);
 - SMHI's meteorological observations, the hourly rain (metobs, parameter 7);
 - SMHI's impact-based weather warnings (ibww);
+- SMHI's fire risk forecast (fwif1g, the Canadian FWI system) and point forecast (snow1g);
+- SMHI's weather radar every 5 minutes (radar.py);
 - Krisinformation.se's VMA and news (api.krisinformation.se/v3);
 - MCF's fire bans by municipality (Eldningsforbud) and its municipal borders (Basdata/Kommuner);
 - NASA FIRMS's near-real-time fire detections, with the user's MAP_KEY.
@@ -32,6 +34,7 @@ USER_AGENT = "techseed-geospatial-intelligence/0.1 (monitoring)"
 HYDRO_API = "https://opendata-download-hydroobs.smhi.se/api/version/latest"
 METOBS_API = "https://opendata-download-metobs.smhi.se/api/version/1.0"
 WARNINGS_URL = "https://opendata-download-warnings.smhi.se/ibww/api/version/1/warning.json"
+METFCST_API = "https://opendata-download-metfcst.smhi.se/api/category"
 KRISINFO_API = "https://api.krisinformation.se/v3"
 MCF_REST = "https://gis-tjanster.mcf.se/arcgis/rest/services"
 FIRMS_API = "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
@@ -41,6 +44,9 @@ ATTRIBUTION = {
     "smhi_flow": "SMHI öppna data, hydrologiska observationer (CC BY 4.0 SE)",
     "smhi_rain": "SMHI öppna data, meteorologiska observationer (CC BY 4.0 SE)",
     "smhi_warnings": "SMHI:s vädervarningar, öppna data (CC BY 4.0 SE)",
+    "smhi_fire_risk": "SMHI:s brandriskprognos (FWI), öppna data (CC BY 4.0 SE)",
+    "smhi_forecast": "SMHI:s väderprognos, öppna data (CC BY 4.0 SE)",
+    "smhi_radar": "SMHI öppna data, väderradar (CC BY 4.0 SE); uppskattat ur radarn, inte mätt på marken",
     "krisinformation": "Krisinformation.se (MCF); villkor inte kontrollerade",
     "mcf_fire_ban": "Eldningsförbud, MCF:s spegling av länsstyrelsernas karttjänst; villkor inte kontrollerade",
     "mcf_border": "Kommungräns, MCF Basdata; villkor inte kontrollerade",
@@ -182,8 +188,10 @@ def read_rain(stations: dict[str, str], fetch: Fetch) -> list[dict[str, Any]]:
         rows = [row for row in data.get("value") or [] if row.get("value") not in (None, "")]
         latest = max((_utc(row["date"]) for row in rows), default=None)
         recent = [row for row in rows if latest and _utc(row["date"]) > latest - timedelta(hours=24)]
+        last = max(rows, key=lambda row: row["date"]) if rows else None
         items.append({"station": station, "name": name, "latitude": position.get("latitude"),
                       "longitude": position.get("longitude"), "mm_24h": round(sum(float(row["value"]) for row in recent), 1),
+                      "mm_last_hour": float(last["value"]) if last else None,
                       "hours": len(recent), "latest_utc": utc_text(latest),
                       "unchecked": any(row.get("quality") != "G" for row in recent)})
     return items
@@ -226,6 +234,51 @@ def read_warnings(county_id: int, border: dict[str, Any] | None, fetch: Fetch) -
                           "published_utc": utc_text(_iso(area.get("published"))),
                           "text": " ".join(text for text in texts if text)})
     return items
+
+
+# --- SMHI's fire risk and forecast ------------------------------------------------------------
+
+# SMHI's classes of fire risk (fwiindex, and grassfire), 1-6; -1 outside the fire season.
+FIRE_RISK_WORDS = {1: "mycket liten", 2: "liten", 3: "måttlig", 4: "stor", 5: "mycket stor", 6: "extremt stor"}
+
+
+def fire_risk_url(lat: float, lon: float) -> str:
+    return f"{METFCST_API}/fwif1g/version/1/daily/geotype/point/lon/{lon:.4f}/lat/{lat:.4f}/data.json"
+
+
+def read_fire_risk(lat: float, lon: float, fetch: Fetch) -> list[dict[str, Any]]:
+    """SMHI's fire risk by the day for the point, from today on."""
+    data = json.loads(fetch(fire_risk_url(lat, lon)))
+    items = []
+    for step in data.get("timeSeries") or []:
+        values = {item["name"]: item["values"][0] for item in step.get("parameters") or []}
+        index, grass = int(values.get("fwiindex", -1)), int(values.get("grassfire", -1))
+        items.append({"day_utc": step["validTime"][:10], "fwi_class": index, "fwi_word": FIRE_RISK_WORDS.get(index),
+                      "grass_class": grass, "grass_word": FIRE_RISK_WORDS.get(grass), "fwi": values.get("fwi"),
+                      "season": index > 0, "approved_utc": data.get("approvedTime")})
+    return items
+
+
+def forecast_url(lat: float, lon: float) -> str:
+    return f"{METFCST_API}/snow1g/version/1/geotype/point/lon/{lon:.4f}/lat/{lat:.4f}/data.json"
+
+
+def read_forecast(lat: float, lon: float, fetch: Fetch, hours: int = 48) -> list[dict[str, Any]]:
+    """SMHI's forecast for the point: the rain in the next 24 and 48 hours, the most in one forecast
+    step (an hour at first, longer later), the temperature's range and the strongest gust."""
+    data = json.loads(fetch(forecast_url(lat, lon)))
+    steps = data.get("timeSeries") or []
+    if not steps:
+        return []
+    start = _iso(steps[0]["time"])
+    def within(limit: int) -> list[dict[str, Any]]:
+        return [step["data"] for step in steps if _iso(step["time"]) <= start + timedelta(hours=limit)]
+    rain = lambda limit: round(sum(item.get("precipitation_amount_mean") or 0.0 for item in within(limit)), 1)  # noqa: E731
+    near = within(hours)
+    return [{"from_utc": utc_text(start), "rain_24h_mm": rain(24), "rain_48h_mm": rain(48),
+             "max_step_mm": round(max((item.get("precipitation_amount_mean") or 0.0) for item in near), 1),
+             "temp_min": min(item.get("air_temperature") for item in near), "temp_max": max(item.get("air_temperature") for item in near),
+             "gust_max": max(item.get("wind_speed_of_gust") or 0.0 for item in near), "created_utc": data.get("createdTime")}]
 
 
 # --- Krisinformation --------------------------------------------------------------------------

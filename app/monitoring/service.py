@@ -35,7 +35,7 @@ from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from app.backend import offline_tiles
-from app.monitoring import areas, briefing, events, rules, satellites, sources
+from app.monitoring import areas, briefing, events, radar, rules, satellites, sources
 from app.monitoring.alarms import Store
 
 log = logging.getLogger("app.monitoring")
@@ -70,6 +70,7 @@ class Monitor:
         self.poll_lock = threading.Lock()
         # The main screen's map chosen in mission control, "3d" or "2d"; it starts on the globe.
         self.view = "3d"
+        self.radar = radar.Radar(area.BBOX, fetch)
 
     def _firms(self) -> list[dict[str, Any]]:
         key = sources.firms_key()
@@ -95,6 +96,10 @@ class Monitor:
             results["smhi_rain"] = sources.guarded("smhi_rain", lambda: sources.read_rain(area.RAIN_STATIONS, fetch))
             results["smhi_warnings"] = sources.guarded(
                 "smhi_warnings", lambda: sources.read_warnings(area.SMHI_COUNTY_ID, border, fetch))
+            results["smhi_radar"] = sources.guarded("smhi_radar", lambda: [self.radar.update(border)])
+            results["smhi_fire_risk"] = sources.guarded(
+                "smhi_fire_risk", lambda: sources.read_fire_risk(*area.FIRE_RISK_POINT, fetch))
+            results["smhi_forecast"] = sources.guarded("smhi_forecast", lambda: sources.read_forecast(*area.FORECAST_POINT, fetch))
             results["krisinformation"] = sources.guarded(
                 "krisinformation", lambda: sources.read_krisinformation(area.KRISINFO_WORDS, fetch))
             results["mcf_fire_ban"] = sources.guarded("mcf_fire_ban", lambda: sources.read_fire_ban(area.MUNICIPALITY_CODE, fetch))
@@ -105,7 +110,9 @@ class Monitor:
             poll = {"border": border, "flow_stats": stats.items[0] if stats.items else {},
                     "flows": results["smhi_flow"].items, "rain": results["smhi_rain"].items,
                     "warnings": results["smhi_warnings"].items, "krisinfo": results["krisinformation"].items,
-                    "fire_ban": results["mcf_fire_ban"].items, "firms": results["firms"].items}
+                    "fire_ban": results["mcf_fire_ban"].items, "firms": results["firms"].items,
+                    "radar": results["smhi_radar"].items[0] if results["smhi_radar"].items else None,
+                    "fire_risk": results["smhi_fire_risk"].items, "forecast": results["smhi_forecast"].items}
             candidates, filtered = rules.detect(poll, recent, area)
             status = [result.as_json() for result in (*results.values(), stats)]
             status.append({"source": "inbox", "ok": True, "fetched_utc": sources.utc_text(datetime.now(timezone.utc)), "count": len(batch.events),
@@ -128,7 +135,7 @@ class Monitor:
                  for item in poll["flows"] if item["readings"]]
         return {"border": poll["border"], "flows": flows, "rain": poll["rain"], "warnings": poll["warnings"],
                 "fire_ban": poll["fire_ban"], "news": [item for item in poll["krisinfo"] if item["kind"] == "news"],
-                "firms": poll["firms"]}
+                "firms": poll["firms"], "radar": poll["radar"], "fire_risk": poll["fire_risk"], "forecast": poll["forecast"]}
 
     def state(self) -> dict[str, Any]:
         state = self.store.snapshot()
@@ -165,7 +172,10 @@ class Monitor:
                                      "attribution": "© OpenStreetMap contributors"} if offline else None,
                          "overlay": {"url": offline_tiles.OVERLAY_URL, "label": offline_tiles.OVERLAY_LABEL,
                                      "attribution": "© OpenStreetMap contributors"} if offline else None,
-                         "online": ONLINE_OSM}}
+                         "online": ONLINE_OSM},
+                "layers": {"radar": {"url": "/api/radar.png", "bbox": self.area.BBOX, "label": "Väderradar (SMHI)",
+                                     "attribution": radar.ATTRIBUTION},
+                           "flood": getattr(self.area, "FLOOD_HAZARD_WMS", None)}}
 
     def satellites(self) -> dict[str, Any]:
         return satellites.satellites(self.area)
@@ -209,6 +219,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(self.monitor.state())
         elif path == "/api/config":
             self.send_json(self.monitor.config())
+        elif path == "/api/radar.png":
+            # An empty image until the first poll has fetched the radar.
+            self.send_body(self.monitor.radar.png or radar.EMPTY_PNG, "image/png")
         elif path == "/api/view":
             self.send_json({"view": self.monitor.view})
         elif path == "/api/satellites":

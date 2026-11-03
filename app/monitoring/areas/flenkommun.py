@@ -83,6 +83,24 @@ FLOW_HIGH_PERCENTILE = 99.0
 RAIN_CONFIRM_MM = 10.0
 
 # NASA FIRMS's near-real-time fire detections over BBOX (needs ~/.firms_map_key or FIRMS_MAP_KEY).
+# Proposals, as the flow limits: a cloudburst when SMHI's radar estimates at least CLOUDBURST_MM_H
+# somewhere in the municipality, confirmed by CLOUDBURST_GAUGE_MM in the last hour at a rain station
+# or a warning; raised fire risk when SMHI's fire risk class (FWI, or grass fire) is at least
+# FIRE_RISK_CLASS today or tomorrow, at FIRE_RISK_POINT.
+CLOUDBURST_MM_H = 20.0
+CLOUDBURST_GAUGE_MM = 10.0
+FIRE_RISK_CLASS = 5
+FIRE_RISK_POINT = CENTRE
+FORECAST_POINT = CENTRE
+# MCF's (formerly MSB's) flood maps of Nyköpingsån, as in the Flen scenarios
+# (app/backend/scenarios/flenkommun2024.py): the climate-adapted 100-year flow.
+FLOOD_HAZARD_WMS = {
+    "url": "https://gis-tjanster.mcf.se/arcgis/services/Oversvamningskarteringar/karteringar/MapServer/WMSServer",
+    "layers": "12",
+    "label": "100-årsflöde, klimatanpassat (MCF)",
+    "attribution": "Översvämningskartering © MCF (tidigare MSB)",
+}
+
 FIRMS_SOURCES = ("VIIRS_SNPP_NRT", "VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT", "MODIS_NRT")
 FIRMS_DAYS = 2
 # Detections within this distance belong to the same fire.

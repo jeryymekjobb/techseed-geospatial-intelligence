@@ -16,7 +16,7 @@ from typing import Any
 
 from app.monitoring import geo
 from app.monitoring.events import KIND_WORDS
-from app.monitoring.sources import ATTRIBUTION
+from app.monitoring.sources import ATTRIBUTION, FIRE_RISK_WORDS
 
 ALARM_LEVELS = ("YELLOW", "ORANGE", "RED")
 SEVERITY = {"info": 0, "event": 1, "single": 1, "high": 2, "warning": 2, "confirmed": 3, "record": 3, "vma": 4}
@@ -125,6 +125,51 @@ def vma_candidates(krisinfo: list[dict[str, Any]], area: ModuleType) -> list[Can
     return found
 
 
+def cloudburst_candidates(radar: dict[str, Any] | None, rain: list[dict[str, Any]], warnings: list[dict[str, Any]],
+                          area: ModuleType) -> list[Candidate]:
+    """A cloudburst when SMHI's radar estimates at least CLOUDBURST_MM_H in the municipality."""
+    if not radar or not radar.get("frames") or radar["max_mm_h"] < area.CLOUDBURST_MM_H:
+        return []
+    lat, lon = radar["max_at"]
+    item = Candidate("radar-cloudburst", "flood", "high", f"Skyfall enligt radarn: {_number(radar['max_mm_h'])} mm/h", area.NAME, lat, lon)
+    source = ATTRIBUTION["smhi_radar"]
+    item.fact(f"Regnintensitet {_number(radar['max_mm_h'])} mm/h vid {lat:.3f} N, {lon:.3f} E", source, radar["latest_utc"], uncertain=True)
+    item.fact(f"Som mest {_number(radar['hour_mm'])} mm den senaste timmen ({radar['frames']} radarbilder)", source,
+              radar["latest_utc"], uncertain=True)
+    item.fact(f"Gräns för skyfall i övervakningen: {_number(area.CLOUDBURST_MM_H)} mm/h", "Förslag, inte överenskommet")
+    item.extent = f"{_number(radar['hour_mm'])} mm den senaste timmen där det regnat mest"
+    item.confirmations = [f"{station['name']}: {_number(station['mm_last_hour'])} mm senaste timmen (SMHI)" for station in rain
+                          if station.get("mm_last_hour") is not None and station["mm_last_hour"] >= area.CLOUDBURST_GAUGE_MM]
+    item.confirmations += [f"SMHI-varning: {warning['description'] or warning['event']} ({warning['level']})" for warning in warnings
+                           if warning["kind"] == "flood" and warning["level_code"] in ALARM_LEVELS]
+    item.notes.append("Radarn uppskattar regnet ur reflektiviteten; hagel och smältande snö kan ge för höga värden.")
+    return [item]
+
+
+def fire_risk_candidates(fire_risk: list[dict[str, Any]], area: ModuleType, now: datetime) -> list[Candidate]:
+    """Raised fire risk when SMHI's class is at least FIRE_RISK_CLASS today or tomorrow (UTC)."""
+    found = []
+    days = {now.date().isoformat(), (now + timedelta(days=1)).date().isoformat()}
+    for day in (entry for entry in fire_risk if entry["day_utc"] in days):
+        worst = max(day["fwi_class"], day["grass_class"])
+        if worst < area.FIRE_RISK_CLASS:
+            continue
+        word = FIRE_RISK_WORDS[worst]
+        lat, lon = area.FIRE_RISK_POINT
+        item = Candidate(f"fire-risk-{day['day_utc']}", "fire", "warning", f"Förhöjd brandrisk {day['day_utc']}: {word}", area.NAME,
+                         lat, lon)
+        if day["fwi_word"]:
+            item.fact(f"Brandrisk i skog (FWI) {day['day_utc']}: {day['fwi_word']} (klass {day['fwi_class']})",
+                      ATTRIBUTION["smhi_fire_risk"], day["approved_utc"])
+        if day["grass_word"]:
+            item.fact(f"Gräsbrandsrisk {day['day_utc']}: {day['grass_word']} (klass {day['grass_class']})",
+                      ATTRIBUTION["smhi_fire_risk"], day["approved_utc"])
+        item.confirmations = ["SMHI:s brandriskprognos är en prognos, inte en observation"]
+        item.notes.append(f"Prognosen gäller en punkt i kommunen ({lat:.2f} N, {lon:.2f} E).")
+        found.append(item)
+    return found
+
+
 def _clusters(points: list[dict[str, Any]], km: float) -> list[list[dict[str, Any]]]:
     groups: list[list[dict[str, Any]]] = []
     for point in sorted(points, key=lambda item: item["time_utc"]):
@@ -139,7 +184,8 @@ def _clusters(points: list[dict[str, Any]], km: float) -> list[list[dict[str, An
 
 
 def fire_candidates(firms: list[dict[str, Any]], events: list[dict[str, Any]], border: dict[str, Any] | None,
-                    fire_ban: list[dict[str, Any]], area: ModuleType, filtered: list[dict[str, Any]]) -> list[Candidate]:
+                    fire_ban: list[dict[str, Any]], area: ModuleType, filtered: list[dict[str, Any]],
+                    fire_risk: list[dict[str, Any]] | None = None) -> list[Candidate]:
     """Fires from FIRMS in the municipality, a cluster per fire. Known heat sources are left out;
     the calendar and the fire ban are given as context."""
     points = []
@@ -179,13 +225,18 @@ def fire_candidates(firms: list[dict[str, Any]], events: list[dict[str, Any]], b
         if item.confirmations:
             item.severity = "confirmed"
         item.extent = f"{len(group)} detektioner inom {_number(area.FIRE_CLUSTER_KM)} km"
-        _fire_context(item, first["time_utc"], fire_ban, area)
+        _fire_context(item, first["time_utc"], fire_ban, area, fire_risk)
         found.append(item)
     return found
 
 
-def _fire_context(item: Candidate, time_utc: str, fire_ban: list[dict[str, Any]], area: ModuleType) -> None:
+def _fire_context(item: Candidate, time_utc: str, fire_ban: list[dict[str, Any]], area: ModuleType,
+                  fire_risk: list[dict[str, Any]] | None = None) -> None:
     moment = datetime.fromisoformat(time_utc.replace("Z", "+00:00"))
+    day = next((entry for entry in fire_risk or [] if entry["day_utc"] == time_utc[:10]), None)
+    if day:
+        item.fact(f"Brandrisk {day['day_utc']}: {day['fwi_word'] or 'utanför brandsäsongen'}", ATTRIBUTION["smhi_fire_risk"],
+                  day["approved_utc"])
     for month, day, name in area.FIRE_CALENDAR:
         if (moment.month, moment.day) == (month, day):
             item.notes.append(f"Det är {name}: kan vara en planerad brasa.")
@@ -197,7 +248,7 @@ def _fire_context(item: Candidate, time_utc: str, fire_ban: list[dict[str, Any]]
 
 def event_candidates(events: list[dict[str, Any]], border: dict[str, Any] | None, firms: list[dict[str, Any]],
                      fire_ban: list[dict[str, Any]], flood_items: list[Candidate], area: ModuleType, now: datetime,
-                     filtered: list[dict[str, Any]]) -> list[Candidate]:
+                     filtered: list[dict[str, Any]], fire_risk: list[dict[str, Any]] | None = None) -> list[Candidate]:
     """The events of the last EVENT_HOURS from the inbox that lie in the municipality."""
     found = []
     for event in events:
@@ -218,7 +269,7 @@ def event_candidates(events: list[dict[str, Any]], border: dict[str, Any] | None
             item.notes.append("Simulerad händelse." if event["simulated_stated"] else
                               "Det är inte angivet om händelsen är simulerad; den räknas som simulerad.")
         if event["kind"] == "fire":
-            _fire_context(item, event["time_utc"], fire_ban, area)
+            _fire_context(item, event["time_utc"], fire_ban, area, fire_risk)
             near = [point for point in firms
                     if geo.distance_km(point["latitude"], point["longitude"], event["latitude"], event["longitude"]) <= area.FIRE_CLUSTER_KM]
             if near:
@@ -237,7 +288,11 @@ def detect(poll: dict[str, Any], events: list[dict[str, Any]], area: ModuleType,
     border = poll.get("border")
     flows = flow_candidates(poll.get("flows", []), poll.get("flow_stats", {}), poll.get("rain", []),
                             poll.get("warnings", []), area)
-    candidates = (flows + warning_candidates(poll.get("warnings", [])) + vma_candidates(poll.get("krisinfo", []), area)
-                  + fire_candidates(poll.get("firms", []), events, border, poll.get("fire_ban", []), area, filtered)
-                  + event_candidates(events, border, poll.get("firms", []), poll.get("fire_ban", []), flows, area, now, filtered))
+    fire_risk = poll.get("fire_risk", [])
+    bursts = cloudburst_candidates(poll.get("radar"), poll.get("rain", []), poll.get("warnings", []), area)
+    candidates = (flows + bursts + warning_candidates(poll.get("warnings", [])) + vma_candidates(poll.get("krisinfo", []), area)
+                  + fire_risk_candidates(fire_risk, area, now)
+                  + fire_candidates(poll.get("firms", []), events, border, poll.get("fire_ban", []), area, filtered, fire_risk)
+                  + event_candidates(events, border, poll.get("firms", []), poll.get("fire_ban", []), flows + bursts, area, now,
+                                     filtered, fire_risk))
     return candidates, filtered

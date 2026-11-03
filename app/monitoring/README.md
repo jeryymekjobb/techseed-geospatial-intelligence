@@ -67,13 +67,19 @@ is never logged or shown.
   in UTC, with EPSG:4326 (lat, lon) or EPSG:3006 (N, E). A line without a source, or with another
   fault, is logged before it is refused, and shown on the operator page. Files read are moved to
   `inbox/processed/`.
-- **Live sources** (`sources.py`): SMHI's flows (Hebylund Kvarnsjön, Sibro 2, Hallbosjön) and the
-  statistics of their corrected archives, SMHI's hourly rain at Floda A, SMHI's warnings for the
-  county or over the municipality, Krisinformation's VMA and news, MCF's fire ban for Flen and
+- **Live sources** (`sources.py`, `radar.py`): SMHI's flows (Hebylund Kvarnsjön, Sibro 2,
+  Hallbosjön) and the statistics of their corrected archives, SMHI's hourly rain at Floda A, SMHI's
+  weather radar every 5 minutes over the municipality (the scenarios' conversion,
+  `tools/fetch_smhi_radar.py`), SMHI's fire risk forecast (FWI) and point forecast, SMHI's warnings
+  for the county or over the municipality, Krisinformation's VMA and news, MCF's fire ban for Flen and
   municipal border, and NASA FIRMS's near-real-time fire detections. A failing source is shown;
   the others go on.
-- **Detection** (`rules.py`): a high flow above the 99th percentile of the station's daily flows
-  at two readings in a row, a record above the archive's highest; SMHI's yellow, orange and red
+- **Detection** (`rules.py`), by the kinds of events of the scenarios: a high flow above the 99th
+  percentile of the station's daily flows at two readings in a row, a record above the archive's
+  highest (the high flows of the Flen, Västerås and Ljungan scenarios); a cloudburst when the radar
+  estimates at least 20 mm/h in the municipality, confirmed by 10 mm in the last hour at Floda A or a
+  warning (Sundsvall 2026, Kramfors 2026); raised fire risk at SMHI's class 5 or 6 today or tomorrow,
+  and the fire risk with every fire (Västmanland 2014, Kårböle 2018); SMHI's yellow, orange and red
   warnings for flood and fire; VMA; FIRMS fires in the municipality, clustered within 1 km; events
   from the inbox in the municipality. Fewer false alarms: a second source confirms (rain, a
   warning, several passes or satellites, a report near a detection), known heat sources are left
@@ -83,6 +89,9 @@ is never logged or shown.
   logged. Nothing is sent onward.
 - **Briefing** (`briefing.py`): `/briefing/<id>`, a printable page with the facts, their sources
   and times, what is uncertain, the context and the contacts by role.
+- **Layers:** SMHI's radar image and MCF's climate-adapted 100-year flow of Nyköpingsån (WMS) on
+  the 2D map and the globe, as in the Flen scenarios; mission control's Läget nu gives the radar, the
+  fire risk, the forecast and the flows.
 - **Screens** (`web/`): mission control (`control.*`) with the map, the alarms, the sources, the
   events in and BYT; the 3D globe (`globe.*`) with the border, stations, detections, events, current
   alarms and the satellites with their orbits; the satellite monitor (`satellites.*`, with the demos'
@@ -98,5 +107,8 @@ is never logged or shown.
 - The terms of Krisinformation's API and MCF's services are not checked
   (`reports/2026-11-03-mcf-data-och-tjanster-claude-opus-5-5.md`).
 - Flens kommun's map is for internal use; ask the municipality before it is shown publicly.
+- Landslides have no live rule: Flens kommun's stability mapping (1992-1996, map 1A) is not
+  published by MCF as zones, and SGI's quick-clay and landslide layers answer only SGI's own viewer.
+  SMHI's lightning comes a day late, and there is no coast for erosion.
 - Not included: terrain on the globe, Sentinel images and passes, drones, reading the log aloud,
   kiosk mode, forwarding of alarms, fire models.

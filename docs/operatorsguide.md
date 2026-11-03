@@ -979,8 +979,12 @@ live mot SMHI, MCF, Krisinformation och NASA FIRMS och har inget kioskläge. Ett
 kartservern med Flens offlinekarta, övervakningstjänsten och de tre skärmarna på samma platser som för
 demona: satellitmonitorn med FIRMS-satelliternas banor och passager över kommunen just nu, huvudskärmen
 med 3D-globen över kommunen (kommunens egen karta, med OSM:s vägnummer och järnvägstunnlar ovanpå) och
-mission control med larmen. I mission control bekräftar eller avfärdar operatören larmen och öppnar
-briefingen; inget skickas vidare automatiskt. **BYT** överst i mission control avslutar övervakningen
+mission control med larmen. Övervakningen larmar för höga flöden, skyfall enligt SMHI:s väderradar,
+förhöjd brandrisk enligt SMHI:s brandriskprognos och bränder från NASA FIRMS, och tar emot händelser
+från inkorgen. Radarbilden och MCF:s 100-årsflöde för Nyköpingsån visas på kartan, och **Läget nu** i
+mission control visar radarn, brandrisken, prognosen och flödena. I mission control bekräftar eller
+avfärdar operatören larmen och öppnar briefingen; inget skickas vidare automatiskt. **VISA 2D / VISA 3D**
+växlar huvudskärmen mellan 2D-kartan och 3D-globen. **BYT** överst i mission control avslutar övervakningen
 och visar startsidan igen. `app/monitoring/README.md` beskriver övervakningen.
 
 Låt terminalen stå öppen hela dagen. **BYT SCENARIO** längst ned i mission controls vänstra kolumn

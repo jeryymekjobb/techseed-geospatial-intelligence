@@ -49,6 +49,16 @@ def _context_lines(context: dict[str, Any]) -> list[str]:
         lines.append(f"Vattenföring {item['value']} m³/s vid {item['name']}, {item['time_utc']} – SMHI")
     for item in context.get("fire_ban", []):
         lines.append(f"Eldningsförbud: {item['status']} – MCF/länsstyrelsen")
+    radar = context.get("radar")
+    if radar and radar.get("frames"):
+        lines.append(f"Väderradar {radar['latest_utc']}: som mest {radar['max_mm_h']} mm/h i kommunen, {radar['hour_mm']} mm "
+                     "den senaste timmen – SMHI, uppskattat ur radarn")
+    for item in context.get("fire_risk", [])[:3]:
+        lines.append(f"Brandrisk {item['day_utc']}: {item['fwi_word'] or 'utanför brandsäsongen'}"
+                     + (f", gräsbrand {item['grass_word']}" if item.get("grass_word") else "") + " – SMHI")
+    for item in context.get("forecast", []):
+        lines.append(f"Prognos från {item['from_utc']}: {item['rain_24h_mm']} mm regn närmaste 24 h, {item['rain_48h_mm']} mm "
+                     f"närmaste 48 h, {item['temp_min']}–{item['temp_max']} °C, byar upp till {item['gust_max']} m/s – SMHI")
     for item in context.get("news", []):
         lines.append(f"Krisinformation: {item['headline']} ({item['published_utc']})")
     return lines

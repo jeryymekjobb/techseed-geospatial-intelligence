@@ -31,6 +31,28 @@ function addBaseMaps(maps) {
   }
 }
 
+// The scenarios' overlays: MCF's flood map (WMS) and SMHI's radar, whose image is asked again after
+// every poll (/api/state's polled_utc), when a newer one may have come.
+let radarLayer = null;
+let radarShown = null;
+function addOverlays(config) {
+  const flood = config.layers.flood;
+  if (flood) {
+    L.tileLayer.wms(flood.url, { layers: flood.layers, format: "image/png", transparent: true, opacity: 0.6, styles: "",
+      attribution: flood.attribution }).addTo(map);
+  }
+  const [west, south, east, north] = config.layers.radar.bbox;
+  radarLayer = L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 0.85, attribution: config.layers.radar.attribution })
+    .addTo(map);
+}
+
+function drawRadar(radar, polled) {
+  const key = `${radar?.latest_utc}|${polled}`;
+  if (!radarLayer || !radar?.latest_utc || key === radarShown) return;
+  radarShown = key;
+  radarLayer.setUrl(`/api/radar.png?at=${encodeURIComponent(key)}`);
+}
+
 const layers = { border: L.layerGroup().addTo(map), sites: L.layerGroup().addTo(map), alarms: L.layerGroup().addTo(map) };
 let placed = false;
 
@@ -40,6 +62,7 @@ function marker(layer, lat, lon, style, text) {
 
 function drawMap(state) {
   const context = state.context || {};
+  drawRadar(context.radar, state.polled_utc);
   if (!placed) {
     const [west, south, east, north] = state.area.bbox;
     map.fitBounds([[south, west], [north, east]]);
@@ -90,6 +113,7 @@ getJson("/api/config").then((config) => {
   document.getElementById("title").textContent = `Övervakning – ${config.area.name}`;
   document.title = `Övervakning – ${config.area.name} – 2D`;
   addBaseMaps(config.maps);
+  addOverlays(config);
 }).finally(() => {
   const refresh = () => getJson("/api/state").then(drawMap).catch(() => null);
   refresh();
