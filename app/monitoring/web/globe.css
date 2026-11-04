@@ -30,5 +30,5 @@ header h1 { margin: 0; font-size: 1.2rem; }
 .map-credits a { color: #0078a8; }
 .map-credits .credit-toggle { padding: 0; border: 0; background: none; color: #0078a8; font: inherit; cursor: pointer; text-decoration: underline; }
 .map-credits .credit-list { margin: 4px 0 2px; padding-left: 1.2em; max-height: 40vh; overflow-y: auto; }
-.cesium-viewer > .map-credits { position: absolute; right: 0; bottom: 0; z-index: 2; }
+#globe > .map-credits { position: absolute; right: 0; bottom: 0; z-index: 2; }
 .credits:empty { display: none; }

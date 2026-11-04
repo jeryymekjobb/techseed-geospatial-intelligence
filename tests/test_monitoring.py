@@ -973,7 +973,12 @@ def test_both_maps_keep_the_credits_behind_kallor_as_the_scenarios(server: int) 
         script = (Path(service.WEB_DIR) / code).read_text(encoding="utf-8")
         assert "creditBox(" in script and "setShortCredits(layers.municipal" in script
     assert "attributionControl: false" in (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
-    assert ".map-credits .credit-toggle" in (Path(service.WEB_DIR) / "globe.css").read_text(encoding="utf-8")
+    css = (Path(service.WEB_DIR) / "globe.css").read_text(encoding="utf-8")
+    assert ".map-credits .credit-toggle" in css
+    # The globe's box goes into its container, #globe (viewer.container), and is placed in its corner there.
+    globe = (Path(service.WEB_DIR) / "globe.js").read_text(encoding="utf-8")
+    assert 'new Cesium.Viewer("globe"' in globe and "viewer.container.append(creditBox())" in globe
+    assert "#globe > .map-credits { position: absolute;" in css
 
 
 @pytest.mark.parametrize("name", [name for name in __import__("app.monitoring.areas", fromlist=["AVAILABLE"]).AVAILABLE])
