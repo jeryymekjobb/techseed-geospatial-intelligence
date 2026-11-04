@@ -44,14 +44,15 @@ async function start() {
       ...item,
       point: subpoint(lib, item.elements, now),
       track: orbitTrack(lib, item.elements, now, 50, 2),
-      passes: [today - 1, today, today + 1].flatMap((day) => passesOn(item, day)),
+      // A geostationary satellite (Meteosat) always sees the area, so it has no passes.
+      passes: item.geostationary ? null : [today - 1, today, today + 1].flatMap((day) => passesOn(item, day)),
     })).filter((item) => item.point);
     monitor.draw(items, now);
     const list = document.getElementById("monitor-list");
     list.replaceChildren();
     for (const item of items) {
-      const next = item.passes.find((pass) => pass.end > nowMs);
-      const pass = !next ? ` · ingen passage över ${place} närmaste dygnet`
+      const next = item.passes?.find((pass) => pass.end > nowMs);
+      const pass = item.geostationary ? ` · geostationär, ser ${place} hela tiden` : !next ? ` · ingen passage över ${place} närmaste dygnet`
         : next.start <= nowMs ? ` · ÖVER ${place.toUpperCase()} NU` : ` · nästa passage över ${place} ${hourMinute.format(new Date(next.start))}`;
       const row = document.createElement("li");
       const swatch = document.createElement("span");

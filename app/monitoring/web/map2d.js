@@ -18,7 +18,7 @@ const map = L.map("map");
 // Mission control's map layers (service.LAYERS), each a group shown or hidden by showLayers.
 const named = {};
 for (const name of ["municipal", "flood", "flood_highest", "skyfall100", "skyfall500", "radar", "satellite", "landsat", "s1radar",
-  "s1wetness", "s1water", "stations", "facilities", "names", "firms"]) {
+  "s1wetness", "s1water", "stations", "levels", "facilities", "names", "firms"]) {
   named[name] = L.layerGroup();
 }
 // The hamlets' names, part of the names layer, shown only close in, where they do not crowd.
@@ -128,6 +128,14 @@ const STATION_MARKS = { normal: "#1565c0", alarm: "#c62828" };
 function alarming(state, key) {
   return state.alarms.some((alarm) => alarm.id === key && alarm.current && alarm.state !== "dismissed");
 }
+// The scenarios' simulated level sensors (levels.py): round with a magenta ring, the monitoring's mark
+// for what is simulated, blue, and red while the sensor alarms.
+const LEVEL_RING = "#e040fb";
+function levelText(sensor) {
+  const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
+    : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
+  return `${sensor.name}: ${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare, följer SMHI)`;
+}
 const OBJECT_MARK = { radius: 4, color: "#5d4300", weight: 1, fillColor: "#ffd600", fillOpacity: 1 };
 function drawAssets(assets) {
   for (const item of assets.facilities || []) {
@@ -178,6 +186,11 @@ function drawMap(state) {
   layers.sites.clearLayers();
   named.stations.clearLayers();
   named.firms.clearLayers();
+  named.levels.clearLayers();
+  for (const sensor of context.level_sensors || []) {
+    marker(named.levels, sensor.latitude, sensor.longitude, { radius: 5, color: LEVEL_RING, weight: 2,
+      fillColor: sensor.alarm ? STATION_MARKS.alarm : STATION_MARKS.normal, fillOpacity: 1 }, levelText(sensor));
+  }
   for (const flow of context.flows || []) {
     if (flow.latitude == null) continue;
     const limits = flow.limits ? ` (högt över ${flow.limits.high}, rekord ${flow.limits.record})` : "";

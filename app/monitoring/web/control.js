@@ -20,7 +20,7 @@ const SOURCE_WORDS = {
   smhi_rain: "Nederbörd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
   smhi_radar: "Väderradar (SMHI)", smhi_grid: "Vind och väderkarta (SMHI)", smhi_stations: "Väderstationer (SMHI)",
   sentinel2: "Satellitbild (Sentinel-2)", landsat: "Satellitbild (Landsat)", sentinel1: "Radarbild (Sentinel-1)", flen_gis: "Skyddsvärda objekt (kommunens GIS)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
-  mcf_fire_ban: "Eldningsförbud (MCF)", firms: "Brandpunkter (NASA FIRMS)", inbox: "Händelser in (inkorgen)",
+  meteosat_clm: "Moln (Meteosat)", mcf_fire_ban: "Eldningsförbud (MCF)", firms: "Brandpunkter (NASA FIRMS)", inbox: "Händelser in (inkorgen)",
 };
 
 function element(tag, text, className) {
@@ -208,6 +208,7 @@ document.getElementById("switch-demo").addEventListener("click", async () => {
 const LAYER_LABELS = {
   municipal: "Kommunens karta (Flens kommun)", flood: "Översvämning, 100-årsflöde (MCF)", radar: "Väderradar (SMHI)",
   wind: "Vindpilar (SMHI, prognos)", chart: "Väderkarta (SMHI, prognos)", stations: "SMHI:s stationer",
+  levels: "Nivågivare (simulerade, följer SMHI)",
   facilities: "Skyddsvärda objekt (kommunens GIS)", names: "Ortnamn (OSM)", firms: "Brandpunkter (NASA FIRMS)",
   satellite: "Satellitbild (Sentinel-2)", s1radar: "Radarbild (Sentinel-1)", s1water: "Vatten utanför sjöarna, radar (rött)",
   s1wetness: "Fukt i terrängen, radar (brun torr – blå blöt)", landsat: "Satellitbild (Landsat)",
@@ -341,6 +342,11 @@ function drawCharts(state) {
   drawChart(chartBox("radar", "Väderradar, högsta intensitet i kommunen (mm/h, senaste timmen) – SMHI, uppskattat"),
     (radar?.series || []).map((point) => ({ time: point.time_utc, value: point.max_mm_h })),
     { kind: "bars", unit: "mm/h", lines: [{ value: 20, label: "skyfall", colour: "#ef5350" }] });
+  const clouds = context.cloud_mask;
+  if (clouds) {
+    drawChart(chartBox("clouds", "Moln över kommunen (% av pixlarna, senaste dygnet) – Meteosat, några km per pixel"),
+      (clouds.series || []).map((point) => ({ time: point.time_utc, value: point.cloud_pct })), { unit: "%" });
+  }
 }
 
 function drawSatelliteImage(state) {
@@ -356,7 +362,15 @@ function drawSatelliteImage(state) {
       + `${radar.separable ? "" : ", vatten och mark går inte att skilja åt – osäker"}). Beräknat, inte en kartlagd översvämning.`
       + (radar.wetness_median_pct != null ? ` Fukt i terrängen: i median ${radar.wetness_median_pct} % mellan torrast och blötast `
         + `de senaste ${radar.wetness_passes} passagerna från samma bana – beräknat, inte uppmätt.` : ""))
-    + ` ${(meta || radar)?.attribution || ""}${landsat ? ` ${landsat.attribution}.` : ""}`;
+    + ` ${(meta || radar)?.attribution || ""}${landsat ? ` ${landsat.attribution}.` : ""}`
+    + cloudText(state.context?.cloud_mask);
+}
+
+// Meteosat's cloud mask (meteosat.py): why the optical image may be old or missing.
+function cloudText(clouds) {
+  if (!clouds) return "";
+  return ` Moln just nu: ${clouds.cloud_pct ?? "–"} % av kommunen enligt ${clouds.satellite} `
+    + `${localTime.format(new Date(clouds.time_utc))} (molnmask, några km per pixel). ${clouds.attribution}.`;
 }
 
 function drawIot(state) {
@@ -367,6 +381,13 @@ function drawIot(state) {
   list.replaceChildren(...(iot.sensors || []).map((sensor) => element("li",
     `${sensor.node} ${sensor.kind}: ${sensor.value}${sensor.unit ? ` ${sensor.unit}` : ""}`
       + `${sensor.real ? "" : " (simulerad)"}${sensor.online ? "" : " – har tystnat"}`, sensor.online ? "info" : "alert")));
+  // The scenarios' simulated level sensors (levels.py), driven by SMHI's flows.
+  for (const sensor of state.context?.level_sensors || []) {
+    const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
+      : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
+    list.append(element("li", `${sensor.name}: ${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare)`,
+      sensor.alarm ? "alert" : "info"));
+  }
   if (!list.children.length) list.append(element("li", "Inga sensorer har hörts av.", "ok"));
 }
 

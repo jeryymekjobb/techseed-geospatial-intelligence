@@ -58,7 +58,19 @@ tunnels, which the municipal map lacks, lie over it, clipped by the backend to t
 border (`service.clip_to_border`), since OpenStreetMap's own map has them outside.
 
 The satellites are those whose data the monitoring uses: NASA FIRMS's Suomi NPP, NOAA-20, NOAA-21,
-Terra and Aqua, Sentinel-1C and 1D (radar), Sentinel-2A, 2B and 2C, and Landsat 8 and 9. Their current element sets come from Space-Track (class `gp`) with the account in
+Terra and Aqua, Sentinel-1C and 1D (radar), Sentinel-2A, 2B and 2C, Landsat 8 and 9, and the
+geostationary Meteosat-10, whose cloud mask the monitoring shows (on the satellite monitor, not the globe).
+
+Meteosat's cloud mask (`meteosat.py`, as the Flen scenarios' `tools/fetch_meteosat_clm.py`) gives the
+cloudy share of the municipality's pixels every 15 minutes, about an hour late, kept for the last day
+in `data/monitoring/flenkommun/meteosat-clm/`; it says why an optical image is old. It needs the
+EUMETSAT API key in `~/.eumdac/credentials` (one line `KEY,SECRET`, `chmod 600`) and eumdac and
+eccodes (`tools/requirements-meteosat.txt`); without them the source says the key is missing.
+
+The Flen scenarios' simulated level sensors (`levels.py`, the eight points of
+`data/flenkommun2024/sensors/level-points.geojson` where larger roads cross MCF's 100-year flow) each
+follow the live flow of Sibro 2 or Hallbosjön and alarm, as in the scenarios, above the highest daily
+flow in SMHI's archive; marked simulated on the maps (a magenta ring) and in mission control's IoT. Their current element sets come from Space-Track (class `gp`) with the account in
 `~/.spacetrackrc`, kept in `data/monitoring/tle/current.json` and fetched again at most once a day
 (`satellites.py`). The screens compute where they are now with satellite.js; the positions are
 computed, not observed.

@@ -999,7 +999,10 @@ visar **Detektioner och larm** det senaste dygnets upptäckter och larm, och **L
 bekräftelser och avfärdanden. Med väderkartan på visar
 huvudskärmen Skandinavien. Varje larm räknar upp skyddsvärda objekt och byggnader som kan beröras.
 Diagrammen visar flödena, regnet och radarn det senaste dygnet. **UPPLÄSNING** läser upp nya larm,
-och **IoT** visar sensorerna, märkta som simulerade om de inte anger annat. Datat från kommunens GIS
+och **IoT** visar sensorerna, märkta som simulerade om de inte anger annat, och scenariernas
+simulerade nivågivare vid Nyköpingsån, som följer SMHI:s flöden och larmar över arkivets högsta
+dygnsflöde (magentafärgad ring på kartan). Meteosats molnmask visar hur molnigt det är över kommunen,
+med en kurva för senaste dygnet, och förklarar varför den optiska bilden kan vara gammal. Datat från kommunens GIS
 är för intern användning; boenden för personer med funktionsnedsättning ingår inte. **BYT** överst i mission control avslutar övervakningen
 och visar startsidan igen. `app/monitoring/README.md` beskriver övervakningen.
 

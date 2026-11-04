@@ -112,6 +112,9 @@ SATELLITES = {
     "60989": {"name": "Sentinel-2C", "firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
     "39084": {"name": "Landsat 8", "firms": None, "instrument": "OLI", "role": "Optisk jordobservation", "half_swath_km": 92.5},
     "49260": {"name": "Landsat 9", "firms": None, "instrument": "OLI", "role": "Optisk jordobservation", "half_swath_km": 92.5},
+    # Meteosat-10 (MSG-3) at 0 degrees, whose cloud mask the monitoring shows (meteosat.py), as in the scenarios.
+    "38552": {"name": "Meteosat-10", "firms": None, "instrument": "SEVIRI", "role": "Geostationär, ser området hela tiden",
+              "half_swath_km": None, "geostationary": True},
 }
 
 # SMHI's stations with the flow every 15 minutes (hydroobs parameter 2), all in Nyköpingsån's
@@ -172,6 +175,11 @@ FLOOD_HAZARD_WMS = {
 FLOOD_HIGHEST_WMS = {**FLOOD_HAZARD_WMS, "layers": "9", "label": "Beräknat högsta flöde (MCF)"}
 # The Flen scenarios' 3D terrain from Copernicus's DEM (tools/build_terrain.py), quantized mesh.
 TERRAIN_DIR = REPO_ROOT / "data" / "flenkommun2024" / "terrain"
+# The Flen scenarios' simulated level sensors where larger roads cross MCF's 100-year flow of
+# Nyköpingsån (levels.py), each following Sibro 2 or Hallbosjön.
+LEVEL_SENSOR_FILE = REPO_ROOT / "data" / "flenkommun2024" / "sensors" / "level-points.geojson"
+# Meteosat's cloud mask over the area (meteosat.py), with the EUMETSAT key in ~/.eumdac/credentials.
+METEOSAT_CLM = True
 # Flens kommun's cloudburst mapping of Flen's town (Skyfallskartering, gis.flen.se): the greatest water
 # depth at a 100- and a 500-year rain, which the user allowed for internal use on 2026-11-04. It has no
 # WMS and is fetched as transparent tiles by ArcGIS REST export (tools/fetch_municipal_basemap.py).

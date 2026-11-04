@@ -27,8 +27,10 @@ BORDER = {"type": "Polygon", "coordinates": [[[16.4, 58.85], [17.05, 58.85], [17
 
 def area(**changes):
     values = {name: getattr(flenkommun, name) for name in dir(flenkommun) if name.isupper()}
-    # The scenarios' OSM targets and MCF's flood zone are unversioned data: the tests use none.
-    values.update(OSM_TARGETS_FILE=Path("/nonexistent/targets.geojson"), FLOOD_ZONE_FILES=[])
+    # The scenarios' OSM targets, MCF's flood zone and the level sensors' points are unversioned data: the
+    # tests use none, and they do not ask EUMETSAT for Meteosat's cloud mask.
+    values.update(OSM_TARGETS_FILE=Path("/nonexistent/targets.geojson"), FLOOD_ZONE_FILES=[],
+                  LEVEL_SENSOR_FILE=Path("/nonexistent/level-points.geojson"), METEOSAT_CLM=False)
     values.update(changes)
     return SimpleNamespace(**values)
 
@@ -864,3 +866,70 @@ def test_the_wetness_sets_each_pixel_between_its_dry_and_its_wet_and_leaves_out_
     assert image[0, 0, 3] == 0 and image[5, 5, 3] == 0 and image[2, 1, 3] == sentinel1.WETNESS_ALPHA
     assert image[2, 5, 0] < image[2, 1, 0]  # the wetter half is blue-green, with little red
     assert stats["wetness_cover_pct"] == round(100 * 34 / 36) and sentinel1.coarse(np.ones((10, 10), "f4")).shape == (2, 2)
+
+
+def test_the_simulated_level_sensors_follow_their_station_and_alarm_above_its_record(tmp_path: Path) -> None:
+    from app.monitoring import levels
+
+    points = tmp_path / "level-points.geojson"
+    points.write_text(json.dumps({"type": "FeatureCollection", "features": [
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [16.7, 58.86]},
+         "properties": {"id": "ng-02", "name": "NG2 Tärnövägen", "road": "Tärnövägen", "river": "Nyköpingsån", "station": "1273:2"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [16.6, 58.9]},
+         "properties": {"id": "ng-04", "name": "NG4 Nyköpingsån", "station": "2587:2"}}]}))
+    loaded = levels.load(points)
+    assert [point["station"] for point in loaded] == ["1273", "2587"] and levels.load(tmp_path / "none.geojson") == []
+    flows = [{"station": "1273", "name": "Hallbosjön", "readings": [{"time_utc": "2026-11-04T08:00:00Z", "value": 55.0}]}]
+    found = levels.readings(loaded, flows, {"1273": {"record": 51.5}, "2587": {"record": 15.2}})
+    assert found[0]["alarm"] and found[0]["percent"] == 107 and found[0]["simulated"] and found[0]["station_name"] == "Hallbosjön"
+    assert not found[1]["alarm"] and found[1]["value"] is None and found[1]["percent"] is None
+    assert not levels.readings(loaded, flows, {"1273": {"record": 60.0}})[0]["alarm"]
+
+
+def test_meteosat_s_cloud_mask_keeps_the_last_day_and_asks_again_only_for_a_newer_product(tmp_path: Path, monkeypatch) -> None:
+    import sys
+
+    import numpy
+
+    from app.monitoring import meteosat, sources as monitoring_sources
+    from tools import fetch_meteosat_clm, fetch_meteosat_cth
+
+    products = ["MSG3-SEVI-MSGCLMK-0100-0100-20261104081500.000000000Z-NA"]
+    searched = []
+
+    class Collection:
+        def search(self, dtstart, dtend):
+            searched.append(dtstart)
+            return list(products)
+
+    store = SimpleNamespace(get_collection=lambda name: Collection())
+    monkeypatch.setitem(sys.modules, "eumdac", SimpleNamespace(AccessToken=lambda pair: pair, DataStore=lambda token: store))
+    key = tmp_path / "credentials"
+    monkeypatch.setattr(fetch_meteosat_cth, "CREDENTIALS", key)
+    mask = meteosat.CloudMask(flenkommun.BBOX, tmp_path)
+    try:
+        mask.update(NOW)
+    except monitoring_sources.MissingKey as error:
+        assert "EUMETSAT" in str(error)
+    else:
+        raise AssertionError("no key, no Meteosat")
+    key.write_text("key,secret")
+
+    def download(product, token, target):
+        target.write_bytes(b"zip")
+        return target
+
+    monkeypatch.setattr(fetch_meteosat_cth, "download", download)
+    # Four pixels in the area: two cloudy, one clear, one without data.
+    monkeypatch.setattr(fetch_meteosat_clm, "read_grib", lambda data, positions: (2, numpy.array([2, 2, 1, 3]), [0] * 4, [0] * 4))
+    monkeypatch.setattr(fetch_meteosat_clm, "area_index", lambda lats, lons, size, bbox: numpy.array([0, 1, 2, 3]))
+    now = datetime(2026, 11, 4, 9, 30, tzinfo=timezone.utc)
+    meta = mask.update(now)
+    assert meta["cloud_pct"] == 67 and meta["satellite"] == "Meteosat-10" and meta["time_utc"] == "2026-11-04T08:15:00Z"
+    assert "EUMETSAT" in meta["attribution"] and (tmp_path / "meteosat-clm" / "index.npy").is_file()
+    assert mask.update(now + timedelta(minutes=5)) == meta and len(searched) == 1
+    products.insert(0, "MSG3-SEVI-MSGCLMK-0100-0100-20261104083000.000000000Z-NA")
+    later = mask.update(now + timedelta(minutes=15))
+    assert [item["time_utc"] for item in later["series"]] == ["2026-11-04T08:15:00Z", "2026-11-04T08:30:00Z"]
+    assert meteosat.CloudMask(flenkommun.BBOX, tmp_path).meta["series"] == later["series"]
+    assert not list((tmp_path / "meteosat-clm").glob("**/*.zip"))

@@ -37,7 +37,8 @@ from urllib.parse import unquote, urlsplit
 
 from app.backend import offline_tiles
 from app.backend import iot
-from app.monitoring import areas, briefing, events, geo, gis, radar, rules, satellites, sentinel1, sentinel2, sources, weather
+from app.monitoring import (areas, briefing, events, geo, gis, levels, meteosat, radar, rules, satellites, sentinel1, sentinel2,
+                            sources, weather)
 from app.monitoring.alarms import Store
 
 log = logging.getLogger("app.monitoring")
@@ -59,7 +60,7 @@ BASEMAP_TILE = re.compile(r"/basemap/([a-z0-9]+)/(\d{1,2})/(\d+)/(\d+)\.png")
 # The map layers mission control switches on the main screen, and whether each starts on.
 LAYERS = {"municipal": True, "flood": True, "radar": True, "wind": True, "chart": False, "facilities": True, "names": True,
           "stations": True, "firms": True, "satellite": False, "s1radar": False, "s1water": True,
-          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall100": False, "skyfall500": False}
+          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall100": False, "skyfall500": False, "levels": True}
 # OpenStreetMap's standard map outside the municipality, the one-pager's fallback where there is no
 # GIS map: it has land cover at every zoom and no edge; the demos' offline map takes its place only
 # when it does not answer.
@@ -85,6 +86,9 @@ class Monitor:
         self.image = sentinel2.Latest(area.BBOX, self.data_dir, fetch, post)
         self.landsat = sentinel2.Latest(area.BBOX, self.data_dir, fetch, post, kind=sentinel2.LANDSAT)
         self.terrain_dir: Path | None = getattr(area, "TERRAIN_DIR", None)
+        # The scenarios' simulated level sensors (levels.py) and Meteosat's cloud mask (meteosat.py).
+        self.levels = levels.load(getattr(area, "LEVEL_SENSOR_FILE", None))
+        self.clouds = meteosat.CloudMask(area.BBOX, self.data_dir) if getattr(area, "METEOSAT_CLM", False) else None
         self.radar_pass = sentinel1.Latest(area.BBOX, self.data_dir, getattr(area, "TERRAIN_FILE", None), fetch, post)
         # The IoT nodes, as the demos' (app/backend/iot.py): MQTT techseed/<node>/<kind>, simulated
         # unless a node says otherwise; connected by main() when a broker is given.
@@ -128,6 +132,8 @@ class Monitor:
             results["smhi_forecast"] = sources.guarded("smhi_forecast", lambda: sources.read_forecast(*area.FORECAST_POINT, fetch))
             results["sentinel2"] = sources.guarded("sentinel2", lambda: [meta] if (meta := self.image.update()) else [])
             results["landsat"] = sources.guarded("landsat", lambda: [meta] if (meta := self.landsat.update()) else [])
+            if self.clouds:
+                results["meteosat_clm"] = sources.guarded("meteosat_clm", lambda: [meta] if (meta := self.clouds.update()) else [])
             results["sentinel1"] = sources.guarded("sentinel1", lambda: [meta] if (meta := self.radar_pass.update()) else [])
             results["smhi_stations"] = sources.guarded(
                 "smhi_stations", lambda: sources.read_weather_stations(getattr(area, "WEATHER_STATIONS", {}), fetch))
@@ -179,7 +185,8 @@ class Monitor:
                 "fire_ban": poll["fire_ban"], "news": [item for item in poll["krisinfo"] if item["kind"] == "news"],
                 "firms": poll["firms"], "radar": poll["radar"], "fire_risk": poll["fire_risk"], "forecast": poll["forecast"],
                 "weather": self.weather.summary(), "satellite_image": self.image.meta, "landsat_image": self.landsat.meta,
-                "radar_pass": self.radar_pass.meta,
+                "radar_pass": self.radar_pass.meta, "cloud_mask": self.clouds.meta if self.clouds else None,
+                "level_sensors": levels.readings(self.levels, poll["flows"], limits),
                 "weather_stations": poll.get("weather_stations", [])}
 
     def state(self) -> dict[str, Any]:

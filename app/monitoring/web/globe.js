@@ -124,6 +124,13 @@ function alarming(state, key) {
   return state.alarms.some((alarm) => alarm.id === key && alarm.current && alarm.state !== "dismissed");
 }
 const OBJECT_MARK = "#ffd600";
+// The simulated level sensors (levels.py), as on the 2D map: a magenta ring, blue, red while alarming.
+const LEVEL_RING = "#e040fb";
+function levelText(sensor) {
+  const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
+    : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
+  return `${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare, följer SMHI)`;
+}
 
 // SMHI's forecast grid (/api/weather) as the scenarios' globe draws ERA5-Land's wind and MET Norway's
 // chart (map3d.js): barbs lying on the ground, and the isobars, highs and lows, rain and thunder over
@@ -244,7 +251,7 @@ async function start() {
   const s1Wetness = imageDrawer(viewer, "/api/s1wetness.png", config.layers.radar.bbox, 0.85);
   const drawRadar = (stats, polled) => radarImage.draw(stats?.latest_utc ? `${stats.latest_utc}|${polled}` : null, config.layers.radar.attribution);
   const sources = {};
-  for (const name of ["stations", "facilities", "names", "firms"]) {
+  for (const name of ["stations", "levels", "facilities", "names", "firms"]) {
     sources[name] = new Cesium.CustomDataSource(name);
     viewer.dataSources.add(sources[name]);
   }
@@ -321,6 +328,15 @@ async function start() {
     });
     sources.stations.entities.removeAll();
     sources.firms.entities.removeAll();
+    sources.levels.entities.removeAll();
+    for (const sensor of context.level_sensors || []) {
+      sources.levels.entities.add({
+        name: escapeText(`${sensor.name} (simulerad)`), description: escapeText(levelText(sensor)),
+        position: Cesium.Cartesian3.fromDegrees(sensor.longitude, sensor.latitude),
+        point: { pixelSize: 10, color: color(sensor.alarm ? STATION_MARKS.alarm : STATION_MARKS.normal), outlineColor: color(LEVEL_RING),
+          outlineWidth: 2, heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+      });
+    }
     for (const flow of context.flows || []) {
       const mark = alarming(state, `flow-${flow.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
       if (flow.latitude != null) point(flow.latitude, flow.longitude, mark, 12, `Vattenföring ${flow.name}`,
@@ -379,7 +395,8 @@ async function start() {
   const drawSatellites = () => {
     const now = new Date();
     document.getElementById("clock").textContent = clockText.format(now);
-    for (const item of data.satellites) {
+    // A geostationary satellite (Meteosat) stays over 0 degrees, far outside the globe's view of the area.
+    for (const item of data.satellites.filter((satellite) => !satellite.geostationary)) {
       const here = subpoint(lib, item.elements, now);
       if (!here) continue;
       const position = Cesium.Cartesian3.fromDegrees(here.longitude, here.latitude, here.height_km * 1000);
