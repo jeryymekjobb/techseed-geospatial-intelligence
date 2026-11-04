@@ -1,7 +1,8 @@
 // Mission control of the monitoring (app/monitoring/service.py): the alarms with their confirm and
 // dismiss buttons and briefing, the sources' status, the events in, the refused lines and what the
 // rules left out; VISA 2D / VISA 3D, which switches the main screen between the 2D map and the 3D
-// globe as in the scenarios; and BYT back to the start page. Reads /api/state every 30 s. Text from
+// globe as in the scenarios; what was detected and the alarms of the last day; and BYT back to the
+// start page. Reads /api/state every 30 s. Text from
 // the sources is set as text, never as HTML.
 
 const REFRESH_MS = 30000;
@@ -9,6 +10,10 @@ const localTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm
   hour: "2-digit", minute: "2-digit" });
 const clockTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", year: "numeric",
   hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const DAY_MS = 86400000;
+let waterLogPct = 0.5;
+fetch("/api/config", { cache: "no-store" }).then((response) => response.json())
+  .then((config) => { waterLogPct = config.area.s1_water_log_pct; }).catch(() => null);
 const STATE_WORDS = { new: "Nytt", confirmed: "Bekräftat", dismissed: "Avfärdat" };
 const SOURCE_WORDS = {
   mcf_border: "Kommungräns (MCF)", smhi_flow: "Vattenföring (SMHI)", smhi_flow_statistics: "Flödesstatistik (SMHI)",
@@ -100,6 +105,36 @@ function drawSituation(state) {
   list.replaceChildren(...lines.map((text) => element("li", text, "info")));
 }
 
+// What was detected and the alarms, newest first, moved here from the satellite monitor as the user
+// asked: FIRMS's detections, Sentinel-1's water outside the lakes from waterLogPct % of the land where
+// water and land can be told apart, and every alarm with its station and value, of the last day.
+function drawDetections(state) {
+  const nowMs = Date.now();
+  const lines = [];
+  const radar = state.context?.radar_pass;
+  if (radar && radar.separable && radar.new_water_pct >= waterLogPct) {
+    lines.push({ atMs: Date.parse(radar.time_utc), kind: "computed",
+      text: `${radar.platform}: vatten utanför sjöarna på ${String(radar.new_water_pct).replace(".", ",")} % av marken (beräknat)` });
+  }
+  for (const fire of state.context?.firms || []) {
+    lines.push({ atMs: Date.parse(fire.time_utc), kind: "firms",
+      text: `NASA FIRMS: värmedetektion ${fire.instrument} (${fire.satellite}) vid ${fire.latitude.toFixed(3)} N, ${fire.longitude.toFixed(3)} E` });
+  }
+  for (const alarm of state.alarms) {
+    lines.push({ atMs: Date.parse(alarm.created_utc), kind: alarm.candidate.simulated ? "simulated" : "synthetic",
+      text: `LARM: ${alarm.candidate.title}${alarm.candidate.facts[0] ? ` – ${alarm.candidate.facts[0].text}` : ""}`
+        + `${alarm.candidate.simulated ? " (simulerad)" : ""}` });
+  }
+  const shown = lines.filter((line) => line.atMs >= nowMs - DAY_MS && line.atMs <= nowMs).sort((a, b) => b.atMs - a.atMs);
+  const list = document.getElementById("detections");
+  list.replaceChildren(...shown.map((line, index) => {
+    const row = element("li", undefined, `${line.kind}${index === 0 ? " latest" : ""}`);
+    row.append(element("time", localTime.format(new Date(line.atMs))), ` ${line.text}`);
+    return row;
+  }));
+  if (!list.children.length) list.append(element("li", "Inget upptäckt och inga larm det senaste dygnet."));
+}
+
 // The log, as the scenarios' mission control's: every alarm, confirmation and dismissal with its time.
 function drawLog(state) {
   const entries = state.alarms.flatMap((alarm) => alarm.history.map((item) => ({ ...item, title: alarm.candidate.title,
@@ -145,6 +180,7 @@ async function refresh() {
     drawCharts(state);
     drawSatelliteImage(state);
     drawIot(state);
+    drawDetections(state);
     drawLog(state);
     document.getElementById("polled").textContent = state.polled_utc
       ? `Senaste avläsning ${localTime.format(new Date(state.polled_utc))}, var ${state.area.poll_seconds / 60}:e minut` : "Ingen avläsning än";

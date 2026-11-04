@@ -19,6 +19,13 @@
 .source-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .source-table td { padding: 4px 6px; border-top: 1px solid #333; vertical-align: top; }
 .source-table .bad { color: #ff7961; font-weight: 700; }
+.detections { margin: 0 0 8px; padding: 0; list-style: none; max-height: 40vh; overflow-y: auto; font-size: 0.9rem; }
+.detections li { padding: 2px 8px; margin: 2px 0; border-left: 4px solid #555; }
+.detections li.latest { color: #ffd54a; font-weight: 700; background: #ffd54a1a; }
+.detections li.firms { border-color: #ff2a00; }
+.detections li.computed { border-color: #4fc3f7; }
+.detections li.synthetic { border-color: #e53935; }
+.detections li.simulated { border-color: #e040fb; }
 .list { font-size: 0.85rem; }
 .list div { padding: 3px 0 3px 8px; border-left: 4px solid #555; margin: 2px 0; }
 .list .meta { color: #b8b8b8; border-left-color: transparent; }

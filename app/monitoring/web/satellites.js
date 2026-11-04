@@ -1,17 +1,13 @@
 // The satellite monitor of the monitoring (app/monitoring/service.py), in a window of its own as the
 // demos' (app/frontend/monitor.js), but live: the world map with the orbits and where the satellites
 // that send the monitoring data are now, the timeline of their passes over the area with "now"
-// marked (satmonitor.js, orbits.js), each satellite's height, speed and next pass, and a log of what
-// was detected and of the alarms. Text is set as text, never as HTML.
+// marked (satmonitor.js, orbits.js), and each satellite's height, speed and next pass; what was
+// detected and the alarms are in mission control (control.js). Text is set as text, never as HTML.
 "use strict";
 
 const DAY = 86400000;
-const LOG_BACK_MS = DAY;
-const LOG_AHEAD_MS = 0;
 const DRAW_MS = 2000;
-const STATE_MS = 30000;
 const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
-const dayTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const clockText = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", year: "numeric",
   hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
@@ -19,30 +15,6 @@ async function getJson(path) {
   const response = await fetch(path, { cache: "no-store" });
   if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
   return response.json();
-}
-
-// The log's lines, newest first, of what was detected, as the user asked: a pass that sees nothing
-// is not logged (the timeline shows the passes). FIRMS's detections, Sentinel-1's water outside the
-// lakes from s1WaterPct % of the land where water and land can be told apart, and every alarm with its
-// station and value.
-function monitoringLog(state, nowMs, s1WaterPct) {
-  const lines = [];
-  const radar = state.context?.radar_pass;
-  if (radar && radar.separable && radar.new_water_pct >= s1WaterPct) {
-    lines.push({ atMs: Date.parse(radar.time_utc), kind: "computed",
-      text: `${radar.platform}: vatten utanför sjöarna på ${String(radar.new_water_pct).replace(".", ",")} % av marken (beräknat)` });
-  }
-  for (const fire of state.context?.firms || []) {
-    lines.push({ atMs: Date.parse(fire.time_utc), kind: "firms",
-      text: `NASA FIRMS: värmedetektion ${fire.instrument} (${fire.satellite}) vid ${fire.latitude.toFixed(3)} N, ${fire.longitude.toFixed(3)} E` });
-  }
-  for (const alarm of state.alarms) {
-    lines.push({ atMs: Date.parse(alarm.created_utc), kind: alarm.candidate.simulated ? "simulated" : "synthetic",
-      text: `LARM: ${alarm.candidate.title}${alarm.candidate.facts[0] ? ` – ${alarm.candidate.facts[0].text}` : ""}`
-        + `${alarm.candidate.simulated ? " (simulerad)" : ""}` });
-  }
-  return lines.filter((line) => line.atMs >= nowMs - LOG_BACK_MS && line.atMs <= nowMs + LOG_AHEAD_MS)
-    .sort((a, b) => b.atMs - a.atMs);
 }
 
 async function start() {
@@ -63,12 +35,6 @@ async function start() {
     if (!passCache.has(key)) passCache.set(key, satellitePasses(lib, item, day * DAY, (day + 1) * DAY, centre[0], centre[1]));
     return passCache.get(key);
   };
-  let state = null;
-  let logKey = null;
-  const refreshState = () => getJson("/api/state").then((value) => { state = value; }).catch(() => null);
-  await refreshState();
-  setInterval(refreshState, STATE_MS);
-
   const draw = () => {
     const now = new Date();
     const nowMs = now.getTime();
@@ -96,21 +62,6 @@ async function start() {
       row.className = next && next.start <= nowMs ? "active" : "";
       list.append(row);
     }
-    if (!state) return;
-    const lines = monitoringLog(state, nowMs, config.area.s1_water_log_pct);
-    const key = lines.map((line) => `${line.atMs}${line.text}`).join("|");
-    if (key === logKey) return;
-    logKey = key;
-    const box = document.getElementById("monitor-log-lines");
-    box.replaceChildren();
-    lines.forEach((line, index) => {
-      const row = document.createElement("li");
-      row.className = `${line.kind}${index === 0 && line.atMs <= nowMs ? " latest" : ""}`;
-      const time = document.createElement("time");
-      time.textContent = dayTime.format(new Date(line.atMs));
-      row.append(time, ` ${line.text}`);
-      box.append(row);
-    });
   };
   draw();
   setInterval(draw, DRAW_MS);

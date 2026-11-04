@@ -136,10 +136,10 @@ is never logged or shown.
 - **Marks**, as the user asked: SMHI's stations round with a white ring, blue, and red while one of
   them alarms (a high flow or record, or heavy rain: 10 mm in an hour at a weather station); the
   protected objects and other places of interest small, round and yellow;
-- **Logs**: the satellite monitor logs only what is detected (FIRMS's detections, Sentinel-1's
-  water outside the lakes from 0.5 % of the land, a proposal) and every alarm with its station and
-  value, not the passes that see nothing; mission control's Logg lists every alarm, confirmation
-  and dismissal;
+- **Logs** in mission control: Detektioner och larm lists, for the last day, only what is detected
+  (FIRMS's detections, Sentinel-1's water outside the lakes from 0.5 % of the land, a proposal) and
+  every alarm with its station and value, not the passes that see nothing; Logg lists every alarm,
+  confirmation and dismissal;
 - **Charts** in mission control: each station's flow of the last day with its limits, the hour's rain
   at Floda A, the radar's highest rate in the municipality in the last hour.
 - **UPPLÄSNING** in mission control reads new alarms aloud with the scenarios' voice alma
@@ -151,8 +151,7 @@ is never logged or shown.
 - **Screens** (`web/`): mission control (`control.*`) with the map, the alarms, the sources, the
   events in and BYT; the 3D globe (`globe.*`) with the border, stations, detections, events, current
   alarms and the satellites with their orbits; the satellite monitor (`satellites.*`, with the demos'
-  `orbits.js` and `satmonitor.js`) with the passes over the area and a log of passes, detections and
-  alarms.
+  `orbits.js` and `satmonitor.js`) with the passes over the area.
 
 ## Limits
 

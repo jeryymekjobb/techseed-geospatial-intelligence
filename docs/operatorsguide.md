@@ -994,9 +994,9 @@ Sentinel-1: radarbilden i grått, där fuktig och ojämn mark är ljus, och vatt
 (en beräknad mask, inte en kartlagd översvämning), och fukten i terrängen, beräknad ur hur blöt
 marken är jämfört med de senaste 120 dagarnas passager (brun torr, blå blöt; inte uppmätt). SMHI:s
 stationer är runda med vit ring och blå, och röda när de larmar för högt flöde, rekordflöde eller
-kraftigt regn; skyddsvärda objekt och andra platser av intresse är små och gula. Satellitmonitorns logg
-visar bara det som upptäcks och larmen, och **Logg** i mission control alla larm, bekräftelser och
-avfärdanden. Med väderkartan på visar
+kraftigt regn; skyddsvärda objekt och andra platser av intresse är små och gula. I mission control
+visar **Detektioner och larm** det senaste dygnets upptäckter och larm, och **Logg** alla larm,
+bekräftelser och avfärdanden. Med väderkartan på visar
 huvudskärmen Skandinavien. Varje larm räknar upp skyddsvärda objekt och byggnader som kan beröras.
 Diagrammen visar flödena, regnet och radarn det senaste dygnet. **UPPLÄSNING** läser upp nya larm,
 och **IoT** visar sensorerna, märkta som simulerade om de inte anger annat. Datat från kommunens GIS

@@ -832,14 +832,16 @@ def test_the_stations_are_blue_red_while_alarming_and_the_objects_yellow() -> No
         assert "alarming(state, `flow-${flow.station}`)" in script and "alarming(state, `rain-${station.station}`)" in script, name
 
 
-def test_heavy_rain_at_a_station_alarms_and_the_satellite_log_holds_only_detections() -> None:
+def test_heavy_rain_at_a_station_alarms_and_mission_control_lists_only_detections_and_alarms() -> None:
     stations = [{"station": "96040", "name": "Floda A", "latitude": 59.06, "longitude": 16.39,
                  "values": {"rain_1h_mm": 12.5}, "times": {"rain_1h_mm": "2026-11-03T11:00:00Z"}},
                 {"station": "19025", "name": "Höksta", "latitude": 59.4, "longitude": 16.2, "values": {"temp_c": 4.0}, "times": {}}]
     (alarm,) = rules.station_rain_candidates(stations, area())
     assert alarm.key == "rain-96040" and alarm.title == "Kraftigt regn vid Floda A: 12,5 mm på en timme"
-    script = (Path(service.WEB_DIR) / "satellites.js").read_text(encoding="utf-8")
-    assert "passerade" not in script and "radar.new_water_pct >= s1WaterPct" in script
+    control = (Path(service.WEB_DIR) / "control.js").read_text(encoding="utf-8")
+    assert "passerade" not in control and "radar.new_water_pct >= waterLogPct" in control and "drawDetections(state);" in control
+    assert 'id="detections"' in (Path(service.WEB_DIR) / "control.html").read_text(encoding="utf-8")
+    assert "monitor-log" not in (Path(service.WEB_DIR) / "satellites.html").read_text(encoding="utf-8")
 
 
 def test_the_wetness_sets_each_pixel_between_its_dry_and_its_wet_and_leaves_out_lakes() -> None:
