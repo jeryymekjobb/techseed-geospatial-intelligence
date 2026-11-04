@@ -60,6 +60,10 @@ border (`service.clip_to_border`), since OpenStreetMap's own map has them outsid
 The satellites are those whose data the monitoring uses: NASA FIRMS's Suomi NPP, NOAA-20, NOAA-21,
 Terra and Aqua, Sentinel-1C and 1D (radar), Sentinel-2A, 2B and 2C, Landsat 8 and 9, and the
 geostationary Meteosat-10, whose cloud mask the monitoring shows (on the satellite monitor, not the globe).
+Their current element sets come from Space-Track (class `gp`) with the account in
+`~/.spacetrackrc`, kept in `data/monitoring/tle/current.json` and fetched again at most once a day
+(`satellites.py`). The screens compute where they are now with satellite.js; the positions are
+computed, not observed.
 
 Meteosat's cloud mask (`meteosat.py`, as the Flen scenarios' `tools/fetch_meteosat_clm.py`) gives the
 cloudy share of the municipality's pixels every 15 minutes, about an hour late, kept for the last day
@@ -70,10 +74,14 @@ eccodes (`tools/requirements-meteosat.txt`); without them the source says the ke
 The Flen scenarios' simulated level sensors (`levels.py`, the eight points of
 `data/flenkommun2024/sensors/level-points.geojson` where larger roads cross MCF's 100-year flow) each
 follow the live flow of Sibro 2 or Hallbosjön and alarm, as in the scenarios, above the highest daily
-flow in SMHI's archive; marked simulated on the maps (a magenta ring) and in mission control's IoT. Their current element sets come from Space-Track (class `gp`) with the account in
-`~/.spacetrackrc`, kept in `data/monitoring/tle/current.json` and fetched again at most once a day
-(`satellites.py`). The screens compute where they are now with satellite.js; the positions are
-computed, not observed.
+flow in SMHI's archive; marked simulated on the maps (a magenta ring) and in mission control's IoT.
+Mission control's Simulerade sensorer has one switch for every simulated sensor: the level sensors
+on both maps and in IoT, and the MQTT nodes not marked real in IoT.
+
+SPARA INSTÄLLNINGAR in mission control saves the display settings in use (the map layers, the
+simulated sensors, 2D or 3D and UPPLÄSNING) in `data/monitoring/<area>/settings.json`, which is not
+in the repository, and the monitoring starts with them; as the scenarios' SPARA PROFIL, the button
+is red while the settings differ from those it starts with.
 
 NASA FIRMS needs a free MAP_KEY (https://firms.modaps.eosdis.nasa.gov/api/map_key/), kept outside
 the repository:

@@ -251,7 +251,7 @@ async function start() {
   const s1Wetness = imageDrawer(viewer, "/api/s1wetness.png", config.layers.radar.bbox, 0.85);
   const drawRadar = (stats, polled) => radarImage.draw(stats?.latest_utc ? `${stats.latest_utc}|${polled}` : null, config.layers.radar.attribution);
   const sources = {};
-  for (const name of ["stations", "levels", "facilities", "names", "firms"]) {
+  for (const name of ["stations", "simulated", "facilities", "names", "firms"]) {
     sources[name] = new Cesium.CustomDataSource(name);
     viewer.dataSources.add(sources[name]);
   }
@@ -328,9 +328,9 @@ async function start() {
     });
     sources.stations.entities.removeAll();
     sources.firms.entities.removeAll();
-    sources.levels.entities.removeAll();
+    sources.simulated.entities.removeAll();
     for (const sensor of context.level_sensors || []) {
-      sources.levels.entities.add({
+      sources.simulated.entities.add({
         name: escapeText(`${sensor.name} (simulerad)`), description: escapeText(levelText(sensor)),
         position: Cesium.Cartesian3.fromDegrees(sensor.longitude, sensor.latitude),
         point: { pixelSize: 10, color: color(sensor.alarm ? STATION_MARKS.alarm : STATION_MARKS.normal), outlineColor: color(LEVEL_RING),

@@ -177,6 +177,7 @@ async function refresh() {
     showView(state.view);
     showLayers(state.layers);
     showSpeech(state.speech);
+    showSettings(state.settings);
     drawCharts(state);
     drawSatelliteImage(state);
     drawIot(state);
@@ -208,7 +209,6 @@ document.getElementById("switch-demo").addEventListener("click", async () => {
 const LAYER_LABELS = {
   municipal: "Kommunens karta (Flens kommun)", flood: "Översvämning, 100-årsflöde (MCF)", radar: "Väderradar (SMHI)",
   wind: "Vindpilar (SMHI, prognos)", chart: "Väderkarta (SMHI, prognos)", stations: "SMHI:s stationer",
-  levels: "Nivågivare (simulerade, följer SMHI)",
   facilities: "Skyddsvärda objekt (kommunens GIS)", names: "Ortnamn (OSM)", firms: "Brandpunkter (NASA FIRMS)",
   satellite: "Satellitbild (Sentinel-2)", s1radar: "Radarbild (Sentinel-1)", s1water: "Vatten utanför sjöarna, radar (rött)",
   s1wetness: "Fukt i terrängen, radar (brun torr – blå blöt)", landsat: "Satellitbild (Landsat)",
@@ -226,18 +226,41 @@ function showLayers(layers) {
       input = element("input");
       input.type = "checkbox";
       input.value = name;
-      input.addEventListener("change", async () => {
-        const response = await fetch("/api/layers", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [name]: input.checked }) }).catch(() => null);
-        if (response?.ok) showLayers((await response.json()).layers);
-        else document.getElementById("command-status").textContent = "Växlingen gick inte – tjänsten svarar inte.";
-      });
+      input.addEventListener("change", () => postLayers({ [name]: input.checked }));
       row.append(input, element("span", label));
       box.append(row);
     }
     input.checked = Boolean(layersShown[name]);
   }
+  document.getElementById("simulated-toggle").checked = Boolean(layersShown.simulated);
 }
+
+async function postLayers(changes) {
+  const response = await fetch("/api/layers", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(changes) }).catch(() => null);
+  if (response?.ok) showLayers((await response.json()).layers);
+  else document.getElementById("command-status").textContent = "Växlingen gick inte – tjänsten svarar inte.";
+  refresh();
+}
+// One switch for every simulated sensor (the service's layer "simulated").
+document.getElementById("simulated-toggle").addEventListener("change", (event) => postLayers({ simulated: event.target.checked }));
+
+// SPARA INSTÄLLNINGAR, as the scenarios' SPARA PROFIL: red while the settings differ from those the
+// monitoring starts with; the line under it says which apply.
+function showSettings(settings) {
+  if (!settings) return;
+  document.getElementById("save-settings").classList.toggle("unsaved", Boolean(settings.unsaved));
+  document.getElementById("settings-status").textContent = (settings.saved_utc
+    ? `Övervakningen startar med inställningarna sparade ${localTime.format(new Date(settings.saved_utc))}.`
+    : "Inga sparade inställningar – övervakningen startar med standardvalen.")
+    + (settings.unsaved ? " Valen nu skiljer sig från dem; spara för att starta med dem." : "");
+}
+document.getElementById("save-settings").addEventListener("click", async () => {
+  const response = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+    .catch(() => null);
+  if (response?.ok) showSettings(await response.json());
+  else document.getElementById("settings-status").textContent = "Inställningarna sparades inte – tjänsten svarar inte.";
+});
 
 // UPPLÄSNING: new alarms read aloud by the service with the scenarios' voice alma.
 let speech = false;
@@ -378,16 +401,20 @@ function drawIot(state) {
   document.getElementById("iot-connection").textContent = `${iot.detail || "IoT är inte startat."}`
     + `${iot.rejected ? ` ${iot.rejected} meddelanden avvisade.` : ""}`;
   const list = document.getElementById("iot-sensors");
-  list.replaceChildren(...(iot.sensors || []).map((sensor) => element("li",
+  // Without the simulated sensors, only the nodes that said they are real.
+  const simulated = Boolean(state.layers?.simulated);
+  const hidden = (iot.sensors || []).filter((sensor) => !sensor.real).length + (state.context?.level_sensors || []).length;
+  list.replaceChildren(...(iot.sensors || []).filter((sensor) => simulated || sensor.real).map((sensor) => element("li",
     `${sensor.node} ${sensor.kind}: ${sensor.value}${sensor.unit ? ` ${sensor.unit}` : ""}`
       + `${sensor.real ? "" : " (simulerad)"}${sensor.online ? "" : " – har tystnat"}`, sensor.online ? "info" : "alert")));
   // The scenarios' simulated level sensors (levels.py), driven by SMHI's flows.
-  for (const sensor of state.context?.level_sensors || []) {
+  for (const sensor of simulated ? state.context?.level_sensors || [] : []) {
     const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
       : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
     list.append(element("li", `${sensor.name}: ${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare)`,
       sensor.alarm ? "alert" : "info"));
   }
+  if (!simulated && hidden) list.append(element("li", `${hidden} simulerade sensorer är dolda.`, "info"));
   if (!list.children.length) list.append(element("li", "Inga sensorer har hörts av.", "ok"));
 }
 

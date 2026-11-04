@@ -27,6 +27,14 @@
       <h2>Läget nu</h2>
       <ul id="situation" class="scenario-status"></ul>
       <fieldset id="map-layers" class="image-types"><legend>Kartlager på huvudskärmen</legend></fieldset>
+      <fieldset id="simulated-sensors" class="image-types"><legend>Simulerade sensorer</legend>
+        <label><input id="simulated-toggle" type="checkbox"><span>Visa simulerade sensorer: nivågivarna vid Nyköpingsån
+          och IoT-noder som inte är märkta riktiga, på kartorna och i IoT</span></label>
+      </fieldset>
+      <div class="control-row">
+        <button id="save-settings" type="button">SPARA INSTÄLLNINGAR</button>
+      </div>
+      <div id="settings-status" class="status" aria-live="polite"></div>
     </section>
     <section>
       <h2>Larm</h2>

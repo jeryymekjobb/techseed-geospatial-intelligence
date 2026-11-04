@@ -1002,7 +1002,12 @@ Diagrammen visar flödena, regnet och radarn det senaste dygnet. **UPPLÄSNING**
 och **IoT** visar sensorerna, märkta som simulerade om de inte anger annat, och scenariernas
 simulerade nivågivare vid Nyköpingsån, som följer SMHI:s flöden och larmar över arkivets högsta
 dygnsflöde (magentafärgad ring på kartan). Meteosats molnmask visar hur molnigt det är över kommunen,
-med en kurva för senaste dygnet, och förklarar varför den optiska bilden kan vara gammal. Datat från kommunens GIS
+med en kurva för senaste dygnet, och förklarar varför den optiska bilden kan vara gammal.
+**Simulerade sensorer** i mission control slår av och på alla simulerade sensorer på en gång:
+nivågivarna på kartorna och i IoT och IoT-noderna som inte är märkta riktiga. **SPARA INSTÄLLNINGAR**
+sparar kartlagren, de simulerade sensorerna, 2D eller 3D och UPPLÄSNING, och övervakningen startar
+med dem nästa gång. Knappen är röd när valen skiljer sig från dem som övervakningen startar med.
+Inställningarna sparas i `data/monitoring/flenkommun/settings.json` och följer inte med repot. Datat från kommunens GIS
 är för intern användning; boenden för personer med funktionsnedsättning ingår inte. **BYT** överst i mission control avslutar övervakningen
 och visar startsidan igen. `app/monitoring/README.md` beskriver övervakningen.
 

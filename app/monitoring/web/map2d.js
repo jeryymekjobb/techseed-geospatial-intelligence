@@ -18,7 +18,7 @@ const map = L.map("map");
 // Mission control's map layers (service.LAYERS), each a group shown or hidden by showLayers.
 const named = {};
 for (const name of ["municipal", "flood", "flood_highest", "skyfall100", "skyfall500", "radar", "satellite", "landsat", "s1radar",
-  "s1wetness", "s1water", "stations", "levels", "facilities", "names", "firms"]) {
+  "s1wetness", "s1water", "stations", "simulated", "facilities", "names", "firms"]) {
   named[name] = L.layerGroup();
 }
 // The hamlets' names, part of the names layer, shown only close in, where they do not crowd.
@@ -186,9 +186,9 @@ function drawMap(state) {
   layers.sites.clearLayers();
   named.stations.clearLayers();
   named.firms.clearLayers();
-  named.levels.clearLayers();
+  named.simulated.clearLayers();
   for (const sensor of context.level_sensors || []) {
-    marker(named.levels, sensor.latitude, sensor.longitude, { radius: 5, color: LEVEL_RING, weight: 2,
+    marker(named.simulated, sensor.latitude, sensor.longitude, { radius: 5, color: LEVEL_RING, weight: 2,
       fillColor: sensor.alarm ? STATION_MARKS.alarm : STATION_MARKS.normal, fillOpacity: 1 }, levelText(sensor));
   }
   for (const flow of context.flows || []) {

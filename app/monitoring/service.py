@@ -60,7 +60,9 @@ BASEMAP_TILE = re.compile(r"/basemap/([a-z0-9]+)/(\d{1,2})/(\d+)/(\d+)\.png")
 # The map layers mission control switches on the main screen, and whether each starts on.
 LAYERS = {"municipal": True, "flood": True, "radar": True, "wind": True, "chart": False, "facilities": True, "names": True,
           "stations": True, "firms": True, "satellite": False, "s1radar": False, "s1water": True,
-          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall100": False, "skyfall500": False, "levels": True}
+          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall100": False, "skyfall500": False,
+          # One switch for every simulated sensor: the level sensors (levels.py) and the IoT nodes not marked real.
+          "simulated": True}
 # OpenStreetMap's standard map outside the municipality, the one-pager's fallback where there is no
 # GIS map: it has land cover at every zoom and no edge; the demos' offline map takes its place only
 # when it does not answer.
@@ -100,6 +102,45 @@ class Monitor:
         # UPPLÄSNING: new alarms read aloud (app/backend/speech.py); off at the start, as in the scenarios.
         self.speech = False
         self.speaker: Any = None
+        # SPARA INSTÄLLNINGAR in mission control: the display settings the monitoring starts with, as the
+        # scenarios' SPARA PROFIL; in the unversioned data directory, not the repository.
+        self.settings_file = self.data_dir / "settings.json"
+        saved = self.saved_settings()
+        if saved:
+            self.layers.update(saved["layers"])
+            self.view, self.speech = saved["view"], saved["speech"]
+
+    def settings(self) -> dict[str, Any]:
+        """The display settings in use: the map layers, the simulated sensors, 2D or 3D and UPPLÄSNING."""
+        return {"layers": dict(self.layers), "view": self.view, "speech": self.speech}
+
+    def saved_settings(self) -> dict[str, Any] | None:
+        """The saved settings, of known layers and values only, or None."""
+        try:
+            data = json.loads(self.settings_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if not isinstance(data, dict):
+            return None
+        layers = data.get("layers") if isinstance(data.get("layers"), dict) else {}
+        return {"layers": {key: value for key, value in layers.items() if key in LAYERS and isinstance(value, bool)},
+                "view": data.get("view") if data.get("view") in ("2d", "3d") else "3d",
+                "speech": data.get("speech") if isinstance(data.get("speech"), bool) else False,
+                "saved_utc": data.get("saved_utc")}
+
+    def save_settings(self) -> dict[str, Any]:
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        data = {**self.settings(), "saved_utc": sources.utc_text(datetime.now(timezone.utc))}
+        self.settings_file.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        return self.settings_status()
+
+    def settings_status(self) -> dict[str, Any]:
+        """Whether the settings in use differ from those the monitoring starts with (the saved ones, else
+        the defaults), for mission control's button."""
+        saved = self.saved_settings()
+        start = ({"layers": {**LAYERS, **saved["layers"]}, "view": saved["view"], "speech": saved["speech"]} if saved
+                 else {"layers": dict(LAYERS), "view": "3d", "speech": False})
+        return {"saved_utc": saved["saved_utc"] if saved else None, "unsaved": self.settings() != start}
 
     def _firms(self) -> list[dict[str, Any]]:
         key = sources.firms_key()
@@ -196,7 +237,8 @@ class Monitor:
         alarms.sort(key=lambda alarm: (alarm["state"] != "new", not alarm["current"]))
         return {"area": {"name": self.area.NAME, "bbox": self.area.BBOX, "centre": self.area.CENTRE,
                          "poll_seconds": self.area.POLL_SECONDS, "contacts_note": self.area.CONTACTS_NOTE},
-                "view": self.view, "layers": self.layers, "speech": self.speech, "iot": self.sensors.snapshot(),
+                "view": self.view, "layers": self.layers, "speech": self.speech, "settings": self.settings_status(),
+                "iot": self.sensors.snapshot(),
                 "polled_utc": state.get("polled_utc"), "alarms": alarms, "sources": state["sources"],
                 "filtered": state["filtered"], "events": state["events"][-50:], "refused": state["refused"][-50:],
                 "context": state["context"]}
@@ -430,6 +472,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/speech":
             self.set_speech()
+            return
+        if path == "/api/settings":
+            settings = self.monitor.save_settings()
+            log.info("Operatören: inställningarna sparade")
+            self.send_json(settings)
             return
         parts = path.split("/")
         if len(parts) != 5 or parts[:3] != ["", "api", "alarms"] or parts[4] not in ("confirm", "dismiss"):

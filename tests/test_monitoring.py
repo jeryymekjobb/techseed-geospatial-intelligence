@@ -933,3 +933,28 @@ def test_meteosat_s_cloud_mask_keeps_the_last_day_and_asks_again_only_for_a_newe
     assert [item["time_utc"] for item in later["series"]] == ["2026-11-04T08:15:00Z", "2026-11-04T08:30:00Z"]
     assert meteosat.CloudMask(flenkommun.BBOX, tmp_path).meta["series"] == later["series"]
     assert not list((tmp_path / "meteosat-clm").glob("**/*.zip"))
+
+
+def test_one_switch_hides_every_simulated_sensor_and_the_settings_are_saved_and_started_with(server: int, tmp_path: Path) -> None:
+    json_type = {"Content-Type": "application/json"}
+    state = json.loads(request(server, "GET", "/api/state")[1])
+    assert state["layers"]["simulated"] is True and "levels" not in state["layers"]
+    assert state["settings"] == {"saved_utc": None, "unsaved": False}
+    request(server, "POST", "/api/layers", b'{"simulated": false, "chart": true}', json_type)
+    request(server, "POST", "/api/view", b'{"view": "2d"}', json_type)
+    assert json.loads(request(server, "GET", "/api/state")[1])["settings"]["unsaved"] is True
+    assert request(server, "POST", "/api/settings", b"{}", {**json_type, "Origin": "http://evil.example"})[0] == 403
+    assert request(server, "POST", "/api/settings", b"{}", {"Content-Type": "text/plain"})[0] == 415
+    status, body = request(server, "POST", "/api/settings", b"{}", json_type)
+    assert status == 200 and json.loads(body)["unsaved"] is False and json.loads(body)["saved_utc"]
+    saved = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
+    assert saved["layers"]["simulated"] is False and saved["view"] == "2d" and saved["speech"] is False
+    # A new start begins with the saved settings; unknown layers and values in the file are left out.
+    saved["layers"].update(rain=True, names="no")
+    (tmp_path / "settings.json").write_text(json.dumps(saved), encoding="utf-8")
+    again = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch({}), tmp_path, NO_SCENES)
+    assert again.layers["simulated"] is False and again.layers["chart"] is True and again.view == "2d"
+    assert "rain" not in again.layers and again.layers["names"] is True and again.settings_status()["unsaved"] is False
+    control = (Path(service.WEB_DIR) / "control.js").read_text(encoding="utf-8")
+    assert "filter((sensor) => simulated || sensor.real)" in control and "levels:" not in control
+    assert "named.simulated" in (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
