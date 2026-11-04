@@ -958,3 +958,15 @@ def test_one_switch_hides_every_simulated_sensor_and_the_settings_are_saved_and_
     control = (Path(service.WEB_DIR) / "control.js").read_text(encoding="utf-8")
     assert "filter((sensor) => simulated || sensor.real)" in control and "levels:" not in control
     assert "named.simulated" in (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
+
+
+def test_both_maps_keep_the_credits_behind_kallor_as_the_scenarios(server: int) -> None:
+    status, script = request(server, "GET", "/credits.js")
+    assert status == 200 and b"function creditBox" in script
+    for page, code in (("globe.html", "globe.js"), ("map2d.html", "map2d.js")):
+        html = (Path(service.WEB_DIR) / page).read_text(encoding="utf-8")
+        assert html.index('src="/credits.js"') < html.index(f'src="/{code}"') and 'id="credits"' not in html
+        script = (Path(service.WEB_DIR) / code).read_text(encoding="utf-8")
+        assert "creditBox(" in script and "setShortCredits(layers.municipal" in script
+    assert "attributionControl: false" in (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
+    assert ".map-credits .credit-toggle" in (Path(service.WEB_DIR) / "globe.css").read_text(encoding="utf-8")

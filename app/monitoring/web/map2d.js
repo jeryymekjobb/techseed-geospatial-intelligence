@@ -14,7 +14,19 @@ function tip(text) {
   return document.createTextNode(String(text ?? ""));
 }
 
-const map = L.map("map");
+const map = L.map("map", { attributionControl: false });
+// The credits out of the map picture, as the scenarios' 2D map (app/frontend/credits.js): Leaflet's
+// attribution control still collects every layer's credit, but draws only OpenStreetMap's (and the
+// municipal map's while shown) and the whole list behind "(i) Källor".
+const CreditControl = L.Control.Attribution.extend({
+  _update() {
+    if (!this._map) return;
+    for (const [text, count] of Object.entries(this._attributions)) if (count) addCredit(text);
+    if (!this._container.classList.contains("map-credits")) creditBox(this._container);
+  },
+});
+map.attributionControl = new CreditControl({ prefix: false }).addTo(map);
+let municipalCredits = [];
 // Mission control's map layers (service.LAYERS), each a group shown or hidden by showLayers.
 const named = {};
 for (const name of ["municipal", "flood", "flood_highest", "skyfall100", "skyfall500", "radar", "satellite", "landsat", "s1radar",
@@ -298,6 +310,7 @@ function showLayers(layers) {
   }
   if (layers.chart && !shownLayers.chart) map.fitBounds(CHART_BOUNDS);
   if (!layers.chart && shownLayers.chart && areaBounds) map.fitBounds(areaBounds);
+  setShortCredits(layers.municipal ? municipalCredits : []);
   shownLayers = { ...layers };
 }
 
@@ -311,6 +324,7 @@ function followView() {
 getJson("/api/config").then((config) => {
   document.getElementById("title").textContent = `Övervakning – ${config.area.name}`;
   document.title = `Övervakning – ${config.area.name} – 2D`;
+  municipalCredits = config.maps.municipal.map((item) => item.attribution);
   addBaseMaps(config.maps);
   addOverlays(config);
   getJson("/api/assets").then(drawAssets).catch(() => null);

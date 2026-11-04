@@ -24,10 +24,16 @@ function color(hex, alpha = 1) {
   return Cesium.Color.fromCssColorString(hex).withAlpha(alpha);
 }
 
+// The credits out of the map picture, as the scenarios' globe (app/frontend/credits.js): the whole
+// list behind "(i) Källor" in the globe's corner, with only OpenStreetMap's and, while shown, the
+// municipal map's in sight.
 function credit(text) {
-  if (!text) return;
-  const box = document.getElementById("credits");
-  if (!box.textContent.includes(text)) box.textContent += `${box.textContent ? " · " : ""}${text}`;
+  addCredit(text);
+}
+
+// What is not a credit, such as an error at the start, in a line of its own under the globe.
+function status(text) {
+  document.getElementById("status").textContent = text || "";
 }
 
 async function getJson(path) {
@@ -230,6 +236,7 @@ async function start() {
     fullscreenButton: false, timeline: false, animation: false, infoBox: true, selectionIndicator: false,
   });
   viewer.bottomContainer.style.display = "none";
+  viewer.container.append(creditBox());
   credit("Natural Earth II");
   // Mission control's map layers (service.LAYERS): imagery layers and data sources shown or hidden.
   const municipal = addBaseMaps(viewer, config.maps);
@@ -257,6 +264,7 @@ async function start() {
   }
   const applyLayers = (layers) => {
     for (const layer of municipal) layer.show = Boolean(layers.municipal);
+    setShortCredits(layers.municipal ? config.maps.municipal.map((item) => item.attribution) : []);
     for (const layer of flood) layer.show = Boolean(layers.flood);
     for (const layer of floodHighest) layer.show = Boolean(layers.flood_highest);
     for (const [id, layer] of Object.entries(overlays)) layer.show = Boolean(layers[id]);
@@ -388,7 +396,8 @@ async function start() {
   }).catch(() => null), VIEW_MS);
 
   const data = await getJson("/api/satellites");
-  credit(data.available ? `${data.label}. ${data.attribution}` : data.note);
+  if (data.available) credit(`${data.label}. ${data.attribution}`);
+  status(data.available ? data.note : data.note || "Inga satellitbanor.");
   if (!data.available) return;
   const lib = await import("/vendor/satellite.js-7.1.0/index.js");
   const entries = new Map();
@@ -428,4 +437,4 @@ async function start() {
   setInterval(drawSatellites, SATELLITE_MS);
 }
 
-start().catch((error) => { document.getElementById("credits").textContent = `Fel vid start: ${error.message}`; });
+start().catch((error) => status(`Fel vid start: ${error.message}`));

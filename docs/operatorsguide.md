@@ -1003,6 +1003,8 @@ och **IoT** visar sensorerna, märkta som simulerade om de inte anger annat, och
 simulerade nivågivare vid Nyköpingsån, som följer SMHI:s flöden och larmar över arkivets högsta
 dygnsflöde (magentafärgad ring på kartan). Meteosats molnmask visar hur molnigt det är över kommunen,
 med en kurva för senaste dygnet, och förklarar varför den optiska bilden kan vara gammal.
+Kartornas källor står inte längre längst ned i kartbilden: i hörnet står bara OpenStreetMaps
+kredit (och kommunens karta när den visas), och ett klick på **(i) Källor** visar alla källor.
 **Simulerade sensorer** i mission control slår av och på alla simulerade sensorer på en gång:
 nivågivarna på kartorna och i IoT och IoT-noderna som inte är märkta riktiga. **SPARA INSTÄLLNINGAR**
 sparar kartlagren, de simulerade sensorerna, 2D eller 3D och UPPLÄSNING, och övervakningen startar

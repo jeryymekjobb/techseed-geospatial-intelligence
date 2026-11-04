@@ -22,3 +22,11 @@ header h1 { margin: 0; font-size: 1.2rem; }
 .place-label .place-name.hamlet { font-size: 11px; font-weight: 500; }
 .thunder-mark { font-size: 20px; transform: translate(-50%, -50%); }
 .credits { padding: 2px 16px 4px; font-size: 0.75rem; color: #b8b8b8; background: #101010; }
+/* The credits in the map's corner, "(i) Källor" with the whole list, as the scenarios'
+   (app/frontend/styles.css, credits.js). */
+.map-credits { max-width: min(640px, 90vw); padding: 1px 6px; background: rgba(255, 255, 255, 0.85); color: #333; font: 12px/1.4 sans-serif; }
+.map-credits a { color: #0078a8; }
+.map-credits .credit-toggle { padding: 0; border: 0; background: none; color: #0078a8; font: inherit; cursor: pointer; text-decoration: underline; }
+.map-credits .credit-list { margin: 4px 0 2px; padding-left: 1.2em; max-height: 40vh; overflow-y: auto; }
+.cesium-viewer > .map-credits { position: absolute; right: 0; bottom: 0; z-index: 2; }
+.credits:empty { display: none; }

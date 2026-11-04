@@ -78,6 +78,11 @@ flow in SMHI's archive; marked simulated on the maps (a magenta ring) and in mis
 Mission control's Simulerade sensorer has one switch for every simulated sensor: the level sensors
 on both maps and in IoT, and the MQTT nodes not marked real in IoT.
 
+Both maps keep the credits out of the map picture, as the scenarios (`app/frontend/credits.js`):
+OpenStreetMap's credit, and the municipal map's while it is shown, stay in the corner, as
+OpenStreetMap's licence asks; "(i) Källor" opens the whole list of every source the map shows.
+Errors and notes, such as missing orbital elements, have a line of their own under the globe.
+
 SPARA INSTÄLLNINGAR in mission control saves the display settings in use (the map layers, the
 simulated sensors, 2D or 3D and UPPLÄSNING) in `data/monitoring/<area>/settings.json`, which is not
 in the repository, and the monitoring starts with them; as the scenarios' SPARA PROFIL, the button
