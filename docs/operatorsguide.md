@@ -1010,6 +1010,10 @@ och **IoT** visar sensorerna, märkta som simulerade om de inte anger annat, och
 simulerade nivågivare vid Nyköpingsån, som följer SMHI:s flöden och larmar över arkivets högsta
 dygnsflöde (magentafärgad ring på kartan). Meteosats molnmask visar hur molnigt det är över kommunen,
 med en kurva för senaste dygnet, och förklarar varför den optiska bilden kan vara gammal.
+I Vellinge visar övervakningen havsvattenståndet vid Klagshamn (SMHI, cm i RH2000) och larmar från
+100 cm; strändernas tre simulerade nivågivare följer det. Kramfors, Ljusdal, Sala och Höör får
+Lantmäteriets topografiska karta som bakgrund när inloggningen från Geotorget ligger i
+`~/.lantmateriet` (se `app/monitoring/README.md`); utan den visas OpenStreetMap.
 Kartornas källor står inte längre längst ned i kartbilden: i hörnet står bara OpenStreetMaps
 kredit (och kommunens karta när den visas), och ett klick på **(i) Källor** visar alla källor.
 **Simulerade sensorer** i mission control slår av och på alla simulerade sensorer på en gång:

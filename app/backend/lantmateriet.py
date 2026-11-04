@@ -9,7 +9,9 @@ Configured with environment variables; nothing is enabled without them:
 - `LM_FASTIGHET_LAYERS`: comma-separated WMS layer names to show, for example
   boundaries only or boundaries and property designations.
 
-The exact URLs come with the Geotorget order and are not part of the repository.
+The exact URLs come with the Geotorget order and are not part of the repository. The same
+settings may stand as `NAME=value` lines in ~/.lantmateriet (chmod 600), outside the repository, as
+the monitoring reads them (`Settings.from_file_or_environment`); the environment wins.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from __future__ import annotations
 import base64
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -24,6 +27,8 @@ from urllib.request import Request, urlopen
 # Only map-image requests are forwarded; other WMS operations are refused.
 WMS_PARAMETERS = {"SERVICE", "REQUEST", "VERSION", "LAYERS", "STYLES", "FORMAT", "TRANSPARENT", "SRS", "CRS", "BBOX", "WIDTH", "HEIGHT"}
 TIMEOUT_SECONDS = 20
+# Where the monitoring may find the settings, outside the repository.
+CREDENTIALS_FILE = Path.home() / ".lantmateriet"
 # Topowebb is a web mercator tile pyramid; deeper levels than this are not asked for.
 MAX_ZOOM = 20
 
@@ -55,6 +60,21 @@ class Settings:
             os.environ.get("LM_FASTIGHET_WMS_URL") or None,
             os.environ.get("LM_FASTIGHET_LAYERS", ""),
         )
+
+    @classmethod
+    def from_file_or_environment(cls, path: Path | None = None) -> "Settings":
+        """The settings from ~/.lantmateriet's NAME=value lines, each overridden by the environment."""
+        values: dict[str, str] = {}
+        try:
+            for line in (path or CREDENTIALS_FILE).read_text(encoding="utf-8").splitlines():
+                name, sep, value = line.strip().partition("=")
+                if sep and not name.startswith("#"):
+                    values[name.strip()] = value.strip()
+        except OSError:
+            pass
+        get = lambda name, default=None: os.environ.get(name) or values.get(name) or default  # noqa: E731
+        return cls(get("LM_USERNAME"), get("LM_PASSWORD"), get("LM_TOPOWEBB_URL"), get("LM_FASTIGHET_WMS_URL"),
+                   get("LM_FASTIGHET_LAYERS", ""))
 
     @property
     def has_credentials(self) -> bool:

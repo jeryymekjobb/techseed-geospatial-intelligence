@@ -1,7 +1,7 @@
 """Vellinge kommun, with the beach erosion on Falsterbonäset 2012-2026 as its scenario; Flens
 kommun's monitoring is the template (common.py). No SMHI flow station lies in the municipality
-(Svedala on Sege å flows to Malmö), so there are no flows; the sea level, which the scenario follows,
-is not yet read live. The base map is the municipality's own (KommunKartaNedtonad), which the user
+(Svedala on Sege å flows to Malmö), so there are no flows; the sea level, which the scenario follows
+at Skanör, is read live at Klagshamn, since Skanör's gauge gives SMHI's archive only (checked 2026-11-04). The base map is the municipality's own (KommunKartaNedtonad), which the user
 allowed for internal use on 2026-11-04. Its state and inbox live in the unversioned
 data/monitoring/vellingekommun/.
 """
@@ -46,6 +46,16 @@ TERRAIN_DIR = built_terrain("vellingekommun", _SCENARIO / "terrain")
 TILES_FILE, MAP_BBOX = built_tiles("vellingekommun", ("falsterbo.mbtiles", (12.76, 55.36, 13.02, 55.46)), BBOX)
 
 FLOW_STATIONS: dict[str, str] = {}
+# SMHI's sea level by the hour (ocobs parameter 6, cm in RH2000), live at Klagshamn on the Öresund,
+# just north of the municipality; Skanör's gauge (30488), which Falsterbo's scenario follows, gave no
+# value since 2026-10-22 and offers the corrected archive only (checked 2026-11-04).
+SEA_LEVEL_STATIONS = {"2095": "Klagshamn"}
+# A proposal, as Falsterbo's scenario at Skanör (SEA_LEVEL_STORM_CM): a high sea level from 100 cm in RH2000.
+SEA_LEVEL_HIGH_CM = 100.0
+# The scenario's three simulated sensors on the beaches (Falsterbo, Ljunghusen, Kämpinge), following
+# Skanör there, follow Klagshamn here (levels.py).
+LEVEL_SENSOR_FILE = scenario_data("falsterbo") / "sensors" / "level-points.geojson"
+LEVEL_SENSOR_STATIONS = {"sea-30488": "sea-2095"}
 RAIN_STATIONS = {"52240": "Falsterbo A", "52350": "Malmö A"}
 # SMHI's weather stations giving values on 2026-11-04, with the parameters each reports.
 WEATHER_STATIONS = {

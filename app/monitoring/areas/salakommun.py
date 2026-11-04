@@ -21,6 +21,9 @@ KRISINFO_WORDS = ("Västmanland", "Sala")
 BBOX = (16.0, 59.7, 16.95, 60.25)
 CENTRE = (59.92, 16.6)
 DATA_DIR = data_dir("salakommun")
+# Without a public map of its own (checked 2026-11-04), Lantmäteriet's Topografisk webbkarta is the base
+# map once the Geotorget settings are in ~/.lantmateriet (service.Monitor.lantmateriet_maps).
+LANTMATERIET_BASEMAP = True
 
 # The Västmanland 2014 scenario's files, which predate the scenarios' data folders.
 OSM_TARGETS_FILE = REPO_ROOT / "osm_data" / "targets-vastmanland.geojson"

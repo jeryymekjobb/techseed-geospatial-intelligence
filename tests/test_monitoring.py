@@ -1102,3 +1102,72 @@ def test_the_terrain_and_map_tools_build_an_area_s_whole_municipality_apart_from
     assert {Path(target).parent for _, target in asked} == {tmp_path / "vellinge" / "dem"}
     command = build_terrain.docker_command("true", tmp_path / "dem", tmp_path / "terrain")
     assert f"{tmp_path / 'dem'}:/data/dem:ro" in command and f"{tmp_path / 'terrain'}:/data/terrain" in command
+
+
+def test_vellinge_reads_the_sea_level_live_and_alarms_from_a_hundred_centimetres(tmp_path: Path, monkeypatch) -> None:
+    from app.monitoring import levels, sources as monitoring_sources
+    from app.monitoring.areas import vellingekommun
+
+    def sea(values):
+        start = int(datetime(2026, 11, 4, 8, tzinfo=timezone.utc).timestamp() * 1000)
+        return json.dumps({"position": [{"latitude": 55.5222, "longitude": 12.8936}],
+                           "value": [{"date": start + index * 3600000, "value": value, "quality": "O"} for index, value in enumerate(values)]}).encode()
+
+    items = monitoring_sources.read_sea_level({"2095": "Klagshamn"}, fake_fetch({"parameter/6/station/2095": sea([90.0, 104.5])}))
+    assert items[0]["value_cm"] == 104.5 and items[0]["time_utc"] == "2026-11-04T09:00:00Z" and items[0]["unchecked"]
+    assert monitoring_sources.sea_level_url("2095").startswith("https://opendata-download-ocobs.smhi.se/") and "parameter/6/" in monitoring_sources.sea_level_url("2095")
+    (alarm,) = rules.sea_level_candidates(items, vellingekommun)
+    assert alarm.key == "sea-2095" and alarm.title == "Högt vattenstånd vid Klagshamn: 104,5 cm" and alarm.extent == "4,5 cm över gränsen"
+    assert rules.sea_level_candidates([{**items[0], "value_cm": 99.9}], vellingekommun) == []
+    points = tmp_path / "points.geojson"
+    points.write_text(json.dumps({"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [12.83, 55.42]},
+                                  "properties": {"id": "ng-01", "name": "NG1 Falsterbo strand", "station": "sea-30488"}}]}))
+    loaded = levels.load(points, {"sea-2095"}, vellingekommun.LEVEL_SENSOR_STATIONS)
+    (sensor,) = levels.readings(loaded, [], {}, items, 100.0)
+    assert sensor["station"] == "sea-2095" and sensor["unit"] == "cm" and sensor["value"] == 104.5 and sensor["alarm"]
+    monkeypatch.setenv("FIRMS_MAP_KEY", "KEY")
+    values = {key: getattr(vellingekommun, key) for key in dir(vellingekommun) if key.isupper()}
+    values.update(DATA_DIR=tmp_path, METEOSAT_CLM=False, OSM_TARGETS_FILE=Path("/nonexistent"), LEVEL_SENSOR_FILE=points, MUNICIPAL_BASEMAPS=[])
+    answers = {**live_answers(), "ocobs": sea([95.0, 101.0])}
+    monitor = service.Monitor(SimpleNamespace(**values), fake_fetch(answers), tmp_path, NO_SCENES)
+    summary = monitor.poll()
+    assert {item["source"]: item["ok"] for item in summary["sources"]}["smhi_sea_level"]
+    assert "sea-2095" in {item["key"] for item in summary["candidates"]}
+    context = monitor.state()["context"]
+    assert context["sea_level"][0]["limit_cm"] == 100.0 and context["level_sensors"][0]["alarm"]
+
+
+def test_lantmateriet_s_map_is_the_base_map_without_a_municipal_one_once_configured(tmp_path: Path, monkeypatch) -> None:
+    from app.backend import lantmateriet
+    from app.monitoring.areas import hoorkommun
+
+    for name in ("LM_USERNAME", "LM_PASSWORD", "LM_TOPOWEBB_URL"):
+        monkeypatch.delenv(name, raising=False)
+    credentials = tmp_path / "lantmateriet"
+    assert not lantmateriet.Settings.from_file_or_environment(credentials).topowebb_enabled
+    credentials.write_text("# Geotorget\nLM_USERNAME=techseed\nLM_PASSWORD=hemligt\nLM_TOPOWEBB_URL=https://lm.example/{z}/{y}/{x}.png\n")
+    settings = lantmateriet.Settings.from_file_or_environment(credentials)
+    assert settings.topowebb_enabled and settings.username == "techseed"
+    monkeypatch.setenv("LM_USERNAME", "annan")
+    assert lantmateriet.Settings.from_file_or_environment(credentials).username == "annan"
+    monkeypatch.setattr(lantmateriet, "CREDENTIALS_FILE", credentials)
+    asked = []
+    monkeypatch.setattr(lantmateriet, "_get", lambda url, settings: asked.append(url) or (b"PNG", "image/png"))
+    values = {key: getattr(hoorkommun, key) for key in dir(hoorkommun) if key.isupper()}
+    values.update(DATA_DIR=tmp_path, METEOSAT_CLM=False)
+    monitor = service.Monitor(SimpleNamespace(**values), fake_fetch({}), tmp_path, NO_SCENES)
+    (item,) = monitor.config()["maps"]["municipal"]
+    assert item["url"] == "/lm/topowebb/{z}/{x}/{y}.png" and item["attribution"] == "© Lantmäteriet" and "hemligt" not in json.dumps(monitor.config())
+    handler = type("TestHandler", (service.Handler,), {"monitor": monitor})
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        port = httpd.server_address[1]
+        assert request(port, "GET", "/lm/topowebb/12/2200/1300.png") == (200, b"PNG")
+        assert asked == ["https://lm.example/12/1300/2200.png"]
+        assert request(port, "GET", "/lm/topowebb/12/x/1.png")[0] == 404
+    finally:
+        httpd.shutdown()
+    # Flens kommun has its own map and does not take Lantmäteriet's.
+    flen = service.Monitor(area(DATA_DIR=tmp_path / "flen"), fake_fetch({}), tmp_path / "flen", NO_SCENES)
+    assert flen.lantmateriet_maps() == []

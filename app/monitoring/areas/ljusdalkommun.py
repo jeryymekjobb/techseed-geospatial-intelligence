@@ -19,6 +19,9 @@ KRISINFO_WORDS = ("Gävleborg", "Ljusdal")
 BBOX = (14.35, 61.4, 16.75, 62.4)
 CENTRE = (61.83, 16.09)
 DATA_DIR = data_dir("ljusdalkommun")
+# Without a public map of its own (checked 2026-11-04), Lantmäteriet's Topografisk webbkarta is the base
+# map once the Geotorget settings are in ~/.lantmateriet (service.Monitor.lantmateriet_maps).
+LANTMATERIET_BASEMAP = True
 
 _SCENARIO = scenario_data("ljusdal2018")
 OSM_TARGETS_FILE = _SCENARIO / "osm" / "targets-ljusdal.geojson"

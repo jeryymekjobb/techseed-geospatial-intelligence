@@ -21,7 +21,7 @@ targets, terrain, MCF flood zone and level sensors from their scenarios' unversi
 | `salakommun` | Västmanland 2014 | Tärnsjö, Gränvad | OpenStreetMap |
 | `vasterasstad` | Svartån 2023 | Åkesta kvarn, Berg, Gränvad | Västerås stad's karta |
 | `hoorkommun` | Skåne 2024 | Heåkra, Ellinge | OpenStreetMap |
-| `vellingekommun` | Falsterbonäset | none in the municipality | Vellinge kommun's KommunKartaNedtonad |
+| `vellingekommun` | Falsterbonäset | none; the sea level at Klagshamn | Vellinge kommun's KommunKartaNedtonad |
 
 The stations were checked live on 2026-11-04: several of the scenarios' stations (Skallböle,
 Torpshammar, Ringsjödammen, Hjälta, Sollefteå) give only SMHI's corrected archive, so the nearest
@@ -34,6 +34,27 @@ use as the user allowed; Vellinge's (ArcGIS REST, no terms stated) is fetched wi
 2026-11-04. Kramfors, Ljusdal, Sala and Höör publish no background map of their own (checked
 2026-11-04: Sokigo's Spatial Map with Lantmäteriet's maps, Lantmäteriet's Topowebb through a proxy,
 Esri's basemaps), so OpenStreetMap stays their base map.
+
+Vellinge's sea level is read live at Klagshamn (SMHI's ocobs parameter 6, cm in RH2000), since
+Skanör's gauge, which Falsterbo's scenario follows, offers SMHI's archive only; from 100 cm, the
+scenario's limit and a proposal, it raises "Högt vattenstånd", and the scenario's three simulated
+beach sensors follow it (`LEVEL_SENSOR_STATIONS`).
+
+Where a municipality has no public map of its own (Kramfors, Ljusdal, Sala, Höör:
+`LANTMATERIET_BASEMAP`), Lantmäteriet's Topografisk webbkarta becomes the base map through the
+service (`/lm/topowebb/`, so the credentials stay on the server) once a Geotorget order's settings
+are in a file outside the repository:
+
+```bash
+cat > ~/.lantmateriet <<'END'
+LM_USERNAME=<användarnamn från Geotorget>
+LM_PASSWORD=<lösenord från Geotorget>
+LM_TOPOWEBB_URL=https://<adressen från Geotorget>/{z}/{y}/{x}.png
+END
+chmod 600 ~/.lantmateriet
+```
+
+The environment's `LM_*` win over the file. Without them the base map stays OpenStreetMap.
 
 Sundsvall's cloudburst model (the greatest water depth at a 30-, 100- and 500-year rain) and
 Västerås stad's (100-year rain) are laid over the maps straight from the municipalities' WMS, as

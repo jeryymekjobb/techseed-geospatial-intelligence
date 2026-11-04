@@ -1,6 +1,6 @@
 """Simulated level sensors where larger roads cross MCF's 100-year flow, as in the scenarios
 (app/backend/level_sensors.py): the points of tools/derive_level_sensor_points.py, each following
-the live flow of its SMHI station.
+the live flow of its SMHI station, or, on a beach, the live sea level ("sea-<station>").
 
 There are no such level sensors along the rivers. To show how ground sensors would confirm a high flow,
 each point gets a simulated sensor driven by its station's latest 15-minute flow: it alarms, as in
@@ -18,10 +18,11 @@ from typing import Any
 LABEL = "Simulerade nivågivare – följer SMHI:s uppmätta flöde, inte mätningar"
 
 
-def load(points_file: Path | None, stations: set[str] | None = None) -> list[dict[str, Any]]:
+def load(points_file: Path | None, stations: set[str] | None = None, renamed: dict[str, str] | None = None) -> list[dict[str, Any]]:
     """The sensors' points, or none when the scenarios' file is not there (it is unversioned); with
     `stations`, only those following a station the area monitors live (a scenario's archived or
-    modelled stations give nothing to follow)."""
+    modelled stations give nothing to follow); `renamed` moves a sensor from a scenario's station to
+    the live one the area follows instead (Falsterbo's Skanör, whose gauge gives no live values, to Klagshamn)."""
     if points_file is None or not points_file.is_file():
         return []
     points = []
@@ -29,7 +30,7 @@ def load(points_file: Path | None, stations: set[str] | None = None) -> list[dic
         props = feature["properties"]
         longitude, latitude = feature["geometry"]["coordinates"][:2]
         # The scenarios name a station with SMHI's parameter (1273:2), the monitoring without it.
-        station = props["station"].split(":", 1)[0]
+        station = (renamed or {}).get(props["station"], props["station"].split(":", 1)[0])
         if stations is not None and station not in stations:
             continue
         points.append({"id": props["id"], "name": props["name"], "road": props.get("road"), "river": props.get("river"),
@@ -37,11 +38,22 @@ def load(points_file: Path | None, stations: set[str] | None = None) -> list[dic
     return points
 
 
-def readings(points: list[dict[str, Any]], flows: list[dict[str, Any]], limits: dict[str, Any]) -> list[dict[str, Any]]:
-    """Each sensor with its station's latest flow, its share of the record and whether it alarms."""
+def readings(points: list[dict[str, Any]], flows: list[dict[str, Any]], limits: dict[str, Any],
+             sea: list[dict[str, Any]] | None = None, sea_alarm_cm: float | None = None) -> list[dict[str, Any]]:
+    """Each sensor with its station's latest flow, its share of the record and whether it alarms; a beach's
+    sensor with the sea level in cm, alarming from sea_alarm_cm."""
     latest = {item["station"]: item for item in flows if item.get("readings")}
+    levels = {f"sea-{item['station']}": item for item in sea or [] if item.get("value_cm") is not None}
     found = []
     for point in points:
+        if point["station"].startswith("sea-"):
+            gauge = levels.get(point["station"])
+            value = gauge["value_cm"] if gauge else None
+            found.append({**point, "kind": "level", "simulated": True, "unit": "cm",
+                          "station_name": gauge["name"] if gauge else point["station"], "value": value,
+                          "time_utc": gauge["time_utc"] if gauge else None, "alarm_cm": sea_alarm_cm,
+                          "alarm": bool(value is not None and sea_alarm_cm is not None and value >= sea_alarm_cm)})
+            continue
         flow = latest.get(point["station"])
         record = (limits.get(point["station"]) or {}).get("record")
         value = flow["readings"][-1]["value"] if flow else None

@@ -35,7 +35,7 @@ from types import ModuleType
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-from app.backend import offline_tiles
+from app.backend import lantmateriet, offline_tiles
 from app.backend import iot
 from app.monitoring import (areas, briefing, events, geo, gis, levels, meteosat, radar, rules, satellites, sentinel1, sentinel2,
                             sources, weather)
@@ -89,8 +89,14 @@ class Monitor:
         self.image = sentinel2.Latest(area.BBOX, self.data_dir, fetch, post)
         self.landsat = sentinel2.Latest(area.BBOX, self.data_dir, fetch, post, kind=sentinel2.LANDSAT)
         self.terrain_dir: Path | None = getattr(area, "TERRAIN_DIR", None)
+        # Lantmäteriet's Topografisk webbkarta as the base map where the municipality has none of its own
+        # (LANTMATERIET_BASEMAP), once the Geotorget settings are in ~/.lantmateriet or the environment.
+        self.lantmateriet = lantmateriet.Settings.from_file_or_environment()
         # The scenarios' simulated level sensors (levels.py) and Meteosat's cloud mask (meteosat.py).
-        self.levels = levels.load(getattr(area, "LEVEL_SENSOR_FILE", None), set(area.FLOW_STATIONS))
+        # The sensors follow a monitored flow station, or a sea level station as "sea-<station>".
+        self.levels = levels.load(getattr(area, "LEVEL_SENSOR_FILE", None),
+                                  set(area.FLOW_STATIONS) | {f"sea-{key}" for key in getattr(area, "SEA_LEVEL_STATIONS", {})},
+                                  getattr(area, "LEVEL_SENSOR_STATIONS", {}))
         self.clouds = meteosat.CloudMask(area.BBOX, self.data_dir) if getattr(area, "METEOSAT_CLM", False) else None
         self.radar_pass = sentinel1.Latest(area.BBOX, self.data_dir, getattr(area, "TERRAIN_FILE", None), fetch, post)
         # The IoT nodes, as the demos' (app/backend/iot.py): MQTT techseed/<node>/<kind>, simulated
@@ -165,6 +171,9 @@ class Monitor:
             if silent:
                 results["smhi_flow"].note = "inga värden senaste dygnet: " + ", ".join(silent)
             results["smhi_rain"] = sources.guarded("smhi_rain", lambda: sources.read_rain(area.RAIN_STATIONS, fetch))
+            if getattr(area, "SEA_LEVEL_STATIONS", None):
+                results["smhi_sea_level"] = sources.guarded("smhi_sea_level",
+                                                            lambda: sources.read_sea_level(area.SEA_LEVEL_STATIONS, fetch))
             results["smhi_warnings"] = sources.guarded(
                 "smhi_warnings", lambda: sources.read_warnings(area.SMHI_COUNTY_ID, border, fetch))
             results["smhi_radar"] = sources.guarded("smhi_radar", lambda: [self.radar.update(border)])
@@ -192,7 +201,8 @@ class Monitor:
                     "fire_ban": results["mcf_fire_ban"].items, "firms": results["firms"].items,
                     "radar": results["smhi_radar"].items[0] if results["smhi_radar"].items else None,
                     "fire_risk": results["smhi_fire_risk"].items, "forecast": results["smhi_forecast"].items,
-                    "weather_stations": results["smhi_stations"].items}
+                    "weather_stations": results["smhi_stations"].items,
+                    "sea_level": results["smhi_sea_level"].items if "smhi_sea_level" in results else []}
             assets = sources.guarded("gis", lambda: [self.assets.load()] if self.assets else [])
             candidates, filtered = rules.detect(poll, recent, area)
             # What each alarm may threaten, from the municipality's GIS (gis.py).
@@ -228,7 +238,9 @@ class Monitor:
                 "firms": poll["firms"], "radar": poll["radar"], "fire_risk": poll["fire_risk"], "forecast": poll["forecast"],
                 "weather": self.weather.summary(), "satellite_image": self.image.meta, "landsat_image": self.landsat.meta,
                 "radar_pass": self.radar_pass.meta, "cloud_mask": self.clouds.meta if self.clouds else None,
-                "level_sensors": levels.readings(self.levels, poll["flows"], limits),
+                "level_sensors": levels.readings(self.levels, poll["flows"], limits, poll.get("sea_level", []),
+                                                 getattr(self.area, "SEA_LEVEL_HIGH_CM", None)),
+                "sea_level": [{**gauge, "limit_cm": getattr(self.area, "SEA_LEVEL_HIGH_CM", None)} for gauge in poll.get("sea_level", [])],
                 "weather_stations": poll.get("weather_stations", [])}
 
     def state(self) -> dict[str, Any]:
@@ -268,6 +280,13 @@ class Monitor:
                           "max_zoom": source["max_zoom"], "bbox": source["bbox_west_south_east_north"]})
         return found
 
+    def lantmateriet_maps(self) -> list[dict[str, Any]]:
+        """Lantmäteriet's Topografisk webbkarta through /lm/topowebb/, for an area without its own map, once configured."""
+        if not getattr(self.area, "LANTMATERIET_BASEMAP", False) or not self.lantmateriet.topowebb_enabled:
+            return []
+        return [{"id": "lmtopowebb", "label": "Lantmäteriet (Topografisk webbkarta)", "attribution": "© Lantmäteriet",
+                 "url": "/lm/topowebb/{z}/{x}/{y}.png", "min_zoom": 5, "max_zoom": 17, "bbox": list(self.area.BBOX)}]
+
     def wms_overlays(self) -> list[dict[str, Any]]:
         """The area's maps laid over the others straight from the municipality's WMS (WMS_OVERLAYS)."""
         return [{"id": item["id"], "label": item["label"], "attribution": item["attribution"], "bbox": list(self.area.BBOX),
@@ -280,7 +299,7 @@ class Monitor:
                          "poll_seconds": self.area.POLL_SECONDS,
                          # What the satellite monitor logs of Sentinel-1's water outside the lakes (sentinel1.py).
                          "s1_water_log_pct": getattr(self.area, "S1_WATER_LOG_PCT", 0.5)},
-                "maps": {"municipal": self.municipal_maps(),
+                "maps": {"municipal": self.municipal_maps() + self.lantmateriet_maps(),
                          "offline": {"url": "/tiles/{z}/{x}/{y}.png", "bbox": getattr(self.area, "MAP_BBOX", self.area.BBOX),
                                      "attribution": "© OpenStreetMap contributors"} if offline else None,
                          "overlay": {"url": offline_tiles.OVERLAY_URL, "label": offline_tiles.OVERLAY_LABEL,
@@ -371,6 +390,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(png or radar.EMPTY_PNG, "image/png")
         elif path.startswith("/terrain/"):
             self.terrain(path)
+        elif path.startswith("/lm/topowebb/"):
+            self.topowebb(path)
         elif path in ("/api/s1radar.png", "/api/s1water.png", "/api/s1wetness.png"):
             png = self.monitor.radar_pass.png(path[len("/api/s1"):-len(".png")])
             self.send_body(png or radar.EMPTY_PNG, "image/png")
@@ -409,6 +430,25 @@ class Handler(BaseHTTPRequestHandler):
         if content_type.startswith("text/") or content_type in ("application/javascript", "application/json"):
             content_type += "; charset=utf-8"
         self.send_body(target.read_bytes(), content_type)
+
+    def topowebb(self, path: str) -> None:
+        """Lantmäteriet's tiles through the service, so the Geotorget credentials stay on the server."""
+        parts = path.removeprefix("/lm/topowebb/").removesuffix(".png").split("/")
+        if not getattr(self.monitor.area, "LANTMATERIET_BASEMAP", False) or len(parts) != 3 or not all(part.isdigit() for part in parts):
+            self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        try:
+            body, content_type = lantmateriet.topowebb_tile(self.monitor.lantmateriet, *(int(part) for part in parts))
+        except lantmateriet.NotConfigured:
+            self.send_json({"error": "not_configured"}, HTTPStatus.NOT_FOUND)
+            return
+        except ValueError:
+            self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        except lantmateriet.UpstreamError as error:
+            self.send_json({"error": "upstream", "status": error.status}, HTTPStatus.BAD_GATEWAY)
+            return
+        self.send_body(body, content_type)
 
     def terrain(self, path: str) -> None:
         """The scenarios' 3D terrain, as the demo's backend serves it (app/backend/server.py)."""

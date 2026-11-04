@@ -21,6 +21,9 @@ KRISINFO_WORDS = ("Skåne", "Höör")
 BBOX = (13.2, 55.72, 13.75, 56.12)
 CENTRE = (55.94, 13.54)
 DATA_DIR = data_dir("hoorkommun")
+# Without a public map of its own (checked 2026-11-04), Lantmäteriet's Topografisk webbkarta is the base
+# map once the Geotorget settings are in ~/.lantmateriet (service.Monitor.lantmateriet_maps).
+LANTMATERIET_BASEMAP = True
 
 _SCENARIO = scenario_data("skane2024")
 OSM_TARGETS_FILE = _SCENARIO / "osm" / "targets-skane.geojson"

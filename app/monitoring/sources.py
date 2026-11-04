@@ -44,6 +44,7 @@ FIRMS_KEY_FILE = Path.home() / ".firms_map_key"
 ATTRIBUTION = {
     "smhi_flow": "SMHI öppna data, hydrologiska observationer (CC BY 4.0 SE)",
     "smhi_rain": "SMHI öppna data, meteorologiska observationer (CC BY 4.0 SE)",
+    "smhi_sea_level": "SMHI öppna data, havsvattenstånd i RH2000 (CC BY 4.0 SE)",
     "smhi_warnings": "SMHI:s vädervarningar, öppna data (CC BY 4.0 SE)",
     "smhi_fire_risk": "SMHI:s brandriskprognos (FWI), öppna data (CC BY 4.0 SE)",
     "smhi_forecast": "SMHI:s väderprognos, öppna data (CC BY 4.0 SE)",
@@ -206,6 +207,31 @@ def read_rain(stations: dict[str, str], fetch: Fetch) -> list[dict[str, Any]]:
                                  for row in sorted(recent, key=lambda row: row["date"])],
                       "hours": len(recent), "latest_utc": utc_text(latest),
                       "unchecked": any(row.get("quality") != "G" for row in recent)})
+    return items
+
+
+# --- SMHI's sea level --------------------------------------------------------------------------
+
+OCOBS_API = "https://opendata-download-ocobs.smhi.se/api/version/latest"
+
+
+def sea_level_url(station: str) -> str:
+    """SMHI's sea level by the hour (ocobs parameter 6, cm in RH2000 as the archive states) of the latest day."""
+    return f"{OCOBS_API}/parameter/6/station/{station}/period/latest-day/data.json"
+
+
+def read_sea_level(stations: dict[str, str], fetch: Fetch) -> list[dict[str, Any]]:
+    """Each station's sea level of the latest day, oldest first, and its latest value."""
+    items = []
+    for station, name in stations.items():
+        data = json.loads(fetch(sea_level_url(station)))
+        position = (data.get("position") or [{}])[-1]
+        rows = sorted((row for row in data.get("value") or [] if row.get("value") is not None), key=lambda row: row["date"])
+        last = rows[-1] if rows else None
+        items.append({"station": station, "name": name, "latitude": position.get("latitude"), "longitude": position.get("longitude"),
+                      "value_cm": float(last["value"]) if last else None, "time_utc": utc_text(_utc(last["date"])) if last else None,
+                      "unchecked": bool(last) and last.get("quality") != "G",
+                      "series": [{"time_utc": utc_text(_utc(row["date"])), "value_cm": float(row["value"])} for row in rows]})
     return items
 
 

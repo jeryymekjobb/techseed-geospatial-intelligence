@@ -150,7 +150,8 @@ function alarming(state, key) {
 const LEVEL_RING = "#e040fb";
 function levelText(sensor) {
   const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
-    : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
+    : sensor.unit === "cm" ? `havsvattenstånd vid ${sensor.station_name} ${String(sensor.value).replace(".", ",")} cm i RH2000 (larm vid ${sensor.alarm_cm} cm)`
+      : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
   return `${sensor.name}: ${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare, följer SMHI)`;
 }
 const OBJECT_MARK = { radius: 4, color: "#5d4300", weight: 1, fillColor: "#ffd600", fillOpacity: 1 };
@@ -214,6 +215,13 @@ function drawMap(state) {
     const flowColour = alarming(state, `flow-${flow.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
     marker(named.stations, flow.latitude, flow.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: flowColour, fillOpacity: 1 },
       `Vattenföring ${flow.name}: ${flow.value} m³/s ${flow.time_utc}${limits} – SMHI`);
+  }
+  // SMHI's sea level gauges (Vellinge: Klagshamn), as the other stations.
+  for (const gauge of context.sea_level || []) {
+    if (gauge.latitude == null) continue;
+    const colour = alarming(state, `sea-${gauge.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
+    marker(named.stations, gauge.latitude, gauge.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: colour, fillOpacity: 1 },
+      `Havsvattenstånd ${gauge.name}: ${gauge.value_cm} cm i RH2000 ${gauge.time_utc} – SMHI`);
   }
   for (const station of context.weather_stations || []) {
     const colour = alarming(state, `rain-${station.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;

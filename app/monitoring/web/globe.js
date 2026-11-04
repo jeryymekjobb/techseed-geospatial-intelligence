@@ -134,7 +134,8 @@ const OBJECT_MARK = "#ffd600";
 const LEVEL_RING = "#e040fb";
 function levelText(sensor) {
   const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
-    : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
+    : sensor.unit === "cm" ? `havsvattenstånd vid ${sensor.station_name} ${String(sensor.value).replace(".", ",")} cm i RH2000 (larm vid ${sensor.alarm_cm} cm)`
+      : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
   return `${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare, följer SMHI)`;
 }
 
@@ -380,6 +381,11 @@ async function start() {
       const mark = alarming(state, `flow-${flow.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
       if (flow.latitude != null) point(flow.latitude, flow.longitude, mark, 12, `Vattenföring ${flow.name}`,
         `${flow.value} m³/s, ${flow.time_utc} – SMHI`, sources.stations);
+    }
+    for (const gauge of context.sea_level || []) {
+      const mark = alarming(state, `sea-${gauge.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
+      if (gauge.latitude != null) point(gauge.latitude, gauge.longitude, mark, 12, `Havsvattenstånd ${gauge.name}`,
+        `${gauge.value_cm} cm i RH2000, ${gauge.time_utc} – SMHI`, sources.stations);
     }
     for (const station of context.weather_stations || []) {
       const mark = alarming(state, `rain-${station.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;

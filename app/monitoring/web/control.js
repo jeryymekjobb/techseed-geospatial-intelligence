@@ -19,7 +19,7 @@ fetch("/api/config", { cache: "no-store" }).then((response) => response.json())
 const STATE_WORDS = { new: "Nytt", confirmed: "Bekräftat", dismissed: "Avfärdat" };
 const SOURCE_WORDS = {
   mcf_border: "Kommungräns (MCF)", smhi_flow: "Vattenföring (SMHI)", smhi_flow_statistics: "Flödesstatistik (SMHI)",
-  smhi_rain: "Nederbörd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
+  smhi_rain: "Nederbörd (SMHI)", smhi_sea_level: "Havsvattenstånd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
   smhi_radar: "Väderradar (SMHI)", smhi_grid: "Vind och väderkarta (SMHI)", smhi_stations: "Väderstationer (SMHI)",
   sentinel2: "Satellitbild (Sentinel-2)", landsat: "Satellitbild (Landsat)", sentinel1: "Radarbild (Sentinel-1)", gis: "Skyddsvärda objekt (GIS, OSM)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
   meteosat_clm: "Moln (Meteosat)", mcf_fire_ban: "Eldningsförbud (MCF)", firms: "Brandpunkter (NASA FIRMS)", inbox: "Händelser in (inkorgen)",
@@ -103,6 +103,9 @@ function drawSituation(state) {
     lines.push(`Vind ${localTime.format(new Date(context.weather.valid_utc))}: ${wind.speed_ms} m/s från ${wind.from_deg}° (prognos, SMHI)`);
   }
   for (const flow of context.flows || []) lines.push(`${flow.name}: ${flow.value} m³/s`);
+  for (const gauge of context.sea_level || []) {
+    if (gauge.value_cm != null) lines.push(`Havsvattenstånd ${gauge.name}: ${String(gauge.value_cm).replace(".", ",")} cm i RH2000`);
+  }
   const list = document.getElementById("situation");
   list.replaceChildren(...lines.map((text) => element("li", text, "info")));
 }
@@ -383,6 +386,11 @@ function drawCharts(state) {
   drawChart(chartBox("radar", "Väderradar, högsta intensitet i kommunen (mm/h, senaste timmen) – SMHI, uppskattat"),
     (radar?.series || []).map((point) => ({ time: point.time_utc, value: point.max_mm_h })),
     { kind: "bars", unit: "mm/h", lines: [{ value: 20, label: "skyfall", colour: "#ef5350" }] });
+  for (const gauge of context.sea_level || []) {
+    drawChart(chartBox(`sea-${gauge.station}`, `Havsvattenstånd ${gauge.name} (cm i RH2000, senaste dygnet) – SMHI`),
+      (gauge.series || []).map((point) => ({ time: point.time_utc, value: point.value_cm })),
+      { unit: "cm", lines: gauge.limit_cm != null ? [{ value: gauge.limit_cm, label: "högt vattenstånd", colour: "#ef5350" }] : [] });
+  }
   const clouds = context.cloud_mask;
   if (clouds) {
     drawChart(chartBox("clouds", "Moln över kommunen (% av pixlarna, senaste dygnet) – Meteosat, några km per pixel"),
@@ -428,7 +436,8 @@ function drawIot(state) {
   // The scenarios' simulated level sensors (levels.py), driven by SMHI's flows.
   for (const sensor of simulated ? state.context?.level_sensors || [] : []) {
     const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
-      : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
+      : sensor.unit === "cm" ? `havsvattenstånd vid ${sensor.station_name} ${String(sensor.value).replace(".", ",")} cm i RH2000`
+        : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
     list.append(element("li", `${sensor.name}: ${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare)`,
       sensor.alarm ? "alert" : "info"));
   }

@@ -111,6 +111,24 @@ def station_rain_candidates(stations: list[dict[str, Any]], area: ModuleType) ->
     return found
 
 
+def sea_level_candidates(stations: list[dict[str, Any]], area: ModuleType) -> list[Candidate]:
+    """A high sea level: the latest hour at or above the area's SEA_LEVEL_HIGH_CM (a proposal)."""
+    found = []
+    limit = getattr(area, "SEA_LEVEL_HIGH_CM", None)
+    for station in stations:
+        value = station.get("value_cm")
+        if limit is None or value is None or value < limit:
+            continue
+        item = Candidate(f"sea-{station['station']}", "flood", "high", f"Högt vattenstånd vid {station['name']}: {_number(value)} cm",
+                         station["name"], station["latitude"], station["longitude"])
+        item.fact(f"Havsvattenstånd {_number(value)} cm i RH2000", ATTRIBUTION["smhi_sea_level"], station["time_utc"],
+                  uncertain=station["unchecked"])
+        item.fact(f"Gräns i övervakningen: {_number(limit)} cm i RH2000", "Förslag, som Falsterbo-scenariot, inte överenskommet")
+        item.extent = f"{_number(value - limit)} cm över gränsen"
+        found.append(item)
+    return found
+
+
 def warning_candidates(warnings: list[dict[str, Any]]) -> list[Candidate]:
     """SMHI's yellow, orange and red warnings for flood and fire in the area."""
     found = []
@@ -309,6 +327,7 @@ def detect(poll: dict[str, Any], events: list[dict[str, Any]], area: ModuleType,
     fire_risk = poll.get("fire_risk", [])
     bursts = cloudburst_candidates(poll.get("radar"), poll.get("rain", []), poll.get("warnings", []), area)
     bursts += station_rain_candidates(poll.get("weather_stations", []), area)
+    bursts += sea_level_candidates(poll.get("sea_level", []), area)
     candidates = (flows + bursts + warning_candidates(poll.get("warnings", [])) + vma_candidates(poll.get("krisinfo", []), area)
                   + fire_risk_candidates(fire_risk, area, now)
                   + fire_candidates(poll.get("firms", []), events, border, poll.get("fire_ban", []), area, filtered, fire_risk)
