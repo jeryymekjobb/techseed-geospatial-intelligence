@@ -5,7 +5,9 @@ GLO-30 is a 30 m global elevation model, free under the Copernicus DEM licence.
 The 1x1 degree tiles come as Cloud Optimized GeoTIFFs from the public AWS
 open-data bucket (no account needed). `data/dem/SOURCE.json` records the URL,
 size and SHA-256 of each tile and the attribution the licence requires.
-tools/build_terrain.py then turns the tiles into Cesium terrain.
+tools/build_terrain.py then turns the tiles into Cesium terrain. With `--area` the tiles cover a
+monitoring area's whole municipality (app/monitoring/areas/, its BBOX) and go to its
+data/monitoring/<area>/dem/ instead, leaving the scenarios' alone.
 Only the Python standard library is used; data/ is not versioned.
 """
 
@@ -78,17 +80,26 @@ def download(url: str, target: Path) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
-    parser.add_argument("--bbox", default=DEFAULT_BBOX, help="west,south,east,north")
+    parser.add_argument("--bbox", help="west,south,east,north (default the scenario's map area, or the area's BBOX)")
+    parser.add_argument("--area", help="a monitoring area (app/monitoring/areas/) instead of the scenario")
     args = parser.parse_args(argv)
-    DEM_DIR.mkdir(parents=True, exist_ok=True)
+    dem_dir = DEM_DIR
+    if args.area:
+        from app.monitoring import areas
+
+        area = areas.load(args.area)
+        dem_dir = area.DATA_DIR / "dem"
+        args.bbox = args.bbox or ",".join(str(value) for value in area.BBOX)
+    args.bbox = args.bbox or DEFAULT_BBOX
+    dem_dir.mkdir(parents=True, exist_ok=True)
     records = []
     for name in tiles_for(args.bbox):
         url = tile_url(name)
-        target = DEM_DIR / f"{name}.tif"
+        target = dem_dir / f"{name}.tif"
         sha256 = download(url, target)
         records.append({"file": target.name, "url": url, "bytes": target.stat().st_size, "sha256": sha256})
         print(f"{target.name}: {target.stat().st_size // (1 << 20)} MB")
-    (DEM_DIR / "SOURCE.json").write_text(json.dumps({
+    (dem_dir / "SOURCE.json").write_text(json.dumps({
         "dataset": "Copernicus DEM GLO-30 (DGED/COG, AWS open data)",
         "bbox_west_south_east_north": args.bbox,
         "downloaded_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

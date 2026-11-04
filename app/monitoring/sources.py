@@ -51,7 +51,7 @@ ATTRIBUTION = {
     "meteosat_clm": "Contains modified EUMETSAT Meteosat product (MSG Cloud Mask, CC BY 4.0)",
     "sentinel1": "Innehåller bearbetade Copernicus Sentinel-data (Microsoft Planetary Computer)",
     "sentinel2": "Innehåller Copernicus Sentinel-data (Microsoft Planetary Computer)",
-    "flen_gis": "Flens kommun (GIS) och OpenStreetMap – intern användning",
+    "gis": "Kommunens GIS och OpenStreetMap (areans GIS_ATTRIBUTION)",
     "smhi_stations": "SMHI öppna data, meteorologiska observationer (CC BY 4.0 SE)",
     "smhi_grid": "SMHI:s väderprognos (snow1g), öppna data (CC BY 4.0 SE); prognos, inte observationer",
     "smhi_radar": "SMHI öppna data, väderradar (CC BY 4.0 SE); uppskattat ur radarn, inte mätt på marken",

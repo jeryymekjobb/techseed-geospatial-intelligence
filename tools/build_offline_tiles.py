@@ -10,6 +10,9 @@
 3. `data/tiles/<tiles>.SOURCE.json`, for example `vastmanland.SOURCE.json`, records the input
    file, its SHA-256 and the area, so the scenarios' tiles can share the directory.
 
+With `--area` the tiles cover a monitoring area's whole municipality (app/monitoring/areas/, its BBOX)
+and go to `data/tiles/<area>.mbtiles`, leaving the scenarios' maps alone.
+
 The sea: tilemaker's OpenMapTiles configuration draws it from OSM's water polygons
 (`coastline/water_polygons.shp`), which are not in the country extract. When
 `data/osm/water-polygons-split-4326.zip` (osmdata.openstreetmap.de, ODbL; fetch_scenario's
@@ -152,7 +155,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source", type=Path, default=DATA / "osm" / "sweden-latest.osm.pbf",
                         help="country extract, for example from download.openstreetmap.fr or Geofabrik")
     parser.add_argument("--source-url", default="https://download.openstreetmap.fr/extracts/europe/sweden-latest.osm.pbf")
-    parser.add_argument("--bbox", default=DEFAULT_BBOX, help="west,south,east,north")
+    parser.add_argument("--bbox", help="west,south,east,north (default the scenario's map area, or the area's BBOX)")
+    parser.add_argument("--area", help="a monitoring area (app/monitoring/areas/): its whole municipality, into data/tiles/<area>.mbtiles")
     geo_tools.add_argument(parser)
     parser.add_argument("--tilemaker-resources", type=Path, help="with --tools native: tilemaker's resources directory")
     parser.add_argument("--water-polygons", type=Path, default=WATER_POLYGONS,
@@ -165,9 +169,16 @@ def main(argv: list[str] | None = None) -> int:
         if missing or resources is None or not (resources / "process-openmaptiles.lua").is_file():
             parser.error("--tools native needs osmium and tilemaker on PATH and --tilemaker-resources with tilemaker's "
                          "process-openmaptiles.lua; without tilemaker (as on Windows) take the map from the data package")
+    name, tiles_file = scenario.NAME, scenario.TILES_FILE
+    if args.area:
+        from app.monitoring import areas
+
+        name, tiles_file = args.area, f"{args.area}.mbtiles"
+        args.bbox = args.bbox or ",".join(str(value) for value in areas.load(args.area).BBOX)
+    args.bbox = args.bbox or DEFAULT_BBOX
     source = args.source.resolve()
-    area = source.parent / f"{scenario.NAME}-area.osm.pbf"
-    output = DATA / "tiles" / scenario.TILES_FILE
+    area = source.parent / f"{name}-area.osm.pbf"
+    output = DATA / "tiles" / tiles_file
     output.parent.mkdir(parents=True, exist_ok=True)
     if tools == "native":
         subprocess.run(extract_step(source, area, args.bbox), check=True)
@@ -178,8 +189,8 @@ def main(argv: list[str] | None = None) -> int:
     config = None
     if args.water_polygons.is_file():
         water = args.water_polygons.resolve()
-        shapefile = clip_coastline(water, source.parent / f"{scenario.NAME}-coastline", args.bbox, tools)
-        config = source.parent / f"{scenario.NAME}-tilemaker-config.json"
+        shapefile = clip_coastline(water, source.parent / f"{name}-coastline", args.bbox, tools)
+        config = source.parent / f"{name}-tilemaker-config.json"
         inside = str(shapefile) if tools == "native" else f"/data/{shapefile.relative_to(DATA)}"
         config.write_text(json.dumps(with_coastline(tilemaker_config(tools, resources), inside), indent=1) + "\n", encoding="utf-8")
     else:

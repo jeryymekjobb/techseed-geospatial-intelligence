@@ -61,7 +61,7 @@ BASEMAP_TILE = re.compile(r"/basemap/([a-z0-9]+)/(\d{1,2})/(\d+)/(\d+)\.png")
 # The map layers mission control switches on the main screen, and whether each starts on.
 LAYERS = {"municipal": True, "flood": True, "radar": True, "wind": True, "chart": False, "facilities": True, "names": True,
           "stations": True, "firms": True, "satellite": False, "s1radar": False, "s1water": True,
-          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall100": False, "skyfall500": False,
+          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall30": False, "skyfall100": False, "skyfall500": False,
           # One switch for every simulated sensor: the level sensors (levels.py) and the IoT nodes not marked real.
           "simulated": True}
 # OpenStreetMap's standard map outside the municipality, the one-pager's fallback where there is no
@@ -90,7 +90,7 @@ class Monitor:
         self.landsat = sentinel2.Latest(area.BBOX, self.data_dir, fetch, post, kind=sentinel2.LANDSAT)
         self.terrain_dir: Path | None = getattr(area, "TERRAIN_DIR", None)
         # The scenarios' simulated level sensors (levels.py) and Meteosat's cloud mask (meteosat.py).
-        self.levels = levels.load(getattr(area, "LEVEL_SENSOR_FILE", None))
+        self.levels = levels.load(getattr(area, "LEVEL_SENSOR_FILE", None), set(area.FLOW_STATIONS))
         self.clouds = meteosat.CloudMask(area.BBOX, self.data_dir) if getattr(area, "METEOSAT_CLM", False) else None
         self.radar_pass = sentinel1.Latest(area.BBOX, self.data_dir, getattr(area, "TERRAIN_FILE", None), fetch, post)
         # The IoT nodes, as the demos' (app/backend/iot.py): MQTT techseed/<node>/<kind>, simulated
@@ -193,7 +193,7 @@ class Monitor:
                     "radar": results["smhi_radar"].items[0] if results["smhi_radar"].items else None,
                     "fire_risk": results["smhi_fire_risk"].items, "forecast": results["smhi_forecast"].items,
                     "weather_stations": results["smhi_stations"].items}
-            assets = sources.guarded("flen_gis", lambda: [self.assets.load()] if self.assets else [])
+            assets = sources.guarded("gis", lambda: [self.assets.load()] if self.assets else [])
             candidates, filtered = rules.detect(poll, recent, area)
             # What each alarm may threaten, from the municipality's GIS (gis.py).
             if assets.ok and self.assets:
@@ -268,6 +268,11 @@ class Monitor:
                           "max_zoom": source["max_zoom"], "bbox": source["bbox_west_south_east_north"]})
         return found
 
+    def wms_overlays(self) -> list[dict[str, Any]]:
+        """The area's maps laid over the others straight from the municipality's WMS (WMS_OVERLAYS)."""
+        return [{"id": item["id"], "label": item["label"], "attribution": item["attribution"], "bbox": list(self.area.BBOX),
+                 "wms": {"url": item["url"], "layers": item["layers"]}} for item in getattr(self.area, "WMS_OVERLAYS", [])]
+
     def config(self) -> dict[str, Any]:
         """What the screens need to start: the area and the base maps."""
         offline = offline_tiles.available()
@@ -285,7 +290,8 @@ class Monitor:
                                      "attribution": radar.ATTRIBUTION},
                            "flood": getattr(self.area, "FLOOD_HAZARD_WMS", None),
                            "flood_highest": getattr(self.area, "FLOOD_HIGHEST_WMS", None),
-                           "overlays": self.municipal_maps(overlays=True)},
+                           # The cloudburst mappings: fetched tiles (Flen's) and live WMS (Sundsvall's, Västerås's).
+                           "overlays": self.municipal_maps(overlays=True) + self.wms_overlays()},
                 # The scenarios' 3D terrain, when the area has it (/terrain/).
                 "terrain": "/terrain/" if self.terrain_dir and (self.terrain_dir / "layer.json").is_file() else None}
 

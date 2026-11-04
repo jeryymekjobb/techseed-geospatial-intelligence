@@ -577,7 +577,11 @@ def test_the_forecast_grid_gives_the_area_s_wind_and_the_weather_chart_once_a_ru
     station = weather.Weather(flenkommun.BBOX, fetch)
     data = station.update(NOW)
     assert data["valid_utc"] == "2026-11-03T13:00:00Z" and len(data["wind"]) == 20
-    assert data["wind"][0] == {"latitude": 58.9, "longitude": 16.4, "speed_ms": 6.0, "from_deg": 225}
+    assert data["wind"][0] == {"latitude": 58.9, "longitude": 16.4, "speed_ms": 6.0, "from_deg": 225, "tier": 6}
+    # Every 2nd point of every 2nd row stays at tier 1, every 4th of every 4th at tier 2; the corner at all.
+    assert [point["tier"] for point in data["wind"][:5]] == [6, 0, 1, 0, 2] and data["wind"][5]["tier"] == 0
+    assert data["wind_spacing_km"] == 10.0 and data["chart"]["wind_spacing_km"] == 75.0 and len(data["chart"]["wind"]) == 20
+    assert any("downsample=30" in url and "wind_speed" in url for url in asked)
     assert data["chart"]["lines"] and data["chart"]["rain_png"].startswith("data:image/png;base64,") and data["chart"]["thunder"] == []
     assert station.summary()["centre_wind"]["speed_ms"] == 6.0
     count = len(asked)
@@ -970,3 +974,131 @@ def test_both_maps_keep_the_credits_behind_kallor_as_the_scenarios(server: int) 
         assert "creditBox(" in script and "setShortCredits(layers.municipal" in script
     assert "attributionControl: false" in (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
     assert ".map-credits .credit-toggle" in (Path(service.WEB_DIR) / "globe.css").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("name", [name for name in __import__("app.monitoring.areas", fromlist=["AVAILABLE"]).AVAILABLE])
+def test_every_area_follows_the_template_and_a_poll_reads_its_sources(name: str, tmp_path: Path, monkeypatch) -> None:
+    from app.monitoring import areas
+    from app.monitoring.areas import common
+
+    module = areas.load(name)
+    values = {key: getattr(module, key) for key in dir(module) if key.isupper()}
+    for key in ("NAME", "MUNICIPALITY_CODE", "COUNTY", "SMHI_COUNTY_ID", "KRISINFO_WORDS", "BBOX", "CENTRE", "DATA_DIR",
+                "TILES_FILE", "MAP_BBOX", "FLOW_STATIONS", "RAIN_STATIONS", "WEATHER_STATIONS", "FIRE_RISK_POINT",
+                "OSM_TARGETS_FILE", "TERRAIN_DIR"):
+        assert key in values, key
+    west, south, east, north = module.BBOX
+    assert west < module.CENTRE[1] < east and south < module.CENTRE[0] < north
+    assert module.SATELLITES is common.SATELLITES and module.CONTACTS_NOTE == common.CONTACTS_NOTE
+    assert module.DATA_DIR.name == name and module.SMHI_COUNTY_ID in (4, 12, 19, 21, 22)
+    # Only Flens kommun's GIS is checked against laws and rules: the others use OpenStreetMap.
+    assert bool(module.GIS_FACILITIES) == (name == "flenkommun")
+    monkeypatch.setenv("FIRMS_MAP_KEY", "KEY")
+    values.update(DATA_DIR=tmp_path, METEOSAT_CLM=False, OSM_TARGETS_FILE=Path("/nonexistent/targets.geojson"),
+                  LEVEL_SENSOR_FILE=Path("/nonexistent/level-points.geojson"), FLOOD_ZONE_FILES=[])
+    monitor = service.Monitor(SimpleNamespace(**values), fake_fetch(live_answers()), tmp_path, NO_SCENES)
+    summary = monitor.poll()
+    status = {item["source"]: item for item in summary["sources"]}
+    assert status["mcf_border"]["ok"] and status["smhi_flow"]["ok"] and status["smhi_warnings"]["ok"], status
+    assert {item["key"] for item in summary["candidates"]} == {f"flow-{station}" for station in module.FLOW_STATIONS}
+    config = monitor.config()
+    assert config["area"]["name"] == module.NAME and config["layers"]["flood"] == getattr(module, "FLOOD_HAZARD_WMS", None)
+    assert monitor.state()["area"]["name"] == module.NAME
+
+
+def test_the_level_sensors_keep_only_those_following_a_monitored_station(tmp_path: Path) -> None:
+    from app.monitoring import levels
+
+    points = tmp_path / "level-points.geojson"
+    points.write_text(json.dumps({"type": "FeatureCollection", "features": [
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [17.6, 62.7]}, "properties": {"id": "a", "name": "A", "station": "2398:2"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [17.5, 62.8]}, "properties": {"id": "b", "name": "B", "station": "2604:2"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [17.4, 62.6]}, "properties": {"id": "c", "name": "C", "station": "model-1"}}]}))
+    assert [point["id"] for point in levels.load(points, {"2398"})] == ["a"] and len(levels.load(points)) == 3
+
+
+def test_an_area_without_its_own_gis_takes_the_buildings_and_objects_from_openstreetmap(tmp_path: Path) -> None:
+    from app.monitoring import gis
+
+    targets = tmp_path / "targets.geojson"
+    targets.write_text(json.dumps({"type": "FeatureCollection", "features": [
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [17.3, 62.39]}, "properties": {"kind": "building", "type": "yes"}},
+        {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[17.0, 62.0], [17.2, 62.0], [17.2, 62.2], [17.0, 62.0]]]},
+         "properties": {"kind": "building", "type": "church", "name": "Kyrkan"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [17.3, 62.4]}, "properties": {"kind": "place", "type": "town", "name": "X"}}]}))
+    from app.monitoring.areas import sundsvallkommun
+
+    values = {key: getattr(sundsvallkommun, key) for key in dir(sundsvallkommun) if key.isupper()}
+    values.update(OSM_TARGETS_FILE=targets, FLOOD_ZONE_FILES=[])
+    data = gis.Assets(SimpleNamespace(**values), tmp_path, fake_fetch({})).load()
+    assert len(data["buildings"]) == 2 and [item["name"] for item in data["facilities"]] == ["Kyrkan"]
+    assert data["attribution"] == "© OpenStreetMap contributors"
+
+
+def test_highs_and_lows_are_found_in_the_whole_grid_and_kept_inside_the_chart() -> None:
+    import numpy as np
+
+    from app.monitoring import weather
+
+    # SMHI's grid reaches beyond the chart: a low near the chart's western edge and a high in its middle.
+    lat, lon = np.meshgrid(np.linspace(50, 75, 40), np.linspace(-10, 40, 60), indexing="ij")
+    pressure = 1012 - 20 * np.exp(-((lat - 60) ** 2 + (lon - 5) ** 2) / 8) + 15 * np.exp(-((lat - 63) ** 2 + (lon - 20) ** 2) / 8)
+    centres = weather.pressure_centres(lat, lon, pressure, weather.CHART_BBOX)
+    assert sorted(item["kind"] for item in centres) == ["H", "L"]
+    low = next(item for item in centres if item["kind"] == "L")
+    assert abs(low["longitude"] - 5) < 1.5 and low["hpa"] < 1000
+    assert weather.pressure_centres(lat, lon, pressure, (25.0, 55.0, 31.0, 70.0)) == []
+
+
+def test_both_maps_thin_the_wind_arrows_by_zoom_and_draw_the_chart_s_wind() -> None:
+    for name in ("map2d.js", "globe.js"):
+        script = (Path(service.WEB_DIR) / name).read_text(encoding="utf-8")
+        assert "WIND_SPACING_PX = 70" in script and "function windTier" in script and ("chart.wind" in script or "chart?.wind" in script)
+        assert "(point.tier ?? 0) >= tier" in script or "tier >= areaTier" in script
+    assert "800 34px" in (Path(service.WEB_DIR) / "globe.css").read_text(encoding="utf-8")
+
+
+def test_sundsvall_s_and_vasteras_s_cloudburst_mappings_come_straight_from_their_wms(tmp_path: Path) -> None:
+    from app.monitoring.areas import sundsvallkommun, vasterasstad
+
+    for module, ids in ((sundsvallkommun, ["skyfall30", "skyfall100", "skyfall500"]), (vasterasstad, ["skyfall100"])):
+        values = {key: getattr(module, key) for key in dir(module) if key.isupper()}
+        values.update(DATA_DIR=tmp_path, METEOSAT_CLM=False, MUNICIPAL_BASEMAPS=[])
+        overlays = service.Monitor(SimpleNamespace(**values), fake_fetch({}), tmp_path, NO_SCENES).config()["layers"]["overlays"]
+        assert [item["id"] for item in overlays] == ids and all(item["wms"]["url"].startswith("https://") for item in overlays)
+        assert all("intern användning" in item["attribution"] and item["bbox"] == list(module.BBOX) for item in overlays)
+        assert all(item_id in service.LAYERS and service.LAYERS[item_id] is False for item_id in ids)
+    assert "item.wms" in (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
+    assert "WebMapServiceImageryProvider" in (Path(service.WEB_DIR) / "globe.js").read_text(encoding="utf-8")
+
+
+def test_an_area_takes_its_own_terrain_and_offline_map_once_built(tmp_path: Path, monkeypatch) -> None:
+    from app.monitoring.areas import common
+
+    monkeypatch.setattr(common, "data_dir", lambda name: tmp_path / name)
+    monkeypatch.setattr(common, "REPO_ROOT", tmp_path)
+    scenario = tmp_path / "scenario-terrain"
+    assert common.built_terrain("x", scenario) == scenario
+    assert common.built_tiles("x", ("s.mbtiles", (1, 2, 3, 4)), (0, 1, 4, 5)) == ("s.mbtiles", (1, 2, 3, 4))
+    (tmp_path / "x" / "terrain").mkdir(parents=True)
+    (tmp_path / "x" / "terrain" / "layer.json").write_text("{}")
+    (tmp_path / "data" / "tiles").mkdir(parents=True)
+    (tmp_path / "data" / "tiles" / "x.mbtiles").write_bytes(b"")
+    assert common.built_terrain("x", scenario) == tmp_path / "x" / "terrain"
+    assert common.built_tiles("x", ("s.mbtiles", (1, 2, 3, 4)), (0, 1, 4, 5)) == ("x.mbtiles", (0, 1, 4, 5))
+
+
+def test_the_terrain_and_map_tools_build_an_area_s_whole_municipality_apart_from_the_scenarios(tmp_path: Path, monkeypatch) -> None:
+    from tools import build_terrain, fetch_copernicus_dem
+
+    asked = []
+    monkeypatch.setattr(fetch_copernicus_dem, "download", lambda url, target: asked.append((url, target)) or target.write_bytes(b"x") or "0")
+    from app.monitoring.areas import vellingekommun
+
+    monkeypatch.setattr(vellingekommun, "DATA_DIR", tmp_path / "vellinge")
+    assert fetch_copernicus_dem.main(["--area", "vellingekommun"]) == 0
+    source = json.loads((tmp_path / "vellinge" / "dem" / "SOURCE.json").read_text(encoding="utf-8"))
+    assert source["bbox_west_south_east_north"] == ",".join(str(value) for value in vellingekommun.BBOX)
+    assert {Path(target).parent for _, target in asked} == {tmp_path / "vellinge" / "dem"}
+    command = build_terrain.docker_command("true", tmp_path / "dem", tmp_path / "terrain")
+    assert f"{tmp_path / 'dem'}:/data/dem:ro" in command and f"{tmp_path / 'terrain'}:/data/terrain" in command

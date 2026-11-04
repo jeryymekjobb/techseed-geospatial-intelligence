@@ -13,9 +13,11 @@ header h1 { margin: 0; font-size: 1.2rem; }
 .barb .halo { stroke: #fff; stroke-width: 4.5; opacity: 0.85; }
 .barb .pennant { fill: #0b3d91; }
 .isobar-label { color: #1f3a7a; font: 600 11px system-ui, sans-serif; white-space: nowrap; transform: translate(-50%, -50%); text-shadow: 0 0 3px #fff; }
-.pressure-centre { font: 700 22px system-ui, sans-serif; transform: translate(-50%, -50%); text-shadow: 0 0 3px #fff; white-space: nowrap; }
+/* Highs and lows on the weather chart: a large H in blue or L in red, the pressure under it. */
+.pressure-centre { display: flex; flex-direction: column; align-items: center; width: max-content; font: 800 34px/1 system-ui, sans-serif;
+  transform: translate(-50%, -50%); text-shadow: 0 0 4px #fff, 0 0 4px #fff; white-space: nowrap; }
 .pressure-centre.high { color: #1565c0; } .pressure-centre.low { color: #c62828; }
-.pressure-centre small { font-size: 11px; margin-left: 2px; }
+.pressure-centre small { font-size: 13px; font-weight: 700; margin-top: 2px; }
 .place-label .place-name { display: block; transform: translate(-50%, -50%); white-space: nowrap; color: #1d1d1b;
   font: 600 12px system-ui, sans-serif; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 .place-label .place-name.town { font-size: 15px; font-weight: 700; }

@@ -12,14 +12,16 @@ const clockTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm
   hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const DAY_MS = 86400000;
 let waterLogPct = 0.5;
+// The area's own maps and layers (/api/config): a layer the area lacks has no box to tick.
+let areaConfig = null;
 fetch("/api/config", { cache: "no-store" }).then((response) => response.json())
-  .then((config) => { waterLogPct = config.area.s1_water_log_pct; }).catch(() => null);
+  .then((config) => { areaConfig = config; waterLogPct = config.area.s1_water_log_pct; showLayers(layersShown); }).catch(() => null);
 const STATE_WORDS = { new: "Nytt", confirmed: "Bekräftat", dismissed: "Avfärdat" };
 const SOURCE_WORDS = {
   mcf_border: "Kommungräns (MCF)", smhi_flow: "Vattenföring (SMHI)", smhi_flow_statistics: "Flödesstatistik (SMHI)",
   smhi_rain: "Nederbörd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
   smhi_radar: "Väderradar (SMHI)", smhi_grid: "Vind och väderkarta (SMHI)", smhi_stations: "Väderstationer (SMHI)",
-  sentinel2: "Satellitbild (Sentinel-2)", landsat: "Satellitbild (Landsat)", sentinel1: "Radarbild (Sentinel-1)", flen_gis: "Skyddsvärda objekt (kommunens GIS)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
+  sentinel2: "Satellitbild (Sentinel-2)", landsat: "Satellitbild (Landsat)", sentinel1: "Radarbild (Sentinel-1)", gis: "Skyddsvärda objekt (GIS, OSM)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
   meteosat_clm: "Moln (Meteosat)", mcf_fire_ban: "Eldningsförbud (MCF)", firms: "Brandpunkter (NASA FIRMS)", inbox: "Händelser in (inkorgen)",
 };
 
@@ -207,19 +209,33 @@ document.getElementById("switch-demo").addEventListener("click", async () => {
 
 // The map layers on the main screen, ticked here as in the scenarios' mission control (/api/layers).
 const LAYER_LABELS = {
-  municipal: "Kommunens karta (Flens kommun)", flood: "Översvämning, 100-årsflöde (MCF)", radar: "Väderradar (SMHI)",
+  municipal: "Kommunens karta", flood: "Översvämning, 100-årsflöde (MCF)", radar: "Väderradar (SMHI)",
   wind: "Vindpilar (SMHI, prognos)", chart: "Väderkarta (SMHI, prognos)", stations: "SMHI:s stationer",
   facilities: "Skyddsvärda objekt (kommunens GIS)", names: "Ortnamn (OSM)", firms: "Brandpunkter (NASA FIRMS)",
   satellite: "Satellitbild (Sentinel-2)", s1radar: "Radarbild (Sentinel-1)", s1water: "Vatten utanför sjöarna, radar (rött)",
   s1wetness: "Fukt i terrängen, radar (brun torr – blå blöt)", landsat: "Satellitbild (Landsat)",
   flood_highest: "Översvämning, beräknat högsta flöde (MCF)",
-  skyfall100: "Skyfall, vattendjup vid 100-årsregn (Flens kommun)", skyfall500: "Skyfall, vattendjup vid 500-årsregn (Flens kommun)",
+  skyfall30: "Skyfall, vattendjup vid 30-årsregn (kommunen)", skyfall100: "Skyfall, vattendjup vid 100-årsregn (kommunen)", skyfall500: "Skyfall, vattendjup vid 500-årsregn (kommunen)",
 };
 let layersShown = {};
+// The labels of the area's own layers, and whether the area has them (areaConfig; all until it comes).
+function areaLayers() {
+  if (!areaConfig) return { labels: {}, has: () => true };
+  const overlays = Object.fromEntries((areaConfig.layers.overlays || []).map((item) => [item.id, item]));
+  const labels = { municipal: `Kommunens karta (${areaConfig.area.name})` };
+  for (const name of ["flood", "flood_highest"]) if (areaConfig.layers[name]) labels[name] = `Översvämning, ${areaConfig.layers[name].label}`;
+  for (const [id, item] of Object.entries(overlays)) labels[id] = item.label;
+  const has = (name) => (name === "municipal" ? areaConfig.maps.municipal.length > 0
+    : name === "flood" || name === "flood_highest" ? Boolean(areaConfig.layers[name])
+      : name.startsWith("skyfall") ? Boolean(overlays[name]) : true);
+  return { labels, has };
+}
 function showLayers(layers) {
   layersShown = { ...(layers || {}) };
   const box = document.getElementById("map-layers");
-  for (const [name, label] of Object.entries(LAYER_LABELS)) {
+  const own = areaLayers();
+  for (const [name, fallback] of Object.entries(LAYER_LABELS)) {
+    const label = own.labels[name] || fallback;
     let input = box.querySelector(`input[value="${name}"]`);
     if (!input) {
       const row = element("label");
@@ -231,6 +247,8 @@ function showLayers(layers) {
       box.append(row);
     }
     input.checked = Boolean(layersShown[name]);
+    input.closest("label").hidden = !own.has(name);
+    input.nextElementSibling.textContent = label;
   }
   document.getElementById("simulated-toggle").checked = Boolean(layersShown.simulated);
 }

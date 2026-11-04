@@ -1,17 +1,61 @@
 # Continuous monitoring (first version)
 
 A first implementation of the MVP one-pager's operational chain (`docs/mvp/onepager-mvp.md`) for
-**Flens kommun**: events in, live sources, detection, alarms the operator confirms or dismisses, a
+**Flens kommun** and, with it as the template, the municipalities of the other scenarios: events in, live sources, detection, alarms the operator confirms or dismisses, a
 sourced briefing and contact lists by role. It is a service of its own beside the demo and does
 not touch the scenario playback. Its data are **live**; events from the inbox are marked as
 simulated unless they say otherwise.
+
+## Areas
+
+One module per municipality in `app/monitoring/areas/`, all taking the template's shared satellites,
+limits, FIRMS, Meteosat and example contacts from `areas/common.py`, and their offline map, OSM
+targets, terrain, MCF flood zone and level sensors from their scenarios' unversioned data:
+
+| Area (`--area`) | Scenarios | Flows (SMHI, live) | Base map |
+|---|---|---|---|
+| `flenkommun` | Flen 2019, 2021, 2024 | Hebylund, Sibro 2, Hallbosjön | Flens kommun's Bakgrundskarta |
+| `sundsvallkommun` | Sundsvall 2020, 2023, 2026, Ljungan 2023 | Norrsjön (Ljungan) | Sundsvalls kommun's Kartan |
+| `kramforskommun` | Kramfors 2026, Västernorrland 2025 | Risnäs (Gådeån) | OpenStreetMap |
+| `ljusdalkommun` | Kårböle 2018 | Saras fors, Oppli (Ljusnan) | OpenStreetMap |
+| `salakommun` | Västmanland 2014 | Tärnsjö, Gränvad | OpenStreetMap |
+| `vasterasstad` | Svartån 2023 | Åkesta kvarn, Berg, Gränvad | Västerås stad's karta |
+| `hoorkommun` | Skåne 2024 | Heåkra, Ellinge | OpenStreetMap |
+| `vellingekommun` | Falsterbonäset | none in the municipality | Vellinge kommun's KommunKartaNedtonad |
+
+The stations were checked live on 2026-11-04: several of the scenarios' stations (Skallböle,
+Torpshammar, Ringsjödammen, Hjälta, Sollefteå) give only SMHI's corrected archive, so the nearest
+live ones are used, and the scenarios' level sensors are kept only where they follow one of them.
+Only Flens kommun's own GIS (protected objects, buildings) is used, as the check of laws and rules
+covered it alone; the others take their protected objects and buildings from OpenStreetMap. The
+municipal maps of Sundsvall and Västerås are those already fetched for their scenarios, for internal
+use as the user allowed; Vellinge's (ArcGIS REST, no terms stated) is fetched with
+`tools.fetch_municipal_basemap --area vellingekommun`, for internal use as the user allowed on
+2026-11-04. Kramfors, Ljusdal, Sala and Höör publish no background map of their own (checked
+2026-11-04: Sokigo's Spatial Map with Lantmäteriet's maps, Lantmäteriet's Topowebb through a proxy,
+Esri's basemaps), so OpenStreetMap stays their base map.
+
+Sundsvall's cloudburst model (the greatest water depth at a 30-, 100- and 500-year rain) and
+Västerås stad's (100-year rain) are laid over the maps straight from the municipalities' WMS, as
+their scenarios show them, for internal use as the user allowed (layers `skyfall30`, `skyfall100`,
+`skyfall500`, off at the start); Flen's are fetched tiles.
+
+The scenarios' offline map and 3D terrain cover their map area only. An area's own, over its whole
+municipality (its `BBOX`), is built with the scenarios' tools and taken once there
+(`areas.common.built_terrain`, `built_tiles`):
+
+```bash
+.venv/bin/python -m tools.fetch_copernicus_dem --area sundsvallkommun   # data/monitoring/<area>/dem/
+.venv/bin/python -m tools.build_terrain --area sundsvallkommun          # data/monitoring/<area>/terrain/
+.venv/bin/python -m tools.build_offline_tiles --area sundsvallkommun    # data/tiles/<area>.mbtiles
+```
 
 ## Run
 
 From the start page, as the demos (`docs/operatorsguide.md`, section 7):
 
 ```bash
-.venv/bin/python -m tools.start_demo      # Övervakning → Flens kommun
+.venv/bin/python -m tools.start_demo      # Övervakning → a municipality
 ```
 
 `start_demo` starts the tiles service with the area's offline map (`TILES_FILE`), the monitoring on
@@ -139,8 +183,11 @@ is never logged or shown.
 - **Briefing** (`briefing.py`): `/briefing/<id>`, a printable page with the facts, their sources
   and times, what is uncertain, the context and the contacts by role.
 - **Layers**, each switched in mission control: the municipal map, SMHI's radar image and MCF's climate-adapted 100-year flow of Nyköpingsån (WMS) on
-  the 2D map and the globe, as in the Flen scenarios; the wind arrows over the area and the weather
-  chart over Scandinavia (isobars every 2 hPa with highs and lows, the hour's rain, thunder), from
+  the 2D map and the globe, as in the Flen scenarios; the wind arrows over the area (about 10 km
+  apart) and the weather chart over Scandinavia (its own wind arrows about 75 km apart, isobars every
+  2 hPa with highs and lows sought in SMHI's whole grid within about 200 km, drawn as a large blue H
+  or red L with the pressure, the hour's rain, thunder); the arrows are thinned by zoom on both maps
+  so they stay about 70 px apart (each arrow's tier in `weather.py`), from
   SMHI's forecast grid snow1g for the next whole hour (`weather.py`, with the scenarios'
   `tools/isobars.py` and `wind_barbs.js`), fetched again for a new run or hour and marked as a
   forecast; the protected objects, the place names (OSM), SMHI's flow and weather stations (Floda A,

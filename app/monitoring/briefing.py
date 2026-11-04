@@ -31,7 +31,7 @@ def build(alarm: dict[str, Any], context: dict[str, Any], area: ModuleType) -> d
         "extent": candidate["extent"], "facts": candidate["facts"], "confirmations": candidate["confirmations"],
         "exposure": candidate.get("exposure"),
         "uncertain": uncertain, "context": context, "contacts": area.CONTACTS.get(candidate["kind"], []),
-        "contacts_note": area.CONTACTS_NOTE, "history": alarm["history"], "created_utc": alarm["created_utc"],
+        "contacts_note": area.CONTACTS_NOTE, "gis_note": area.GIS_NOTE, "history": alarm["history"], "created_utc": alarm["created_utc"],
         "made_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
@@ -109,8 +109,7 @@ table {{ border-collapse: collapse; width: 100%; font-size: 0.92rem; }} td, th {
 <h2>Fakta och källor</h2>
 <table><tr><th>Fakta</th><th>Källa</th><th>Tid (UTC)</th></tr>{facts}</table>
 <h2>Skyddsvärda objekt och bebyggelse{(' ' + escape(briefing['exposure']['where'])) if briefing.get('exposure') else ''}</h2>
-<p class="meta">Intern – bygger på Flens kommuns GIS. Äldreomsorgens enheter och boenden för personer med
-funktionsnedsättning ingår inte.</p>{_list(exposure_lines(briefing.get('exposure')))}
+<p class="meta">{escape(briefing['gis_note'])}</p>{_list(exposure_lines(briefing.get('exposure')))}
 <h2>Bekräftelser från andra källor</h2>{_list(briefing['confirmations'])}
 <h2>Osäkert</h2>{_list(briefing['uncertain'])}
 <h2>Läget i övrigt</h2>{_list(_context_lines(briefing['context']))}

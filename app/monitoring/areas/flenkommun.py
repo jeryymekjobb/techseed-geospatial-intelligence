@@ -15,6 +15,7 @@ data/monitoring/flenkommun/.
 from __future__ import annotations
 
 from app.backend.scenarios import REPO_ROOT
+from app.monitoring.areas.common import *  # noqa: F403 - the template's shared satellites, limits and contacts
 
 NAME = "Flens kommun"
 MUNICIPALITY_CODE = "0482"
@@ -29,7 +30,6 @@ BBOX = (16.3, 58.8, 17.1, 59.28)
 CENTRE = (59.06, 16.73)
 
 DATA_DIR = REPO_ROOT / "data" / "monitoring" / "flenkommun"
-POLL_SECONDS = 300
 
 # Flens kommun's background map (the folder Flenkartan of gis.flen.se, ArcGIS Server 11.3; copyright
 # "Lantmäteriet/GIS"): it covers the whole municipality and is white outside it, and it has no WMS, so
@@ -56,7 +56,8 @@ MUNICIPAL_BASEMAP_BBOX = (16.4, 58.85, 17.06, 59.25)
 # rules on 2026-11-03: housing for people with disabilities (until its security and data protection
 # are reviewed, the user's decision), social services' premises, addresses and property designations.
 _GIS = "https://gis.flen.se/arcgis/rest/services"
-GIS_ATTRIBUTION = "Flens kommun (GIS) – intern användning"
+GIS_ATTRIBUTION = "Flens kommun (GIS) och OpenStreetMap – intern användning"
+GIS_NOTE = "Intern – bygger på Flens kommuns GIS. Äldreomsorgens enheter och boenden för personer med funktionsnedsättning ingår inte."
 _SERVICES = f"{_GIS}/Kommunala_verksamheter/MapServer"
 GIS_FACILITIES = [
     {"service": _SERVICES, "layer": 10, "fields": ["Namn"], "name_field": "Namn", "category": "Förskola", "group": "school",
@@ -95,28 +96,6 @@ FLOOD_ZONE_FILES = [REPO_ROOT / "data" / "flenkommun2024" / "mcf" / "mcf-100ar.g
 TILES_FILE = "flenkommun.mbtiles"
 MAP_BBOX = (16.3, 58.8, 17.1, 59.28)
 
-# The satellites whose data the monitoring uses, as the demos show only those that send data: NASA
-# FIRMS's VIIRS and MODIS satellites, and the Sentinel-1, Sentinel-2 and Landsat satellites of the
-# latest images (sentinel1.py, sentinel2.py), by NORAD number (Space-Track's catalogue, checked
-# 2026-11-04). Their current element sets come from Space-Track (satellites.py).
-SATELLITES = {
-    "37849": {"name": "Suomi NPP", "firms": "SNPP", "instrument": "VIIRS", "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0},
-    "43013": {"name": "NOAA-20", "firms": "N20", "instrument": "VIIRS", "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0},
-    "54234": {"name": "NOAA-21", "firms": "N21", "instrument": "VIIRS", "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0},
-    "25994": {"name": "Terra", "firms": "Terra", "instrument": "MODIS", "role": "FIRMS-detektioner (MODIS)", "half_swath_km": 1165.0},
-    "27424": {"name": "Aqua", "firms": "Aqua", "instrument": "MODIS", "role": "FIRMS-detektioner (MODIS)", "half_swath_km": 1165.0},
-    "62261": {"name": "Sentinel-1C", "firms": None, "instrument": "SAR", "role": "Radar, ser genom moln", "half_swath_km": 125.0},
-    "66315": {"name": "Sentinel-1D", "firms": None, "instrument": "SAR", "role": "Radar, ser genom moln", "half_swath_km": 125.0},
-    "40697": {"name": "Sentinel-2A", "firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
-    "42063": {"name": "Sentinel-2B", "firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
-    "60989": {"name": "Sentinel-2C", "firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
-    "39084": {"name": "Landsat 8", "firms": None, "instrument": "OLI", "role": "Optisk jordobservation", "half_swath_km": 92.5},
-    "49260": {"name": "Landsat 9", "firms": None, "instrument": "OLI", "role": "Optisk jordobservation", "half_swath_km": 92.5},
-    # Meteosat-10 (MSG-3) at 0 degrees, whose cloud mask the monitoring shows (meteosat.py), as in the scenarios.
-    "38552": {"name": "Meteosat-10", "firms": None, "instrument": "SEVIRI", "role": "Geostationär, ser området hela tiden",
-              "half_swath_km": None, "geostationary": True},
-}
-
 # SMHI's stations with the flow every 15 minutes (hydroobs parameter 2), all in Nyköpingsån's
 # catchment; Hallbosjön lies just south of the municipality.
 FLOW_STATIONS = {
@@ -127,14 +106,6 @@ FLOW_STATIONS = {
 # SMHI's hourly rain (metobs parameter 7): only Floda A, 11 km west of Flen.
 RAIN_STATIONS = {"96040": "Floda A"}
 
-# Proposals, to be tuned with the municipality: a flow is high above the 99th percentile of the
-# station's daily flows in SMHI's corrected archive, at two readings in a row, and a record above
-# the archive's highest daily flow. Rain of at least RAIN_CONFIRM_MM in 24 hours at a rain station
-# confirms a high flow as a second source.
-FLOW_HIGH_PERCENTILE = 99.0
-RAIN_CONFIRM_MM = 10.0
-
-# NASA FIRMS's near-real-time fire detections over BBOX (needs ~/.firms_map_key or FIRMS_MAP_KEY).
 # SMHI's weather stations in and around the municipality, active on 2026-11-03 (metobs's station
 # lists), with the parameters each reports (sources.STATION_PARAMETERS): the automatic stations with
 # temperature, wind and the hour's rain, and the stations with the rain by the day.
@@ -152,34 +123,19 @@ WEATHER_STATIONS = {
     "87400": {"name": "Oxelösund", "parameters": [1, 5]},
 }
 
-# Proposals, as the flow limits: a cloudburst when SMHI's radar estimates at least CLOUDBURST_MM_H
-# somewhere in the municipality, confirmed by CLOUDBURST_GAUGE_MM in the last hour at a rain station
-# or a warning; raised fire risk when SMHI's fire risk class (FWI, or grass fire) is at least
-# FIRE_RISK_CLASS today or tomorrow, at FIRE_RISK_POINT.
-CLOUDBURST_MM_H = 20.0
-# The satellite monitor logs Sentinel-1's water outside the lakes from this share of the land (%), a proposal.
-S1_WATER_LOG_PCT = 0.5
-CLOUDBURST_GAUGE_MM = 10.0
-FIRE_RISK_CLASS = 5
 FIRE_RISK_POINT = CENTRE
 FORECAST_POINT = CENTRE
 # MCF's (formerly MSB's) flood maps of Nyköpingsån, as in the Flen scenarios
-# (app/backend/scenarios/flenkommun2024.py): the climate-adapted 100-year flow.
-FLOOD_HAZARD_WMS = {
-    "url": "https://gis-tjanster.mcf.se/arcgis/services/Oversvamningskarteringar/karteringar/MapServer/WMSServer",
-    "layers": "12",
-    "label": "100-årsflöde, klimatanpassat (MCF)",
-    "attribution": "Översvämningskartering © MCF (tidigare MSB)",
-}
-# The same mapping's highest calculated flow (WMS layer 9), as the Flen scenarios show it.
-FLOOD_HIGHEST_WMS = {**FLOOD_HAZARD_WMS, "layers": "9", "label": "Beräknat högsta flöde (MCF)"}
+# (app/backend/scenarios/flenkommun2024.py): the climate-adapted 100-year flow, and the highest
+# calculated flow.
+FLOOD_HAZARD_WMS = mcf_layer("12", "100-årsflöde, klimatanpassat (MCF)")  # noqa: F405
+FLOOD_HIGHEST_WMS = mcf_layer("9", "Beräknat högsta flöde (MCF)")  # noqa: F405
+FLOOD_ZONE_LABEL = "MCF:s klimatanpassade 100-årsflöde"
 # The Flen scenarios' 3D terrain from Copernicus's DEM (tools/build_terrain.py), quantized mesh.
 TERRAIN_DIR = REPO_ROOT / "data" / "flenkommun2024" / "terrain"
 # The Flen scenarios' simulated level sensors where larger roads cross MCF's 100-year flow of
 # Nyköpingsån (levels.py), each following Sibro 2 or Hallbosjön.
 LEVEL_SENSOR_FILE = REPO_ROOT / "data" / "flenkommun2024" / "sensors" / "level-points.geojson"
-# Meteosat's cloud mask over the area (meteosat.py), with the EUMETSAT key in ~/.eumdac/credentials.
-METEOSAT_CLM = True
 # Flens kommun's cloudburst mapping of Flen's town (Skyfallskartering, gis.flen.se): the greatest water
 # depth at a 100- and a 500-year rain, which the user allowed for internal use on 2026-11-04. It has no
 # WMS and is fetched as transparent tiles by ArcGIS REST export (tools/fetch_municipal_basemap.py).
@@ -195,28 +151,3 @@ MUNICIPAL_BASEMAPS += [
      "dir": DATA_DIR / "municipal-basemap" / f"skyfall{years}"}
     for years, layer in ((100, 8), (500, 3))
 ]
-
-FIRMS_SOURCES = ("VIIRS_SNPP_NRT", "VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT", "MODIS_NRT")
-FIRMS_DAYS = 2
-# Detections within this distance belong to the same fire.
-FIRE_CLUSTER_KM = 1.0
-# Known heat sources that are not fires in the open (industry, power plants), as
-# (name, latitude, longitude, radius in km). None is entered for Flens kommun yet.
-KNOWN_HEAT_SOURCES: list[tuple[str, float, float, float]] = []
-# Days with planned fires, as (month, day, name): a fire then is not dismissed, but marked as
-# possibly planned.
-FIRE_CALENDAR = ((4, 30, "valborgsmässoafton"),)
-
-# Who is to be contacted by kind of event, by role only: names and numbers stay out of the
-# repository. AN EXAMPLE, not agreed with the municipality or the rescue service.
-CONTACTS_NOTE = "Exempel – inte överenskommet med kommunen eller räddningstjänsten"
-CONTACTS = {
-    "flood": ["Räddningstjänstens inre befäl i beredskap", "Kommunens tjänsteperson i beredskap (TiB)",
-              "Kommunens VA-ansvarige i beredskap", "Länsstyrelsens tjänsteperson i beredskap"],
-    "fire": ["Räddningstjänstens inre befäl i beredskap", "Kommunens tjänsteperson i beredskap (TiB)",
-             "Länsstyrelsens tjänsteperson i beredskap"],
-    "erosion": ["Kommunens tjänsteperson i beredskap (TiB)", "SGI:s tjänsteperson i beredskap"],
-    "landslide": ["Räddningstjänstens inre befäl i beredskap", "Kommunens tjänsteperson i beredskap (TiB)",
-                  "SGI:s tjänsteperson i beredskap"],
-    "vma": ["Kommunens tjänsteperson i beredskap (TiB)", "Räddningstjänstens inre befäl i beredskap"],
-}

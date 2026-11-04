@@ -29,3 +29,5 @@
 .list { font-size: 0.85rem; }
 .list div { padding: 3px 0 3px 8px; border-left: 4px solid #555; margin: 2px 0; }
 .list .meta { color: #b8b8b8; border-left-color: transparent; }
+/* A layer the area lacks has no box to tick (control.js areaLayers). */
+.control fieldset label[hidden] { display: none; }

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import io
 import json
+import warnings
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -204,7 +205,11 @@ class Latest:
         if len(stack) < MIN_PASSES:
             return None
         cube = np.stack(stack)
-        reference = {"dry": np.nanpercentile(cube, 5, axis=0), "wet": np.nanpercentile(cube, 95, axis=0),
+        # Blocks no pass covered (the sea, outside the swaths) stay NaN, as the wetness expects, without a warning.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            dry, wet = np.nanpercentile(cube, 5, axis=0), np.nanpercentile(cube, 95, axis=0)
+        reference = {"dry": dry, "wet": wet,
                      "count": np.isfinite(cube).sum(axis=0), "passes": np.array(len(stack)),
                      "made_utc": np.array(now.isoformat())}
         self.dir.mkdir(parents=True, exist_ok=True)

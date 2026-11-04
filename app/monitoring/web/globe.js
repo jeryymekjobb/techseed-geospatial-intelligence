@@ -149,6 +149,14 @@ const WIND_SHOWN_M = 400_000;
 // As the scenarios' globe (map3d.js MUNICIPAL_MIN_LEVEL): the municipal map from this level, the
 // offline OpenStreetMap below it, so its names are not drawn huge and blurred from afar.
 const MUNICIPAL_MIN_LEVEL = 11;
+// The wind arrows thinned by the camera's height (weather.py's tiers), as on the 2D map: as many as
+// keep them WIND_SPACING_PX apart; with VÄDERKARTA the chart's sparser arrows cover Scandinavia.
+const WIND_SPACING_PX = 70;
+function windTier(viewer, spacingKm) {
+  const height = Math.max(viewer.camera.positionCartographic.height, 1);
+  const metresPerPixel = (2 * height * Math.tan((viewer.camera.frustum.fovy || 1) / 2)) / Math.max(viewer.canvas.clientHeight, 1);
+  return Math.max(0, Math.ceil(Math.log2((WIND_SPACING_PX * metresPerPixel) / (spacingKm * 1000))));
+}
 const barbImages = new Map();
 function barbImage(speed) {
   const svg = windBarbSvg(speed);
@@ -167,19 +175,39 @@ function weatherDrawer(viewer) {
   let rain = null;
   let shown = null;
   let layers = { wind: true, chart: false };
+  let spacing = { area: 10, chart: 75 };
+  const arrows = { area: [], chart: [] };
+  // Each arrow shows when its tier reaches the camera's; the chart's give way inside the area to its own when close.
+  const thin = () => {
+    const close = viewer.camera.positionCartographic.height < WIND_SHOWN_M;
+    const areaTier = windTier(viewer, spacing.area);
+    const chartTier = windTier(viewer, spacing.chart);
+    for (const { entity, tier } of arrows.area) entity.show = Boolean(layers.wind) && close && tier >= areaTier;
+    for (const { entity, tier, inArea } of arrows.chart) {
+      entity.show = Boolean(layers.chart) && tier >= chartTier && !(inArea && layers.wind && close);
+    }
+  };
+  viewer.camera.percentageChanged = 0.1;
+  viewer.camera.changed.addEventListener(thin);
   const apply = () => {
-    wind.show = Boolean(layers.wind);
+    wind.show = Boolean(layers.wind || layers.chart);
     chart.show = Boolean(layers.chart);
     if (rain) rain.show = Boolean(layers.chart);
+    thin();
   };
+  const barb = (point) => wind.entities.add({ position: Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude),
+    billboard: { image: barbImage(point.speed_ms), alignedAxis: Cesium.Cartesian3.UNIT_Z, width: 64, height: 64,
+      rotation: -Cesium.Math.toRadians((point.from_deg + 180) % 360), heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY } });
   const draw = (data) => {
     wind.entities.removeAll();
-    for (const point of data.wind || []) {
-      wind.entities.add({ position: Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude),
-        billboard: { image: barbImage(point.speed_ms), alignedAxis: Cesium.Cartesian3.UNIT_Z, width: 64, height: 64,
-          rotation: -Cesium.Math.toRadians((point.from_deg + 180) % 360), heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, WIND_SHOWN_M) } });
-    }
+    spacing = { area: data.wind_spacing_km || 10, chart: data.chart?.wind_spacing_km || 75 };
+    const lons = (data.wind || []).map((point) => point.longitude);
+    const lats = (data.wind || []).map((point) => point.latitude);
+    const inArea = (point) => lons.length && point.longitude >= Math.min(...lons) && point.longitude <= Math.max(...lons)
+      && point.latitude >= Math.min(...lats) && point.latitude <= Math.max(...lats);
+    arrows.area = (data.wind || []).map((point) => ({ entity: barb(point), tier: point.tier ?? 0 }));
+    arrows.chart = (data.chart?.wind || []).map((point) => ({ entity: barb(point), tier: point.tier ?? 0, inArea: inArea(point) }));
     chart.entities.removeAll();
     if (rain) viewer.imageryLayers.remove(rain);
     rain = null;
@@ -193,7 +221,7 @@ function weatherDrawer(viewer) {
     }
     for (const centre of data.chart.centres) {
       chart.entities.add({ position: Cesium.Cartesian3.fromDegrees(centre.longitude, centre.latitude),
-        label: { text: `${centre.kind} ${centre.hpa}`, font: "bold 22px system-ui, sans-serif",
+        label: { text: `${centre.kind}\n${centre.hpa}`, font: "800 30px system-ui, sans-serif",
           fillColor: color(centre.kind === "H" ? "#1565c0" : "#c62828"), outlineColor: color("#ffffff"), outlineWidth: 3,
           style: Cesium.LabelStyle.FILL_AND_OUTLINE, disableDepthTestDistance: Number.POSITIVE_INFINITY } });
     }
@@ -244,8 +272,11 @@ async function start() {
   const floodHighest = addFlood(viewer, config.layers.flood_highest);
   const overlays = {};
   for (const item of config.layers.overlays || []) {
-    const layer = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
-      url: item.url, minimumLevel: item.min_zoom, maximumLevel: item.max_zoom, rectangle: Cesium.Rectangle.fromDegrees(...item.bbox) }));
+    const rectangle = Cesium.Rectangle.fromDegrees(...item.bbox);
+    const layer = viewer.imageryLayers.addImageryProvider(item.wms
+      ? new Cesium.WebMapServiceImageryProvider({ url: item.wms.url, layers: item.wms.layers, rectangle,
+        parameters: { transparent: true, format: "image/png", styles: "" } })
+      : new Cesium.UrlTemplateImageryProvider({ url: item.url, minimumLevel: item.min_zoom, maximumLevel: item.max_zoom, rectangle }));
     layer.alpha = 0.8;
     overlays[item.id] = layer;
     credit(item.attribution);

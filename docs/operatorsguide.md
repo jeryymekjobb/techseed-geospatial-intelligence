@@ -976,9 +976,12 @@ och sedan **Skogsbranden i Västmanland 2014**. Kommandot skriver steg 1/4 till 
 "Demon går", och då öppnas alla tre skärmarna i demon. **Tillbaka** går till startsidan igen. Med
 demons namn, `.venv/bin/python -m tools.start_demo vastmanland2014`, hoppar det över startsidan.
 
-**Övervakning** visar de kommuner som har kontinuerlig övervakning, i dag **Flens kommun**. Den går
-live mot SMHI, MCF, Krisinformation och NASA FIRMS och har inget kioskläge. Ett klick startar
-kartservern med Flens offlinekarta, övervakningstjänsten och de tre skärmarna på samma platser som för
+**Övervakning** visar, med samma länsknappar som **Scenarier**, de kommuner som har kontinuerlig
+övervakning – en för varje område där det finns scenarier: Ljusdal (Gävleborg), Höör och Vellinge
+(Skåne), Flen (Södermanland), Kramfors och Sundsvall (Västernorrland), Sala och Västerås
+(Västmanland). Ett klick på ett län visar dess kommuner; **Tillbaka** går till länen igen. Den går live mot SMHI, MCF, Krisinformation och NASA FIRMS och har
+inget kioskläge. Bara Flens kommun visar skyddsvärda objekt ur kommunens GIS; de andra tar dem ur
+OpenStreetMap. Ett klick startar kartservern med kommunens offlinekarta, övervakningstjänsten och de tre skärmarna på samma platser som för
 demona: satellitmonitorn med banorna för FIRMS-satelliterna, Sentinel-1, Sentinel-2 och Landsat och deras
 passager över kommunen just nu, huvudskärmen med 3D-globen över kommunen i scenariernas 3D-terräng (kommunens egen karta, med OSM:s vägnummer och järnvägstunnlar ovanpå) och
 mission control med larmen. Övervakningen larmar för höga flöden, skyfall enligt SMHI:s väderradar,
@@ -988,9 +991,11 @@ mission control visar radarn, brandrisken, prognosen och flödena. I mission con
 avfärdar operatören larmen och öppnar briefingen; inget skickas vidare automatiskt. **VISA 2D / VISA 3D**
 växlar huvudskärmen mellan 2D-kartan och 3D-globen, och **Kartlager på huvudskärmen** slår av och på
 varje lager: kommunens karta, översvämning, väderradar, vindpilar och väderkarta (SMHI:s prognos för
-den närmaste hela timmen, inte observationer), SMHI:s stationer, skyddsvärda objekt ur kommunens GIS,
+den närmaste hela timmen, inte observationer; vindpilarna glesas ut när man zoomar ut, väderkartan har
+egna glesare vindpilar över Skandinavien och visar högtryck som ett stort blått H och lågtryck som ett
+stort rött L med trycket), SMHI:s stationer, skyddsvärda objekt ur kommunens GIS,
 ortnamn, brandpunkter, MCF:s beräknade högsta flöde, kommunens skyfallskartering för 100- och
-500-årsregn (en modell, för intern användning), de senaste satellitbilderna från Sentinel-2 och
+500-årsregn (en modell, för intern användning; i Sundsvall även 30-årsregn, och i Västerås 100-årsregn), de senaste satellitbilderna från Sentinel-2 och
 Landsat och den senaste radarpassagen från
 Sentinel-1: radarbilden i grått, där fuktig och ojämn mark är ljus, och vatten utanför sjöarna i rött
 (en beräknad mask, inte en kartlagd översvämning), och fukten i terrängen, beräknad ur hur blöt

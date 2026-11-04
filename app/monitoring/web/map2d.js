@@ -29,7 +29,7 @@ map.attributionControl = new CreditControl({ prefix: false }).addTo(map);
 let municipalCredits = [];
 // Mission control's map layers (service.LAYERS), each a group shown or hidden by showLayers.
 const named = {};
-for (const name of ["municipal", "flood", "flood_highest", "skyfall100", "skyfall500", "radar", "satellite", "landsat", "s1radar",
+for (const name of ["municipal", "flood", "flood_highest", "skyfall30", "skyfall100", "skyfall500", "radar", "satellite", "landsat", "s1radar",
   "s1wetness", "s1water", "stations", "simulated", "facilities", "names", "firms"]) {
   named[name] = L.layerGroup();
 }
@@ -88,6 +88,11 @@ function addOverlays(config) {
   for (const item of config.layers.overlays || []) {
     if (!named[item.id]) continue;
     const [w, s, e, n] = item.bbox;
+    if (item.wms) {  // straight from the municipality's WMS (Sundsvall, Västerås)
+      L.tileLayer.wms(item.wms.url, { layers: item.wms.layers, format: "image/png", transparent: true, opacity: 0.8, styles: "",
+        attribution: item.attribution, zIndex: 6, bounds: [[s, w], [n, e]] }).addTo(named[item.id]);
+      continue;
+    }
     L.tileLayer(item.url, { minZoom: item.min_zoom, maxNativeZoom: item.max_zoom, maxZoom: 18, zIndex: 6, opacity: 0.8,
       attribution: item.attribution, bounds: [[s, w], [n, e]] }).addTo(named[item.id]);
   }
@@ -260,13 +265,41 @@ let weatherShown = null;
 let shownLayers = {};
 let areaBounds = null;
 
-function drawWeather(data) {
+// The wind arrows thinned by zoom (weather.py's tiers): an arrow of tier k shows once only every
+// 2^k-th point of its grid is drawn, as many as keep the arrows WIND_SPACING_PX apart. With
+// VÄDERKARTA the chart's sparser arrows cover Scandinavia, and the area's own the area when close.
+const WIND_SPACING_PX = 70;
+let weatherData = null;
+function windTier(spacingKm) {
+  const metresPerPixel = 40075016.686 * Math.cos((map.getCenter().lat * Math.PI) / 180) / (256 * 2 ** map.getZoom());
+  return Math.max(0, Math.ceil(Math.log2((WIND_SPACING_PX * metresPerPixel) / (spacingKm * 1000))));
+}
+function drawWind() {
   windLayer.clearLayers();
-  for (const point of data.wind || []) {
+  if (!weatherData) return;
+  const area = shownLayers.wind && (!shownLayers.chart || map.getZoom() >= WIND_MIN_ZOOM);
+  const [west, south, east, north] = areaBounds ? [areaBounds[0][1], areaBounds[0][0], areaBounds[1][1], areaBounds[1][0]] : [0, 0, 0, 0];
+  const inArea = (point) => point.longitude >= west && point.longitude <= east && point.latitude >= south && point.latitude <= north;
+  const points = [];
+  if (area) {
+    const tier = windTier(weatherData.wind_spacing_km || 10);
+    points.push(...(weatherData.wind || []).filter((point) => (point.tier ?? 0) >= tier));
+  }
+  if (shownLayers.chart && weatherData.chart) {
+    const tier = windTier(weatherData.chart.wind_spacing_km || 75);
+    points.push(...(weatherData.chart.wind || []).filter((point) => (point.tier ?? 0) >= tier && !(area && inArea(point))));
+  }
+  for (const point of points) {
     const svg = windBarbSvg(point.speed_ms).replace("<svg ", `<svg style="transform: rotate(${(point.from_deg + 180) % 360}deg)" `);
     L.marker([point.latitude, point.longitude], { icon: L.divIcon({ className: "barb-icon", html: svg, iconSize: [0, 0] }),
       interactive: false, keyboard: false }).addTo(windLayer);
   }
+}
+map.on("zoomend", drawWind);
+
+function drawWeather(data) {
+  weatherData = data;
+  drawWind();
   chartLayer.clearLayers();
   const chart = data.chart;
   if (!chart) return;
@@ -297,12 +330,12 @@ function refreshWeather(summary) {
   getJson("/api/weather").then(drawWeather).catch(() => { weatherShown = null; });
 }
 
-// The arrows show only from this zoom, so they do not crowd into one blot over Scandinavia; the
-// place names likewise.
+// The area's own arrows give way to the chart's below this zoom while VÄDERKARTA shows; the place
+// names show only from it.
 const WIND_MIN_ZOOM = 8;
 function showLayers(layers) {
   const close = map.getZoom() >= WIND_MIN_ZOOM;
-  const wanted = { ...layers, wind: layers.wind && close, names: layers.names && close,
+  const wanted = { ...layers, wind: layers.wind || layers.chart, names: layers.names && close,
     hamlets: layers.names && map.getZoom() >= HAMLET_MIN_ZOOM };
   for (const [name, layer] of [["wind", windLayer], ["chart", chartLayer], ["hamlets", hamlets], ...Object.entries(named)]) {
     if (wanted[name] && !map.hasLayer(layer)) layer.addTo(map);
@@ -311,7 +344,9 @@ function showLayers(layers) {
   if (layers.chart && !shownLayers.chart) map.fitBounds(CHART_BOUNDS);
   if (!layers.chart && shownLayers.chart && areaBounds) map.fitBounds(areaBounds);
   setShortCredits(layers.municipal ? municipalCredits : []);
+  const changed = layers.wind !== shownLayers.wind || layers.chart !== shownLayers.chart;
   shownLayers = { ...layers };
+  if (changed) drawWind();
 }
 
 function followView() {

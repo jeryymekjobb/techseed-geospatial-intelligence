@@ -8,6 +8,11 @@ inside the area, and at every CHART_DOWNSAMPLE-th point over CHART_BBOX the pres
 (isobars every ISOBAR_HPA hPa with the highs and lows), the rain of the hour (an image in the
 radar's classes) and the probability of thunder (a mark where it reaches THUNDER_PERCENT, one per
 THUNDER_SPACING_KM). All of it is a forecast for the next whole hour, not an observation.
+
+The weather chart has its own, sparser wind (every CHART_WIND_DOWNSAMPLE-th point), and every wind
+arrow a tier: an arrow of tier k stays when only every 2^k-th point of its grid is drawn, so the
+screens thin the arrows as they zoom out (wind_tiers) without crowding. The highs and lows are sought
+in SMHI's whole grid, within CENTRE_WINDOW points, so those near the chart's edge are found too.
 """
 
 from __future__ import annotations
@@ -28,7 +33,14 @@ API = "https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1"
 ATTRIBUTION = "SMHI:s väderprognos (snow1g), öppna data (CC BY 4.0 SE); prognos, inte observationer"
 CHART_BBOX = (4.0, 55.0, 31.0, 70.0)  # west, south, east, north: Scandinavia, as the scenarios' weather chart
 WIND_DOWNSAMPLE = 4  # about 10 km
+WIND_SPACING_KM = 10.0
 CHART_DOWNSAMPLE = 10  # about 25 km
+CHART_WIND_DOWNSAMPLE = 30  # about 75 km
+CHART_WIND_SPACING_KM = 75.0
+MAX_TIER = 6
+# A high or low is the highest or lowest point within this many chart points (about 200 km), at least
+# isobars.CENTRE_DEPTH_HPA from their mean; the scenarios' 12 found none on most days of 2026-11.
+CENTRE_WINDOW = 8
 ISOBAR_HPA = 2
 THUNDER_PERCENT = 30.0
 THUNDER_SPACING_KM = 100.0
@@ -56,6 +68,36 @@ def grid(data: dict[str, Any], parameter: str) -> tuple[np.ndarray, np.ndarray, 
     coords = np.asarray(points[:rows * width], dtype=float).reshape(rows, width, 2)
     field = np.asarray(values[:rows * width], dtype=float).reshape(rows, width)
     return coords[..., 1], coords[..., 0], field
+
+
+def tier(row: int, col: int, top: int = MAX_TIER) -> int:
+    """The thinning tier of a grid point: the largest k (up to top) for which it is on every 2^k-th row and column."""
+    k = 0
+    while k < top and row % 2 ** (k + 1) == 0 and col % 2 ** (k + 1) == 0:
+        k += 1
+    return k
+
+
+def wind_points(speed: dict[str, Any], direction: dict[str, Any], bbox: tuple[float, float, float, float]) -> list[dict[str, Any]]:
+    """The wind arrows inside the box, each with its tier."""
+    lat, lon, speeds = grid(speed, "wind_speed")
+    _, _, froms = grid(direction, "wind_from_direction")
+    west, south, east, north = bbox
+    inside = (lon >= west) & (lon <= east) & (lat >= south) & (lat <= north)
+    return [{"latitude": round(float(lat[r, c]), 4), "longitude": round(float(lon[r, c]), 4), "speed_ms": round(float(speeds[r, c]), 1),
+             "from_deg": int(round(float(froms[r, c]))) % 360, "tier": tier(int(r), int(c))}
+            for r, c in zip(*np.nonzero(inside))]
+
+
+def pressure_centres(lat: np.ndarray, lon: np.ndarray, pressure: np.ndarray, bbox: tuple[float, float, float, float]) -> list[dict[str, Any]]:
+    """The highs and lows of the whole grid that lie inside the box."""
+    west, south, east, north = bbox
+    found = []
+    for kind, y, x, value in isobars.centres(isobars.smooth(pressure), window=CENTRE_WINDOW):
+        a, o = float(lat[y, x]), float(lon[y, x])
+        if west <= o <= east and south <= a <= north:
+            found.append({"kind": kind, "hpa": round(value), "latitude": round(a, 3), "longitude": round(o, 3)})
+    return found
 
 
 def crop(lat: np.ndarray, lon: np.ndarray, bbox: tuple[float, float, float, float], margin: int = 1) -> tuple[slice, slice]:
@@ -119,17 +161,14 @@ class Weather:
         key = (created, f"{moment:%Y-%m-%dT%H:%M:%SZ}")
         if key == self.key and self.latest is not None:
             return self.latest
-        speed = self._get(moment, "wind_speed", WIND_DOWNSAMPLE)
-        direction = self._get(moment, "wind_from_direction", WIND_DOWNSAMPLE)
-        lat, lon, speeds = grid(speed, "wind_speed")
-        _, _, froms = grid(direction, "wind_from_direction")
         west, south, east, north = self.bbox
-        inside = (lon >= west) & (lon <= east) & (lat >= south) & (lat <= north)
-        wind = [{"latitude": round(float(a), 4), "longitude": round(float(o), 4), "speed_ms": round(float(v), 1),
-                 "from_deg": int(round(float(d))) % 360}
-                for a, o, v, d in zip(lat[inside], lon[inside], speeds[inside], froms[inside])]
+        wind = wind_points(self._get(moment, "wind_speed", WIND_DOWNSAMPLE),
+                           self._get(moment, "wind_from_direction", WIND_DOWNSAMPLE), self.bbox)
+        chart_wind = wind_points(self._get(moment, "wind_speed", CHART_WIND_DOWNSAMPLE),
+                                 self._get(moment, "wind_from_direction", CHART_WIND_DOWNSAMPLE), CHART_BBOX)
         pressure_data = self._get(moment, "air_pressure_at_mean_sea_level", CHART_DOWNSAMPLE)
         clat, clon, pressure = grid(pressure_data, "air_pressure_at_mean_sea_level")
+        centres = pressure_centres(clat, clon, pressure, CHART_BBOX)
         rows, cols = crop(clat, clon, CHART_BBOX)
         clat, clon, pressure = clat[rows, cols], clon[rows, cols], pressure[rows, cols]
         _, _, rain = grid(self._get(moment, "precipitation_amount_mean", CHART_DOWNSAMPLE), "precipitation_amount_mean")
@@ -138,8 +177,10 @@ class Weather:
         chart = isobars.isobars(pressure, clat, clon, interval=ISOBAR_HPA)
         centre = min(wind, key=lambda item: geo.distance_km(item["latitude"], item["longitude"], (south + north) / 2,
                                                             (west + east) / 2)) if wind else None
-        self.latest = {"created_utc": created, "valid_utc": key[1], "attribution": ATTRIBUTION, "wind": wind, "centre_wind": centre,
-                       "chart": {**chart, "bbox": list(CHART_BBOX), "rain_png": rain_png(clat, clon, rain, CHART_BBOX),
+        self.latest = {"created_utc": created, "valid_utc": key[1], "attribution": ATTRIBUTION, "wind": wind,
+                       "wind_spacing_km": WIND_SPACING_KM, "centre_wind": centre,
+                       "chart": {**chart, "centres": centres, "wind": chart_wind, "wind_spacing_km": CHART_WIND_SPACING_KM,
+                                 "bbox": list(CHART_BBOX), "rain_png": rain_png(clat, clon, rain, CHART_BBOX),
                                  "thunder": thunder_marks(clat, clon, thunder)}}
         self.key = key
         return self.latest
