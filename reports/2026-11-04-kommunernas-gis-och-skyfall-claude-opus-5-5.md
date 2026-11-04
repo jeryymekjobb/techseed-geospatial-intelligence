@@ -90,12 +90,12 @@ Enligt `app/monitoring/areas/flenkommun.py`, `app/monitoring/gis.py`, registret
 874 lagertyper i WFS, 21 namnrymder). GetFeature med `outputFormat=application/json` och
 `srsName=EPSG:4326` ger punktgeometri.
 
-| Lager (WFS)                            | Antal  | Fält                                                                                                                                                        | Not                                                                           |
-| -------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `SundsvallsKommun:Forskolor_punkt`     | 72     | Namn, **Adress, Postnr, Ort**, Ansvar, ID                                                                                                                   | Punkt                                                                         |
-| `SundsvallsKommun:Skolor_punkt`        | 56     | Enhetsnamn, **Adress**, Ort, Typ, Ansvar, Skola, ID                                                                                                         | Punkt. Dessutom ett lager per skola (`*_punkt`, `*_linje`, skolskjutsområden) |
-| `SundsvallsKommun:Vardcentraler_punkt` | 13     | X, Y, Namn, **Adress**                                                                                                                                      | Punkt, t.ex. "Hälsocentralen Liden"                                           |
-| `SundsvallsKommun:bal_byggnad_yta`     | 85 530 | 60 fält, bland dem **bal_husnummer, bal_ligger_pa_fastighet, bal_tillhor_fastighet, bal_berors_av_fastighet, td_skapad_av, td_andrad_av, td_bygg_arendeid** | Yta (byggnader, BAL-modellen)                                                 |
+| Lager (WFS) | Antal | Fält | Not |
+|---|---|---|---|
+| `SundsvallsKommun:Forskolor_punkt` | 72 | Namn, **Adress, Postnr, Ort**, Ansvar, ID | Punkt |
+| `SundsvallsKommun:Skolor_punkt` | 56 | Enhetsnamn, **Adress**, Ort, Typ, Ansvar, Skola, ID | Punkt. Dessutom ett lager per skola (`*_punkt`, `*_linje`, skolskjutsområden) |
+| `SundsvallsKommun:Vardcentraler_punkt` | 13 | X, Y, Namn, **Adress** | Punkt, t.ex. "Hälsocentralen Liden" |
+| `SundsvallsKommun:bal_byggnad_yta` | 85 530 | 60 fält, bland dem **bal_husnummer, bal_ligger_pa_fastighet, bal_tillhor_fastighet, bal_berors_av_fastighet, td_skapad_av, td_andrad_av, td_bygg_arendeid** | Yta (byggnader, BAL-modellen) |
 
 **Ska uteslutas enligt Flens regler (V, finns i samma tjänst):**
 `Gruppboende_punkt` (39; namn, **adress**, typ), `Individstod_punkt`,
@@ -160,10 +160,10 @@ om skyfallen i augusti 2021, för andra kommuner i länet (O).
 **Tjänst (V):** `https://geodata.sala.se/arcgis/rest/services` (ArcGIS). Mapparna
 Fastighetsenheten, GaidaGaturummet, Geodataenheten, GVS och Hosted kräver token.
 
-| Tjänst och lager                                                     | Antal | Fält                                                | Not                                                                                     |
-| -------------------------------------------------------------------- | ----- | --------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `vard_skola_omsorg/Skola_utbildning/MapServer/0` *Utbildning skolor* | 35    | Namn, Kommentar, Kategori                           | Punkt. Kategori: Förskola (kommunal, fristående), Grundskola, Gymnasie. Inga adressfält |
-| `Intressepunkter/MapServer/0`                                        | 19    | Namn, Typ, Beskrivning, **Adress, Telefon, E_post** | Bara motionsspår och anslagstavlor; inte relevant                                       |
+| Tjänst och lager | Antal | Fält | Not |
+|---|---|---|---|
+| `vard_skola_omsorg/Skola_utbildning/MapServer/0` *Utbildning skolor* | 35 | Namn, Kommentar, Kategori | Punkt. Kategori: Förskola (kommunal, fristående), Grundskola, Gymnasie. Inga adressfält |
+| `Intressepunkter/MapServer/0` | 19 | Namn, Typ, Beskrivning, **Adress, Telefon, E_post** | Bara motionsspår och anslagstavlor; inte relevant |
 
 Ingen vård och inga byggnader i de öppna mapparna (V). `GaidaSBI/SBI_Topografi10`
 ("Tjänsteansvarig: Sokigo AB") är Lantmäteriets Topografi 10 och har *Militärt område*,
@@ -195,13 +195,13 @@ händelsedata.
 `https://kartserver.vasteras.se/geoserver` (WFS-lagren där är bygglovsnämndens ärenden,
 bostadsprognoser och transportplan, inga skyddsvärda objekt).
 
-| Tjänst och lager                                         | Antal  | Fält                                                                    | Not                                                                                          |
-| -------------------------------------------------------- | ------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `ext/webbobjekt_dyn/FeatureServer/0` *WEBBOBJEKT_PKT*    | 1 244  | NAME, CATEGORY, PAGEID, ORGANIZATION, PROVIDER m.fl.                    | Punkt. Samhällskartans källa. Förskola 132, Grundskola 63, Gymnasieskola 18. Inga adressfält |
-| `ext/buf_upptagningsomraden_skolor/MapServer/2`, `/3`    | 19, 43 | NAME, CATEGORY …                                                        | Fristående och kommunala grundskolor                                                         |
-| `ext/sbf_gronskan_allt_dyn/MapServer/1` *Förskolor*      | 141    | NAME, CATEGORY …                                                        | Punkt                                                                                        |
-| `ext/kommunkarta_farg_dyn/MapServer/11` *Byggnadsyta_ny* | 33 679 | 31 fält, bland dem **TAXERINGSID, TAXERINGSKOD, TAXERINGSTYP**, ANDAMAL | Yta                                                                                          |
-| `ext/Matinstrument/FeatureServer/63` *Byggnader*         | 1 578  | ID, TYP, TYPKOD                                                         | Yta, bara en del av staden                                                                   |
+| Tjänst och lager | Antal | Fält | Not |
+|---|---|---|---|
+| `ext/webbobjekt_dyn/FeatureServer/0` *WEBBOBJEKT_PKT* | 1 244 | NAME, CATEGORY, PAGEID, ORGANIZATION, PROVIDER m.fl. | Punkt. Samhällskartans källa. Förskola 132, Grundskola 63, Gymnasieskola 18. Inga adressfält |
+| `ext/buf_upptagningsomraden_skolor/MapServer/2`, `/3` | 19, 43 | NAME, CATEGORY … | Fristående och kommunala grundskolor |
+| `ext/sbf_gronskan_allt_dyn/MapServer/1` *Förskolor* | 141 | NAME, CATEGORY … | Punkt |
+| `ext/kommunkarta_farg_dyn/MapServer/11` *Byggnadsyta_ny* | 33 679 | 31 fält, bland dem **TAXERINGSID, TAXERINGSKOD, TAXERINGSTYP**, ANDAMAL | Yta |
+| `ext/Matinstrument/FeatureServer/63` *Byggnader* | 1 578 | ID, TYP, TYPKOD | Yta, bara en del av staden |
 
 Ingen vårdcentral (V).
 
@@ -230,12 +230,12 @@ får använda stadens data internt (R-GEO-05).
 Mittskånes server (`https://karta.geoinfomittskane.se/arcgis/rest/services`, gemensam med
 Hörby).
 
-| Tjänst och lager                                                        | Antal  | Fält                                                                                                 | Not                                                   |
-| ----------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| AGOL `Skolor_i_Höörs_kommun/FeatureServer/0`                            | 36     | Namn, Skoltyp, Huvudman, **Adress, Postnr, Kontakt (telefon)**, **Creator, Editor**                  | Punkt, förskolor och skolor                           |
-| AGOL `Skolor_WFL/FeatureServer/0`–`4`                                   | 36     | Som ovan                                                                                             | Samma data, uppdelad på fritids, inriktning, huvudman |
-| AGOL `Byggnader_PK/FeatureServer/0`                                     | 10 770 | **ADDRESS, HOUSENUMBE, BELONGSTO, LIESON, AFFECTEDBY**, **REGSIGN, MODIFICA_1** (användarnamn) m.fl. | Yta, från primärkartan                                |
-| Mittskåne `OpenData/Baskarta_Hoor_OpenData/MapServer/10` *Byggnad, yta* | 20 877 | Som ovan, bland dem **ADDRESS, HOUSENUMBER, MODIFICATIONSIGN**                                       | Yta. Copyright "(C) Höörs kommun och Lantmäteriet"    |
+| Tjänst och lager | Antal | Fält | Not |
+|---|---|---|---|
+| AGOL `Skolor_i_Höörs_kommun/FeatureServer/0` | 36 | Namn, Skoltyp, Huvudman, **Adress, Postnr, Kontakt (telefon)**, **Creator, Editor** | Punkt, förskolor och skolor |
+| AGOL `Skolor_WFL/FeatureServer/0`–`4` | 36 | Som ovan | Samma data, uppdelad på fritids, inriktning, huvudman |
+| AGOL `Byggnader_PK/FeatureServer/0` | 10 770 | **ADDRESS, HOUSENUMBE, BELONGSTO, LIESON, AFFECTEDBY**, **REGSIGN, MODIFICA_1** (användarnamn) m.fl. | Yta, från primärkartan |
+| Mittskåne `OpenData/Baskarta_Hoor_OpenData/MapServer/10` *Byggnad, yta* | 20 877 | Som ovan, bland dem **ADDRESS, HOUSENUMBER, MODIFICATIONSIGN** | Yta. Copyright "(C) Höörs kommun och Lantmäteriet" |
 
 Ingen vård (V). Höörs del av översiktsplanen 2026 (`OP2026/…_Hr_OP2026`) ger ingen
 servicepunkt för vård. Hörbys översiktsplan (`OP2035antagande/Omsorg_antagande_hby`) har
@@ -270,12 +270,12 @@ appen "Öppen data i Höör" finns (V), men någon licens (t.ex. CC0) har inte h
 **Tjänst (V):** `https://karta.vellinge.se/arcgis/rest/services` (ArcGIS Server 11.3).
 Elva mappar kräver token, bland dem Skola, Trygghet och VELLINGE.
 
-| Tjänst och lager                                         | Antal  | Fält                                                                                            | Not                                         |
-| -------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `Extern_karta/Huvudkarta_extern/MapServer/14` *Förskola* | 24     | Namn, WIFI, URL, TYP                                                                            | Punkt, inga adressfält                      |
-| `Extern_karta/Huvudkarta_extern/MapServer/13` *Skolor*   | 16     | Namn, Nivå, WIFI, URL                                                                           | Punkt                                       |
-| `Emma_Extern_Översiktsplan_MIL1/MapServer/4` *Byggnader* | 49 970 | 51 fält, bland dem **ADDRESS, HOUSENUMBER, BELONGSTO, LIESON, AFFECTEDBY, NONFREEHOLDPROPERTY** | Yta                                         |
-| `Emma_Extern_Översiktsplan_MIL1/MapServer/22` *Vård*     | 17     | Bara ID och area                                                                                | Ytor i översiktsplanen, utan namn eller typ |
+| Tjänst och lager | Antal | Fält | Not |
+|---|---|---|---|
+| `Extern_karta/Huvudkarta_extern/MapServer/14` *Förskola* | 24 | Namn, WIFI, URL, TYP | Punkt, inga adressfält |
+| `Extern_karta/Huvudkarta_extern/MapServer/13` *Skolor* | 16 | Namn, Nivå, WIFI, URL | Punkt |
+| `Emma_Extern_Översiktsplan_MIL1/MapServer/4` *Byggnader* | 49 970 | 51 fält, bland dem **ADDRESS, HOUSENUMBER, BELONGSTO, LIESON, AFFECTEDBY, NONFREEHOLDPROPERTY** | Yta |
+| `Emma_Extern_Översiktsplan_MIL1/MapServer/22` *Vård* | 17 | Bara ID och area | Ytor i översiktsplanen, utan namn eller typ |
 
 `Huvudkarta_extern_MIL1` har samma lager som `Extern_karta/Huvudkarta_extern`. Ingen
 vårdcentral (V).
@@ -328,17 +328,17 @@ Intern användning är inte spridning enligt 9 §. Gäller om något visas utåt
 
 **R-GEO-05 (villkor per källa).**
 
-| Källa                                       | Villkor funnet                                                         |
-| ------------------------------------------- | ---------------------------------------------------------------------- |
-| Sundsvall, GeoServer                        | Bara fem kommuner om inget annat avtalas (V)                           |
-| Västerås                                    | Inget i tjänsterna; internt ok enligt användaren 2026-10-28            |
-| Sala                                        | Inget i tjänsterna                                                     |
-| Höör, AGOL och Mittskåne                    | "(C) Höörs kommun och Lantmäteriet" i OpenData-baskartan; annars inget |
-| Vellinge                                    | Inget i tjänsterna                                                     |
-| Kramfors, Ljusdal                           | Ingen publik tjänst                                                    |
-| Länsstyrelsen Västernorrland, skyfall       | CC0 1.0 (V)                                                            |
-| Länsstyrelsen Västmanland och SMHI, skyfall | CC BY 4.0 (V)                                                          |
-| Mittskåne Skyfall 2024 (Hörby)              | Inget angivet                                                          |
+| Källa | Villkor funnet |
+|---|---|
+| Sundsvall, GeoServer | Bara fem kommuner om inget annat avtalas (V) |
+| Västerås | Inget i tjänsterna; internt ok enligt användaren 2026-10-28 |
+| Sala | Inget i tjänsterna |
+| Höör, AGOL och Mittskåne | "(C) Höörs kommun och Lantmäteriet" i OpenData-baskartan; annars inget |
+| Vellinge | Inget i tjänsterna |
+| Kramfors, Ljusdal | Ingen publik tjänst |
+| Länsstyrelsen Västernorrland, skyfall | CC0 1.0 (V) |
+| Länsstyrelsen Västmanland och SMHI, skyfall | CC BY 4.0 (V) |
+| Mittskåne Skyfall 2024 (Hörby) | Inget angivet |
 
 Ingen kommun hade en hittad förklaring om öppna data enligt lag (2022:818) för just
 dessa lager (O; kort sökning). SKR:s PM säger att kommuner får ta ut avgift för geodata
@@ -350,15 +350,15 @@ licens.
 Förslag, inte beslut. "Efter DSO" = efter beställarens dataskyddsombud och kvalificerad
 granskning.
 
-| Kommun    | Förskolor och skolor från GIS                                   | Vård från GIS                               | Byggnader från GIS              | Skyfallslager                                                                       |
-| --------- | --------------------------------------------------------------- | ------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------- |
-| Sundsvall | Efter DSO och efter att villkoret om fem organisationer är löst | Efter DSO (vårdcentraler)                   | Efter DSO, bara geometri        | Finns redan                                                                         |
-| Kramfors  | Nej, ingen publik tjänst                                        | Nej                                         | Nej (Solay-lagret kräver avtal) | Ja, LstY:s lågpunkter och rinnvägar (CC0), märkt som indikator                      |
-| Ljusdal   | Nej, ingen publik tjänst                                        | Nej                                         | Nej                             | Nej, inget hittat                                                                   |
-| Sala      | Efter DSO                                                       | Nej, inget lager                            | Nej, inget öppet lager          | Ja, LstU:s och SMHI:s WMS (CC BY 4.0)                                               |
-| Västerås  | Efter DSO, med vitlista på CATEGORY                             | Nej, inget lager                            | Efter DSO, bara geometri        | Finns redan                                                                         |
-| Höör      | Efter DSO, utan adress- och kontaktfält                         | Nej, inget lager                            | Efter DSO, bara geometri        | Nej för Höör; Hörbys *Skyfall 2024* bara om användaren vill visa grannkommunens del |
-| Vellinge  | Efter DSO                                                       | Nej (översiktsplanens vårdytor saknar namn) | Efter DSO, bara geometri        | Nej, inget publicerat                                                               |
+| Kommun | Förskolor och skolor från GIS | Vård från GIS | Byggnader från GIS | Skyfallslager |
+|---|---|---|---|---|
+| Sundsvall | Efter DSO och efter att villkoret om fem organisationer är löst | Efter DSO (vårdcentraler) | Efter DSO, bara geometri | Finns redan |
+| Kramfors | Nej, ingen publik tjänst | Nej | Nej (Solay-lagret kräver avtal) | Ja, LstY:s lågpunkter och rinnvägar (CC0), märkt som indikator |
+| Ljusdal | Nej, ingen publik tjänst | Nej | Nej | Nej, inget hittat |
+| Sala | Efter DSO | Nej, inget lager | Nej, inget öppet lager | Ja, LstU:s och SMHI:s WMS (CC BY 4.0) |
+| Västerås | Efter DSO, med vitlista på CATEGORY | Nej, inget lager | Efter DSO, bara geometri | Finns redan |
+| Höör | Efter DSO, utan adress- och kontaktfält | Nej, inget lager | Efter DSO, bara geometri | Nej för Höör; Hörbys *Skyfall 2024* bara om användaren vill visa grannkommunens del |
+| Vellinge | Efter DSO | Nej (översiktsplanens vårdytor saknar namn) | Efter DSO, bara geometri | Nej, inget publicerat |
 
 Frågor till användaren:
 

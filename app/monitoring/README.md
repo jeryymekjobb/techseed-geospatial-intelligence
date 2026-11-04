@@ -12,16 +12,16 @@ One module per municipality in `app/monitoring/areas/`, all taking the template'
 limits, FIRMS, Meteosat and example contacts from `areas/common.py`, and their offline map, OSM
 targets, terrain, MCF flood zone and level sensors from their scenarios' unversioned data:
 
-| Area (`--area`)   | Scenarios                                | Flows (SMHI, live)               | Base map                              |
-| ----------------- | ---------------------------------------- | -------------------------------- | ------------------------------------- |
-| `flenkommun`      | Flen 2019, 2021, 2024                    | Hebylund, Sibro 2, Hallbosjön    | Flens kommun's Bakgrundskarta         |
-| `sundsvallkommun` | Sundsvall 2020, 2023, 2026, Ljungan 2023 | Norrsjön (Ljungan)               | Sundsvalls kommun's Kartan            |
-| `kramforskommun`  | Kramfors 2026, Västernorrland 2025       | Risnäs (Gådeån)                  | OpenStreetMap                         |
-| `ljusdalkommun`   | Kårböle 2018                             | Saras fors, Oppli (Ljusnan)      | OpenStreetMap                         |
-| `salakommun`      | Västmanland 2014                         | Tärnsjö, Gränvad                 | OpenStreetMap                         |
-| `vasterasstad`    | Svartån 2023                             | Åkesta kvarn, Berg, Gränvad      | Västerås stad's karta                 |
-| `hoorkommun`      | Skåne 2024                               | Heåkra, Ellinge                  | OpenStreetMap                         |
-| `vellingekommun`  | Falsterbonäset                           | none; the sea level at Klagshamn | Vellinge kommun's KommunKartaNedtonad |
+| Area (`--area`) | Scenarios | Flows (SMHI, live) | Base map |
+|---|---|---|---|
+| `flenkommun` | Flen 2019, 2021, 2024 | Hebylund, Sibro 2, Hallbosjön | Flens kommun's Bakgrundskarta |
+| `sundsvallkommun` | Sundsvall 2020, 2023, 2026, Ljungan 2023 | Norrsjön (Ljungan) | Sundsvalls kommun's Kartan |
+| `kramforskommun` | Kramfors 2026, Västernorrland 2025 | Risnäs (Gådeån) | OpenStreetMap |
+| `ljusdalkommun` | Kårböle 2018 | Saras fors, Oppli (Ljusnan) | OpenStreetMap |
+| `salakommun` | Västmanland 2014 | Tärnsjö, Gränvad | OpenStreetMap |
+| `vasterasstad` | Svartån 2023 | Åkesta kvarn, Berg, Gränvad | Västerås stad's karta |
+| `hoorkommun` | Skåne 2024 | Heåkra, Ellinge | OpenStreetMap |
+| `vellingekommun` | Falsterbonäset | none; the sea level at Klagshamn | Vellinge kommun's KommunKartaNedtonad |
 
 The stations were checked live on 2026-11-04: several of the scenarios' stations (Skallböle,
 Torpshammar, Ringsjödammen, Hjälta, Sollefteå) give only SMHI's corrected archive, so the nearest
