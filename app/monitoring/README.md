@@ -38,6 +38,18 @@ Bakgrundskarta, fetched once and kept locally for internal use, as the user deci
 .venv/bin/python -m tools.fetch_municipal_basemap --area flenkommun
 ```
 
+The same tool fetches the municipality's cloudburst mapping (Skyfallskartering, the water depth of a
+100- and a 500-year rain over Flen's town, zoom 12-16) as transparent layers laid over the maps, also
+for internal use only, as the user allowed on 2026-11-04:
+
+```bash
+.venv/bin/python -m tools.fetch_municipal_basemap --area flenkommun --map skyfall100
+.venv/bin/python -m tools.fetch_municipal_basemap --area flenkommun --map skyfall500
+```
+
+The globe uses the Flen scenarios' 3D terrain (`data/flenkommun2024/terrain`, served at `/terrain/`)
+when it is there, else the ellipsoid.
+
 Outside the municipality, where the municipal map is transparent, OpenStreetMap's standard map lies
 under it, online: it has land cover at every zoom and no edge, which the demos' offline map
 (`data/tiles/flenkommun.mbtiles`) lacks at low zooms and at its area's edges. The offline map takes
@@ -45,8 +57,8 @@ its place only when OpenStreetMap cannot be fetched. The offline map's road numb
 tunnels, which the municipal map lacks, lie over it, clipped by the backend to the municipality's
 border (`service.clip_to_border`), since OpenStreetMap's own map has them outside.
 
-The satellites are those whose data the monitoring uses, NASA FIRMS's Suomi NPP, NOAA-20, NOAA-21,
-Terra and Aqua. Their current element sets come from Space-Track (class `gp`) with the account in
+The satellites are those whose data the monitoring uses: NASA FIRMS's Suomi NPP, NOAA-20, NOAA-21,
+Terra and Aqua, Sentinel-1C and 1D (radar), Sentinel-2A, 2B and 2C, and Landsat 8 and 9. Their current element sets come from Space-Track (class `gp`) with the account in
 `~/.spacetrackrc`, kept in `data/monitoring/tle/current.json` and fetched again at most once a day
 (`satellites.py`). The screens compute where they are now with satellite.js; the positions are
 computed, not observed.
@@ -110,14 +122,17 @@ is never logged or shown.
   Eskilstuna A, Kolmården-Strömsfors A, Höksta and the daily rain stations, with their latest values),
   FIRMS's detections, and the latest Sentinel-2 image (`sentinel2.py`: Planetary Computer's catalogue
   and data API, the newest datatake of 14 days with at most 60 % cloud, else the clearest of 30 days,
-  in true colour as the scenarios'); the latest Sentinel-1 radar pass (`sentinel1.py`: Planetary
+  in true colour as the scenarios'), and the latest Landsat 8 or 9 image chosen the same way
+  (Collection 2 Level-2, true colour as the scenarios' Landsat); the latest Sentinel-1 radar pass (`sentinel1.py`: Planetary
   Computer's terrain-corrected sentinel-1-rtc, VV), as the scenarios' radar images: the grey radar
   image, which shows wet and rough ground bright, and the water outside OpenStreetMap's lakes in red
   (darker than the median over the lakes, five of nine neighbours) – a computed mask, not a mapped
   flood; and the ground's relative wetness by change detection (each pixel now between its driest and
   wettest in the last 120 days' passes of the same relative orbit, about 100 m, brown dry to blue
   wet; computed, not measured, left out in forest, built-up land and lakes); the weather chart, the
-  optical image, the grey radar image and the wetness start off;
+  MCF's highest computed flow (layer 9 of the flood mapping) and the municipality's cloudburst
+  mapping for 100- and 500-year rain (a model, not an observation); the weather chart, the optical
+  images, the grey radar image, the wetness, the highest flow and the cloudburst layers start off;
 - **Marks**, as the user asked: SMHI's stations round with a white ring, blue, and red while one of
   them alarms (a high flow or record, or heavy rain: 10 mm in an hour at a weather station); the
   protected objects and other places of interest small, round and yellow;

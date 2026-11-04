@@ -706,6 +706,69 @@ def test_the_latest_clear_sentinel2_datatake_is_chosen_and_laid_together(tmp_pat
     assert latest.update(NOW + timedelta(minutes=10)) == meta and len(asked) == 2
 
 
+def test_the_latest_landsat_image_is_asked_for_its_own_bands_and_named_as_the_screens_name_it(tmp_path: Path) -> None:
+    import io
+
+    from PIL import Image
+
+    from app.monitoring import sentinel2
+
+    out = io.BytesIO()
+    Image.new("RGBA", (4, 4), (0, 200, 0, 255)).save(out, "PNG")
+    found = [{"id": "LC09_1", "properties": {"datetime": "2026-10-29T10:00:00Z", "eo:cloud_cover": 10, "platform": "landsat-9"}}]
+    asked, searched = [], []
+    latest = sentinel2.Latest(flenkommun.BBOX, tmp_path, lambda url: asked.append(url) or out.getvalue(),
+                              lambda url, body: searched.append(body) or json.dumps({"features": found}).encode(),
+                              kind=sentinel2.LANDSAT)
+    meta = latest.update(NOW)
+    assert searched[0]["collections"] == ["landsat-c2-l2"] and meta["platform"] == "Landsat 9"
+    assert "U.S. Geological Survey" in meta["attribution"] and (tmp_path / "landsat").is_dir()
+    assert "collection=landsat-c2-l2" in asked[0] and "assets=red" in asked[0] and "rescale=7273%2C16364" in asked[0]
+
+
+def test_the_config_offers_the_highest_flow_the_cloudburst_overlays_once_fetched_and_the_terrain(tmp_path: Path, monkeypatch) -> None:
+    overlay = {**next(item for item in flenkommun.MUNICIPAL_BASEMAPS if item["id"] == "skyfall100"), "dir": tmp_path / "skyfall100"}
+    terrain = tmp_path / "terrain"
+    monitor = service.Monitor(area(MUNICIPAL_BASEMAPS=[overlay], TERRAIN_DIR=terrain), fake_fetch({}), tmp_path, NO_SCENES)
+    monkeypatch.setattr(service.offline_tiles, "available", lambda: False)
+    config = monitor.config()
+    assert config["layers"]["flood_highest"]["layers"] == "9" and config["layers"]["overlays"] == [] and config["terrain"] is None
+    overlay["dir"].mkdir()
+    (overlay["dir"] / "SOURCE.json").write_text(json.dumps({"min_zoom": 12, "max_zoom": 16, "bbox_west_south_east_north": [16.54, 59.02, 16.68, 59.1]}))
+    terrain.mkdir()
+    (terrain / "layer.json").write_text("{}")
+    config = monitor.config()
+    assert [item["url"] for item in config["layers"]["overlays"]] == ["/basemap/skyfall100/{z}/{x}/{y}.png"]
+    assert config["maps"]["municipal"] == [] and config["terrain"] == "/terrain/"
+
+
+def test_the_terrain_route_serves_the_terrain_and_nothing_outside_it(tmp_path: Path) -> None:
+    terrain = tmp_path / "terrain"
+    (terrain / "0" / "0").mkdir(parents=True)
+    (terrain / "layer.json").write_text('{"tiles": []}')
+    (terrain / "0" / "0" / "0.terrain").write_bytes(b"\x1f\x8bmesh")
+    (tmp_path / "secret.json").write_text("{}")
+    monitor = service.Monitor(area(DATA_DIR=tmp_path, TERRAIN_DIR=terrain), fake_fetch({}), tmp_path, NO_SCENES)
+    handler = type("TestHandler", (service.Handler,), {"monitor": monitor})
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        port = httpd.server_address[1]
+        assert request(port, "GET", "/terrain/layer.json") == (200, b'{"tiles": []}')
+        assert request(port, "GET", "/terrain/0/0/0.terrain") == (200, b"\x1f\x8bmesh")
+        assert request(port, "GET", "/terrain/../secret.json")[0] == 404
+        assert request(port, "GET", "/basemap/skyfall500/14/1/1.png")[0] == 404
+    finally:
+        httpd.shutdown()
+
+
+def test_the_satellite_monitor_follows_sentinel1_sentinel2_and_landsat() -> None:
+    names = {item["name"]: item["instrument"] for item in flenkommun.SATELLITES.values()}
+    assert {names[name] for name in names if name.startswith("Sentinel-1")} == {"SAR"}
+    assert {names[name] for name in names if name.startswith("Sentinel-2")} == {"MSI"}
+    assert {names[name] for name in names if name.startswith("Landsat")} == {"OLI"}
+
+
 def test_new_alarms_are_read_aloud_only_with_upplasning_on(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("FIRMS_MAP_KEY", "KEY")
     monitor = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch(live_answers()), tmp_path, NO_SCENES)

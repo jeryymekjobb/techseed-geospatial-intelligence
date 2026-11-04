@@ -41,6 +41,14 @@ def test_a_map_without_wms_is_asked_by_arcgis_export_with_the_same_box_and_size(
     assert f"{left}%2C{bottom}%2C{right}%2C{top}" in export and f"{left}%2C{bottom}%2C{right}%2C{top}" in wms
 
 
+def test_an_overlay_is_asked_for_its_own_layers_with_what_is_not_drawn_transparent() -> None:
+    item = {"kind": "arcgis", "url": "https://example.invalid/MapServer", "layers": "show:8", "transparent": True}
+    export = fetch.block_url(item, 14, 8848, 4800)
+    assert "layers=show%3A8" in export and "format=png32" in export and "transparent=true" in export
+    plain = fetch.block_url({"kind": "arcgis", "url": "https://example.invalid/MapServer"}, 14, 8848, 4800)
+    assert "layers=" not in plain and "format=png&" in plain and "transparent=false" in plain
+
+
 def test_a_block_is_asked_with_its_margin_and_cut_into_tiles() -> None:
     url = fetch.getmap_url("https://example.invalid/wms", "Kartan", 1, 0, 0)
     side = fetch.META * fetch.TILE_PX + 2 * fetch.MARGIN_PX

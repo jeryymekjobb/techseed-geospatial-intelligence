@@ -10,7 +10,7 @@ const STATE_MS = 30000;
 const VIEW_MS = 2000;
 const VIEW_RANGE_M = 75_000;
 const SATELLITE_MS = 2000;
-const SATELLITE_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00" };
+const SATELLITE_COLORS = { MODIS: "#ff8c00", VIIRS: "#ff2a00", OLI: "#4fc3f7", SAR: "#b388ff", MSI: "#69f0ae" };
 const ALARM_COLORS = { new: "#ff1744", confirmed: "#2979ff" };
 const clockText = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short",
   hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -72,6 +72,7 @@ function addBaseMaps(viewer, maps) {
 // back after every poll, when a newer one may have come.
 function addFlood(viewer, flood) {
   if (!flood) return [];
+  // Over the area's box only, so the service is not asked for the whole world.
   const layer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapServiceImageryProvider({
     url: flood.url, layers: flood.layers, parameters: { format: "image/png", transparent: true, styles: "" } }));
   layer.alpha = 0.6;
@@ -211,7 +212,11 @@ async function start() {
   const config = await getJson("/api/config");
   document.getElementById("title").textContent = `Övervakning – ${config.area.name}`;
   document.title = `Övervakning – ${config.area.name} – 3D`;
+  // The scenarios' 3D terrain when the area has it, as on the demos' globe (map3d.js).
+  const terrainProvider = config.terrain
+    ? await Cesium.CesiumTerrainProvider.fromUrl(config.terrain, { requestVertexNormals: true }).catch(() => null) : null;
   const viewer = new Cesium.Viewer("globe", {
+    ...(terrainProvider ? { terrainProvider } : {}),
     baseLayer: Cesium.ImageryLayer.fromProviderAsync(
       Cesium.TileMapServiceImageryProvider.fromUrl(Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII"))),
     baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false, navigationHelpButton: false,
@@ -222,6 +227,16 @@ async function start() {
   // Mission control's map layers (service.LAYERS): imagery layers and data sources shown or hidden.
   const municipal = addBaseMaps(viewer, config.maps);
   const flood = addFlood(viewer, config.layers.flood);
+  const floodHighest = addFlood(viewer, config.layers.flood_highest);
+  const overlays = {};
+  for (const item of config.layers.overlays || []) {
+    const layer = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+      url: item.url, minimumLevel: item.min_zoom, maximumLevel: item.max_zoom, rectangle: Cesium.Rectangle.fromDegrees(...item.bbox) }));
+    layer.alpha = 0.8;
+    overlays[item.id] = layer;
+    credit(item.attribution);
+  }
+  const landsatImage = imageDrawer(viewer, "/api/landsat.png", config.layers.radar.bbox, 1.0);
   const radarImage = imageDrawer(viewer, "/api/radar.png", config.layers.radar.bbox, 0.85);
   const satelliteImage = imageDrawer(viewer, "/api/satellite.png", config.layers.radar.bbox, 1.0);
   const s1Radar = imageDrawer(viewer, "/api/s1radar.png", config.layers.radar.bbox, 0.9);
@@ -236,6 +251,9 @@ async function start() {
   const applyLayers = (layers) => {
     for (const layer of municipal) layer.show = Boolean(layers.municipal);
     for (const layer of flood) layer.show = Boolean(layers.flood);
+    for (const layer of floodHighest) layer.show = Boolean(layers.flood_highest);
+    for (const [id, layer] of Object.entries(overlays)) layer.show = Boolean(layers[id]);
+    landsatImage.show(layers.landsat);
     radarImage.show(layers.radar);
     satelliteImage.show(layers.satellite);
     s1Radar.show(layers.s1radar);
@@ -282,6 +300,8 @@ async function start() {
     drawRadar(context.radar, state.polled_utc);
     const image = context.satellite_image;
     if (image) satelliteImage.draw(image.time_utc, image.attribution);
+    const landsat = context.landsat_image;
+    if (landsat) landsatImage.draw(landsat.time_utc, landsat.attribution);
     const pass = context.radar_pass;
     if (pass) {
       s1Radar.draw(pass.time_utc, pass.attribution);

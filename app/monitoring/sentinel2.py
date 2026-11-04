@@ -1,4 +1,5 @@
-"""The latest Sentinel-2 image over the area, as the scenarios show their satellite images
+"""The latest Sentinel-2 image over the area, and in the same way the latest Landsat 8 or 9 image
+(LANDSAT, as the Flen scenarios' Landsat images), as the scenarios show their satellite images
 (tools/fetch_sentinel2_scene.py), but live and without GDAL: Microsoft Planetary Computer's open
 STAC catalogue gives the scenes, and its data API cuts the area out of each scene in true colour
 (bands B04, B03 and B02) as a PNG in WGS 84, which are laid together when the area spans two tiles.
@@ -46,8 +47,22 @@ def post_json(url: str, body: dict[str, Any]) -> bytes:
         return response.read()
 
 
-def search(bbox: tuple[float, float, float, float], since: datetime, now: datetime, post: Post) -> list[dict[str, Any]]:
-    body = {"collections": [COLLECTION], "bbox": list(bbox), "limit": 100,
+# Landsat Collection 2 Level-2 surface reflectance (x 0.0000275 - 0.2), stretched from 0 to 0.25 as the
+# scenarios' Landsat natural colour; its credit as the USGS asks.
+LANDSAT = {"collection": "landsat-c2-l2", "bands": ("red", "green", "blue"), "rescale": "7273,16364", "folder": "landsat",
+           "credit": "Landsat-data med tillstånd av U.S. Geological Survey (Microsoft Planetary Computer)"}
+SENTINEL2 = {"collection": COLLECTION, "bands": BANDS, "rescale": RESCALE, "folder": "satellite",
+             "credit": "Innehåller Copernicus Sentinel-data {year} (Microsoft Planetary Computer)"}
+
+
+def platform_name(value: str) -> str:
+    """Planetary Computer's platform as the screens name it: landsat-9 Landsat 9, Sentinel-2A as it is."""
+    return value.replace("landsat-", "Landsat ") if value.startswith("landsat-") else value
+
+
+def search(bbox: tuple[float, float, float, float], since: datetime, now: datetime, post: Post,
+           collection: str = COLLECTION) -> list[dict[str, Any]]:
+    body = {"collections": [collection], "bbox": list(bbox), "limit": 100,
             "datetime": f"{since:%Y-%m-%dT%H:%M:%SZ}/{now:%Y-%m-%dT%H:%M:%SZ}",
             "sortby": [{"field": "datetime", "direction": "desc"}]}
     return json.loads(post(STAC_SEARCH, body)).get("features") or []
@@ -59,7 +74,7 @@ def datatakes(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for item in items:
         groups.setdefault(item["properties"]["datetime"][:16], []).append(item)
     takes = [{"time_utc": key + ":00Z", "items": [item["id"] for item in group],
-              "platform": group[0]["properties"].get("platform", "Sentinel-2"),
+              "platform": platform_name(group[0]["properties"].get("platform", "Sentinel-2")),
               "cloud": round(sum(item["properties"].get("eo:cloud_cover", 100) for item in group) / len(group))}
              for key, group in groups.items()]
     return sorted(takes, key=lambda take: take["time_utc"], reverse=True)
@@ -73,20 +88,22 @@ def choose(takes: list[dict[str, Any]], now: datetime) -> dict[str, Any] | None:
     return min(takes, key=lambda take: (take["cloud"], take["time_utc"])) if takes else None
 
 
-def image_url(item: str, bbox: tuple[float, float, float, float]) -> str:
+def image_url(item: str, bbox: tuple[float, float, float, float], kind: dict[str, Any] = SENTINEL2) -> str:
     west, south, east, north = bbox
     width, height = round((east - west) * PIXELS_PER_DEGREE[0]), round((north - south) * PIXELS_PER_DEGREE[1])
-    params = [("collection", COLLECTION), ("item", item), *(("assets", band) for band in BANDS), ("rescale", RESCALE),
-              ("nodata", "0"), ("color_formula", COLOR_FORMULA)]
+    params = [("collection", kind["collection"]), ("item", item), *(("assets", band) for band in kind["bands"]),
+              ("rescale", kind["rescale"]), ("nodata", "0"), ("color_formula", COLOR_FORMULA)]
     return f"{DATA_API}/{west},{south},{east},{north}/{width}x{height}.png?" + urlencode(params)
 
 
 class Latest:
     """The latest image, kept in data/monitoring/<area>/satellite/ between polls and restarts."""
 
-    def __init__(self, bbox: tuple[float, float, float, float], data_dir: Path, fetch: Fetch, post: Post = post_json) -> None:
+    def __init__(self, bbox: tuple[float, float, float, float], data_dir: Path, fetch: Fetch, post: Post = post_json,
+                 kind: dict[str, Any] = SENTINEL2) -> None:
         self.bbox = bbox
-        self.dir = data_dir / "satellite"
+        self.kind = kind
+        self.dir = data_dir / kind["folder"]
         self.fetch = fetch
         self.post = post
         self.searched: datetime | None = None
@@ -106,18 +123,17 @@ class Latest:
         now = now or datetime.now(timezone.utc)
         if self.searched and now - self.searched < SEARCH_EVERY:
             return self.meta
-        take = choose(datatakes(search(self.bbox, now - FALLBACK, now, self.post)), now)
+        take = choose(datatakes(search(self.bbox, now - FALLBACK, now, self.post, self.kind["collection"])), now)
         self.searched = now
         if take is None or (self.meta and self.meta["items"] == take["items"]):
             return self.meta
-        layers = [Image.open(io.BytesIO(self.fetch(image_url(item, self.bbox)))).convert("RGBA") for item in take["items"]]
+        layers = [Image.open(io.BytesIO(self.fetch(image_url(item, self.bbox, self.kind)))).convert("RGBA") for item in take["items"]]
         image = layers[0]
         for layer in layers[1:]:
             image = Image.alpha_composite(image, layer.resize(image.size))
         self.dir.mkdir(parents=True, exist_ok=True)
         image.save(self.dir / "latest.png", "PNG", optimize=True)
-        self.meta = {**take, "bbox": list(self.bbox), "attribution": f"Innehåller Copernicus Sentinel-data {take['time_utc'][:4]} "
-                     "(Microsoft Planetary Computer)",
+        self.meta = {**take, "bbox": list(self.bbox), "attribution": self.kind["credit"].format(year=take["time_utc"][:4]),
                      "recent": take["cloud"] <= CLOUD_PERCENT
                      and datetime.fromisoformat(take["time_utc"].replace("Z", "+00:00")) >= now - RECENT}
         (self.dir / "latest.json").write_text(json.dumps(self.meta), encoding="utf-8")

@@ -96,14 +96,22 @@ TILES_FILE = "flenkommun.mbtiles"
 MAP_BBOX = (16.3, 58.8, 17.1, 59.28)
 
 # The satellites whose data the monitoring uses, as the demos show only those that send data: NASA
-# FIRMS's VIIRS and MODIS satellites, by NORAD number. Their current element sets come from
-# Space-Track (sources.read_satellites).
+# FIRMS's VIIRS and MODIS satellites, and the Sentinel-1, Sentinel-2 and Landsat satellites of the
+# latest images (sentinel1.py, sentinel2.py), by NORAD number (Space-Track's catalogue, checked
+# 2026-11-04). Their current element sets come from Space-Track (satellites.py).
 SATELLITES = {
     "37849": {"name": "Suomi NPP", "firms": "SNPP", "instrument": "VIIRS", "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0},
     "43013": {"name": "NOAA-20", "firms": "N20", "instrument": "VIIRS", "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0},
     "54234": {"name": "NOAA-21", "firms": "N21", "instrument": "VIIRS", "role": "FIRMS-detektioner (VIIRS)", "half_swath_km": 1520.0},
     "25994": {"name": "Terra", "firms": "Terra", "instrument": "MODIS", "role": "FIRMS-detektioner (MODIS)", "half_swath_km": 1165.0},
     "27424": {"name": "Aqua", "firms": "Aqua", "instrument": "MODIS", "role": "FIRMS-detektioner (MODIS)", "half_swath_km": 1165.0},
+    "62261": {"name": "Sentinel-1C", "firms": None, "instrument": "SAR", "role": "Radar, ser genom moln", "half_swath_km": 125.0},
+    "66315": {"name": "Sentinel-1D", "firms": None, "instrument": "SAR", "role": "Radar, ser genom moln", "half_swath_km": 125.0},
+    "40697": {"name": "Sentinel-2A", "firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
+    "42063": {"name": "Sentinel-2B", "firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
+    "60989": {"name": "Sentinel-2C", "firms": None, "instrument": "MSI", "role": "Optisk jordobservation", "half_swath_km": 145.0},
+    "39084": {"name": "Landsat 8", "firms": None, "instrument": "OLI", "role": "Optisk jordobservation", "half_swath_km": 92.5},
+    "49260": {"name": "Landsat 9", "firms": None, "instrument": "OLI", "role": "Optisk jordobservation", "half_swath_km": 92.5},
 }
 
 # SMHI's stations with the flow every 15 minutes (hydroobs parameter 2), all in Nyköpingsån's
@@ -160,6 +168,25 @@ FLOOD_HAZARD_WMS = {
     "label": "100-årsflöde, klimatanpassat (MCF)",
     "attribution": "Översvämningskartering © MCF (tidigare MSB)",
 }
+# The same mapping's highest calculated flow (WMS layer 9), as the Flen scenarios show it.
+FLOOD_HIGHEST_WMS = {**FLOOD_HAZARD_WMS, "layers": "9", "label": "Beräknat högsta flöde (MCF)"}
+# The Flen scenarios' 3D terrain from Copernicus's DEM (tools/build_terrain.py), quantized mesh.
+TERRAIN_DIR = REPO_ROOT / "data" / "flenkommun2024" / "terrain"
+# Flens kommun's cloudburst mapping of Flen's town (Skyfallskartering, gis.flen.se): the greatest water
+# depth at a 100- and a 500-year rain, which the user allowed for internal use on 2026-11-04. It has no
+# WMS and is fetched as transparent tiles by ArcGIS REST export (tools/fetch_municipal_basemap.py).
+_SKYFALL = f"{_GIS}/Skyfallskartering/MapServer"
+_SKYFALL_BBOX = (16.54, 59.02, 16.68, 59.10)
+MUNICIPAL_BASEMAPS += [
+    {"id": f"skyfall{years}", "kind": "arcgis", "url": _SKYFALL, "layers": f"show:{layer}", "transparent": True,
+     "overlay": True, "bbox": _SKYFALL_BBOX, "min_zoom": 12, "max_zoom": 16,
+     "label": f"Skyfall, största vattendjup vid {years}-årsregn (Flens kommun)",
+     "attribution": "Skyfallskartering © Flens kommun – intern användning",
+     "permission": "The user allowed internal use of Flens kommun's cloudburst mapping on 2026-11-04.",
+     "note": f"Flens kommun's Skyfallskartering, layer {layer}: the greatest water depth at a {years}-year rain in Flen's town.",
+     "dir": DATA_DIR / "municipal-basemap" / f"skyfall{years}"}
+    for years, layer in ((100, 8), (500, 3))
+]
 
 FIRMS_SOURCES = ("VIIRS_SNPP_NRT", "VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT", "MODIS_NRT")
 FIRMS_DAYS = 2

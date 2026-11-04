@@ -55,11 +55,11 @@ STATIC = {"/control.html": (WEB_DIR / "control.html", HTML), "/control.js": (WEB
           "/orbits.js": (FRONTEND_DIR / "orbits.js", JS), "/wind_barbs.js": (FRONTEND_DIR / "wind_barbs.js", JS), "/satmonitor.js": (FRONTEND_DIR / "satmonitor.js", JS),
           "/styles.css": (FRONTEND_DIR / "styles.css", CSS)}
 TILE = re.compile(r"/(tiles|tiles-overlay)/(\d{1,2})/(\d+)/(\d+)\.png")
-BASEMAP_TILE = re.compile(r"/basemap/([a-z]+)/(\d{1,2})/(\d+)/(\d+)\.png")
+BASEMAP_TILE = re.compile(r"/basemap/([a-z0-9]+)/(\d{1,2})/(\d+)/(\d+)\.png")
 # The map layers mission control switches on the main screen, and whether each starts on.
 LAYERS = {"municipal": True, "flood": True, "radar": True, "wind": True, "chart": False, "facilities": True, "names": True,
           "stations": True, "firms": True, "satellite": False, "s1radar": False, "s1water": True,
-          "s1wetness": False}
+          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall100": False, "skyfall500": False}
 # OpenStreetMap's standard map outside the municipality, the one-pager's fallback where there is no
 # GIS map: it has land cover at every zoom and no edge; the demos' offline map takes its place only
 # when it does not answer.
@@ -83,6 +83,8 @@ class Monitor:
         self.weather = weather.Weather(area.BBOX, fetch)
         self.assets = gis.Assets(area, self.data_dir, fetch) if hasattr(area, "GIS_FACILITIES") else None
         self.image = sentinel2.Latest(area.BBOX, self.data_dir, fetch, post)
+        self.landsat = sentinel2.Latest(area.BBOX, self.data_dir, fetch, post, kind=sentinel2.LANDSAT)
+        self.terrain_dir: Path | None = getattr(area, "TERRAIN_DIR", None)
         self.radar_pass = sentinel1.Latest(area.BBOX, self.data_dir, getattr(area, "TERRAIN_FILE", None), fetch, post)
         # The IoT nodes, as the demos' (app/backend/iot.py): MQTT techseed/<node>/<kind>, simulated
         # unless a node says otherwise; connected by main() when a broker is given.
@@ -125,6 +127,7 @@ class Monitor:
                 "smhi_fire_risk", lambda: sources.read_fire_risk(*area.FIRE_RISK_POINT, fetch))
             results["smhi_forecast"] = sources.guarded("smhi_forecast", lambda: sources.read_forecast(*area.FORECAST_POINT, fetch))
             results["sentinel2"] = sources.guarded("sentinel2", lambda: [meta] if (meta := self.image.update()) else [])
+            results["landsat"] = sources.guarded("landsat", lambda: [meta] if (meta := self.landsat.update()) else [])
             results["sentinel1"] = sources.guarded("sentinel1", lambda: [meta] if (meta := self.radar_pass.update()) else [])
             results["smhi_stations"] = sources.guarded(
                 "smhi_stations", lambda: sources.read_weather_stations(getattr(area, "WEATHER_STATIONS", {}), fetch))
@@ -175,7 +178,8 @@ class Monitor:
         return {"border": poll["border"], "flows": flows, "rain": poll["rain"], "warnings": poll["warnings"],
                 "fire_ban": poll["fire_ban"], "news": [item for item in poll["krisinfo"] if item["kind"] == "news"],
                 "firms": poll["firms"], "radar": poll["radar"], "fire_risk": poll["fire_risk"], "forecast": poll["forecast"],
-                "weather": self.weather.summary(), "satellite_image": self.image.meta, "radar_pass": self.radar_pass.meta,
+                "weather": self.weather.summary(), "satellite_image": self.image.meta, "landsat_image": self.landsat.meta,
+                "radar_pass": self.radar_pass.meta,
                 "weather_stations": poll.get("weather_stations", [])}
 
     def state(self) -> dict[str, Any]:
@@ -198,10 +202,13 @@ class Monitor:
             self.speaker = speech.Speaker()
         self.speaker.say([(text, "alma") for text in texts])
 
-    def municipal_maps(self) -> list[dict[str, Any]]:
-        """The area's municipal maps that are fetched (their SOURCE.json written), for the screens."""
+    def municipal_maps(self, overlays: bool = False) -> list[dict[str, Any]]:
+        """The area's municipal maps that are fetched (their SOURCE.json written), for the screens: the
+        base maps, or with `overlays` the maps laid over them (the cloudburst mapping)."""
         found = []
         for item in getattr(self.area, "MUNICIPAL_BASEMAPS", []):
+            if bool(item.get("overlay")) != overlays:
+                continue
             try:
                 source = json.loads((item["dir"] / "SOURCE.json").read_text(encoding="utf-8"))
             except (OSError, ValueError):
@@ -226,7 +233,11 @@ class Monitor:
                          "online": ONLINE_OSM},
                 "layers": {"radar": {"url": "/api/radar.png", "bbox": self.area.BBOX, "label": "Väderradar (SMHI)",
                                      "attribution": radar.ATTRIBUTION},
-                           "flood": getattr(self.area, "FLOOD_HAZARD_WMS", None)}}
+                           "flood": getattr(self.area, "FLOOD_HAZARD_WMS", None),
+                           "flood_highest": getattr(self.area, "FLOOD_HIGHEST_WMS", None),
+                           "overlays": self.municipal_maps(overlays=True)},
+                # The scenarios' 3D terrain, when the area has it (/terrain/).
+                "terrain": "/terrain/" if self.terrain_dir and (self.terrain_dir / "layer.json").is_file() else None}
 
     def border(self) -> dict[str, Any] | None:
         try:
@@ -299,9 +310,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(self.monitor.radar.png or radar.EMPTY_PNG, "image/png")
         elif path == "/api/view":
             self.send_json({"view": self.monitor.view, "layers": self.monitor.layers})
-        elif path == "/api/satellite.png":
-            png = self.monitor.image.png
+        elif path in ("/api/satellite.png", "/api/landsat.png"):
+            png = (self.monitor.image if path == "/api/satellite.png" else self.monitor.landsat).png
             self.send_body(png or radar.EMPTY_PNG, "image/png")
+        elif path.startswith("/terrain/"):
+            self.terrain(path)
         elif path in ("/api/s1radar.png", "/api/s1water.png", "/api/s1wetness.png"):
             png = self.monitor.radar_pass.png(path[len("/api/s1"):-len(".png")])
             self.send_body(png or radar.EMPTY_PNG, "image/png")
@@ -340,6 +353,25 @@ class Handler(BaseHTTPRequestHandler):
         if content_type.startswith("text/") or content_type in ("application/javascript", "application/json"):
             content_type += "; charset=utf-8"
         self.send_body(target.read_bytes(), content_type)
+
+    def terrain(self, path: str) -> None:
+        """The scenarios' 3D terrain, as the demo's backend serves it (app/backend/server.py)."""
+        root = self.monitor.terrain_dir
+        target = (root / path.removeprefix("/terrain/")).resolve() if root else None
+        if target is None or not target.is_relative_to(root.resolve()) or target.suffix not in {".json", ".terrain"} or not target.is_file():
+            self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        body = target.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        if target.suffix == ".terrain":
+            self.send_header("Content-Type", "application/vnd.quantized-mesh;extensions=octvertexnormals")
+            self.send_header("Content-Encoding", "gzip")
+        else:
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "max-age=86400")
+        self.end_headers()
+        self.wfile.write(body)
 
     def offline_tile(self, overlay: bool, z: int, x: int, y: int) -> None:
         try:

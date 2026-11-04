@@ -14,7 +14,7 @@ const SOURCE_WORDS = {
   mcf_border: "Kommungräns (MCF)", smhi_flow: "Vattenföring (SMHI)", smhi_flow_statistics: "Flödesstatistik (SMHI)",
   smhi_rain: "Nederbörd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
   smhi_radar: "Väderradar (SMHI)", smhi_grid: "Vind och väderkarta (SMHI)", smhi_stations: "Väderstationer (SMHI)",
-  sentinel2: "Satellitbild (Sentinel-2)", sentinel1: "Radarbild (Sentinel-1)", flen_gis: "Skyddsvärda objekt (kommunens GIS)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
+  sentinel2: "Satellitbild (Sentinel-2)", landsat: "Satellitbild (Landsat)", sentinel1: "Radarbild (Sentinel-1)", flen_gis: "Skyddsvärda objekt (kommunens GIS)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
   mcf_fire_ban: "Eldningsförbud (MCF)", firms: "Brandpunkter (NASA FIRMS)", inbox: "Händelser in (inkorgen)",
 };
 
@@ -174,7 +174,9 @@ const LAYER_LABELS = {
   wind: "Vindpilar (SMHI, prognos)", chart: "Väderkarta (SMHI, prognos)", stations: "SMHI:s stationer",
   facilities: "Skyddsvärda objekt (kommunens GIS)", names: "Ortnamn (OSM)", firms: "Brandpunkter (NASA FIRMS)",
   satellite: "Satellitbild (Sentinel-2)", s1radar: "Radarbild (Sentinel-1)", s1water: "Vatten utanför sjöarna, radar (rött)",
-  s1wetness: "Fukt i terrängen, radar (brun torr – blå blöt)",
+  s1wetness: "Fukt i terrängen, radar (brun torr – blå blöt)", landsat: "Satellitbild (Landsat)",
+  flood_highest: "Översvämning, beräknat högsta flöde (MCF)",
+  skyfall100: "Skyfall, vattendjup vid 100-årsregn (Flens kommun)", skyfall500: "Skyfall, vattendjup vid 500-årsregn (Flens kommun)",
 };
 let layersShown = {};
 function showLayers(layers) {
@@ -308,15 +310,17 @@ function drawCharts(state) {
 function drawSatelliteImage(state) {
   const meta = state.context?.satellite_image;
   const radar = state.context?.radar_pass;
-  document.getElementById("satellite-image").textContent = (!meta ? "Optiskt: ingen bild än."
-    : `Optiskt: ${meta.platform} ${localTime.format(new Date(meta.time_utc))}, ${meta.cloud} % moln`
-      + `${meta.recent ? "" : " – ingen klarare bild de senaste två veckorna"}.`)
+  const landsat = state.context?.landsat_image;
+  const optical = (image) => `${image.platform} ${localTime.format(new Date(image.time_utc))}, ${image.cloud} % moln`
+    + `${image.recent ? "" : " – ingen klarare bild de senaste två veckorna"}`;
+  document.getElementById("satellite-image").textContent = (!meta ? "Optiskt: ingen bild än." : `Optiskt: ${optical(meta)}`)
+    + (landsat ? `; ${optical(landsat)}.` : ".")
     + (!radar ? " Radar: ingen passage än." : ` Radar: ${radar.platform} ${localTime.format(new Date(radar.time_utc))}, `
       + `vatten utanför sjöarna ${String(radar.new_water_pct).replace(".", ",")} % av marken (tröskel ${String(radar.threshold_db).replace(".", ",")} dB`
       + `${radar.separable ? "" : ", vatten och mark går inte att skilja åt – osäker"}). Beräknat, inte en kartlagd översvämning.`
       + (radar.wetness_median_pct != null ? ` Fukt i terrängen: i median ${radar.wetness_median_pct} % mellan torrast och blötast `
         + `de senaste ${radar.wetness_passes} passagerna från samma bana – beräknat, inte uppmätt.` : ""))
-    + ` ${(meta || radar)?.attribution || ""}`;
+    + ` ${(meta || radar)?.attribution || ""}${landsat ? ` ${landsat.attribution}.` : ""}`;
 }
 
 function drawIot(state) {

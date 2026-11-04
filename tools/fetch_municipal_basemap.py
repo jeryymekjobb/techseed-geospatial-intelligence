@@ -93,20 +93,22 @@ def block_box_m(z: int, mx: int, my: int) -> tuple[float, float, float, float, i
     return left - margin, bottom - margin, right + margin, top + margin, META * TILE_PX + 2 * MARGIN_PX
 
 
-def export_url(service: str, z: int, mx: int, my: int) -> str:
+def export_url(service: str, z: int, mx: int, my: int, layers: str | None = None, transparent: bool = False) -> str:
     """ArcGIS REST export of a MapServer for the block, for a map without WMS (Flens kommun's
-    Bakgrundskarta_AGOL): the same box and size as GetMap, in Web Mercator."""
+    Bakgrundskarta_AGOL, its cloudburst mapping): the same box and size as GetMap, in Web Mercator;
+    `layers` picks the service's layers (show:8), `transparent` keeps what is not drawn transparent."""
     left, bottom, right, top, side = block_box_m(z, mx, my)
-    return f"{service}/export?" + urlencode({
-        "bbox": f"{left},{bottom},{right},{top}", "bboxSR": 3857, "imageSR": 3857, "size": f"{side},{side}",
-        "format": "png", "transparent": "false", "f": "image",
-    })
+    params = {"bbox": f"{left},{bottom},{right},{top}", "bboxSR": 3857, "imageSR": 3857, "size": f"{side},{side}",
+              "format": "png32" if transparent else "png", "transparent": str(transparent).lower(), "f": "image"}
+    if layers:
+        params["layers"] = layers
+    return f"{service}/export?" + urlencode(params)
 
 
 def block_url(item: dict, z: int, mx: int, my: int) -> str:
     """The request for one block: ArcGIS REST export for a map of kind "arcgis", else WMS GetMap."""
     if item.get("kind") == "arcgis":
-        return export_url(item["url"], z, mx, my)
+        return export_url(item["url"], z, mx, my, item.get("layers"), item.get("transparent", False))
     return getmap_url(item["url"], item["layer"], z, mx, my)
 
 
@@ -216,7 +218,7 @@ def fetch_map(item: dict, bbox: tuple[float, float, float, float], min_zoom: int
     if failed:
         return failed
     (out / "SOURCE.json").write_text(json.dumps({
-        "service": service, "layer": layer, "kind": item.get("kind", "wms"), "attribution": item["attribution"],
+        "service": service, "layer": layer or item.get("layers"), "kind": item.get("kind", "wms"), "attribution": item["attribution"],
         "crs": "EPSG:3857", "tile_px": TILE_PX, "min_zoom": min_zoom, "max_zoom": max_zoom,
         "bbox_west_south_east_north": list(bbox),
         "fetched_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -262,7 +264,9 @@ def main(argv: list[str] | None = None) -> int:
                 source = json.loads(record.read_text(encoding="utf-8"))
                 record.write_text(json.dumps({**source, "white_transparent": True}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return 0
-    failed = sum(fetch_map(item, bbox, args.min_zoom, args.max_zoom, args.pause) for item in items)
+    # A map may have its own area and zooms (an area's cloudburst mapping covers only the town).
+    failed = sum(fetch_map(item, tuple(item.get("bbox", bbox)), item.get("min_zoom", args.min_zoom), item.get("max_zoom", args.max_zoom),
+                           args.pause) for item in items)
     if failed:
         print(f"{failed} requests failed; run again to fetch them")
         return 1

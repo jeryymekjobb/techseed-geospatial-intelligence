@@ -977,8 +977,8 @@ demons namn, `.venv/bin/python -m tools.start_demo vastmanland2014`, hoppar det 
 **Övervakning** visar de kommuner som har kontinuerlig övervakning, i dag **Flens kommun**. Den går
 live mot SMHI, MCF, Krisinformation och NASA FIRMS och har inget kioskläge. Ett klick startar
 kartservern med Flens offlinekarta, övervakningstjänsten och de tre skärmarna på samma platser som för
-demona: satellitmonitorn med FIRMS-satelliternas banor och passager över kommunen just nu, huvudskärmen
-med 3D-globen över kommunen (kommunens egen karta, med OSM:s vägnummer och järnvägstunnlar ovanpå) och
+demona: satellitmonitorn med banorna för FIRMS-satelliterna, Sentinel-1, Sentinel-2 och Landsat och deras
+passager över kommunen just nu, huvudskärmen med 3D-globen över kommunen i scenariernas 3D-terräng (kommunens egen karta, med OSM:s vägnummer och järnvägstunnlar ovanpå) och
 mission control med larmen. Övervakningen larmar för höga flöden, skyfall enligt SMHI:s väderradar,
 förhöjd brandrisk enligt SMHI:s brandriskprognos och bränder från NASA FIRMS, och tar emot händelser
 från inkorgen. Radarbilden och MCF:s 100-årsflöde för Nyköpingsån visas på kartan, och **Läget nu** i
@@ -987,7 +987,9 @@ avfärdar operatören larmen och öppnar briefingen; inget skickas vidare automa
 växlar huvudskärmen mellan 2D-kartan och 3D-globen, och **Kartlager på huvudskärmen** slår av och på
 varje lager: kommunens karta, översvämning, väderradar, vindpilar och väderkarta (SMHI:s prognos för
 den närmaste hela timmen, inte observationer), SMHI:s stationer, skyddsvärda objekt ur kommunens GIS,
-ortnamn, brandpunkter, den senaste satellitbilden från Sentinel-2 och den senaste radarpassagen från
+ortnamn, brandpunkter, MCF:s beräknade högsta flöde, kommunens skyfallskartering för 100- och
+500-årsregn (en modell, för intern användning), de senaste satellitbilderna från Sentinel-2 och
+Landsat och den senaste radarpassagen från
 Sentinel-1: radarbilden i grått, där fuktig och ojämn mark är ljus, och vatten utanför sjöarna i rött
 (en beräknad mask, inte en kartlagd översvämning), och fukten i terrängen, beräknad ur hur blöt
 marken är jämfört med de senaste 120 dagarnas passager (brun torr, blå blöt; inte uppmätt). SMHI:s

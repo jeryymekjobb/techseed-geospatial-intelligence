@@ -17,7 +17,8 @@ function tip(text) {
 const map = L.map("map");
 // Mission control's map layers (service.LAYERS), each a group shown or hidden by showLayers.
 const named = {};
-for (const name of ["municipal", "flood", "radar", "satellite", "s1radar", "s1wetness", "s1water", "stations", "facilities", "names", "firms"]) {
+for (const name of ["municipal", "flood", "flood_highest", "skyfall100", "skyfall500", "radar", "satellite", "landsat", "s1radar",
+  "s1wetness", "s1water", "stations", "facilities", "names", "firms"]) {
   named[name] = L.layerGroup();
 }
 // The hamlets' names, part of the names layer, shown only close in, where they do not crowd.
@@ -64,15 +65,25 @@ let radarShown = null;
 let imageLayer = null;
 let imageShown = null;
 function addOverlays(config) {
-  const flood = config.layers.flood;
-  if (flood) {
-    L.tileLayer.wms(flood.url, { layers: flood.layers, format: "image/png", transparent: true, opacity: 0.6, styles: "",
-      attribution: flood.attribution, zIndex: 5 }).addTo(named.flood);
+  for (const name of ["flood", "flood_highest"]) {
+    const flood = config.layers[name];
+    if (flood) {
+      L.tileLayer.wms(flood.url, { layers: flood.layers, format: "image/png", transparent: true, opacity: 0.6, styles: "",
+        attribution: flood.attribution, zIndex: 5 }).addTo(named[name]);
+    }
+  }
+  // The municipality's cloudburst mapping, kept locally (/basemap/skyfall100/ and skyfall500).
+  for (const item of config.layers.overlays || []) {
+    if (!named[item.id]) continue;
+    const [w, s, e, n] = item.bbox;
+    L.tileLayer(item.url, { minZoom: item.min_zoom, maxNativeZoom: item.max_zoom, maxZoom: 18, zIndex: 6, opacity: 0.8,
+      attribution: item.attribution, bounds: [[s, w], [n, e]] }).addTo(named[item.id]);
   }
   const [west, south, east, north] = config.layers.radar.bbox;
   radarLayer = L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 0.85, attribution: config.layers.radar.attribution })
     .addTo(named.radar);
   imageLayer = L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 1 }).addTo(named.satellite);
+  landsatLayer = L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 1 }).addTo(named.landsat);
   s1Layers = {
     radar: L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 0.9 }).addTo(named.s1radar),
     wetness: L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 0.85 }).addTo(named.s1wetness),
@@ -89,6 +100,15 @@ function drawRadarPass(meta) {
   s1Layers.radar.setUrl(`/api/s1radar.png?at=${encodeURIComponent(meta.time_utc)}`);
   s1Layers.water.setUrl(`/api/s1water.png?at=${encodeURIComponent(meta.time_utc)}`);
   s1Layers.wetness.setUrl(`/api/s1wetness.png?at=${encodeURIComponent(meta.time_utc)}`);
+  map.attributionControl.addAttribution(meta.attribution);
+}
+
+let landsatLayer = null;
+let landsatShown = null;
+function drawLandsat(meta) {
+  if (!landsatLayer || !meta || meta.time_utc === landsatShown) return;
+  landsatShown = meta.time_utc;
+  landsatLayer.setUrl(`/api/landsat.png?at=${encodeURIComponent(meta.time_utc)}`);
   map.attributionControl.addAttribution(meta.attribution);
 }
 
@@ -142,6 +162,7 @@ function drawMap(state) {
   const context = state.context || {};
   drawRadar(context.radar, state.polled_utc);
   drawImage(context.satellite_image);
+  drawLandsat(context.landsat_image);
   drawRadarPass(context.radar_pass);
   refreshWeather(context.weather);
   if (!placed) {

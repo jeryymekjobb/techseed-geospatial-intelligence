@@ -47,6 +47,7 @@ ATTRIBUTION = {
     "smhi_warnings": "SMHI:s vädervarningar, öppna data (CC BY 4.0 SE)",
     "smhi_fire_risk": "SMHI:s brandriskprognos (FWI), öppna data (CC BY 4.0 SE)",
     "smhi_forecast": "SMHI:s väderprognos, öppna data (CC BY 4.0 SE)",
+    "landsat": "Landsat-data med tillstånd av U.S. Geological Survey (Microsoft Planetary Computer)",
     "sentinel1": "Innehåller bearbetade Copernicus Sentinel-data (Microsoft Planetary Computer)",
     "sentinel2": "Innehåller Copernicus Sentinel-data (Microsoft Planetary Computer)",
     "flen_gis": "Flens kommun (GIS) och OpenStreetMap – intern användning",
