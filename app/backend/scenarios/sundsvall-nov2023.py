@@ -29,6 +29,8 @@ INCIDENT_PLACE = "Sundsvall"
 INCIDENT_AREA = "Sundsvall"
 
 TITLE = "Regnet i Sundsvall, november 2023"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Västernorrlands län"
 DATA_LABEL = "Historiska data november 2023 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: FLOOD – Sundsvall november 2023, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario

@@ -26,6 +26,8 @@ INCIDENT = "flood"
 INCIDENT_PLACE = "Sundsvall"
 INCIDENT_AREA = "Sundsvall"
 TITLE = "Högt hav och regn på snö i Sundsvall, februari 2020"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Västernorrlands län"
 DATA_LABEL = "Historiska data februari 2020 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: FLOOD – Sundsvall februari 2020, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario

@@ -13,6 +13,8 @@ INCIDENT_PLACE = "branden"
 INCIDENT_AREA = "brandområdet"
 
 TITLE = "Skogsbranden i Västmanland 2014"
+# The county the menu groups it under (tools/start_demo.py), where the fire burned.
+REGION = "Västmanlands län"
 DATA_LABEL = "Historiska data 2014 – uppspelning, inte live"
 # Mission control's header.
 CONTROL_LABEL = "Scenario: WILDFIRE – Västmanland 2014, historiska data"

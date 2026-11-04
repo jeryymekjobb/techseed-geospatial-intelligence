@@ -28,6 +28,8 @@ INCIDENT_PLACE = "Nyköpingsån"
 INCIDENT_AREA = "Flens kommun"
 
 TITLE = "Regnet i Flens kommun 2021"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Södermanlands län"
 DATA_LABEL = "Historiska data maj–juni 2021 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: FLOOD – Flens kommun maj 2021, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario

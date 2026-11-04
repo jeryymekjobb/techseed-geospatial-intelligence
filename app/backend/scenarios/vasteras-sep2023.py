@@ -24,6 +24,8 @@ INCIDENT_PLACE = "Västerås"
 INCIDENT_AREA = "Svartån i Västerås"
 
 TITLE = "Svartån i Västerås, september 2023"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Västmanlands län"
 DATA_LABEL = "Historiska data september 2023 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: FLOOD – Svartån i Västerås september 2023, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario

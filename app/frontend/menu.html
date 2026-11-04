@@ -9,7 +9,7 @@
 </head>
 <body class="menu-page">
   <!-- tools/start_demo.py's start page, in mission control's window until a demo or an area is chosen:
-       first Övervakning or Scenarier, then the areas or the demos. -->
+       first Övervakning or Scenarier, then the areas, or the counties and a county's demos. -->
   <main class="demo-menu">
     <h1 id="menu-title">Techseed Geospatial Intelligence</h1>
     <section id="start-view" class="demo-list">
@@ -31,8 +31,13 @@
         <button id="kiosk-toggle" type="button" class="kiosk-toggle" aria-pressed="false">KIOSKLÄGE AV</button>
         <p id="kiosk-help">Med kioskläge på spelar demon själv, visar slutbilden och börjar om, och det som stannar startas igen – utan operatör.</p>
       </div>
-      <div id="demos" class="demo-list"></div>
+      <div id="regions" class="demo-list"></div>
       <button type="button" class="menu-back">Tillbaka</button>
+    </section>
+    <section id="region-view" hidden>
+      <h2 id="region-heading" class="menu-heading">Scenarier</h2>
+      <div id="demos" class="demo-list"></div>
+      <button id="region-back" type="button">Tillbaka</button>
     </section>
     <p id="menu-status" class="status" aria-live="polite">Välj övervakning eller scenarier.</p>
   </main>
@@ -40,7 +45,7 @@
     "use strict";
     const $ = (id) => document.getElementById(id);
     const VIEWS = { start: "Välj övervakning eller scenarier.", monitoring: "Välj ett område. Skärmarna öppnas när övervakningen har startat.",
-      scenarios: "Välj en demo. Skärmarna öppnas när demon har startat." };
+      scenarios: "Välj ett län.", region: "Välj en demo. Skärmarna öppnas när demon har startat." };
     let kiosk = false;
     let starting = false;
 
@@ -48,11 +53,20 @@
       $("start-view").hidden = view !== "start";
       $("monitoring-view").hidden = view !== "monitoring";
       $("scenarios-view").hidden = view !== "scenarios";
+      $("region-view").hidden = view !== "region";
       if (!starting) $("menu-status").textContent = VIEWS[view];
     }
     $("choose-monitoring").addEventListener("click", () => show("monitoring"));
     $("choose-scenarios").addEventListener("click", () => show("scenarios"));
     for (const back of document.querySelectorAll(".menu-back")) back.addEventListener("click", () => show("start"));
+    // A county's button shows its demos; Tillbaka there goes back to the counties.
+    $("region-back").className = "menu-back";
+    $("region-back").addEventListener("click", () => show("scenarios"));
+    function showRegion(region) {
+      $("region-heading").textContent = region;
+      for (const button of $("demos").children) button.hidden = button.dataset.region !== region;
+      show("region");
+    }
 
     function showKiosk() {
       $("kiosk-toggle").textContent = kiosk ? "KIOSKLÄGE PÅ" : "KIOSKLÄGE AV";
@@ -113,12 +127,21 @@
       kiosk = Boolean(menu.kiosk);  // kept from the demo before (BYT SCENARIO) or --kiosk
       showKiosk();
       for (const area of menu.monitoring || []) $("areas").append(choice(area.title, area.label, "area", () => monitor(area)));
+      // A button per county, in the alphabetical order /api/demos gives them, with its demos behind it.
+      const regions = new Map();
       for (const demo of menu.demos) {
+        if (!regions.has(demo.region)) regions.set(demo.region, []);
+        regions.get(demo.region).push(demo);
         const button = choice(demo.title, demo.installed ? demo.label : "Data saknas – installera scenariots datapaket först",
           "scenario", () => choose(demo));
         button.dataset.installed = String(demo.installed);
+        button.dataset.region = demo.region;
         button.disabled = !demo.installed;
         $("demos").append(button);
+      }
+      for (const [region, list] of regions) {
+        $("regions").append(choice(region, `${list.length} ${list.length === 1 ? "scenario" : "scenarier"}`, "region",
+          () => showRegion(region)));
       }
       // Back from a demo in kiosk mode or one named on the command line: straight to the scenarios.
       show(kiosk ? "scenarios" : "start");

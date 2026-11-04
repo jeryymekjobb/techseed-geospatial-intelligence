@@ -28,6 +28,8 @@ INCIDENT_PLACE = "Kramfors"
 INCIDENT_AREA = "Västernorrland"
 
 TITLE = "Regnet i Västernorrland 2025"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Västernorrlands län"
 DATA_LABEL = "Historiska data september 2025 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: FLOOD – Västernorrland september 2025, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario

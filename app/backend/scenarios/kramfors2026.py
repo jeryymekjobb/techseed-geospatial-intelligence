@@ -28,6 +28,8 @@ INCIDENT_PLACE = "Kramfors"
 INCIDENT_AREA = "Ådalen"
 
 TITLE = "Skyfallet i Kramfors 2026"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Västernorrlands län"
 DATA_LABEL = "Historiska data augusti 2026 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: FLOOD – Kramfors augusti 2026, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario

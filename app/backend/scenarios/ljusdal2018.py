@@ -26,6 +26,8 @@ INCIDENT_PLACE = "branden"
 INCIDENT_AREA = "brandområdet"
 
 TITLE = "Skogsbranden vid Kårböle 2018"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Gävleborgs län"
 DATA_LABEL = "Historiska data 2018 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: WILDFIRE – Ljusdal/Kårböle 2018, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario

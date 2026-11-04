@@ -969,8 +969,10 @@ och kör:
 ```
 
 Först öppnas bara mission control, med startsidan **Techseed Geospatial Intelligence** och två val:
-**Övervakning** och **Scenarier**. Klicka på **Scenarier**, så kommer menyn med en knapp per demo,
-och klicka på **Skogsbranden i Västmanland 2014**. Kommandot skriver steg 1/4 till 4/4 och sedan
+**Övervakning** och **Scenarier**. Klicka på **Scenarier**, så kommer en knapp per län i bokstavsordning
+(Gävleborg, Skåne, Södermanland, Västernorrland, Västmanland). Ett klick på ett län visar dess
+demor i tidsordning, äldst först; **Tillbaka** går till länen igen. Klicka på **Västmanlands län**
+och sedan **Skogsbranden i Västmanland 2014**. Kommandot skriver steg 1/4 till 4/4 och sedan
 "Demon går", och då öppnas alla tre skärmarna i demon. **Tillbaka** går till startsidan igen. Med
 demons namn, `.venv/bin/python -m tools.start_demo vastmanland2014`, hoppar det över startsidan.
 

@@ -44,26 +44,30 @@ def test_a_port_in_use_is_found() -> None:
     assert not start_demo.port_in_use(free)
 
 
-def test_the_menu_lists_the_demos_with_their_titles_and_labels() -> None:
-    assert [(demo["name"], demo["title"]) for demo in start_demo.demos()] == [
-        ("vastmanland2014", "Skogsbranden i Västmanland 2014"),
-        ("sundsvall2026", "Översvämning i Sundsvall 2026 – scenario"),
-        ("skane2024", "Översvämningarna i Skåne 2024"),
-        ("ljusdal2018", "Skogsbranden vid Kårböle 2018"),
-        ("vasternorrland2025", "Regnet i Västernorrland 2025"),
-        ("kramfors2026", "Skyfallet i Kramfors 2026"),
-        ("flenkommun2024", "Höga flöden i Flens kommun 2024"),
-        ("flen2024", "Högt vatten i Flen 2024"),
-        ("flenkommun2021", "Regnet i Flens kommun 2021"),
-        ("flen2019", "Höga flöden i Flen 2019"),
-        ("falsterbo", "Stranderosionen på Falsterbonäset 2012–2026"),
-        ("ljungan-aug2023", "Höga flöden i Ljungan och Sundsvall, augusti 2023"),
-        ("sundsvall-nov2023", "Regnet i Sundsvall, november 2023"),
-        ("sundsvall-feb2020", "Högt hav och regn på snö i Sundsvall, februari 2020"),
-        ("sundsvall-dec2020", "Regn och storm från havet i Sundsvall, december 2020"),
-        ("vasteras-sep2023", "Svartån i Västerås, september 2023"),
+def test_the_menu_lists_the_demos_by_county_in_alphabetical_order_and_in_time_order_within_it() -> None:
+    assert [(demo["region"], demo["name"], demo["title"]) for demo in start_demo.demos()] == [
+        ("Gävleborgs län", "ljusdal2018", "Skogsbranden vid Kårböle 2018"),
+        ("Skåne län", "falsterbo", "Stranderosionen på Falsterbonäset 2012–2026"),
+        ("Skåne län", "skane2024", "Översvämningarna i Skåne 2024"),
+        ("Södermanlands län", "flen2019", "Höga flöden i Flen 2019"),
+        ("Södermanlands län", "flenkommun2021", "Regnet i Flens kommun 2021"),
+        ("Södermanlands län", "flen2024", "Högt vatten i Flen 2024"),
+        ("Södermanlands län", "flenkommun2024", "Höga flöden i Flens kommun 2024"),
+        ("Västernorrlands län", "sundsvall-feb2020", "Högt hav och regn på snö i Sundsvall, februari 2020"),
+        ("Västernorrlands län", "sundsvall-dec2020", "Regn och storm från havet i Sundsvall, december 2020"),
+        ("Västernorrlands län", "ljungan-aug2023", "Höga flöden i Ljungan och Sundsvall, augusti 2023"),
+        ("Västernorrlands län", "sundsvall-nov2023", "Regnet i Sundsvall, november 2023"),
+        ("Västernorrlands län", "vasternorrland2025", "Regnet i Västernorrland 2025"),
+        ("Västernorrlands län", "sundsvall2026", "Översvämning i Sundsvall 2026 – scenario"),
+        ("Västernorrlands län", "kramfors2026", "Skyfallet i Kramfors 2026"),
+        ("Västmanlands län", "vastmanland2014", "Skogsbranden i Västmanland 2014"),
+        ("Västmanlands län", "vasteras-sep2023", "Svartån i Västerås, september 2023"),
     ]
     assert all(demo["label"] for demo in start_demo.demos())
+    # The Swedish alphabet: å, ä and ö after z, in that order.
+    assert sorted(["Öland", "Ärla", "Åre", "Zinkgruvan"], key=start_demo.swedish_order) == ["Zinkgruvan", "Åre", "Ärla", "Öland"]
+    menu = (start_demo.FRONTEND / "menu.html").read_text(encoding="utf-8")
+    assert 'id="regions"' in menu and "showRegion(region)" in menu and 'button.dataset.region !== region' in menu
 
 
 def request(url: str, body: dict | None = None) -> tuple[int, bytes]:

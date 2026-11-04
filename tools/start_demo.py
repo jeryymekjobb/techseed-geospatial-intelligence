@@ -121,13 +121,23 @@ def missing_data(name: str) -> list[str]:
 MISSING_DATA = missing_data
 
 
+def swedish_order(text: str) -> str:
+    """A key that sorts as the Swedish alphabet, with å, ä and ö after z (Python's own order puts ä
+    before å)."""
+    return text.lower().translate(str.maketrans({"å": "{", "ä": "|", "ö": "}"}))
+
+
 def demos() -> list[dict[str, Any]]:
-    """The menu's demos: each scenario's name, title, data label and whether its data are installed."""
+    """The menu's demos: each scenario's name, title, county, data label and whether its data are
+    installed; grouped by county in alphabetical order, as the user asked on 2026-11-04 (each
+    scenario's REGION), and in time order within it, oldest first."""
     found = []
     for name in AVAILABLE:
         module = importlib.import_module(f"app.backend.scenarios.{name}")
-        found.append({"name": name, "title": module.TITLE, "label": module.DATA_LABEL, "installed": not missing_data(name)})
-    return found
+        found.append({"name": name, "title": module.TITLE, "region": module.REGION, "label": module.DATA_LABEL,
+                      "installed": not missing_data(name), "start": module.PLAYBACK_START})
+    found.sort(key=lambda demo: (swedish_order(demo["region"]), demo["start"]))
+    return [{key: value for key, value in demo.items() if key != "start"} for demo in found]
 
 
 def monitoring_areas() -> list[dict[str, Any]]:

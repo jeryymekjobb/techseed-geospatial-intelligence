@@ -25,6 +25,8 @@ INCIDENT_PLACE = "Sundsvall"
 INCIDENT_AREA = "Sundsvall"
 
 TITLE = "Översvämning i Sundsvall 2026 – scenario"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Västernorrlands län"
 DATA_LABEL = "Scenario byggt på verkligt regn augusti 2026 – inte en återgiven händelse"
 CONTROL_LABEL = "Scenario: FLOOD – Sundsvall 2026, verkligt regn, scenario"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario

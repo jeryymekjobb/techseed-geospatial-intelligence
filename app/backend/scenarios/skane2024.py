@@ -28,6 +28,8 @@ INCIDENT_PLACE = "Ringsjöarna"
 INCIDENT_AREA = "Mellersta Skåne"
 
 TITLE = "Översvämningarna i Skåne 2024"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Skåne län"
 DATA_LABEL = "Historiska data vintern 2024 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: FLOOD – Skåne vintern 2024, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario

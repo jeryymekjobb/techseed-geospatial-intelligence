@@ -31,6 +31,8 @@ INCIDENT_PLACE = "Falsterbonäset"
 INCIDENT_AREA = "Falsterbonäsets stränder"
 
 TITLE = "Stranderosionen på Falsterbonäset 2012–2026"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Skåne län"
 DATA_LABEL = "Historiska data 2012–2026 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: EROSION – Falsterbonäset 2012–2026, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, at the scenario's start.

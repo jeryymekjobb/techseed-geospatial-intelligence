@@ -27,6 +27,9 @@ INCIDENT_PLACE = "Sundsvall"
 INCIDENT_AREA = "Sundsvall och Ljungan"
 
 TITLE = "Höga flöden i Ljungan och Sundsvall, augusti 2023"
+# The county the menu groups it under (tools/start_demo.py): Ljungan runs from Jämtland, but the
+# scenario's weight is Sundsvall.
+REGION = "Västernorrlands län"
 DATA_LABEL = "Historiska data augusti 2023 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: FLOOD – Ljungan och Sundsvall augusti 2023, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario

@@ -192,6 +192,7 @@ body.menu-page { background: #141414; color: #f2f2f2; display: grid; place-items
 .menu-page section[hidden] { display: none; }
 .menu-page section { display: grid; gap: 18px; }
 .menu-heading { margin: 0; font-size: clamp(1.1rem, 2.6vw, 1.8rem); color: #f2f2f2; }
+.demo-list > [hidden] { display: none; }
 .menu-back { justify-self: center; min-width: 200px; padding: 10px 24px; border: 2px solid #5b5b57; border-radius: 10px; background: #1e1e1e; color: #fff; font: inherit; font-size: 1.1rem; cursor: pointer; }
 .menu-back:hover:not(:disabled), .menu-back:focus-visible { border-color: #ffd54a; }
 .menu-back:disabled { opacity: 0.5; cursor: default; }

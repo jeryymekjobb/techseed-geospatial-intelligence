@@ -28,6 +28,8 @@ INCIDENT_PLACE = "Nyköpingsån"
 INCIDENT_AREA = "Flens kommun"
 
 TITLE = "Höga flöden i Flens kommun 2024"
+# The county the menu groups it under (tools/start_demo.py).
+REGION = "Södermanlands län"
 DATA_LABEL = "Historiska data vintern 2024 – uppspelning, inte live"
 CONTROL_LABEL = "Scenario: FLOOD – Flens kommun vintern 2024, historiska data"
 # The summary the main screen shows, and the satellite monitor reads aloud, when the scenario
