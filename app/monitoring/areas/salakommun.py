@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from app.backend.scenarios import REPO_ROOT
 from app.monitoring.areas.common import *  # noqa: F403 - the template's shared satellites, limits and contacts
-from app.monitoring.areas.common import data_dir
+from app.monitoring.areas.common import built_terrain, built_tiles, data_dir
 
 NAME = "Sala kommun"
 MUNICIPALITY_CODE = "1981"
@@ -25,9 +25,9 @@ DATA_DIR = data_dir("salakommun")
 # The Västmanland 2014 scenario's files, which predate the scenarios' data folders.
 OSM_TARGETS_FILE = REPO_ROOT / "osm_data" / "targets-vastmanland.geojson"
 TERRAIN_FILE = REPO_ROOT / "app" / "layers" / "terrain-vastmanland.geojson"
-TERRAIN_DIR = REPO_ROOT / "data" / "terrain"
-TILES_FILE = "vastmanland.mbtiles"
-MAP_BBOX = (15.5, 59.55, 16.8, 60.3)
+TERRAIN_DIR = built_terrain("salakommun", REPO_ROOT / "data" / "terrain")
+# The offline map over the whole municipality once built (tools/build_offline_tiles.py --area), else the scenario's.
+TILES_FILE, MAP_BBOX = built_tiles("salakommun", ("vastmanland.mbtiles", (15.5, 59.55, 16.8, 60.3)), BBOX)
 
 # SMHI's live flow every 15 minutes (hydroobs parameter 2), checked 2026-11-04.
 FLOW_STATIONS = {"2299": "Tärnsjö (Tämnarån)", "2217": "Gränvad (Sagån)"}
