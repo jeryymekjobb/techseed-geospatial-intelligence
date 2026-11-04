@@ -17,7 +17,7 @@ function tip(text) {
 const map = L.map("map");
 // Mission control's map layers (service.LAYERS), each a group shown or hidden by showLayers.
 const named = {};
-for (const name of ["municipal", "flood", "radar", "satellite", "s1radar", "s1water", "stations", "facilities", "names", "firms"]) {
+for (const name of ["municipal", "flood", "radar", "satellite", "s1radar", "s1wetness", "s1water", "stations", "facilities", "names", "firms"]) {
   named[name] = L.layerGroup();
 }
 // The hamlets' names, part of the names layer, shown only close in, where they do not crowd.
@@ -75,6 +75,7 @@ function addOverlays(config) {
   imageLayer = L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 1 }).addTo(named.satellite);
   s1Layers = {
     radar: L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 0.9 }).addTo(named.s1radar),
+    wetness: L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 0.85 }).addTo(named.s1wetness),
     water: L.imageOverlay("data:,", [[south, west], [north, east]], { opacity: 1 }).addTo(named.s1water),
   };
 }
@@ -87,6 +88,7 @@ function drawRadarPass(meta) {
   s1Shown = meta.time_utc;
   s1Layers.radar.setUrl(`/api/s1radar.png?at=${encodeURIComponent(meta.time_utc)}`);
   s1Layers.water.setUrl(`/api/s1water.png?at=${encodeURIComponent(meta.time_utc)}`);
+  s1Layers.wetness.setUrl(`/api/s1wetness.png?at=${encodeURIComponent(meta.time_utc)}`);
   map.attributionControl.addAttribution(meta.attribution);
 }
 
@@ -99,10 +101,13 @@ function drawImage(meta) {
 }
 
 // The protected objects from the municipality's GIS and the place names (/api/assets), drawn once.
-// The marks, as the user asked: SMHI's stations round with a white ring, blue for the weather
-// stations and red for the flow stations; the protected objects and other places of interest small,
-// round and yellow.
-const STATION_MARKS = { weather: "#1565c0", flow: "#c62828" };
+// The marks, as the user asked: SMHI's stations round with a white ring, blue, and red while one of
+// them alarms (a high flow or record, heavy rain), which the log then shows; the protected objects and
+// other places of interest small, round and yellow.
+const STATION_MARKS = { normal: "#1565c0", alarm: "#c62828" };
+function alarming(state, key) {
+  return state.alarms.some((alarm) => alarm.id === key && alarm.current && alarm.state !== "dismissed");
+}
 const OBJECT_MARK = { radius: 4, color: "#5d4300", weight: 1, fillColor: "#ffd600", fillOpacity: 1 };
 function drawAssets(assets) {
   for (const item of assets.facilities || []) {
@@ -155,11 +160,13 @@ function drawMap(state) {
   for (const flow of context.flows || []) {
     if (flow.latitude == null) continue;
     const limits = flow.limits ? ` (högt över ${flow.limits.high}, rekord ${flow.limits.record})` : "";
-    marker(named.stations, flow.latitude, flow.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: STATION_MARKS.flow, fillOpacity: 1 },
+    const flowColour = alarming(state, `flow-${flow.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
+    marker(named.stations, flow.latitude, flow.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: flowColour, fillOpacity: 1 },
       `Vattenföring ${flow.name}: ${flow.value} m³/s ${flow.time_utc}${limits} – SMHI`);
   }
   for (const station of context.weather_stations || []) {
-    marker(named.stations, station.latitude, station.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: STATION_MARKS.weather,
+    const colour = alarming(state, `rain-${station.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
+    marker(named.stations, station.latitude, station.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: colour,
       fillOpacity: 1 }, stationText(station));
   }
   for (const point of context.firms || []) {

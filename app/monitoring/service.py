@@ -58,7 +58,8 @@ TILE = re.compile(r"/(tiles|tiles-overlay)/(\d{1,2})/(\d+)/(\d+)\.png")
 BASEMAP_TILE = re.compile(r"/basemap/([a-z]+)/(\d{1,2})/(\d+)/(\d+)\.png")
 # The map layers mission control switches on the main screen, and whether each starts on.
 LAYERS = {"municipal": True, "flood": True, "radar": True, "wind": True, "chart": False, "facilities": True, "names": True,
-          "stations": True, "firms": True, "satellite": False, "s1radar": False, "s1water": True}
+          "stations": True, "firms": True, "satellite": False, "s1radar": False, "s1water": True,
+          "s1wetness": False}
 # OpenStreetMap's standard map outside the municipality, the one-pager's fallback where there is no
 # GIS map: it has land cover at every zoom and no edge; the demos' offline map takes its place only
 # when it does not answer.
@@ -214,7 +215,9 @@ class Monitor:
         """What the screens need to start: the area and the base maps."""
         offline = offline_tiles.available()
         return {"area": {"name": self.area.NAME, "bbox": self.area.BBOX, "centre": self.area.CENTRE,
-                         "poll_seconds": self.area.POLL_SECONDS},
+                         "poll_seconds": self.area.POLL_SECONDS,
+                         # What the satellite monitor logs of Sentinel-1's water outside the lakes (sentinel1.py).
+                         "s1_water_log_pct": getattr(self.area, "S1_WATER_LOG_PCT", 0.5)},
                 "maps": {"municipal": self.municipal_maps(),
                          "offline": {"url": "/tiles/{z}/{x}/{y}.png", "bbox": getattr(self.area, "MAP_BBOX", self.area.BBOX),
                                      "attribution": "© OpenStreetMap contributors"} if offline else None,
@@ -299,8 +302,8 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/satellite.png":
             png = self.monitor.image.png
             self.send_body(png or radar.EMPTY_PNG, "image/png")
-        elif path in ("/api/s1radar.png", "/api/s1water.png"):
-            png = self.monitor.radar_pass.png("radar" if path == "/api/s1radar.png" else "water")
+        elif path in ("/api/s1radar.png", "/api/s1water.png", "/api/s1wetness.png"):
+            png = self.monitor.radar_pass.png(path[len("/api/s1"):-len(".png")])
             self.send_body(png or radar.EMPTY_PNG, "image/png")
         elif path == "/api/assets":
             self.send_json(gis.public(self.monitor.assets.data if self.monitor.assets else None, self.monitor.places))

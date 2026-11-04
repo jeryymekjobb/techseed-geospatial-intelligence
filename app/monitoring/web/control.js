@@ -100,6 +100,19 @@ function drawSituation(state) {
   list.replaceChildren(...lines.map((text) => element("li", text, "info")));
 }
 
+// The log, as the scenarios' mission control's: every alarm, confirmation and dismissal with its time.
+function drawLog(state) {
+  const entries = state.alarms.flatMap((alarm) => alarm.history.map((item) => ({ ...item, title: alarm.candidate.title,
+    value: alarm.candidate.facts[0]?.text })));
+  entries.sort((a, b) => b.time_utc.localeCompare(a.time_utc));
+  const list = document.getElementById("event-log");
+  list.replaceChildren(...entries.slice(0, 60).map((item) => element("li",
+    `${localTime.format(new Date(item.time_utc))} ${item.action.toUpperCase()}: ${item.title}`
+      + `${item.action === "larm" && item.value ? ` – ${item.value}` : ""}${item.note && item.action !== "larm" ? ` – ${item.note}` : ""}`,
+    item.action === "larm" ? "alert" : "info")));
+  if (!list.children.length) list.append(element("li", "Inga larm än.", "ok"));
+}
+
 function drawSources(state) {
   const table = document.getElementById("sources");
   table.replaceChildren();
@@ -132,6 +145,7 @@ async function refresh() {
     drawCharts(state);
     drawSatelliteImage(state);
     drawIot(state);
+    drawLog(state);
     document.getElementById("polled").textContent = state.polled_utc
       ? `Senaste avläsning ${localTime.format(new Date(state.polled_utc))}, var ${state.area.poll_seconds / 60}:e minut` : "Ingen avläsning än";
     drawAlarms(state);
@@ -160,6 +174,7 @@ const LAYER_LABELS = {
   wind: "Vindpilar (SMHI, prognos)", chart: "Väderkarta (SMHI, prognos)", stations: "SMHI:s stationer",
   facilities: "Skyddsvärda objekt (kommunens GIS)", names: "Ortnamn (OSM)", firms: "Brandpunkter (NASA FIRMS)",
   satellite: "Satellitbild (Sentinel-2)", s1radar: "Radarbild (Sentinel-1)", s1water: "Vatten utanför sjöarna, radar (rött)",
+  s1wetness: "Fukt i terrängen, radar (brun torr – blå blöt)",
 };
 let layersShown = {};
 function showLayers(layers) {
@@ -298,7 +313,9 @@ function drawSatelliteImage(state) {
       + `${meta.recent ? "" : " – ingen klarare bild de senaste två veckorna"}.`)
     + (!radar ? " Radar: ingen passage än." : ` Radar: ${radar.platform} ${localTime.format(new Date(radar.time_utc))}, `
       + `vatten utanför sjöarna ${String(radar.new_water_pct).replace(".", ",")} % av marken (tröskel ${String(radar.threshold_db).replace(".", ",")} dB`
-      + `${radar.separable ? "" : ", vatten och mark går inte att skilja åt – osäker"}). Beräknat, inte en kartlagd översvämning.`)
+      + `${radar.separable ? "" : ", vatten och mark går inte att skilja åt – osäker"}). Beräknat, inte en kartlagd översvämning.`
+      + (radar.wetness_median_pct != null ? ` Fukt i terrängen: i median ${radar.wetness_median_pct} % mellan torrast och blötast `
+        + `de senaste ${radar.wetness_passes} passagerna från samma bana – beräknat, inte uppmätt.` : ""))
     + ` ${(meta || radar)?.attribution || ""}`;
 }
 

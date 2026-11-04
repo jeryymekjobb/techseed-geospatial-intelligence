@@ -114,10 +114,17 @@ is never logged or shown.
   Computer's terrain-corrected sentinel-1-rtc, VV), as the scenarios' radar images: the grey radar
   image, which shows wet and rough ground bright, and the water outside OpenStreetMap's lakes in red
   (darker than the median over the lakes, five of nine neighbours) – a computed mask, not a mapped
-  flood; the weather chart, the optical image and the grey radar image start off;
-- **Marks**, as the user asked: SMHI's stations round with a white ring, blue for the weather
-  stations and red for the flow stations; the protected objects and other places of interest small,
-  round and yellow;
+  flood; and the ground's relative wetness by change detection (each pixel now between its driest and
+  wettest in the last 120 days' passes of the same relative orbit, about 100 m, brown dry to blue
+  wet; computed, not measured, left out in forest, built-up land and lakes); the weather chart, the
+  optical image, the grey radar image and the wetness start off;
+- **Marks**, as the user asked: SMHI's stations round with a white ring, blue, and red while one of
+  them alarms (a high flow or record, or heavy rain: 10 mm in an hour at a weather station); the
+  protected objects and other places of interest small, round and yellow;
+- **Logs**: the satellite monitor logs only what is detected (FIRMS's detections, Sentinel-1's
+  water outside the lakes from 0.5 % of the land, a proposal) and every alarm with its station and
+  value, not the passes that see nothing; mission control's Logg lists every alarm, confirmation
+  and dismissal;
 - **Charts** in mission control: each station's flow of the last day with its limits, the hour's rain
   at Floda A, the radar's highest rate in the municipality in the last hour.
 - **UPPLÄSNING** in mission control reads new alarms aloud with the scenarios' voice alma

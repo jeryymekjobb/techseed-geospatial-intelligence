@@ -116,9 +116,12 @@ function stationText(station) {
   return `${parts.join(", ")}${time ? ` – SMHI, ${time}` : ""}`;
 }
 
-// The marks, as on the 2D map (map2d.js): SMHI's stations round with a white ring, blue for weather
-// and red for flow; the protected objects and other places of interest small, round and yellow.
-const STATION_MARKS = { weather: "#1565c0", flow: "#c62828" };
+// The marks, as on the 2D map (map2d.js): SMHI's stations round with a white ring, blue, and red while
+// one of them alarms; the protected objects and other places of interest small, round and yellow.
+const STATION_MARKS = { normal: "#1565c0", alarm: "#c62828" };
+function alarming(state, key) {
+  return state.alarms.some((alarm) => alarm.id === key && alarm.current && alarm.state !== "dismissed");
+}
 const OBJECT_MARK = "#ffd600";
 
 // SMHI's forecast grid (/api/weather) as the scenarios' globe draws ERA5-Land's wind and MET Norway's
@@ -223,6 +226,7 @@ async function start() {
   const satelliteImage = imageDrawer(viewer, "/api/satellite.png", config.layers.radar.bbox, 1.0);
   const s1Radar = imageDrawer(viewer, "/api/s1radar.png", config.layers.radar.bbox, 0.9);
   const s1Water = imageDrawer(viewer, "/api/s1water.png", config.layers.radar.bbox, 1.0);
+  const s1Wetness = imageDrawer(viewer, "/api/s1wetness.png", config.layers.radar.bbox, 0.85);
   const drawRadar = (stats, polled) => radarImage.draw(stats?.latest_utc ? `${stats.latest_utc}|${polled}` : null, config.layers.radar.attribution);
   const sources = {};
   for (const name of ["stations", "facilities", "names", "firms"]) {
@@ -236,6 +240,7 @@ async function start() {
     satelliteImage.show(layers.satellite);
     s1Radar.show(layers.s1radar);
     s1Water.show(layers.s1water);
+    s1Wetness.show(layers.s1wetness);
     for (const [name, source] of Object.entries(sources)) source.show = Boolean(layers[name]);
   };
   getJson("/api/assets").then((assets) => {
@@ -281,6 +286,7 @@ async function start() {
     if (pass) {
       s1Radar.draw(pass.time_utc, pass.attribution);
       s1Water.draw(pass.time_utc, pass.attribution);
+      s1Wetness.draw(pass.time_utc, pass.attribution);
     }
     weather.refresh(context.weather);
     if (context.border && !border) {
@@ -296,11 +302,13 @@ async function start() {
     sources.stations.entities.removeAll();
     sources.firms.entities.removeAll();
     for (const flow of context.flows || []) {
-      if (flow.latitude != null) point(flow.latitude, flow.longitude, STATION_MARKS.flow, 12, `Vattenföring ${flow.name}`,
+      const mark = alarming(state, `flow-${flow.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
+      if (flow.latitude != null) point(flow.latitude, flow.longitude, mark, 12, `Vattenföring ${flow.name}`,
         `${flow.value} m³/s, ${flow.time_utc} – SMHI`, sources.stations);
     }
     for (const station of context.weather_stations || []) {
-      point(station.latitude, station.longitude, STATION_MARKS.weather, 12, `SMHI ${station.name}`, stationText(station), sources.stations);
+      const mark = alarming(state, `rain-${station.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
+      point(station.latitude, station.longitude, mark, 12, `SMHI ${station.name}`, stationText(station), sources.stations);
     }
     for (const fire of context.firms || []) {
       point(fire.latitude, fire.longitude, "#ff6d00", 8, `FIRMS ${fire.satellite}`, `${fire.instrument} ${fire.time_utc} – NASA FIRMS`, sources.firms);

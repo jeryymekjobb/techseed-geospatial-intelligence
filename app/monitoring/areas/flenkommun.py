@@ -146,6 +146,8 @@ WEATHER_STATIONS = {
 # or a warning; raised fire risk when SMHI's fire risk class (FWI, or grass fire) is at least
 # FIRE_RISK_CLASS today or tomorrow, at FIRE_RISK_POINT.
 CLOUDBURST_MM_H = 20.0
+# The satellite monitor logs Sentinel-1's water outside the lakes from this share of the land (%), a proposal.
+S1_WATER_LOG_PCT = 0.5
 CLOUDBURST_GAUGE_MM = 10.0
 FIRE_RISK_CLASS = 5
 FIRE_RISK_POINT = CENTRE

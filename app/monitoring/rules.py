@@ -94,6 +94,23 @@ def flow_candidates(flows: list[dict[str, Any]], stats: dict[str, dict[str, Any]
     return found
 
 
+def station_rain_candidates(stations: list[dict[str, Any]], area: ModuleType) -> list[Candidate]:
+    """Heavy rain at a weather station: at least CLOUDBURST_GAUGE_MM in its latest hour."""
+    found = []
+    for station in stations:
+        rain = station["values"].get("rain_1h_mm")
+        if rain is None or rain < area.CLOUDBURST_GAUGE_MM:
+            continue
+        item = Candidate(f"rain-{station['station']}", "flood", "high", f"Kraftigt regn vid {station['name']}: {_number(rain)} mm på en timme",
+                         station["name"], station["latitude"], station["longitude"])
+        item.fact(f"Regn {_number(rain)} mm senaste timmen", ATTRIBUTION["smhi_stations"], station["times"].get("rain_1h_mm"),
+                  uncertain=True)
+        item.fact(f"Gräns i övervakningen: {_number(area.CLOUDBURST_GAUGE_MM)} mm på en timme", "Förslag, inte överenskommet")
+        item.notes.append("Senaste timmens värde är inte kvalitetsgranskat av SMHI.")
+        found.append(item)
+    return found
+
+
 def warning_candidates(warnings: list[dict[str, Any]]) -> list[Candidate]:
     """SMHI's yellow, orange and red warnings for flood and fire in the area."""
     found = []
@@ -291,6 +308,7 @@ def detect(poll: dict[str, Any], events: list[dict[str, Any]], area: ModuleType,
                             poll.get("warnings", []), area)
     fire_risk = poll.get("fire_risk", [])
     bursts = cloudburst_candidates(poll.get("radar"), poll.get("rain", []), poll.get("warnings", []), area)
+    bursts += station_rain_candidates(poll.get("weather_stations", []), area)
     candidates = (flows + bursts + warning_candidates(poll.get("warnings", [])) + vma_candidates(poll.get("krisinfo", []), area)
                   + fire_risk_candidates(fire_risk, area, now)
                   + fire_candidates(poll.get("firms", []), events, border, poll.get("fire_ban", []), area, filtered, fire_risk)

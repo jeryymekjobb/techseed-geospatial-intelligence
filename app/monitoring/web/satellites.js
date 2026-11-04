@@ -1,13 +1,13 @@
 // The satellite monitor of the monitoring (app/monitoring/service.py), in a window of its own as the
 // demos' (app/frontend/monitor.js), but live: the world map with the orbits and where the satellites
 // that send the monitoring data are now, the timeline of their passes over the area with "now"
-// marked (satmonitor.js, orbits.js), each satellite's height, speed and next pass, and a log of the
-// computed passes, FIRMS's detections and the alarms. Text is set as text, never as HTML.
+// marked (satmonitor.js, orbits.js), each satellite's height, speed and next pass, and a log of what
+// was detected and of the alarms. Text is set as text, never as HTML.
 "use strict";
 
 const DAY = 86400000;
 const LOG_BACK_MS = DAY;
-const LOG_AHEAD_MS = 6 * 3600000;
+const LOG_AHEAD_MS = 0;
 const DRAW_MS = 2000;
 const STATE_MS = 30000;
 const hourMinute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" });
@@ -21,14 +21,16 @@ async function getJson(path) {
   return response.json();
 }
 
-// The log's lines, newest first: each satellite's passes from a day back to six hours ahead (the
-// future ones marked as computed), FIRMS's detections and the alarms.
-function monitoringLog(passes, state, nowMs) {
+// The log's lines, newest first, of what was detected, as the user asked: a pass that sees nothing
+// is not logged (the timeline shows the passes). FIRMS's detections, Sentinel-1's water outside the
+// lakes from s1WaterPct % of the land where water and land can be told apart, and every alarm with its
+// station and value.
+function monitoringLog(state, nowMs, s1WaterPct) {
   const lines = [];
-  for (const { item, pass } of passes) {
-    const ahead = pass.start > nowMs;
-    lines.push({ atMs: pass.start, kind: "computed",
-      text: `${item.name} (${item.instrument}) ${ahead ? "passerar" : "passerade"} över ${state.area.name}${ahead ? " (beräknat)" : ""}` });
+  const radar = state.context?.radar_pass;
+  if (radar && radar.separable && radar.new_water_pct >= s1WaterPct) {
+    lines.push({ atMs: Date.parse(radar.time_utc), kind: "computed",
+      text: `${radar.platform}: vatten utanför sjöarna på ${String(radar.new_water_pct).replace(".", ",")} % av marken (beräknat)` });
   }
   for (const fire of state.context?.firms || []) {
     lines.push({ atMs: Date.parse(fire.time_utc), kind: "firms",
@@ -36,7 +38,8 @@ function monitoringLog(passes, state, nowMs) {
   }
   for (const alarm of state.alarms) {
     lines.push({ atMs: Date.parse(alarm.created_utc), kind: alarm.candidate.simulated ? "simulated" : "synthetic",
-      text: `LARM: ${alarm.candidate.title}${alarm.candidate.simulated ? " (simulerad)" : ""}` });
+      text: `LARM: ${alarm.candidate.title}${alarm.candidate.facts[0] ? ` – ${alarm.candidate.facts[0].text}` : ""}`
+        + `${alarm.candidate.simulated ? " (simulerad)" : ""}` });
   }
   return lines.filter((line) => line.atMs >= nowMs - LOG_BACK_MS && line.atMs <= nowMs + LOG_AHEAD_MS)
     .sort((a, b) => b.atMs - a.atMs);
@@ -94,8 +97,7 @@ async function start() {
       list.append(row);
     }
     if (!state) return;
-    const passes = items.flatMap((item) => item.passes.map((p) => ({ item, pass: p })));
-    const lines = monitoringLog(passes, state, nowMs);
+    const lines = monitoringLog(state, nowMs, config.area.s1_water_log_pct);
     const key = lines.map((line) => `${line.atMs}${line.text}`).join("|");
     if (key === logKey) return;
     logKey = key;

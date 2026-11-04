@@ -597,7 +597,7 @@ def test_thunder_is_marked_once_per_hundred_kilometres_from_thirty_percent() -> 
 
 def test_mission_control_shows_or_hides_the_layers(server: int) -> None:
     layers = json.loads(request(server, "GET", "/api/view")[1])["layers"]
-    assert layers == service.LAYERS and layers["chart"] is False and layers["facilities"] is True
+    assert layers == service.LAYERS and layers["chart"] is False and layers["facilities"] is True and layers["s1wetness"] is False
     assert request(server, "POST", "/api/layers", b'{"chart": "yes"}', {"Content-Type": "application/json"})[0] == 400
     assert request(server, "POST", "/api/layers", b'{"rain": true}', {"Content-Type": "application/json"})[0] == 400
     status, body = request(server, "POST", "/api/layers", b'{"chart": true, "names": false}', {"Content-Type": "application/json"})
@@ -762,7 +762,40 @@ def test_sentinel1_shows_water_outside_the_lakes_in_red_and_groups_a_pass() -> N
     assert found[0]["time_utc"] == "2026-11-03T05:14:11Z" and found[0]["platform"] == "Sentinel-1C"
 
 
-def test_the_stations_and_the_objects_have_their_own_marks() -> None:
+def test_the_stations_are_blue_red_while_alarming_and_the_objects_yellow() -> None:
     for name in ("map2d.js", "globe.js"):
         script = (Path(service.WEB_DIR) / name).read_text(encoding="utf-8")
-        assert 'STATION_MARKS = { weather: "#1565c0", flow: "#c62828" }' in script and "#ffd600" in script, name
+        assert 'STATION_MARKS = { normal: "#1565c0", alarm: "#c62828" }' in script and "#ffd600" in script, name
+        assert "alarming(state, `flow-${flow.station}`)" in script and "alarming(state, `rain-${station.station}`)" in script, name
+
+
+def test_heavy_rain_at_a_station_alarms_and_the_satellite_log_holds_only_detections() -> None:
+    stations = [{"station": "96040", "name": "Floda A", "latitude": 59.06, "longitude": 16.39,
+                 "values": {"rain_1h_mm": 12.5}, "times": {"rain_1h_mm": "2026-11-03T11:00:00Z"}},
+                {"station": "19025", "name": "Höksta", "latitude": 59.4, "longitude": 16.2, "values": {"temp_c": 4.0}, "times": {}}]
+    (alarm,) = rules.station_rain_candidates(stations, area())
+    assert alarm.key == "rain-96040" and alarm.title == "Kraftigt regn vid Floda A: 12,5 mm på en timme"
+    script = (Path(service.WEB_DIR) / "satellites.js").read_text(encoding="utf-8")
+    assert "passerade" not in script and "radar.new_water_pct >= s1WaterPct" in script
+
+
+def test_the_wetness_sets_each_pixel_between_its_dry_and_its_wet_and_leaves_out_lakes() -> None:
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    from app.monitoring import sentinel1
+
+    dry, wet = np.full((6, 6), -20.0), np.full((6, 6), -10.0)
+    now = np.full((6, 6), -15.0)
+    now[:, 3:] = -10.0
+    wet[0, 0] = -19.5  # forest or rock: too little between dry and wet
+    count = np.full((6, 6), 10)
+    lakes = np.zeros((6, 6), dtype=bool)
+    lakes[5, 5] = True
+    png, stats = sentinel1.wetness(now, dry, wet, count, lakes)
+    image = np.array(Image.open(io.BytesIO(png)))
+    assert image[0, 0, 3] == 0 and image[5, 5, 3] == 0 and image[2, 1, 3] == sentinel1.WETNESS_ALPHA
+    assert image[2, 5, 0] < image[2, 1, 0]  # the wetter half is blue-green, with little red
+    assert stats["wetness_cover_pct"] == round(100 * 34 / 36) and sentinel1.coarse(np.ones((10, 10), "f4")).shape == (2, 2)

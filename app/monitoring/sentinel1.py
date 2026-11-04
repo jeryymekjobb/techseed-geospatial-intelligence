@@ -13,7 +13,15 @@ numpy array in WGS 84. Two images are made, as in the scenarios:
   and radar shadows are dark too. Where the darkest land is as dark as the water (wind, rain), the
   pass is marked not separable.
 
-Each poll asks again at most once every SEARCH_EVERY; a pass already made is not made again.
+- the relative wetness of the ground, by change detection, the principle of Copernicus's soil
+  moisture from Sentinel-1: each pixel's backscatter now set between how dry (its 5th percentile)
+  and how wet (its 95th) the same place has been in the passes of the same relative orbit in the last
+  REFERENCE days, 0 to 100 %, brown dry to blue wet, at about 100 m, smoothed over 3 x 3 of them. It is computed, not measured,
+  and uncertain in forest and built-up land, where the backscatter changes little; there, and on the
+  lakes, it is left out.
+
+Each poll asks again at most once every SEARCH_EVERY; a pass already made is not made again. The
+dry and wet references are kept and made again when older than REFERENCE_AGE.
 Copernicus Sentinel data are free and open; the images say so.
 """
 
@@ -35,6 +43,14 @@ from tools import fetch_sentinel1_scene as scenario_radar
 COLLECTION = "sentinel-1-rtc"
 DATA_API = sentinel2.DATA_API
 RECENT = timedelta(days=12)
+REFERENCE = timedelta(days=120)
+REFERENCE_AGE = timedelta(days=30)
+LOW = 5  # the wetness's pixels: 5 x 5 of the radar image's, about 100 m
+MIN_PASSES = 6  # a pixel needs this many passes in its reference
+MIN_RANGE_DB = 1.0  # and this much between dry and wet; less is forest, buildings or rock
+# Brown dry to blue wet, as soil moisture maps are drawn.
+WETNESS_COLOURS = [(0.0, (140, 81, 10)), (0.25, (216, 179, 101)), (0.5, (246, 232, 195)), (0.75, (90, 180, 172)), (1.0, (1, 102, 94))]
+WETNESS_ALPHA = 200
 SEARCH_EVERY = timedelta(hours=1)
 PIXELS_PER_DEGREE = (1500, 3000)  # about 40 m each way at 59 N
 NEIGHBOURS = scenario_radar.NEIGHBOURS
@@ -52,14 +68,16 @@ def passes(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         groups.setdefault((item["id"][:3], values["datetime"][:13]), []).append(item)
     found = [{"time_utc": min(i["properties"]["datetime"] for i in group)[:19] + "Z", "items": [i["id"] for i in group],
               "platform": {"S1A": "Sentinel-1A", "S1B": "Sentinel-1B", "S1C": "Sentinel-1C", "S1D": "Sentinel-1D"}.get(key[0], key[0]),
-              "orbit": group[0]["properties"].get("sat:orbit_state")}
+              "orbit": group[0]["properties"].get("sat:orbit_state"),
+              "relative_orbit": group[0]["properties"].get("sat:relative_orbit")}
              for key, group in groups.items()]
     return sorted(found, key=lambda item: item["time_utc"], reverse=True)
 
 
-def array_url(item: str, bbox: tuple[float, float, float, float]) -> str:
+def array_url(item: str, bbox: tuple[float, float, float, float], scale: int = 1) -> str:
     west, south, east, north = bbox
-    width, height = round((east - west) * PIXELS_PER_DEGREE[0]), round((north - south) * PIXELS_PER_DEGREE[1])
+    width = round((east - west) * PIXELS_PER_DEGREE[0]) // scale
+    height = round((north - south) * PIXELS_PER_DEGREE[1]) // scale
     return (f"{DATA_API}/{west},{south},{east},{north}/{width}x{height}.npy?"
             + urlencode({"collection": COLLECTION, "item": item, "assets": "vv", "nodata": 0}))
 
@@ -94,6 +112,40 @@ def images(vv: np.ndarray, water: np.ndarray) -> tuple[bytes, bytes, dict[str, A
         "new_water_pct": round(100.0 * float(new_water[land].mean()), 2) if land.any() else 0.0}
 
 
+def coarse(vv: np.ndarray, scale: int = LOW) -> np.ndarray:
+    """The backscatter in blocks of scale x scale pixels, their mean where all are valid."""
+    height, width = (vv.shape[0] // scale) * scale, (vv.shape[1] // scale) * scale
+    blocks = vv[:height, :width].reshape(height // scale, scale, width // scale, scale)
+    valid = (blocks > 0).all(axis=(1, 3))
+    return np.where(valid, blocks.mean(axis=(1, 3)), 0.0).astype("f4")
+
+
+def decibels(vv: np.ndarray) -> np.ndarray:
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.where(vv > 0, 10.0 * np.log10(np.where(vv > 0, vv, 1.0)), np.nan)
+
+
+def wetness(now_db: np.ndarray, dry: np.ndarray, wet: np.ndarray, count: np.ndarray, water: np.ndarray) -> tuple[bytes, dict[str, Any]]:
+    """The relative wetness as a PNG, brown dry to blue wet, and its median over the land it covers."""
+    usable = np.isfinite(now_db) & (count >= MIN_PASSES) & ((wet - dry) >= MIN_RANGE_DB) & ~water
+    raw = np.where(usable, np.clip((now_db - dry) / np.where(usable, wet - dry, 1.0), 0.0, 1.0), 0.0)
+    # The radar's speckle: each pixel the mean of the usable ones of the 3 x 3 round it, about 300 m.
+    height, width = raw.shape
+    padded, weights = np.pad(raw, 1), np.pad(usable.astype("f4"), 1)
+    total = sum(padded[1 + dy:1 + dy + height, 1 + dx:1 + dx + width] for dy in (-1, 0, 1) for dx in (-1, 0, 1))
+    count_near = sum(weights[1 + dy:1 + dy + height, 1 + dx:1 + dx + width] for dy in (-1, 0, 1) for dx in (-1, 0, 1))
+    share = np.where(usable, total / np.maximum(count_near, 1.0), 0.0)
+    stops = np.array([stop for stop, _ in WETNESS_COLOURS])
+    rgba = np.zeros((*now_db.shape, 4), dtype="u1")
+    for channel in range(3):
+        rgba[..., channel] = np.interp(share, stops, [colour[channel] for _, colour in WETNESS_COLOURS]).astype("u1")
+    rgba[..., 3] = np.where(usable, WETNESS_ALPHA, 0)
+    out = io.BytesIO()
+    Image.fromarray(rgba, "RGBA").save(out, "PNG", optimize=True)
+    return out.getvalue(), {"wetness_median_pct": round(100.0 * float(np.median(share[usable])), 0) if usable.any() else None,
+                            "wetness_cover_pct": round(100.0 * float(usable.mean()), 0)}
+
+
 class Latest:
     """The latest radar pass, kept in data/monitoring/<area>/radar-s1/ between polls and restarts."""
 
@@ -117,11 +169,47 @@ class Latest:
         except OSError:
             return None
 
+    def _rings(self) -> list[list[list[float]]]:
+        return scenario_radar.water_polygons(self.terrain_file) if self.terrain_file and self.terrain_file.is_file() else []
+
     def known_water(self, shape: tuple[int, int]) -> np.ndarray:
         if self.water is None or self.water.shape != shape:
-            rings = scenario_radar.water_polygons(self.terrain_file) if self.terrain_file and self.terrain_file.is_file() else []
-            self.water = scenario_radar.known_water((shape[1], shape[0]), self.bbox, rings)
+            self.water = scenario_radar.known_water((shape[1], shape[0]), self.bbox, self._rings())
         return self.water
+
+    def reference(self, orbit: int | None, now: datetime) -> dict[str, Any] | None:
+        """How dry and how wet each coarse pixel has been in the passes of the relative orbit in the
+        last REFERENCE days, kept in reference-<orbit>.npz and made again when older than REFERENCE_AGE."""
+        if orbit is None:
+            return None
+        path = self.dir / f"reference-{orbit}.npz"
+        try:
+            kept = dict(np.load(path))
+            if now - datetime.fromisoformat(str(kept["made_utc"])) < REFERENCE_AGE:
+                return kept
+        except (OSError, ValueError, KeyError):
+            pass
+        body = {"collections": [COLLECTION], "bbox": list(self.bbox), "limit": 250,
+                "datetime": f"{now - REFERENCE:%Y-%m-%dT%H:%M:%SZ}/{now:%Y-%m-%dT%H:%M:%SZ}"}
+        found = [item for item in passes(json.loads(self.post(sentinel2.STAC_SEARCH, body)).get("features") or [])
+                 if item.get("relative_orbit") == orbit]
+        stack = []
+        for take in found:
+            low = None
+            for item in take["items"]:
+                part = np.load(io.BytesIO(self.fetch(array_url(item, self.bbox, LOW))))[0].astype("f4")
+                low = part if low is None else np.where(part > 0, part, low)
+            if low is not None:
+                stack.append(decibels(low))
+        if len(stack) < MIN_PASSES:
+            return None
+        cube = np.stack(stack)
+        reference = {"dry": np.nanpercentile(cube, 5, axis=0), "wet": np.nanpercentile(cube, 95, axis=0),
+                     "count": np.isfinite(cube).sum(axis=0), "passes": np.array(len(stack)),
+                     "made_utc": np.array(now.isoformat())}
+        self.dir.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(path, **reference)
+        return reference
 
     def update(self, now: datetime | None = None) -> dict[str, Any] | None:
         now = now or datetime.now(timezone.utc)
@@ -143,6 +231,13 @@ class Latest:
         self.dir.mkdir(parents=True, exist_ok=True)
         (self.dir / "radar.png").write_bytes(grey)
         (self.dir / "water.png").write_bytes(water)
+        reference = self.reference(latest.get("relative_orbit"), now)
+        if reference is not None:
+            low = coarse(vv)
+            lakes = scenario_radar.known_water((low.shape[1], low.shape[0]), self.bbox, self._rings())
+            png, wet_stats = wetness(decibels(low), reference["dry"], reference["wet"], reference["count"], lakes)
+            (self.dir / "wetness.png").write_bytes(png)
+            stats = {**stats, **wet_stats, "wetness_passes": int(reference["passes"])}
         self.meta = {**latest, **stats, "bbox": list(self.bbox),
                      "attribution": f"Innehåller bearbetade Copernicus Sentinel-data {latest['time_utc'][:4]} (Microsoft Planetary Computer)"}
         (self.dir / "latest.json").write_text(json.dumps(self.meta), encoding="utf-8")
