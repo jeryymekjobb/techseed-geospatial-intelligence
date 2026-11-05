@@ -991,13 +991,13 @@ mission control visar radarn, brandrisken, prognosen och flödena. I mission con
 avfärdar operatören larmen och öppnar briefingen; inget skickas vidare automatiskt. **VISA 2D / VISA 3D**
 växlar huvudskärmen mellan 2D-kartan och 3D-globen, och **Kartlager på huvudskärmen** slår av och på
 varje lager: kommunens karta, översvämning, väderradar, vindpilar och väderkarta (SMHI:s prognos för
-den närmaste hela timmen, inte observationer; vindpilarna glesas ut när man zoomar ut, väderkartan har
+den närmaste hela timmen, inte observationer; vindpilarna är små och glesas ut när man zoomar ut, väderkartan har
 egna glesare vindpilar över Skandinavien och visar högtryck som ett stort blått H och lågtryck som ett
 stort rött L med trycket), SMHI:s stationer, skyddsvärda objekt ur kommunens GIS,
 ortnamn, brandpunkter, MCF:s beräknade högsta flöde, kommunens skyfallskartering för 100- och
 500-årsregn (en modell, för intern användning; i Sundsvall även 30-årsregn, och i Västerås 100-årsregn), de senaste satellitbilderna från Sentinel-2 och
 Landsat och den senaste radarpassagen från
-Sentinel-1: radarbilden i grått, där fuktig och ojämn mark är ljus, och vatten utanför sjöarna i rött
+Sentinel-1: radarbilden i grått, där fuktig och ojämn mark är ljus, och vatten utanför sjöarna och havet i rött
 (en beräknad mask, inte en kartlagd översvämning), och fukten i terrängen, beräknad ur hur blöt
 marken är jämfört med de senaste 120 dagarnas passager (brun torr, blå blöt; inte uppmätt). SMHI:s
 stationer är runda med vit ring och blå, och röda när de larmar för högt flöde, rekordflöde eller
@@ -1010,8 +1010,14 @@ och **IoT** visar sensorerna, märkta som simulerade om de inte anger annat, och
 simulerade nivågivare vid Nyköpingsån, som följer SMHI:s flöden och larmar över arkivets högsta
 dygnsflöde (magentafärgad ring på kartan). Meteosats molnmask visar hur molnigt det är över kommunen,
 med en kurva för senaste dygnet, och förklarar varför den optiska bilden kan vara gammal.
+Alla SMHI:s aktiva stationer i kommunen och inom 5 km tas med. Väderstationer längre bort tas inte
+med, utom regnstationerna som bekräftar larmen; flödes-, vattenstånds- och havsnivåstationerna
+behålls var de än ligger, eftersom larmen läser dem. En station som inte har lämnat värden
+på två dygn (tre för dygnsregn) visas grå och listas under **Tysta stationer** i mission control – den
+kan vara ur funktion. Vid Sibro 2 och Ringsjödammen visas också vattenståndet (ett värde per dygn),
+jämfört med det högsta i SMHI:s arkiv.
 I Vellinge visar övervakningen havsvattenståndet vid Klagshamn (SMHI, cm i RH2000) och larmar från
-100 cm; strändernas tre simulerade nivågivare följer det. Kramfors, Ljusdal, Sala och Höör får
+100 cm; strändernas tre simulerade nivågivare följer det. Kramfors, Ljusdal och Sala får
 Lantmäteriets topografiska karta som bakgrund när inloggningen från Geotorget ligger i
 `~/.lantmateriet` (se `app/monitoring/README.md`); utan den visas OpenStreetMap.
 Kartornas källor står inte längre längst ned i kartbilden: i hörnet står bara OpenStreetMaps

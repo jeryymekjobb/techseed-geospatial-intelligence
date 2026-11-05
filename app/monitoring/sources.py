@@ -45,6 +45,7 @@ ATTRIBUTION = {
     "smhi_flow": "SMHI öppna data, hydrologiska observationer (CC BY 4.0 SE)",
     "smhi_rain": "SMHI öppna data, meteorologiska observationer (CC BY 4.0 SE)",
     "smhi_sea_level": "SMHI öppna data, havsvattenstånd i RH2000 (CC BY 4.0 SE)",
+    "smhi_water_level": "SMHI öppna data, vattenstånd i sjöar och vattendrag (CC BY 4.0 SE); höjdsystemet anges inte",
     "smhi_warnings": "SMHI:s vädervarningar, öppna data (CC BY 4.0 SE)",
     "smhi_fire_risk": "SMHI:s brandriskprognos (FWI), öppna data (CC BY 4.0 SE)",
     "smhi_forecast": "SMHI:s väderprognos, öppna data (CC BY 4.0 SE)",
@@ -117,15 +118,51 @@ def guarded(source: str, read: Callable[[], list[dict[str, Any]]]) -> Result:
 
 # --- SMHI flows -------------------------------------------------------------------------------
 
+# A station whose latest value is older than this is silent: shown grey, as a hint it may be out of order.
+SILENT_AFTER = timedelta(days=2)
+# The rain by the day comes a day late (06-06 UTC), so a daily station is silent only after three.
+SILENT_AFTER_DAILY = timedelta(days=3)
+
+
+def station_meta(api: str, parameter: int, station: str, fetch: Fetch) -> dict[str, Any]:
+    """A station's position and the time of its latest value, from SMHI's station description; for a
+    station that gives no values, so the screens can still show it (the user's wish: a silent station
+    tells of the intelligence picture and of a gauge that may need repair)."""
+    data = json.loads(fetch(f"{api}/parameter/{parameter}/station/{station}.json"))
+    position = (data.get("position") or [{}])[-1] if isinstance(data.get("position"), list) else {}
+    return {"latitude": data.get("latitude", position.get("latitude")), "longitude": data.get("longitude", position.get("longitude")),
+            "last_utc": utc_text(_utc(data["to"])) if data.get("to") else None, "active": data.get("active")}
+
+
+def silent_station(api: str, parameter: int, station: str, name: str, kind: str, fetch: Fetch) -> dict[str, Any] | None:
+    """A station without values as the screens show it, or None when SMHI does not describe it either."""
+    try:
+        meta = station_meta(api, parameter, station, fetch)
+    except Exception:  # noqa: BLE001 - without a description it cannot be placed
+        return None
+    if meta["latitude"] is None:
+        return None
+    return {"station": station, "name": name, "kind": kind, "latitude": meta["latitude"], "longitude": meta["longitude"],
+            "last_utc": meta["last_utc"]}
+
+
 def flow_url(station: str) -> str:
     return f"{HYDRO_API}/parameter/2/station/{station}/period/latest-day/data.json"
 
 
 def read_flows(stations: dict[str, str], fetch: Fetch) -> list[dict[str, Any]]:
-    """Each station's 15-minute flows of the latest day, oldest first."""
+    """Each station's 15-minute flows of the latest day, oldest first; a station that does not answer
+    (one that gives SMHI's archive only, or none) comes without readings, placed from its description."""
     items = []
     for station, name in stations.items():
-        data = json.loads(fetch(flow_url(station)))
+        try:
+            data = json.loads(fetch(flow_url(station)))
+        except Exception:  # noqa: BLE001 - one silent station leaves the others
+            silent = silent_station(HYDRO_API, 2, station, name, "flöde", fetch)
+            items.append({"station": station, "name": name, "latitude": (silent or {}).get("latitude"),
+                          "longitude": (silent or {}).get("longitude"), "unit": "m³/s", "readings": [],
+                          "silent": True, "last_utc": (silent or {}).get("last_utc")})
+            continue
         position = (data.get("position") or [{}])[-1]
         readings = [{"time_utc": utc_text(_utc(row["date"])), "value": float(row["value"]), "quality": row.get("quality")}
                     for row in data.get("value") or [] if row.get("value") is not None]
@@ -176,8 +213,14 @@ def cached_statistics(stations: dict[str, str], high_percentile: float, path: Pa
              and all(item.get("high_percentile") == high_percentile for item in stats.values()))
     if fresh:
         return stats
-    stats = {station: flow_statistics(station, fetch(archive_url(station)).decode("utf-8-sig"), high_percentile)
-             for station in stations}
+    stats = {}
+    for station in stations:
+        try:
+            stats[station] = flow_statistics(station, fetch(archive_url(station)).decode("utf-8-sig"), high_percentile)
+        except Exception:  # noqa: BLE001 - a station without an archive (Ramnäs) gets no limits
+            stats[station] = {"station": station, "missing": True, "high_percentile": high_percentile}
+    if stats and all(item.get("missing") for item in stats.values()):
+        raise ValueError("no station has an archive")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"fetched_utc": utc_text(datetime.now(timezone.utc)), "stations": stats},
                                ensure_ascii=False, indent=1), encoding="utf-8")
@@ -210,6 +253,68 @@ def read_rain(stations: dict[str, str], fetch: Fetch) -> list[dict[str, Any]]:
     return items
 
 
+# --- SMHI's water level in lakes and rivers --------------------------------------------------
+
+def water_level_url(station: str, period: str = "latest-day") -> str:
+    """SMHI's water level (hydroobs parameter 3, cm in the station's height system, which the data do not name)."""
+    suffix = "data.csv" if period == "corrected-archive" else "data.json"
+    return f"{HYDRO_API}/parameter/3/station/{station}/period/{period}/{suffix}"
+
+
+def level_record(station: str, text: str) -> dict[str, Any]:
+    """The highest water level in SMHI's corrected archive (CSV) and its day."""
+    lines = text.lstrip("\ufeff").splitlines()
+    header = next(index for index, line in enumerate(lines) if line.startswith("Datum"))
+    days = [(fields[0][:10], float(fields[1])) for fields in (line.split(";") for line in lines[header + 1:])
+            if len(fields) >= 2 and fields[0] and fields[1]]
+    if not days:
+        raise ValueError(f"station {station}: the archive has no water levels")
+    day, highest = max(days, key=lambda item: item[1])
+    return {"station": station, "record_cm": highest, "record_day": day, "archive_from": days[0][0], "archive_to": days[-1][0]}
+
+
+def read_water_levels(stations: dict[str, str], fetch: Fetch, path: Path, max_age: timedelta = timedelta(days=30)) -> list[dict[str, Any]]:
+    """Each station's latest water level (SMHI gives one a day) and the archive's highest, kept for max_age in path."""
+    try:
+        cached = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        cached = {}
+    records = cached.get("stations") or {}
+    fetched = _iso(cached.get("fetched_utc"))
+    if fetched is None or datetime.now(timezone.utc) - fetched >= max_age or not set(stations) <= set(records):
+        records = {}
+        for station in stations:
+            try:
+                records[station] = level_record(station, fetch(water_level_url(station, "corrected-archive")).decode("utf-8-sig"))
+            except Exception:  # noqa: BLE001 - without an archive, no record to compare with
+                records[station] = {"station": station, "missing": True}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"fetched_utc": utc_text(datetime.now(timezone.utc)), "stations": records}, ensure_ascii=False, indent=1),
+                        encoding="utf-8")
+    items = []
+    for station, name in stations.items():
+        record = records.get(station) or {}
+        try:
+            data = json.loads(fetch(water_level_url(station)))
+            rows = sorted((row for row in data.get("value") or [] if row.get("value") is not None), key=lambda row: row["date"])
+        except Exception:  # noqa: BLE001 - a silent station is placed from its description
+            data, rows = {}, []
+        position = (data.get("position") or [{}])[-1] if data else {}
+        last = rows[-1] if rows else None
+        item = {"station": station, "name": name, "latitude": position.get("latitude"), "longitude": position.get("longitude"),
+                "value_cm": float(last["value"]) if last else None, "time_utc": utc_text(_utc(last["date"])) if last else None,
+                "unchecked": bool(last) and last.get("quality") != "G", "record_cm": record.get("record_cm"),
+                "record_day": record.get("record_day"), "archive_from": record.get("archive_from")}
+        if last is None or datetime.now(timezone.utc) - _utc(last["date"]) > SILENT_AFTER:
+            silent = silent_station(HYDRO_API, 3, station, name, "vattenstånd", fetch)
+            item.update(silent=True, last_utc=item["time_utc"] or (silent or {}).get("last_utc"))
+            if item["latitude"] is None and silent:
+                item.update(latitude=silent["latitude"], longitude=silent["longitude"])
+        if item["latitude"] is not None:
+            items.append(item)
+    return items
+
+
 # --- SMHI's sea level --------------------------------------------------------------------------
 
 OCOBS_API = "https://opendata-download-ocobs.smhi.se/api/version/latest"
@@ -224,7 +329,13 @@ def read_sea_level(stations: dict[str, str], fetch: Fetch) -> list[dict[str, Any
     """Each station's sea level of the latest day, oldest first, and its latest value."""
     items = []
     for station, name in stations.items():
-        data = json.loads(fetch(sea_level_url(station)))
+        try:
+            data = json.loads(fetch(sea_level_url(station)))
+        except Exception:  # noqa: BLE001 - a silent gauge (Skanör, archive only) is placed from its description
+            silent = silent_station(OCOBS_API, 6, station, name, "havsnivå", fetch)
+            if silent:
+                items.append({**silent, "value_cm": None, "time_utc": None, "unchecked": False, "series": [], "silent": True})
+            continue
         position = (data.get("position") or [{}])[-1]
         rows = sorted((row for row in data.get("value") or [] if row.get("value") is not None), key=lambda row: row["date"])
         last = rows[-1] if rows else None
@@ -239,7 +350,7 @@ def read_sea_level(stations: dict[str, str], fetch: Fetch) -> list[dict[str, Any
 
 # metobs parameters: air temperature, wind direction, wind speed, rain in the hour, rain by the day (06-06).
 STATION_PARAMETERS = {1: ("temp_c", "latest-hour"), 3: ("wind_from_deg", "latest-hour"), 4: ("wind_ms", "latest-hour"),
-                      7: ("rain_1h_mm", "latest-hour"), 5: ("rain_day_mm", "latest-day")}
+                      7: ("rain_1h_mm", "latest-hour"), 5: ("rain_day_mm", "latest-months")}
 
 
 def station_url(parameter: int, station: str, period: str) -> str:
@@ -248,9 +359,17 @@ def station_url(parameter: int, station: str, period: str) -> str:
 
 def read_weather_stations(stations: dict[str, dict[str, Any]], fetch: Fetch) -> list[dict[str, Any]]:
     """The latest values of SMHI's weather stations: for each its parameters, the last value and its time.
-    A parameter that does not answer is left out; the others go on."""
+    A parameter that does not answer is left out; the others go on. A rain gauge ("rain_gauge"; the
+    municipalities' gauges SMHI publishes, which report only hours with rain) gives its rain of the
+    latest day and, if it rained then, of the latest hour, and is kept when dry."""
     items = []
     for station, settings in stations.items():
+        if settings.get("rain_gauge"):
+            try:
+                items.append(rain_gauge(station, settings["name"], fetch))
+            except Exception:  # noqa: BLE001 - a gauge that does not answer is left out
+                pass
+            continue
         item = {"station": station, "name": settings["name"], "latitude": None, "longitude": None, "values": {}, "times": {}}
         for parameter in settings["parameters"]:
             key, period = STATION_PARAMETERS[parameter]
@@ -268,9 +387,47 @@ def read_weather_stations(stations: dict[str, dict[str, Any]], fetch: Fetch) -> 
             item["times"][key] = utc_text(_utc(moment(last)))
             position = (data.get("position") or [{}])[-1]
             item["latitude"], item["longitude"] = position.get("latitude"), position.get("longitude")
+        if item["latitude"] is None and settings["parameters"]:
+            # No values: placed from its description and shown grey, a hint the station may be out of order.
+            silent = silent_station(METOBS_API, settings["parameters"][0], station, settings["name"], "väder", fetch)
+            if silent:
+                item.update(latitude=silent["latitude"], longitude=silent["longitude"], silent=True, last_utc=silent["last_utc"])
+        newest = max((_iso(text) for text in item["times"].values()), default=None)
+        after = SILENT_AFTER_DAILY if settings["parameters"] == [5] else SILENT_AFTER
+        if newest is not None and datetime.now(timezone.utc) - newest > after:
+            item.update(silent=True, last_utc=utc_text(newest))
         if item["latitude"] is not None:
             items.append(item)
     return items
+
+
+# A gauge's hour above this is not rain (Söråker gave 720 mm, quality Y, on 2026-11-03).
+GAUGE_MAX_MM_H = 100.0
+
+
+def rain_gauge(station: str, name: str, fetch: Fetch, now: datetime | None = None) -> dict[str, Any]:
+    """A gauge's rain of the latest day (0 when it reported none) and of its latest hour, if that is the last hour.
+    SMHI's suspect values (quality Y) and hours above GAUGE_MAX_MM_H are left out and counted."""
+    now = now or datetime.now(timezone.utc)
+    try:
+        data = json.loads(fetch(station_url(7, station, "latest-day")))
+    except Exception:  # noqa: BLE001 - placed from its description, and silent
+        silent = silent_station(METOBS_API, 7, station, name, "regn", fetch)
+        if silent is None:
+            raise
+        return {**silent, "rain_gauge": True, "values": {}, "times": {}, "silent": True}
+    position = (data.get("position") or [{}])[-1]
+    given = [row for row in data.get("value") or [] if row.get("value") not in (None, "")]
+    rows = sorted((row for row in given if row.get("quality") != "Y" and float(row["value"]) <= GAUGE_MAX_MM_H), key=lambda row: row["date"])
+    item = {"station": station, "name": name, "latitude": position.get("latitude"), "longitude": position.get("longitude"),
+            "rain_gauge": True, "values": {"rain_24h_mm": round(sum(float(row["value"]) for row in rows), 1)}, "times": {},
+            "left_out": len(given) - len(rows)}
+    if rows:
+        item["times"]["rain_24h_mm"] = utc_text(_utc(rows[-1]["date"]))
+        if now - _utc(rows[-1]["date"]) <= timedelta(minutes=90):
+            item["values"]["rain_1h_mm"] = float(rows[-1]["value"])
+            item["times"]["rain_1h_mm"] = utc_text(_utc(rows[-1]["date"]))
+    return item
 
 
 # --- SMHI warnings ----------------------------------------------------------------------------

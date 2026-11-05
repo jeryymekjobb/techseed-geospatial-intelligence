@@ -19,7 +19,7 @@ fetch("/api/config", { cache: "no-store" }).then((response) => response.json())
 const STATE_WORDS = { new: "Nytt", confirmed: "Bekräftat", dismissed: "Avfärdat" };
 const SOURCE_WORDS = {
   mcf_border: "Kommungräns (MCF)", smhi_flow: "Vattenföring (SMHI)", smhi_flow_statistics: "Flödesstatistik (SMHI)",
-  smhi_rain: "Nederbörd (SMHI)", smhi_sea_level: "Havsvattenstånd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
+  smhi_rain: "Nederbörd (SMHI)", smhi_sea_level: "Havsvattenstånd (SMHI)", smhi_water_level: "Vattenstånd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
   smhi_radar: "Väderradar (SMHI)", smhi_grid: "Vind och väderkarta (SMHI)", smhi_stations: "Väderstationer (SMHI)",
   sentinel2: "Satellitbild (Sentinel-2)", landsat: "Satellitbild (Landsat)", sentinel1: "Radarbild (Sentinel-1)", gis: "Skyddsvärda objekt (GIS, OSM)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
   meteosat_clm: "Moln (Meteosat)", mcf_fire_ban: "Eldningsförbud (MCF)", firms: "Brandpunkter (NASA FIRMS)", inbox: "Händelser in (inkorgen)",
@@ -103,6 +103,11 @@ function drawSituation(state) {
     lines.push(`Vind ${localTime.format(new Date(context.weather.valid_utc))}: ${wind.speed_ms} m/s från ${wind.from_deg}° (prognos, SMHI)`);
   }
   for (const flow of context.flows || []) lines.push(`${flow.name}: ${flow.value} m³/s`);
+  for (const gauge of context.water_levels || []) {
+    if (gauge.value_cm == null) continue;
+    const below = gauge.record_cm != null ? `, ${String(((gauge.record_cm - gauge.value_cm) / 100).toFixed(2)).replace(".", ",")} m under arkivets högsta` : "";
+    lines.push(`Vattenstånd ${gauge.name}: ${String((gauge.value_cm / 100).toFixed(2)).replace(".", ",")} m (${localTime.format(new Date(gauge.time_utc))})${below}`);
+  }
   for (const gauge of context.sea_level || []) {
     if (gauge.value_cm != null) lines.push(`Havsvattenstånd ${gauge.name}: ${String(gauge.value_cm).replace(".", ",")} cm i RH2000`);
   }
@@ -153,7 +158,17 @@ function drawLog(state) {
   if (!list.children.length) list.append(element("li", "Inga larm än.", "ok"));
 }
 
+// The stations that gave no value lately: a list to report from, as the user asked.
+function drawSilent(state) {
+  const list = document.getElementById("silent-stations");
+  const items = state.context?.silent || [];
+  list.replaceChildren(...items.map((item) => element("li", `${item.name} (${item.kind}): `
+    + `${item.last_utc ? `inga värden sedan ${item.last_utc.slice(0, 10)}` : "har aldrig lämnat värden"}`, "alert")));
+  if (!items.length) list.append(element("li", "Alla stationer har lämnat värden.", "ok"));
+}
+
 function drawSources(state) {
+  drawSilent(state);
   const table = document.getElementById("sources");
   table.replaceChildren();
   for (const source of state.sources) {

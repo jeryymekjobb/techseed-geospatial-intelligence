@@ -26,10 +26,13 @@ MUNICIPAL_BASEMAPS = [{
     "label": "Västerås stad (karta)", "attribution": "Karta © Västerås stad, Lantmäteriet – intern användning",
     "permission": "The user confirmed on 2026-10-28 that Techseed may use Västerås stad's data internally; no public showings.",
     "note": "Västerås stad's colour map (topowebbkartan) from its Origo maps.",
-    "dir": _SCENARIO / "municipal-basemap" / "karta",
+    # The whole municipality in the monitoring's own folder (tools.fetch_municipal_basemap --area
+    # vasterasstad); the scenario's map over its area until that is fetched (service.map_dir).
+    "dir": DATA_DIR / "municipal-basemap" / "karta",
+    "fallback_dir": _SCENARIO / "municipal-basemap" / "karta",
 }]
-# The scenario's fetched area; a new fetch keeps to it.
-MUNICIPAL_BASEMAP_BBOX = (16.1, 59.5, 16.9, 59.8)
+# The municipality (MCF's border, 16.24-16.97 E, 59.45-59.85 N) with a small margin.
+MUNICIPAL_BASEMAP_BBOX = (16.21, 59.43, 17.0, 59.87)
 OSM_TARGETS_FILE = _SCENARIO / "osm" / "targets-vasteras.geojson"
 TERRAIN_FILE = _SCENARIO / "osm" / "terrain-vasteras.geojson"
 TERRAIN_DIR = built_terrain("vasterasstad", _SCENARIO / "terrain")
@@ -43,10 +46,10 @@ RAIN_STATIONS = {"96560": "Sala A", "96190": "Eskilstuna A"}
 WEATHER_STATIONS = {
     "96560": {"name": "Sala A", "parameters": [1, 3, 4, 7, 5]},
     "96190": {"name": "Eskilstuna A", "parameters": [1, 7, 5]},
-    "19025": {"name": "Höksta", "parameters": [1, 3, 4]},
     "96350": {"name": "Västerås", "parameters": [5]},
-    "97380": {"name": "Enköping", "parameters": [5]},
-    "96230": {"name": "Eskilstuna", "parameters": [5]},
+    # Added 2026-11-04 when every station SMHI lists as active in or within 5 km of the municipality was taken
+    # in, as the user asked, even silent ones: a silent station is shown grey as a hint it may be out of order.
+    "96390": {"name": "Hallstaberg", "parameters": [5]},
 }
 FIRE_RISK_POINT = CENTRE
 FORECAST_POINT = CENTRE

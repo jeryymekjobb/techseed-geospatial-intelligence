@@ -68,6 +68,7 @@ def flow_candidates(flows: list[dict[str, Any]], stats: dict[str, dict[str, Any]
     found = []
     for station in flows:
         limits = stats.get(station["station"])
+        limits = None if limits and limits.get("missing") else limits
         readings = station["readings"]
         if not limits or len(readings) < 2:
             continue
@@ -125,6 +126,23 @@ def sea_level_candidates(stations: list[dict[str, Any]], area: ModuleType) -> li
                   uncertain=station["unchecked"])
         item.fact(f"Gräns i övervakningen: {_number(limit)} cm i RH2000", "Förslag, som Falsterbo-scenariot, inte överenskommet")
         item.extent = f"{_number(value - limit)} cm över gränsen"
+        found.append(item)
+    return found
+
+
+def water_level_candidates(stations: list[dict[str, Any]]) -> list[Candidate]:
+    """A water level above the highest in SMHI's archive (one value a day; the height system not named)."""
+    found = []
+    for station in stations:
+        value, record = station.get("value_cm"), station.get("record_cm")
+        if station.get("silent") or value is None or record is None or value <= record:
+            continue
+        item = Candidate(f"level-{station['station']}", "flood", "record", f"Rekordhögt vattenstånd vid {station['name']}: {_number(value / 100)} m",
+                         station["name"], station["latitude"], station["longitude"])
+        item.fact(f"Vattenstånd {_number(value / 100)} m (ett värde per dygn)", ATTRIBUTION["smhi_water_level"], station["time_utc"],
+                  uncertain=station["unchecked"])
+        item.fact(f"Högsta i arkivet {_number(record / 100)} m ({station['record_day']}, sedan {station['archive_from']})", ATTRIBUTION["smhi_water_level"])
+        item.extent = f"{_number(value - record)} cm över arkivets högsta"
         found.append(item)
     return found
 
@@ -327,7 +345,8 @@ def detect(poll: dict[str, Any], events: list[dict[str, Any]], area: ModuleType,
     fire_risk = poll.get("fire_risk", [])
     bursts = cloudburst_candidates(poll.get("radar"), poll.get("rain", []), poll.get("warnings", []), area)
     bursts += station_rain_candidates(poll.get("weather_stations", []), area)
-    bursts += sea_level_candidates(poll.get("sea_level", []), area)
+    bursts += sea_level_candidates([item for item in poll.get("sea_level", []) if not item.get("silent")], area)
+    bursts += water_level_candidates(poll.get("water_levels", []))
     candidates = (flows + bursts + warning_candidates(poll.get("warnings", [])) + vma_candidates(poll.get("krisinfo", []), area)
                   + fire_risk_candidates(fire_risk, area, now)
                   + fire_candidates(poll.get("firms", []), events, border, poll.get("fire_ban", []), area, filtered, fire_risk)

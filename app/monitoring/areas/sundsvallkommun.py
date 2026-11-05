@@ -44,7 +44,12 @@ TERRAIN_DIR = built_terrain("sundsvallkommun", _SCENARIO / "terrain")
 TILES_FILE, MAP_BBOX = built_tiles("sundsvallkommun", ("sundsvall.mbtiles", (16.9, 62.15, 17.8, 62.62)), BBOX)
 
 # SMHI's live flow every 15 minutes (hydroobs parameter 2), checked 2026-11-04.
-FLOW_STATIONS = {"2053": "Norrsjön (Ljungan)"}
+FLOW_STATIONS = {"2053": "Norrsjön (Ljungan)",
+                 # In or near the municipality, giving SMHI's archive only (silent, shown grey; 2026-11-04).
+                 "1650": "Skallböle (Ljungan)", "1471": "Torpshammar (Ljungan)", "2185": "Bergeforsen (Indalsälven)"}
+# SMHI's sea level by the hour (cm in RH2000) at Spikarna, in the municipality; the limit a proposal, as Vellinge's.
+SEA_LEVEL_STATIONS = {"2061": "Spikarna"}
+SEA_LEVEL_HIGH_CM = 100.0
 # SMHI's automatic stations with the hour's rain (metobs parameter 7).
 RAIN_STATIONS = {"127130": "Brämön A", "126290": "Torpshammar A"}
 # SMHI's weather stations giving values on 2026-11-04, with the parameters each reports.
@@ -52,8 +57,16 @@ WEATHER_STATIONS = {
     "127130": {"name": "Brämön A", "parameters": [1, 3, 4, 7, 5]},
     "126290": {"name": "Torpshammar A", "parameters": [1, 3, 4, 7, 5]},
     "127310": {"name": "Sundsvall-Timrå Flygplats", "parameters": [1, 3, 4]},
-    "128390": {"name": "Lungö A", "parameters": [1, 3, 4, 7, 5]},
-    "127320": {"name": "Stordalen-Midlanda D", "parameters": [5]},
+    # Added 2026-11-04 when every station SMHI lists as active in or within 5 km of the municipality was taken
+    # in, as the user asked, even silent ones: a silent station is shown grey as a hint it may be out of order.
+    "127340": {"name": "Indal", "parameters": [5]},
+    "126240": {"name": "Slättån", "parameters": [5]},
+    "126170": {"name": "Ulvsjön D", "parameters": [5]},
+    # The municipality's own rain gauges, which SMHI publishes and the scenarios show; they report only
+    # hours with rain (sources.rain_gauge), all live on 2026-11-04.
+    **{key: {"name": name, "parameters": [], "rain_gauge": True} for key, name in (
+        ("2222813", "Fillan"), ("2222814", "Heffners"), ("2222818", "Bredsand"), ("2222811", "Essvik"),
+        ("2222812", "Bällsta"), ("2222819", "Stångom"), ("2222815", "Stöde"), ("2222816", "Indal"), ("22228110", "Söråker"))},
 }
 FIRE_RISK_POINT = CENTRE
 FORECAST_POINT = CENTRE

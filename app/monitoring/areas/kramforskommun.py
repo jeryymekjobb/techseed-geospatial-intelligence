@@ -35,16 +35,16 @@ TILES_FILE, MAP_BBOX = built_tiles("kramforskommun", ("kramfors.mbtiles", (17.2,
 
 # SMHI's live flow every 15 minutes (hydroobs parameter 2), checked 2026-11-04.
 FLOW_STATIONS = {"2398": "Risnäs (Gådeån)"}
+# SMHI's sea level by the hour (cm in RH2000) at Lunde, in the municipality; the limit a proposal, as Vellinge's.
+SEA_LEVEL_STATIONS = {"35209": "Lunde"}
+SEA_LEVEL_HIGH_CM = 100.0
 RAIN_STATIONS = {"128390": "Lungö A", "138070": "Västmarkum A"}
 # SMHI's weather stations giving values on 2026-11-04, with the parameters each reports.
 WEATHER_STATIONS = {
     "128390": {"name": "Lungö A", "parameters": [1, 3, 4, 7, 5]},
     "138070": {"name": "Västmarkum A", "parameters": [1, 3, 4, 7, 5]},
-    "127380": {"name": "Härnösand", "parameters": [5]},
-    "137090": {"name": "Multrå D", "parameters": [5]},
     "128500": {"name": "Nora-Östanö D", "parameters": [5]},
     "127570": {"name": "Åkroken D", "parameters": [5]},
-    "137100": {"name": "Sollefteå", "parameters": [5]},
 }
 FIRE_RISK_POINT = CENTRE
 FORECAST_POINT = CENTRE

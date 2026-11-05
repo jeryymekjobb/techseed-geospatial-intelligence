@@ -119,6 +119,9 @@ function stationText(station) {
   if (v.wind_ms !== undefined) parts.push(`vind ${v.wind_ms} m/s${v.wind_from_deg !== undefined ? ` från ${v.wind_from_deg}°` : ""}`);
   if (v.rain_1h_mm !== undefined) parts.push(`regn ${v.rain_1h_mm} mm senaste timmen`);
   if (v.rain_day_mm !== undefined) parts.push(`regn ${v.rain_day_mm} mm senaste dygnet (06–06)`);
+  if (v.rain_24h_mm !== undefined) {  // a municipal rain gauge, which reports only hours with rain
+    parts.push(v.rain_24h_mm ? `regn ${v.rain_24h_mm} mm senaste dygnet` : "inget regn uppmätt senaste dygnet");
+  }
   const time = Object.values(station.times).sort().pop();
   return `${parts.join(", ")}${time ? ` – SMHI, ${time}` : ""}`;
 }
@@ -130,6 +133,17 @@ function alarming(state, key) {
   return state.alarms.some((alarm) => alarm.id === key && alarm.current && alarm.state !== "dismissed");
 }
 const OBJECT_MARK = "#ffd600";
+// A station that gave no value lately (context.silent), grey: a hint it may be out of order.
+const SILENT_MARK = "#9e9e9e";
+function silentText(item) {
+  return `SMHI ${item.name} (${item.kind}): ${item.last_utc ? `inga värden sedan ${item.last_utc.slice(0, 10)}` : "har aldrig lämnat värden"}`
+    + " – kan vara ur funktion";
+}
+function levelGaugeText(gauge) {
+  const record = gauge.record_cm != null ? `, högsta i arkivet ${(gauge.record_cm / 100).toFixed(2).replace(".", ",")} m (${gauge.record_day})` : "";
+  return `Vattenstånd ${gauge.name}: ${(gauge.value_cm / 100).toFixed(2).replace(".", ",")} m ${gauge.time_utc}${record} – SMHI, höjdsystem ej angivet`;
+}
+
 // The simulated level sensors (levels.py), as on the 2D map: a magenta ring, blue, red while alarming.
 const LEVEL_RING = "#e040fb";
 function levelText(sensor) {
@@ -197,7 +211,7 @@ function weatherDrawer(viewer) {
     thin();
   };
   const barb = (point) => wind.entities.add({ position: Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude),
-    billboard: { image: barbImage(point.speed_ms), alignedAxis: Cesium.Cartesian3.UNIT_Z, width: 64, height: 64,
+    billboard: { image: barbImage(point.speed_ms), alignedAxis: Cesium.Cartesian3.UNIT_Z, width: 40, height: 40,
       rotation: -Cesium.Math.toRadians((point.from_deg + 180) % 360), heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
       disableDepthTestDistance: Number.POSITIVE_INFINITY } });
   const draw = (data) => {
@@ -382,12 +396,22 @@ async function start() {
       if (flow.latitude != null) point(flow.latitude, flow.longitude, mark, 12, `Vattenföring ${flow.name}`,
         `${flow.value} m³/s, ${flow.time_utc} – SMHI`, sources.stations);
     }
+    for (const item of context.silent || []) {
+      point(item.latitude, item.longitude, SILENT_MARK, 12, `SMHI ${item.name} (tyst)`, silentText(item), sources.stations);
+    }
+    for (const gauge of context.water_levels || []) {
+      if (gauge.silent || gauge.latitude == null) continue;
+      const mark = alarming(state, `level-${gauge.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
+      point(gauge.latitude, gauge.longitude, mark, 12, `Vattenstånd ${gauge.name}`, levelGaugeText(gauge), sources.stations);
+    }
     for (const gauge of context.sea_level || []) {
+      if (gauge.silent) continue;
       const mark = alarming(state, `sea-${gauge.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
       if (gauge.latitude != null) point(gauge.latitude, gauge.longitude, mark, 12, `Havsvattenstånd ${gauge.name}`,
         `${gauge.value_cm} cm i RH2000, ${gauge.time_utc} – SMHI`, sources.stations);
     }
     for (const station of context.weather_stations || []) {
+      if (station.silent) continue;
       const mark = alarming(state, `rain-${station.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
       point(station.latitude, station.longitude, mark, 12, `SMHI ${station.name}`, stationText(station), sources.stations);
     }

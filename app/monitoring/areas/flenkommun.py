@@ -106,22 +106,20 @@ FLOW_STATIONS = {
 # SMHI's hourly rain (metobs parameter 7): only Floda A, 11 km west of Flen.
 RAIN_STATIONS = {"96040": "Floda A"}
 
-# SMHI's weather stations in and around the municipality, active on 2026-11-03 (metobs's station
-# lists), with the parameters each reports (sources.STATION_PARAMETERS): the automatic stations with
+# SMHI's weather stations in the municipality or within 5 km of it, as every area keeps them (the user's
+# choice on 2026-11-05), and the rain stations of the alarms (RAIN_STATIONS) farther off, with the parameters each reports (sources.STATION_PARAMETERS): the automatic stations with
 # temperature, wind and the hour's rain, and the stations with the rain by the day.
 WEATHER_STATIONS = {
     "96040": {"name": "Floda A", "parameters": [1, 3, 4, 7, 5]},
-    "96190": {"name": "Eskilstuna A", "parameters": [1, 3, 4, 7, 5]},
-    "86420": {"name": "Kolmården-Strömsfors A", "parameters": [1, 3, 4, 7, 5]},
-    "19025": {"name": "Höksta", "parameters": [1, 3, 4]},
     "96060": {"name": "Granhed D", "parameters": [5]},
     "96090": {"name": "Hälleforsnäs D", "parameters": [5]},
-    "96050": {"name": "Sköldinge", "parameters": [5]},
     "86520": {"name": "Vrena", "parameters": [5]},
-    "87600": {"name": "Aspa D", "parameters": [5]},
-    "86660": {"name": "Nyköping", "parameters": [5]},
-    "87400": {"name": "Oxelösund", "parameters": [1, 5]},
+    # Added 2026-11-04 when every station SMHI lists as active in or within 5 km of the municipality was taken
+    # in, as the user asked, even silent ones: a silent station is shown grey as a hint it may be out of order.
+    "96010": {"name": "Frändesta", "parameters": [5]},
 }
+# SMHI's water level (hydroobs parameter 3, one value a day, the height system not named) with the archive's highest.
+WATER_LEVEL_STATIONS = {"2587": "Sibro 2"}
 
 FIRE_RISK_POINT = CENTRE
 FORECAST_POINT = CENTRE

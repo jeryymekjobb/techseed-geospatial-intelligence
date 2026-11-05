@@ -31,7 +31,9 @@ TERRAIN_DIR = built_terrain("ljusdalkommun", _SCENARIO / "terrain")
 TILES_FILE, MAP_BBOX = built_tiles("ljusdalkommun", ("ljusdal.mbtiles", (14.9, 61.75, 15.8, 62.2)), BBOX)
 
 # SMHI's live flow every 15 minutes (hydroobs parameter 2), on Ljusnan, checked 2026-11-04.
-FLOW_STATIONS = {"2405": "Saras fors (Ljusnan)", "2399": "Oppli (Ljusnan)"}
+FLOW_STATIONS = {"2405": "Saras fors (Ljusnan)", "2399": "Oppli (Ljusnan)",
+                 # At the border, giving SMHI's archive only (silent, shown grey; 2026-11-04).
+                 "2435": "Vässinkoski"}
 RAIN_STATIONS = {"116490": "Delsbo A", "114410": "Hamra A"}
 # SMHI's weather stations giving values on 2026-11-04, with the parameters each reports.
 WEATHER_STATIONS = {
@@ -39,8 +41,11 @@ WEATHER_STATIONS = {
     "114410": {"name": "Hamra A", "parameters": [1, 3, 4, 7, 5]},
     "126120": {"name": "Ljusdals-Valsjön", "parameters": [5]},
     "115450": {"name": "Los D", "parameters": [5]},
-    "125240": {"name": "Kölsillre", "parameters": [5]},
     "125030": {"name": "Hennan D", "parameters": [5]},
+    # Added 2026-11-04 when every station SMHI lists as active in or within 5 km of the municipality was taken
+    # in, as the user asked, even silent ones: a silent station is shown grey as a hint it may be out of order.
+    "114390": {"name": "Lillhamra D", "parameters": [5]},
+    "115320": {"name": "Lobonäs", "parameters": [5]},
 }
 # The fire risk where Kårböle's forest burned in 2018, the forecast at Ljusdal.
 FIRE_RISK_POINT = (61.97, 15.3)

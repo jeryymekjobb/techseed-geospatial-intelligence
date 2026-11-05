@@ -872,6 +872,26 @@ def test_the_wetness_sets_each_pixel_between_its_dry_and_its_wet_and_leaves_out_
     assert stats["wetness_cover_pct"] == round(100 * 34 / 36) and sentinel1.coarse(np.ones((10, 10), "f4")).shape == (2, 2)
 
 
+def test_sentinel1_counts_the_sea_from_the_coastline_as_known_water(tmp_path: Path) -> None:
+    import struct
+
+    from app.monitoring import sentinel1
+
+    # The sea over the box's east half, clockwise, with an island turning anticlockwise in it.
+    sea = [[0.5, 0.0], [0.5, 1.0], [1.0, 1.0], [1.0, 0.0], [0.5, 0.0]]
+    island = [[0.7, 0.4], [0.8, 0.4], [0.8, 0.6], [0.7, 0.6], [0.7, 0.4]]
+    points = sea + island
+    record = struct.pack("<i4d2i", 5, 0, 0, 1, 1, 2, len(points)) + struct.pack("<2i", 0, len(sea))
+    record += b"".join(struct.pack("<2d", *point) for point in points)
+    shapefile = tmp_path / "water_polygons.shp"
+    shapefile.write_bytes(b"\0" * 100 + struct.pack(">2i", 1, len(record) // 2) + record)
+    latest = sentinel1.Latest((0.0, 0.0, 1.0, 1.0), tmp_path, None, lambda url: b"", sea_file=shapefile)
+    water = latest.known_water((10, 10))
+    assert water[0, 8] and water[9, 6] and not water[5, 2]  # the sea, not the land
+    assert not water[5, 7]  # the island
+    assert sentinel1.Latest((0.0, 0.0, 1.0, 1.0), tmp_path, None, lambda url: b"").known_water((10, 10)).sum() == 0
+
+
 def test_the_simulated_level_sensors_follow_their_station_and_alarm_above_its_record(tmp_path: Path) -> None:
     from app.monitoring import levels
 
@@ -1144,7 +1164,7 @@ def test_vellinge_reads_the_sea_level_live_and_alarms_from_a_hundred_centimetres
 
 def test_lantmateriet_s_map_is_the_base_map_without_a_municipal_one_once_configured(tmp_path: Path, monkeypatch) -> None:
     from app.backend import lantmateriet
-    from app.monitoring.areas import hoorkommun
+    from app.monitoring.areas import kramforskommun
 
     for name in ("LM_USERNAME", "LM_PASSWORD", "LM_TOPOWEBB_URL"):
         monkeypatch.delenv(name, raising=False)
@@ -1158,7 +1178,7 @@ def test_lantmateriet_s_map_is_the_base_map_without_a_municipal_one_once_configu
     monkeypatch.setattr(lantmateriet, "CREDENTIALS_FILE", credentials)
     asked = []
     monkeypatch.setattr(lantmateriet, "_get", lambda url, settings: asked.append(url) or (b"PNG", "image/png"))
-    values = {key: getattr(hoorkommun, key) for key in dir(hoorkommun) if key.isupper()}
+    values = {key: getattr(kramforskommun, key) for key in dir(kramforskommun) if key.isupper()}
     values.update(DATA_DIR=tmp_path, METEOSAT_CLM=False)
     monitor = service.Monitor(SimpleNamespace(**values), fake_fetch({}), tmp_path, NO_SCENES)
     (item,) = monitor.config()["maps"]["municipal"]
@@ -1176,3 +1196,104 @@ def test_lantmateriet_s_map_is_the_base_map_without_a_municipal_one_once_configu
     # Flens kommun has its own map and does not take Lantmäteriet's.
     flen = service.Monitor(area(DATA_DIR=tmp_path / "flen"), fake_fetch({}), tmp_path / "flen", NO_SCENES)
     assert flen.lantmateriet_maps() == []
+
+
+def test_a_municipal_map_shows_its_fallback_until_its_own_is_fetched(tmp_path: Path) -> None:
+    own, fallback = tmp_path / "own", tmp_path / "scenario"
+    item = {"id": "karta", "label": "Karta", "attribution": "© test", "dir": own, "fallback_dir": fallback}
+    for folder, bbox in ((fallback, [16.1, 59.5, 16.9, 59.8]), (own, [16.21, 59.43, 17.0, 59.87])):
+        (folder / "12" / "2200").mkdir(parents=True)
+        (folder / "12" / "2200" / "1200.png").write_bytes(folder.name.encode())
+    (fallback / "SOURCE.json").write_text(json.dumps({"min_zoom": 8, "max_zoom": 16, "bbox_west_south_east_north": [16.1, 59.5, 16.9, 59.8]}))
+    monitor = service.Monitor(area(DATA_DIR=tmp_path, MUNICIPAL_BASEMAPS=[item]), fake_fetch({}), tmp_path, NO_SCENES)
+    assert monitor.municipal_maps()[0]["bbox"] == [16.1, 59.5, 16.9, 59.8] and service.Monitor.map_dir(item) == fallback
+    (own / "SOURCE.json").write_text(json.dumps({"min_zoom": 8, "max_zoom": 16, "bbox_west_south_east_north": [16.21, 59.43, 17.0, 59.87]}))
+    assert monitor.municipal_maps()[0]["bbox"] == [16.21, 59.43, 17.0, 59.87] and service.Monitor.map_dir(item) == own
+
+
+def test_the_2d_map_draws_the_marks_over_the_wind_arrows_and_images() -> None:
+    script = (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
+    assert 'map.createPane("marks").style.zIndex = 650' in script
+    assert 'L.circleMarker([lat, lon], { pane: "marks", ...style })' in script and 'fillOpacity: 1, pane: "marks" }' in script
+
+
+def test_a_municipal_rain_gauge_shows_when_dry_and_gives_its_day_and_latest_hour() -> None:
+    from app.monitoring.areas import sundsvallkommun
+
+    now = datetime(2026, 11, 4, 14, 20, tzinfo=timezone.utc)
+    def answer(rows):
+        return json.dumps({"position": [{"latitude": 62.3941, "longitude": 17.3293}],
+                           "value": [{"date": int(when.timestamp() * 1000), "value": value} for when, value in rows]}).encode()
+    dry = sources.rain_gauge("2222814", "Heffners", fake_fetch({"station/2222814/": answer([])}), now)
+    assert dry["latitude"] == 62.3941 and dry["values"] == {"rain_24h_mm": 0.0} and dry["rain_gauge"]
+    wet = sources.rain_gauge("2222814", "Heffners", fake_fetch({"station/2222814/": answer(
+        [(now - timedelta(hours=5), "2.0"), (now - timedelta(minutes=20), "11.5")])}), now)
+    assert wet["values"] == {"rain_24h_mm": 13.5, "rain_1h_mm": 11.5}
+    suspect = json.dumps({"position": [{"latitude": 62.49, "longitude": 17.51}], "value": [
+        {"date": int((now - timedelta(hours=3)).timestamp() * 1000), "value": "720.0", "quality": "Y"},
+        {"date": int((now - timedelta(hours=2)).timestamp() * 1000), "value": "300.0", "quality": "O"},
+        {"date": int((now - timedelta(hours=1)).timestamp() * 1000), "value": "1.5", "quality": "O"}]}).encode()
+    checked = sources.rain_gauge("22228110", "Söråker", fake_fetch({"station/22228110/": suspect}), now)
+    assert checked["values"]["rain_24h_mm"] == 1.5 and checked["left_out"] == 2
+    (alarm,) = rules.station_rain_candidates([wet], sundsvallkommun)
+    assert alarm.key == "rain-2222814"
+    found = sources.read_weather_stations({"2222814": {"name": "Heffners", "parameters": [], "rain_gauge": True}},
+                                          fake_fetch({"station/2222814/": answer([])}))
+    assert [item["name"] for item in found] == ["Heffners"]
+    names = {settings["name"] for settings in sundsvallkommun.WEATHER_STATIONS.values() if settings.get("rain_gauge")}
+    assert {"Heffners", "Fillan", "Bredsand", "Essvik"} <= names
+    for name in ("map2d.js", "globe.js"):
+        assert "inget regn uppmätt senaste dygnet" in (Path(service.WEB_DIR) / name).read_text(encoding="utf-8")
+
+
+def test_a_silent_station_is_placed_from_its_description_and_listed(tmp_path: Path) -> None:
+    meta = json.dumps({"key": "1650", "name": "SKALLBÖLE KRV", "active": True, "latitude": 62.3636, "longitude": 16.9619,
+                       "to": 1730721600000}).encode()
+    fetch = fake_fetch({"parameter/2/station/2053/period": flow_answer([4.0, 5.0]), "parameter/2/station/1650.json": meta})
+    flows = sources.read_flows({"2053": "Norrsjön", "1650": "Skallböle"}, fetch)
+    silent = next(item for item in flows if item["station"] == "1650")
+    assert silent["silent"] and silent["readings"] == [] and silent["latitude"] == 62.3636 and silent["last_utc"].startswith("2024-11-04")
+    assert [item["station"] for item in flows if item["readings"]] == ["2053"]
+    listed = service.Monitor._silent({"flows": flows})
+    assert listed == [{"station": "1650", "name": "Skallböle", "kind": "flöde", "latitude": 62.3636, "longitude": 16.9619,
+                       "last_utc": silent["last_utc"]}]
+    # A station without an archive gets no limits, and the others keep theirs.
+    stats = sources.cached_statistics({"2053": "N", "1650": "S"}, 99.0, tmp_path / "stats.json",
+                                      fake_fetch({"station/2053/period/corrected-archive": ARCHIVE.encode()}))
+    assert stats["1650"]["missing"] and "high" in stats["2053"]
+
+
+def test_the_water_level_is_read_once_a_day_and_alarms_above_the_archive_s_highest(tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    archive = "\ufeffDatum (svensk sommartid);Vattenstånd;Kvalitet\n2024-02-10;5494.0;G\n2024-03-01;5420.0;G\n"
+    def latest(value):
+        return json.dumps({"position": [{"latitude": 55.88, "longitude": 13.46}],
+                           "value": [{"date": int(now.timestamp() * 1000), "value": value, "quality": "O"}]}).encode()
+    fetch = fake_fetch({"parameter/3/station/2176/period/corrected-archive": archive.encode("utf-8"),
+                        "parameter/3/station/2176/period/latest-day": latest(5349.0)})
+    (item,) = sources.read_water_levels({"2176": "Ringsjödammen övre"}, fetch, tmp_path / "levels.json")
+    assert item["value_cm"] == 5349.0 and item["record_cm"] == 5494.0 and item["record_day"] == "2024-02-10" and not item.get("silent")
+    assert rules.water_level_candidates([item]) == []
+    high = sources.read_water_levels({"2176": "Ringsjödammen övre"}, fake_fetch({"parameter/3/station/2176/period/latest-day": latest(5501.0)}),
+                                     tmp_path / "levels.json")
+    (alarm,) = rules.water_level_candidates(high)
+    assert alarm.key == "level-2176" and alarm.extent == "7 cm över arkivets högsta"
+
+
+def test_every_area_takes_the_stations_the_user_asked_for() -> None:
+    from app.monitoring.areas import (flenkommun as flen, hoorkommun, kramforskommun, ljusdalkommun, salakommun, sundsvallkommun,
+                                      vasterasstad, vellingekommun)
+
+    assert "96010" in flen.WEATHER_STATIONS and flen.WATER_LEVEL_STATIONS == {"2587": "Sibro 2"}
+    assert {"1650", "1471", "2185"} <= set(sundsvallkommun.FLOW_STATIONS) and "2061" in sundsvallkommun.SEA_LEVEL_STATIONS
+    assert {"127340", "126240", "126170"} <= set(sundsvallkommun.WEATHER_STATIONS)
+    assert "35209" in kramforskommun.SEA_LEVEL_STATIONS
+    assert "2435" in ljusdalkommun.FLOW_STATIONS and {"114390", "115320"} <= set(ljusdalkommun.WEATHER_STATIONS)
+    assert "2343" in salakommun.FLOW_STATIONS and "96550" in salakommun.WEATHER_STATIONS
+    assert "96390" in vasterasstad.WEATHER_STATIONS
+    assert {"2176", "10501"} <= set(hoorkommun.FLOW_STATIONS) and "63030" in hoorkommun.WEATHER_STATIONS and "2176" in hoorkommun.WATER_LEVEL_STATIONS
+    assert "30488" in vellingekommun.SEA_LEVEL_STATIONS and "1879" in vellingekommun.FLOW_STATIONS
+    assert vellingekommun.WEATHER_STATIONS["22128058"]["rain_gauge"]
+    for name in ("map2d.js", "globe.js"):
+        assert "context.silent" in (Path(service.WEB_DIR) / name).read_text(encoding="utf-8")
+    assert 'id="silent-stations"' in (Path(service.WEB_DIR) / "control.html").read_text(encoding="utf-8")
