@@ -111,20 +111,6 @@ function imageDrawer(viewer, url, bbox, alpha) {
   };
 }
 
-// A weather station's latest values, as SMHI gives them (as map2d.js stationText).
-function stationText(station) {
-  const v = station.values;
-  const parts = [];
-  if (v.temp_c !== undefined) parts.push(`${v.temp_c} °C`);
-  if (v.wind_ms !== undefined) parts.push(`vind ${v.wind_ms} m/s${v.wind_from_deg !== undefined ? ` från ${v.wind_from_deg}°` : ""}`);
-  if (v.rain_1h_mm !== undefined) parts.push(`regn ${v.rain_1h_mm} mm senaste timmen`);
-  if (v.rain_day_mm !== undefined) parts.push(`regn ${v.rain_day_mm} mm senaste dygnet (06–06)`);
-  if (v.rain_24h_mm !== undefined) {  // a municipal rain gauge, which reports only hours with rain
-    parts.push(v.rain_24h_mm ? `regn ${v.rain_24h_mm} mm senaste dygnet` : "inget regn uppmätt senaste dygnet");
-  }
-  const time = Object.values(station.times).sort().pop();
-  return `${parts.join(", ")}${time ? ` – SMHI, ${time}` : ""}`;
-}
 
 // The marks, as on the 2D map (map2d.js): SMHI's stations round with a white ring, blue, and red while
 // one of them alarms; the protected objects and other places of interest small, round and yellow.
@@ -135,14 +121,6 @@ function alarming(state, key) {
 const OBJECT_MARK = "#ffd600";
 // A station that gave no value lately (context.silent), grey: a hint it may be out of order.
 const SILENT_MARK = "#9e9e9e";
-function silentText(item) {
-  return `SMHI ${item.name} (${item.kind}): ${item.last_utc ? `inga värden sedan ${item.last_utc.slice(0, 10)}` : "har aldrig lämnat värden"}`
-    + " – kan vara ur funktion";
-}
-function levelGaugeText(gauge) {
-  const record = gauge.record_cm != null ? `, högsta i arkivet ${(gauge.record_cm / 100).toFixed(2).replace(".", ",")} m (${gauge.record_day})` : "";
-  return `Vattenstånd ${gauge.name}: ${(gauge.value_cm / 100).toFixed(2).replace(".", ",")} m ${gauge.time_utc}${record} – SMHI, höjdsystem ej angivet`;
-}
 
 
 // SMHI's forecast grid (/api/weather) as the scenarios' globe draws ERA5-Land's wind and MET Norway's
@@ -369,8 +347,9 @@ async function start() {
         clampToGround: true }).then((source) => viewer.dataSources.add(source));
     }
     sites.entities.removeAll();
+    // The description is one text, or a station's lines (station_text.js), one fact a line.
     const point = (lat, lon, hex, size, name, description, target = sites) => target.entities.add({
-      name: escapeText(name), description: escapeText(description), position: Cesium.Cartesian3.fromDegrees(lon, lat),
+      name: escapeText(name), description: Array.isArray(description) ? description.map(escapeText).join("<br>") : escapeText(description), position: Cesium.Cartesian3.fromDegrees(lon, lat),
       point: { pixelSize: size, color: color(hex), outlineColor: color("#ffffff"), outlineWidth: 2,
         heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY },
     });
@@ -379,26 +358,26 @@ async function start() {
     for (const flow of context.flows || []) {
       const mark = alarming(state, `flow-${flow.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
       if (flow.latitude != null) point(flow.latitude, flow.longitude, mark, 12, `Vattenföring ${flow.name}`,
-        `${flow.value} m³/s, ${flow.time_utc} – SMHI`, sources.stations);
+        flowLines(flow).slice(1), sources.stations);
     }
     for (const item of context.silent || []) {
-      point(item.latitude, item.longitude, SILENT_MARK, 12, `SMHI ${item.name} (tyst)`, silentText(item), sources.stations);
+      point(item.latitude, item.longitude, SILENT_MARK, 12, `SMHI ${item.name} (tyst)`, silentLines(item).slice(1), sources.stations);
     }
     for (const gauge of context.water_levels || []) {
       if (gauge.silent || gauge.latitude == null) continue;
       const mark = alarming(state, `level-${gauge.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
-      point(gauge.latitude, gauge.longitude, mark, 12, `Vattenstånd ${gauge.name}`, levelGaugeText(gauge), sources.stations);
+      point(gauge.latitude, gauge.longitude, mark, 12, `Vattenstånd ${gauge.name}`, levelGaugeLines(gauge).slice(1), sources.stations);
     }
     for (const gauge of context.sea_level || []) {
       if (gauge.silent) continue;
       const mark = alarming(state, `sea-${gauge.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
       if (gauge.latitude != null) point(gauge.latitude, gauge.longitude, mark, 12, `Havsvattenstånd ${gauge.name}`,
-        `${gauge.value_cm} cm i RH2000, ${gauge.time_utc} – SMHI`, sources.stations);
+        seaLines(gauge).slice(1), sources.stations);
     }
     for (const station of context.weather_stations || []) {
       if (station.silent) continue;
       const mark = alarming(state, `rain-${station.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
-      point(station.latitude, station.longitude, mark, 12, `SMHI ${station.name}`, stationText(station), sources.stations);
+      point(station.latitude, station.longitude, mark, 12, `SMHI ${station.name}`, stationLines(station).slice(1), sources.stations);
     }
     for (const fire of context.firms || []) {
       point(fire.latitude, fire.longitude, "#ff6d00", 8, `FIRMS ${fire.satellite}`, `${fire.instrument} ${fire.time_utc} – NASA FIRMS`, sources.firms);

@@ -18,6 +18,8 @@ header h1 { margin: 0; font-size: 1.2rem; }
   transform: translate(-50%, -50%); text-shadow: 0 0 4px #fff, 0 0 4px #fff; white-space: nowrap; }
 .pressure-centre.high { color: #1565c0; } .pressure-centre.low { color: #c62828; }
 .pressure-centre small { font-size: 13px; font-weight: 700; margin-top: 2px; }
+/* A station's tooltip on the 2D map: one fact a line (station_text.js), and a long line wraps inside the map. */
+.station-tip { width: max-content; max-width: 320px; white-space: normal; line-height: 1.35; }
 .place-label .place-name { display: block; transform: translate(-50%, -50%); white-space: nowrap; color: #1d1d1b;
   font: 600 12px system-ui, sans-serif; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 .place-label .place-name.town { font-size: 15px; font-weight: 700; }

@@ -10,14 +10,23 @@ const STATE_MS = 30000;
 const VIEW_MS = 2000;
 
 // Leaflet shows a tooltip given as a string as HTML: text from the sources is given as a text node.
+// A tooltip's text, safe as text: one string, or the lines of a station's facts (station_text.js), one a line.
 function tip(text) {
-  return document.createTextNode(String(text ?? ""));
+  if (!Array.isArray(text)) return document.createTextNode(String(text ?? ""));
+  const box = document.createElement("div");
+  box.className = "station-tip";
+  text.forEach((line, index) => {
+    if (index) box.append(document.createElement("br"));
+    box.append(document.createTextNode(line));
+  });
+  return box;
 }
 
 const map = L.map("map", { attributionControl: false });
-// The marks (SMHI's stations, the level sensors, the protected objects, fires and events) in a pane of
-// their own over the wind arrows (the marker pane, 600) and the images, so nothing hides them.
-map.createPane("marks").style.zIndex = 650;
+// The marks (SMHI's stations, the protected objects, fires and events) in a pane of their own over the
+// wind arrows (the marker pane, 600) and the images, so nothing hides them, and under the tooltips
+// (650), so no mark covers a station's text.
+map.createPane("marks").style.zIndex = 640;
 // The credits out of the map picture, as the scenarios' 2D map (app/frontend/credits.js): Leaflet's
 // attribution control still collects every layer's credit, but draws only OpenStreetMap's (and the
 // municipal map's while shown) and the whole list behind "(i) Källor".
@@ -153,14 +162,6 @@ function alarming(state, key) {
 }
 // A station that gave no value lately (context.silent), grey: a hint it may be out of order.
 const SILENT_MARK = "#9e9e9e";
-function silentText(item) {
-  return `SMHI ${item.name} (${item.kind}): ${item.last_utc ? `inga värden sedan ${item.last_utc.slice(0, 10)}` : "har aldrig lämnat värden"}`
-    + " – kan vara ur funktion";
-}
-function levelGaugeText(gauge) {
-  const record = gauge.record_cm != null ? `, högsta i arkivet ${(gauge.record_cm / 100).toFixed(2).replace(".", ",")} m (${gauge.record_day})` : "";
-  return `Vattenstånd ${gauge.name}: ${(gauge.value_cm / 100).toFixed(2).replace(".", ",")} m ${gauge.time_utc}${record} – SMHI, höjdsystem ej angivet`;
-}
 const OBJECT_MARK = { radius: 4, color: "#5d4300", weight: 1, fillColor: "#ffd600", fillOpacity: 1, pane: "marks" };
 function drawAssets(assets) {
   for (const item of assets.facilities || []) {
@@ -213,33 +214,32 @@ function drawMap(state) {
   named.firms.clearLayers();
   for (const flow of context.flows || []) {
     if (flow.latitude == null) continue;
-    const limits = flow.limits ? ` (högt över ${flow.limits.high}, rekord ${flow.limits.record})` : "";
     const flowColour = alarming(state, `flow-${flow.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
     marker(named.stations, flow.latitude, flow.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: flowColour, fillOpacity: 1 },
-      `Vattenföring ${flow.name}: ${flow.value} m³/s ${flow.time_utc}${limits} – SMHI`);
+      flowLines(flow));
   }
   // SMHI's sea level gauges (Vellinge: Klagshamn), as the other stations.
   for (const item of context.silent || []) {
     marker(named.stations, item.latitude, item.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: SILENT_MARK, fillOpacity: 1 },
-      silentText(item));
+      silentLines(item));
   }
   for (const gauge of context.water_levels || []) {
     if (gauge.silent || gauge.latitude == null) continue;
     const colour = alarming(state, `level-${gauge.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
     marker(named.stations, gauge.latitude, gauge.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: colour, fillOpacity: 1 },
-      levelGaugeText(gauge));
+      levelGaugeLines(gauge));
   }
   for (const gauge of context.sea_level || []) {
     if (gauge.silent || gauge.latitude == null) continue;
     const colour = alarming(state, `sea-${gauge.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
     marker(named.stations, gauge.latitude, gauge.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: colour, fillOpacity: 1 },
-      `Havsvattenstånd ${gauge.name}: ${gauge.value_cm} cm i RH2000 ${gauge.time_utc} – SMHI`);
+      seaLines(gauge));
   }
   for (const station of context.weather_stations || []) {
     if (station.silent) continue;
     const colour = alarming(state, `rain-${station.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
     marker(named.stations, station.latitude, station.longitude, { radius: 7, color: "#ffffff", weight: 2, fillColor: colour,
-      fillOpacity: 1 }, stationText(station));
+      fillOpacity: 1 }, stationLines(station));
   }
   for (const point of context.firms || []) {
     marker(named.firms, point.latitude, point.longitude, { radius: 4, color: "#e65100" },
@@ -257,20 +257,6 @@ function drawMap(state) {
   }
 }
 
-// A weather station's latest values, as SMHI gives them.
-function stationText(station) {
-  const v = station.values;
-  const parts = [];
-  if (v.temp_c !== undefined) parts.push(`${v.temp_c} °C`);
-  if (v.wind_ms !== undefined) parts.push(`vind ${v.wind_ms} m/s${v.wind_from_deg !== undefined ? ` från ${v.wind_from_deg}°` : ""}`);
-  if (v.rain_1h_mm !== undefined) parts.push(`regn ${v.rain_1h_mm} mm senaste timmen`);
-  if (v.rain_day_mm !== undefined) parts.push(`regn ${v.rain_day_mm} mm senaste dygnet (06–06)`);
-  if (v.rain_24h_mm !== undefined) {  // a municipal rain gauge, which reports only hours with rain
-    parts.push(v.rain_24h_mm ? `regn ${v.rain_24h_mm} mm senaste dygnet` : "inget regn uppmätt senaste dygnet");
-  }
-  const time = Object.values(station.times).sort().pop();
-  return `SMHI ${station.name}: ${parts.join(", ")}${time ? ` – ${time}` : ""}`;
-}
 
 async function getJson(path) {
   const response = await fetch(path, { cache: "no-store" });
