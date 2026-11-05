@@ -986,7 +986,9 @@ demona: satellitmonitorn med banorna för FIRMS-satelliterna, Sentinel-1, Sentin
 passager över kommunen just nu, huvudskärmen med 3D-globen över kommunen i scenariernas 3D-terräng (kommunens egen karta, med OSM:s vägnummer och järnvägstunnlar ovanpå) och
 mission control med larmen. Övervakningen larmar för höga flöden, skyfall enligt SMHI:s väderradar,
 förhöjd brandrisk enligt SMHI:s brandriskprognos och bränder från NASA FIRMS, och tar emot händelser
-från inkorgen. Radarbilden och MCF:s 100-årsflöde för Nyköpingsån visas på kartan, och **Läget nu** i
+från inkorgen. Övervakningen bygger bara på verkliga data som läses in, aldrig på simulerade: en
+händelse i inkorgen tas bara in när den är märkt som inte simulerad (`nej`), annars avvisas den och
+visas bland de avvisade raderna. Radarbilden och MCF:s 100-årsflöde för Nyköpingsån visas på kartan, och **Läget nu** i
 mission control visar radarn, brandrisken, prognosen och flödena. I mission control bekräftar eller
 avfärdar operatören larmen och öppnar briefingen; inget skickas vidare automatiskt. **VISA 2D / VISA 3D**
 växlar huvudskärmen mellan 2D-kartan och 3D-globen, och **Kartlager på huvudskärmen** slår av och på
@@ -998,7 +1000,8 @@ ortnamn, brandpunkter, MCF:s beräknade högsta flöde, kommunens skyfallskarter
 500-årsregn (en modell, för intern användning; i Sundsvall även 30-årsregn, och i Västerås 100-årsregn), de senaste satellitbilderna från Sentinel-2 och
 Landsat och den senaste radarpassagen från
 Sentinel-1: radarbilden i grått, där fuktig och ojämn mark är ljus, och vatten utanför sjöarna och havet i rött
-(en beräknad mask, inte en kartlagd översvämning), och fukten i terrängen, beräknad ur hur blöt
+(en beräknad mask, inte en kartlagd översvämning; när radarn inte kan skilja vatten från mark visas
+inget vatten, och **Läget nu** säger varför), och fukten i terrängen, beräknad ur hur blöt
 marken är jämfört med de senaste 120 dagarnas passager (brun torr, blå blöt; inte uppmätt). SMHI:s
 stationer är runda med vit ring och blå, och röda när de larmar för högt flöde, rekordflöde eller
 kraftigt regn; skyddsvärda objekt och andra platser av intresse är små och gula. I mission control
@@ -1006,9 +1009,8 @@ visar **Detektioner och larm** det senaste dygnets upptäckter och larm, och **L
 bekräftelser och avfärdanden. Med väderkartan på visar
 huvudskärmen Skandinavien. Varje larm räknar upp skyddsvärda objekt och byggnader som kan beröras.
 Diagrammen visar flödena, regnet och radarn det senaste dygnet. **UPPLÄSNING** läser upp nya larm,
-och **IoT** visar sensorerna, märkta som simulerade om de inte anger annat, och scenariernas
-simulerade nivågivare vid Nyköpingsån, som följer SMHI:s flöden och larmar över arkivets högsta
-dygnsflöde (magentafärgad ring på kartan). Meteosats molnmask visar hur molnigt det är över kommunen,
+och **IoT** visar bara de sensorer som anger att de är riktiga.
+Scenariernas simulerade nivågivare finns inte i övervakningen. Meteosats molnmask visar hur molnigt det är över kommunen,
 med en kurva för senaste dygnet, och förklarar varför den optiska bilden kan vara gammal.
 Alla SMHI:s aktiva stationer i kommunen och inom 5 km tas med. Väderstationer längre bort tas inte
 med, utom regnstationerna som bekräftar larmen; flödes-, vattenstånds- och havsnivåstationerna
@@ -1017,14 +1019,13 @@ på två dygn (tre för dygnsregn) visas grå och listas under **Tysta stationer
 kan vara ur funktion. Vid Sibro 2 och Ringsjödammen visas också vattenståndet (ett värde per dygn),
 jämfört med det högsta i SMHI:s arkiv.
 I Vellinge visar övervakningen havsvattenståndet vid Klagshamn (SMHI, cm i RH2000) och larmar från
-100 cm; strändernas tre simulerade nivågivare följer det. Kramfors, Ljusdal och Sala får
+100 cm. Kramfors, Ljusdal och Sala får
 Lantmäteriets topografiska karta som bakgrund när inloggningen från Geotorget ligger i
 `~/.lantmateriet` (se `app/monitoring/README.md`); utan den visas OpenStreetMap.
 Kartornas källor står inte längre längst ned i kartbilden: i hörnet står bara OpenStreetMaps
 kredit (och kommunens karta när den visas), och ett klick på **(i) Källor** visar alla källor.
-**Simulerade sensorer** i mission control slår av och på alla simulerade sensorer på en gång:
-nivågivarna på kartorna och i IoT och IoT-noderna som inte är märkta riktiga. **SPARA INSTÄLLNINGAR**
-sparar kartlagren, de simulerade sensorerna, 2D eller 3D och UPPLÄSNING, och övervakningen startar
+**SPARA INSTÄLLNINGAR**
+sparar kartlagren, 2D eller 3D och UPPLÄSNING, och övervakningen startar
 med dem nästa gång. Knappen är röd när valen skiljer sig från dem som övervakningen startar med.
 Inställningarna sparas i `data/monitoring/flenkommun/settings.json` och följer inte med repot. Datat från kommunens GIS
 är för intern användning; boenden för personer med funktionsnedsättning ingår inte. **BYT** överst i mission control avslutar övervakningen

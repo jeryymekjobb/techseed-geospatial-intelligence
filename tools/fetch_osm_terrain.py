@@ -59,13 +59,17 @@ TERRAIN_CLASSES: dict[tuple[str, str], str] = {
     ("landuse", "quarry"): "täkt",
 }
 _TAG_ORDER = ("natural", "landuse")
+# Only the lakes and rivers (--water-only), as the monitoring's known water for Sentinel-1 over a whole
+# municipality, where all land cover would be a far larger query.
+WATER_CLASSES = {key: value for key, value in TERRAIN_CLASSES.items() if value == "vatten"}
 
 
-def overpass_query(south: float, west: float, north: float, east: float) -> str:
+def overpass_query(south: float, west: float, north: float, east: float,
+                   classes: dict[tuple[str, str], str] = TERRAIN_CLASSES) -> str:
     bbox = f"{south},{west},{north},{east}"
     selectors = "".join(
         f'way["{tag}"="{value}"]({bbox});relation["{tag}"="{value}"]["type"="multipolygon"]({bbox});'
-        for tag, value in TERRAIN_CLASSES
+        for tag, value in classes
     )
     return f"[out:json][timeout:180];({selectors});out geom;"
 
@@ -232,9 +236,10 @@ def joined(payloads: list[dict[str, Any]]) -> dict[str, Any]:
     return {**payloads[0], "elements": list(elements.values())}
 
 
-def fetch(bbox: tuple[float, float, float, float], depth: int = SPLIT_DEPTH) -> dict[str, Any]:
+def fetch(bbox: tuple[float, float, float, float], depth: int = SPLIT_DEPTH,
+          classes: dict[tuple[str, str], str] = TERRAIN_CLASSES) -> dict[str, Any]:
     try:
-        return fetch_query(overpass_query(*bbox))
+        return fetch_query(overpass_query(*bbox, classes))
     except (URLError, OSError) as exc:
         if depth <= 0 or not overpass_failed(exc):
             raise
@@ -243,7 +248,7 @@ def fetch(bbox: tuple[float, float, float, float], depth: int = SPLIT_DEPTH) -> 
         for number, part in enumerate(quarters(bbox)):
             if number:
                 sleep(PART_PAUSE_SECONDS)
-            parts.append(fetch(part, depth - 1))
+            parts.append(fetch(part, depth - 1, classes))
         return joined(parts)
 
 
@@ -284,6 +289,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--save-raw", type=Path, help="also write the Overpass response here")
     parser.add_argument("--from-raw", type=Path, help="convert a saved Overpass response instead of fetching")
     parser.add_argument("--from-geojson", type=Path, help="re-simplify an earlier output of this tool instead of fetching")
+    parser.add_argument("--water-only", action="store_true", help="only lakes and rivers (natural=water)")
     args = parser.parse_args(argv)
     bbox = tuple(float(value) for value in args.bbox.split(","))
     if len(bbox) != 4:
@@ -299,7 +305,7 @@ def main(argv: list[str] | None = None) -> int:
         payload = json.loads(args.from_raw.read_text(encoding="utf-8"))
         fetched_at = payload.get("osm3s", {}).get("timestamp_osm_base") or "unknown"
     else:
-        payload = fetch(bbox)  # type: ignore[arg-type]
+        payload = fetch(bbox, classes=WATER_CLASSES if args.water_only else TERRAIN_CLASSES)  # type: ignore[arg-type]
         fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         if args.save_raw:
             args.save_raw.write_text(json.dumps(payload), encoding="utf-8")

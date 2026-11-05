@@ -27,10 +27,9 @@ BORDER = {"type": "Polygon", "coordinates": [[[16.4, 58.85], [17.05, 58.85], [17
 
 def area(**changes):
     values = {name: getattr(flenkommun, name) for name in dir(flenkommun) if name.isupper()}
-    # The scenarios' OSM targets, MCF's flood zone and the level sensors' points are unversioned data: the
-    # tests use none, and they do not ask EUMETSAT for Meteosat's cloud mask.
-    values.update(OSM_TARGETS_FILE=Path("/nonexistent/targets.geojson"), FLOOD_ZONE_FILES=[],
-                  LEVEL_SENSOR_FILE=Path("/nonexistent/level-points.geojson"), METEOSAT_CLM=False)
+    # The scenarios' OSM targets and MCF's flood zone are unversioned data: the tests use none, and they
+    # do not ask EUMETSAT for Meteosat's cloud mask.
+    values.update(OSM_TARGETS_FILE=Path("/nonexistent/targets.geojson"), FLOOD_ZONE_FILES=[], METEOSAT_CLM=False)
     values.update(changes)
     return SimpleNamespace(**values)
 
@@ -38,18 +37,26 @@ def area(**changes):
 # --- events in -------------------------------------------------------------------------------
 
 def test_a_tsv_line_in_wgs84_and_one_in_sweref_come_in() -> None:
-    text = ("datum\tklockslag\thändelse\tkoordinat 1\tkoordinat 2\tkoordinatsystem\tkälla\n"
+    text = ("datum\tklockslag\thändelse\tkoordinat 1\tkoordinat 2\tkoordinatsystem\tkälla\tsimulerad\n"
             "2026-11-03\t10:15\tbrand\t59.05\t16.59\tEPSG:4326\tSOS Alarm\tnej\n"
-            "2026-11-03\t10:20:30\tskred\t6580822\t674032\tEPSG:3006\tKommunen\n")
+            "2026-11-03\t10:20:30\tskred\t6580822\t674032\tEPSG:3006\tKommunen\tfalse\n")
     batch = events.parse_text(text, "in.tsv")
     assert not batch.refused
     first, second = batch.events
-    assert (first.kind, first.latitude, first.longitude, first.simulated, first.simulated_stated) == ("fire", 59.05, 16.59, False, True)
+    assert (first.kind, first.latitude, first.longitude) == ("fire", 59.05, 16.59)
     assert first.time == datetime(2026, 11, 3, 10, 15, tzinfo=timezone.utc) and first.origin == "in.tsv:2"
     # gdaltransform -s_srs EPSG:3006 -t_srs EPSG:4326, as in test_read_vattenwebb.py.
     assert abs(second.latitude - 59.3302312261) < 1e-7 and abs(second.longitude - 18.0591897364) < 1e-7
-    # Not stated: counted as simulated.
-    assert second.kind == "landslide" and second.simulated and not second.simulated_stated
+    assert second.kind == "landslide"
+
+
+def test_the_monitoring_refuses_a_simulated_or_unmarked_event() -> None:
+    # The monitoring builds on real data only (the user's decision on 2026-11-05).
+    text = ("2026-11-03\t10:15\tbrand\t59.05\t16.59\tEPSG:4326\tÖvning\tja\n"
+            "2026-11-03\t10:15\tbrand\t59.05\t16.59\tEPSG:4326\tOkänd\n")
+    batch = events.parse_text(text, "in.tsv")
+    assert batch.events == []
+    assert ["simulerad händelse" in batch.refused[0].reason, "inte angivet" in batch.refused[1].reason] == [True, True]
 
 
 def test_a_line_without_a_source_is_logged_and_refused(caplog) -> None:
@@ -78,11 +85,11 @@ def test_the_log_comes_before_the_refusal_is_kept(monkeypatch) -> None:
 
 @pytest.mark.parametrize(("line", "reason"), [
     ("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:4326", "fel antal fält"),
-    ("2026-11-03\t10:15\tstorm\t59.1\t16.7\tEPSG:4326\tSMHI", "okänd händelse"),
-    ("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:3857\tSMHI", "okänt koordinatsystem"),
-    ("2026-11-31\t10:15\tbrand\t59.1\t16.7\tEPSG:4326\tSMHI", "ogiltig tid"),
-    ("2026-11-03\t10:15\tbrand\t99.1\t16.7\tEPSG:4326\tSMHI", "utanför WGS 84"),
-    ("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:3006\tSMHI", "utanför SWEREF 99 TM"),
+    ("2026-11-03\t10:15\tstorm\t59.1\t16.7\tEPSG:4326\tSMHI\tnej", "okänd händelse"),
+    ("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:3857\tSMHI\tnej", "okänt koordinatsystem"),
+    ("2026-11-31\t10:15\tbrand\t59.1\t16.7\tEPSG:4326\tSMHI\tnej", "ogiltig tid"),
+    ("2026-11-03\t10:15\tbrand\t99.1\t16.7\tEPSG:4326\tSMHI\tnej", "utanför WGS 84"),
+    ("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:3006\tSMHI\tnej", "utanför SWEREF 99 TM"),
     ("2026-11-03\t10:15\tbrand\t59.1\t16.7\tEPSG:4326\tSMHI\tkanske", "simulerad"),
 ])
 def test_other_faults_are_logged_and_refused_with_their_reason(line: str, reason: str, caplog) -> None:
@@ -96,12 +103,12 @@ def test_json_events_come_in_and_the_inbox_moves_what_it_has_read(tmp_path: Path
     inbox.mkdir()
     (inbox / "a.json").write_text(json.dumps([
         {"date": "2026-11-03", "time": "09:00", "event": "flood", "coord1": 59.0, "coord2": 16.6, "crs": "EPSG:4326",
-         "source": "Nivågivare", "simulated": True},
-        {"date": "2026-11-03", "time": "09:00", "event": "flood", "coord1": 59.0, "coord2": 16.6, "crs": "EPSG:4326"},
+         "source": "Nivågivare", "simulated": False},
+        {"date": "2026-11-03", "time": "09:00", "event": "flood", "coord1": 59.0, "coord2": 16.6, "crs": "EPSG:4326", "simulated": False},
     ]), encoding="utf-8")
     (inbox / "b.pdf").write_bytes(b"%PDF")
     batch = events.read_inbox(inbox)
-    assert [event.source for event in batch.events] == ["Nivågivare"] and batch.events[0].simulated_stated
+    assert [event.source for event in batch.events] == ["Nivågivare"]
     assert sorted(item.reason for item in batch.refused) == ["källa saknas", "okänd filtyp: .pdf"]
     assert sorted(path.name for path in inbox.iterdir() if path.is_file()) == []
     assert len(list((inbox / "processed").iterdir())) == 2
@@ -239,9 +246,9 @@ def test_fires_are_clustered_confirmed_by_passes_and_known_heat_sources_left_out
 
 
 def test_events_in_the_area_become_candidates_and_others_are_left_out() -> None:
-    def event(origin, lat, simulated=True, stated=False, hours=1, kind="fire"):
+    def event(origin, lat, hours=1, kind="fire"):
         return {"origin": origin, "kind": kind, "latitude": lat, "longitude": 16.59, "coordinates": [lat, 16.59], "crs": "EPSG:4326",
-                "source": "Rapport", "simulated": simulated, "simulated_stated": stated,
+                "source": "Rapport",
                 "time_utc": (NOW - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")}
     firms = [{"latitude": 59.051, "longitude": 16.59}]
     filtered = []
@@ -249,8 +256,7 @@ def test_events_in_the_area_become_candidates_and_others_are_left_out() -> None:
     found = rules.event_candidates([event("a", 59.05), event("b", 60.5), event("c", 59.05, hours=30)], BORDER, firms, ban, [],
                                    area(), NOW, filtered)
     (item,) = found
-    assert item.simulated and item.confirmations == ["1 värmedetektioner från FIRMS inom 1 km"]
-    assert "räknas som simulerad" in item.notes[0]
+    assert item.confirmations == ["1 värmedetektioner från FIRMS inom 1 km"]
     assert any(fact["text"] == "Eldningsförbud: Inget eldningsförbud" for fact in item.facts)
     assert [entry["reason"] for entry in filtered] == ["utanför Flens kommun"]
 
@@ -297,7 +303,6 @@ def test_alarms_are_new_until_the_operator_acts_and_come_back_only_when_they_ris
 def test_the_briefing_names_each_source_and_marks_what_is_uncertain(tmp_path: Path) -> None:
     store = alarms.Store(tmp_path / "state.json")
     item = candidate()
-    item.simulated = True
     store.apply([item], [], [], {})
     store.act("flow-2587", "confirm", "<script>")
     alarm = store.snapshot()["alarms"]["flow-2587"]
@@ -305,7 +310,7 @@ def test_the_briefing_names_each_source_and_marks_what_is_uncertain(tmp_path: Pa
     assert content["uncertain"][:2] == ["Larmet bygger på en enda källa.", "Vattenföring 12 m³/s"]
     assert content["contacts"] == flenkommun.CONTACTS["flood"]
     page = briefing.render(content)
-    assert "SIMULERAD HÄNDELSE" in page and "(osäkert)" in page and "Floda A" in page and "Exempel" in page
+    assert "SIMULERAD" not in page and "(osäkert)" in page and "Floda A" in page and "Exempel" in page
     assert "<script>" not in page and "&lt;script&gt;" in page
 
 
@@ -803,7 +808,7 @@ def test_the_service_serves_the_objects_the_image_and_the_iot_and_switches_readi
     assert status == 200 and json.loads(body) == {"speech": True}
 
 
-def test_sentinel1_shows_water_outside_the_lakes_in_red_and_groups_a_pass() -> None:
+def test_sentinel1_shows_water_outside_the_lakes_in_red_and_groups_a_pass(monkeypatch) -> None:
     import io
 
     import numpy as np
@@ -818,10 +823,19 @@ def test_sentinel1_shows_water_outside_the_lakes_in_red_and_groups_a_pass() -> N
     vv[lake] = 0.0063
     vv[20:26, 20:26] = 0.004
     vv[5, 35] = 0.004
+    # The lake's 100 pixels are too little known water to set a threshold by: no water is drawn.
+    _, water, stats = sentinel1.images(vv, lake)
+    assert not np.array(Image.open(io.BytesIO(water)))[..., 3].any()
+    assert not stats["separable"] and stats["new_water_pct"] is None and "för lite känt vatten" in stats["not_separable_reason"]
+    monkeypatch.setattr(sentinel1, "MIN_WATER_PIXELS", 100)
     grey, water, stats = sentinel1.images(vv, lake)
     mask = np.array(Image.open(io.BytesIO(water)))
     assert mask[23, 23].tolist() == [255, 0, 0, 220] and mask[5, 5, 3] == 0 and mask[5, 35, 3] == 0
     assert stats["separable"] and abs(stats["threshold_db"] + 22.0) < 0.1 and stats["new_water_pct"] > 2
+    # Land as dark as the water (wind on the lakes, rain on the ground): not separable, no water drawn.
+    vv[lake] = 0.2
+    _, water, stats = sentinel1.images(vv, lake)
+    assert not stats["separable"] and not np.array(Image.open(io.BytesIO(water)))[..., 3].any()
     assert np.array(Image.open(io.BytesIO(grey))).shape == (40, 40, 4)
     found = sentinel1.passes([
         {"id": "S1C_IW_A", "properties": {"datetime": "2026-11-03T05:14:36Z", "sat:orbit_state": "descending"}},
@@ -892,23 +906,6 @@ def test_sentinel1_counts_the_sea_from_the_coastline_as_known_water(tmp_path: Pa
     assert sentinel1.Latest((0.0, 0.0, 1.0, 1.0), tmp_path, None, lambda url: b"").known_water((10, 10)).sum() == 0
 
 
-def test_the_simulated_level_sensors_follow_their_station_and_alarm_above_its_record(tmp_path: Path) -> None:
-    from app.monitoring import levels
-
-    points = tmp_path / "level-points.geojson"
-    points.write_text(json.dumps({"type": "FeatureCollection", "features": [
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [16.7, 58.86]},
-         "properties": {"id": "ng-02", "name": "NG2 Tärnövägen", "road": "Tärnövägen", "river": "Nyköpingsån", "station": "1273:2"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [16.6, 58.9]},
-         "properties": {"id": "ng-04", "name": "NG4 Nyköpingsån", "station": "2587:2"}}]}))
-    loaded = levels.load(points)
-    assert [point["station"] for point in loaded] == ["1273", "2587"] and levels.load(tmp_path / "none.geojson") == []
-    flows = [{"station": "1273", "name": "Hallbosjön", "readings": [{"time_utc": "2026-11-04T08:00:00Z", "value": 55.0}]}]
-    found = levels.readings(loaded, flows, {"1273": {"record": 51.5}, "2587": {"record": 15.2}})
-    assert found[0]["alarm"] and found[0]["percent"] == 107 and found[0]["simulated"] and found[0]["station_name"] == "Hallbosjön"
-    assert not found[1]["alarm"] and found[1]["value"] is None and found[1]["percent"] is None
-    assert not levels.readings(loaded, flows, {"1273": {"record": 60.0}})[0]["alarm"]
-
 
 def test_meteosat_s_cloud_mask_keeps_the_last_day_and_asks_again_only_for_a_newer_product(tmp_path: Path, monkeypatch) -> None:
     import sys
@@ -959,12 +956,13 @@ def test_meteosat_s_cloud_mask_keeps_the_last_day_and_asks_again_only_for_a_newe
     assert not list((tmp_path / "meteosat-clm").glob("**/*.zip"))
 
 
-def test_one_switch_hides_every_simulated_sensor_and_the_settings_are_saved_and_started_with(server: int, tmp_path: Path) -> None:
+def test_the_settings_are_saved_and_started_with_and_nothing_simulated_is_shown(server: int, tmp_path: Path) -> None:
     json_type = {"Content-Type": "application/json"}
     state = json.loads(request(server, "GET", "/api/state")[1])
-    assert state["layers"]["simulated"] is True and "levels" not in state["layers"]
+    # The monitoring builds on real data only (the user's decision on 2026-11-05): no switch for simulated sensors.
+    assert "simulated" not in state["layers"] and "level_sensors" not in state["context"]
     assert state["settings"] == {"saved_utc": None, "unsaved": False}
-    request(server, "POST", "/api/layers", b'{"simulated": false, "chart": true}', json_type)
+    request(server, "POST", "/api/layers", b'{"chart": true}', json_type)
     request(server, "POST", "/api/view", b'{"view": "2d"}', json_type)
     assert json.loads(request(server, "GET", "/api/state")[1])["settings"]["unsaved"] is True
     assert request(server, "POST", "/api/settings", b"{}", {**json_type, "Origin": "http://evil.example"})[0] == 403
@@ -972,16 +970,24 @@ def test_one_switch_hides_every_simulated_sensor_and_the_settings_are_saved_and_
     status, body = request(server, "POST", "/api/settings", b"{}", json_type)
     assert status == 200 and json.loads(body)["unsaved"] is False and json.loads(body)["saved_utc"]
     saved = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
-    assert saved["layers"]["simulated"] is False and saved["view"] == "2d" and saved["speech"] is False
-    # A new start begins with the saved settings; unknown layers and values in the file are left out.
-    saved["layers"].update(rain=True, names="no")
+    assert saved["layers"]["chart"] is True and saved["view"] == "2d" and saved["speech"] is False
+    # A new start begins with the saved settings; unknown layers (such as the old switch "simulated") and values are left out.
+    saved["layers"].update(rain=True, names="no", simulated=True)
     (tmp_path / "settings.json").write_text(json.dumps(saved), encoding="utf-8")
     again = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch({}), tmp_path, NO_SCENES)
-    assert again.layers["simulated"] is False and again.layers["chart"] is True and again.view == "2d"
+    assert again.layers["chart"] is True and again.view == "2d" and "simulated" not in again.layers
     assert "rain" not in again.layers and again.layers["names"] is True and again.settings_status()["unsaved"] is False
-    control = (Path(service.WEB_DIR) / "control.js").read_text(encoding="utf-8")
-    assert "filter((sensor) => simulated || sensor.real)" in control and "levels:" not in control
-    assert "named.simulated" in (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
+    for page in ("control.js", "control.html", "map2d.js", "globe.js"):
+        assert "simulated-toggle" not in (Path(service.WEB_DIR) / page).read_text(encoding="utf-8")
+        assert "level_sensors" not in (Path(service.WEB_DIR) / page).read_text(encoding="utf-8")
+
+
+def test_only_the_iot_nodes_that_say_they_are_real_are_shown(tmp_path: Path) -> None:
+    monitor = service.Monitor(area(DATA_DIR=tmp_path), fake_fetch({}), tmp_path, NO_SCENES)
+    monitor.sensors.handle("techseed/booth1/water", b'{"value": 1.0, "simulated": true}')
+    monitor.sensors.handle("techseed/field1/water", b'{"value": 2.0, "simulated": false}')
+    iot_state = monitor.state()["iot"]
+    assert [sensor["node"] for sensor in iot_state["sensors"]] == ["field1"] and "simulated" not in json.dumps(iot_state)
 
 
 def test_both_maps_keep_the_credits_behind_kallor_as_the_scenarios(server: int) -> None:
@@ -1020,7 +1026,7 @@ def test_every_area_follows_the_template_and_a_poll_reads_its_sources(name: str,
     assert bool(module.GIS_FACILITIES) == (name == "flenkommun")
     monkeypatch.setenv("FIRMS_MAP_KEY", "KEY")
     values.update(DATA_DIR=tmp_path, METEOSAT_CLM=False, OSM_TARGETS_FILE=Path("/nonexistent/targets.geojson"),
-                  LEVEL_SENSOR_FILE=Path("/nonexistent/level-points.geojson"), FLOOD_ZONE_FILES=[])
+                  FLOOD_ZONE_FILES=[])
     monitor = service.Monitor(SimpleNamespace(**values), fake_fetch(live_answers()), tmp_path, NO_SCENES)
     summary = monitor.poll()
     status = {item["source"]: item for item in summary["sources"]}
@@ -1030,16 +1036,6 @@ def test_every_area_follows_the_template_and_a_poll_reads_its_sources(name: str,
     assert config["area"]["name"] == module.NAME and config["layers"]["flood"] == getattr(module, "FLOOD_HAZARD_WMS", None)
     assert monitor.state()["area"]["name"] == module.NAME
 
-
-def test_the_level_sensors_keep_only_those_following_a_monitored_station(tmp_path: Path) -> None:
-    from app.monitoring import levels
-
-    points = tmp_path / "level-points.geojson"
-    points.write_text(json.dumps({"type": "FeatureCollection", "features": [
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [17.6, 62.7]}, "properties": {"id": "a", "name": "A", "station": "2398:2"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [17.5, 62.8]}, "properties": {"id": "b", "name": "B", "station": "2604:2"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [17.4, 62.6]}, "properties": {"id": "c", "name": "C", "station": "model-1"}}]}))
-    assert [point["id"] for point in levels.load(points, {"2398"})] == ["a"] and len(levels.load(points)) == 3
 
 
 def test_an_area_without_its_own_gis_takes_the_buildings_and_objects_from_openstreetmap(tmp_path: Path) -> None:
@@ -1130,7 +1126,7 @@ def test_the_terrain_and_map_tools_build_an_area_s_whole_municipality_apart_from
 
 
 def test_vellinge_reads_the_sea_level_live_and_alarms_from_a_hundred_centimetres(tmp_path: Path, monkeypatch) -> None:
-    from app.monitoring import levels, sources as monitoring_sources
+    from app.monitoring import sources as monitoring_sources
     from app.monitoring.areas import vellingekommun
 
     def sea(values):
@@ -1144,22 +1140,16 @@ def test_vellinge_reads_the_sea_level_live_and_alarms_from_a_hundred_centimetres
     (alarm,) = rules.sea_level_candidates(items, vellingekommun)
     assert alarm.key == "sea-2095" and alarm.title == "Högt vattenstånd vid Klagshamn: 104,5 cm" and alarm.extent == "4,5 cm över gränsen"
     assert rules.sea_level_candidates([{**items[0], "value_cm": 99.9}], vellingekommun) == []
-    points = tmp_path / "points.geojson"
-    points.write_text(json.dumps({"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [12.83, 55.42]},
-                                  "properties": {"id": "ng-01", "name": "NG1 Falsterbo strand", "station": "sea-30488"}}]}))
-    loaded = levels.load(points, {"sea-2095"}, vellingekommun.LEVEL_SENSOR_STATIONS)
-    (sensor,) = levels.readings(loaded, [], {}, items, 100.0)
-    assert sensor["station"] == "sea-2095" and sensor["unit"] == "cm" and sensor["value"] == 104.5 and sensor["alarm"]
     monkeypatch.setenv("FIRMS_MAP_KEY", "KEY")
     values = {key: getattr(vellingekommun, key) for key in dir(vellingekommun) if key.isupper()}
-    values.update(DATA_DIR=tmp_path, METEOSAT_CLM=False, OSM_TARGETS_FILE=Path("/nonexistent"), LEVEL_SENSOR_FILE=points, MUNICIPAL_BASEMAPS=[])
+    values.update(DATA_DIR=tmp_path, METEOSAT_CLM=False, OSM_TARGETS_FILE=Path("/nonexistent"), MUNICIPAL_BASEMAPS=[])
     answers = {**live_answers(), "ocobs": sea([95.0, 101.0])}
     monitor = service.Monitor(SimpleNamespace(**values), fake_fetch(answers), tmp_path, NO_SCENES)
     summary = monitor.poll()
     assert {item["source"]: item["ok"] for item in summary["sources"]}["smhi_sea_level"]
     assert "sea-2095" in {item["key"] for item in summary["candidates"]}
     context = monitor.state()["context"]
-    assert context["sea_level"][0]["limit_cm"] == 100.0 and context["level_sensors"][0]["alarm"]
+    assert context["sea_level"][0]["limit_cm"] == 100.0 and "level_sensors" not in context
 
 
 def test_lantmateriet_s_map_is_the_base_map_without_a_municipal_one_once_configured(tmp_path: Path, monkeypatch) -> None:
@@ -1297,3 +1287,13 @@ def test_every_area_takes_the_stations_the_user_asked_for() -> None:
     for name in ("map2d.js", "globe.js"):
         assert "context.silent" in (Path(service.WEB_DIR) / name).read_text(encoding="utf-8")
     assert 'id="silent-stations"' in (Path(service.WEB_DIR) / "control.html").read_text(encoding="utf-8")
+
+
+def test_the_radar_s_known_water_is_the_area_s_own_once_fetched(tmp_path: Path) -> None:
+    scenario = tmp_path / "scenario-terrain.geojson"
+    scenario.write_text('{"type": "FeatureCollection", "features": []}')
+    monitor = service.Monitor(area(DATA_DIR=tmp_path, TERRAIN_FILE=scenario), fake_fetch({}), tmp_path, NO_SCENES)
+    assert monitor.radar_pass.terrain_file == scenario
+    (tmp_path / "known-water.geojson").write_text('{"type": "FeatureCollection", "features": []}')
+    monitor = service.Monitor(area(DATA_DIR=tmp_path, TERRAIN_FILE=scenario), fake_fetch({}), tmp_path, NO_SCENES)
+    assert monitor.radar_pass.terrain_file == tmp_path / "known-water.geojson"

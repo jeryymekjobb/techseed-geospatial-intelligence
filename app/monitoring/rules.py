@@ -35,7 +35,6 @@ class Candidate:
     facts: list[dict[str, Any]] = field(default_factory=list)
     confirmations: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
-    simulated: bool = False
     extent: str | None = None
     exposure: dict[str, Any] | None = None
 
@@ -46,7 +45,7 @@ class Candidate:
         return {"key": self.key, "kind": self.kind, "kind_word": KIND_WORDS.get(self.kind, self.kind.upper()),
                 "severity": self.severity, "title": self.title, "place": self.place, "latitude": self.latitude,
                 "longitude": self.longitude, "facts": self.facts, "confirmations": self.confirmations,
-                "single_source": not self.confirmations, "notes": self.notes, "simulated": self.simulated,
+                "single_source": not self.confirmations, "notes": self.notes,
                 "extent": self.extent, "exposure": self.exposure}
 
 
@@ -275,7 +274,7 @@ def fire_candidates(firms: list[dict[str, Any]], events: list[dict[str, Any]], b
             item.confirmations.append(f"Sett av {len(satellites)} satelliter")
         for event in events:
             if event["kind"] == "fire" and geo.distance_km(event["latitude"], event["longitude"], lat, lon) <= area.FIRE_CLUSTER_KM:
-                item.confirmations.append(f"Rapport: {event['source']}{' (simulerad)' if event['simulated'] else ''}")
+                item.confirmations.append(f"Rapport: {event['source']}")
         if item.confirmations:
             item.severity = "confirmed"
         item.extent = f"{len(group)} detektioner inom {_number(area.FIRE_CLUSTER_KM)} km"
@@ -315,13 +314,9 @@ def event_candidates(events: list[dict[str, Any]], border: dict[str, Any] | None
             continue
         word = KIND_WORDS[event["kind"]]
         item = Candidate(f"event-{event['origin']}", event["kind"], "event", f"Rapporterad {word}", area.NAME,
-                         event["latitude"], event["longitude"], simulated=event["simulated"])
+                         event["latitude"], event["longitude"])
         coordinates = ", ".join(str(value) for value in event["coordinates"])
-        item.fact(f"{word.capitalize()} rapporterad vid {coordinates} ({event['crs']})", event["source"], event["time_utc"],
-                  uncertain=event["simulated"])
-        if event["simulated"]:
-            item.notes.append("Simulerad händelse." if event["simulated_stated"] else
-                              "Det är inte angivet om händelsen är simulerad; den räknas som simulerad.")
+        item.fact(f"{word.capitalize()} rapporterad vid {coordinates} ({event['crs']})", event["source"], event["time_utc"])
         if event["kind"] == "fire":
             _fire_context(item, event["time_utc"], fire_ban, area, fire_risk)
             near = [point for point in firms

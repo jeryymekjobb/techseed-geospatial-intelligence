@@ -11,8 +11,9 @@ numpy array in WGS 84. Two images are made, as in the scenarios:
 - water outside the known water, in red: pixels darker than the median over OpenStreetMap's lakes
   and sea (the sea from OSM's coastline water polygons, data/osm/<area>-coastline/, where built),
   on at least five of the nine pixels round them. A simple computed mask, not a mapped flood: tarmac
-  and radar shadows are dark too. Where the darkest land is as dark as the water (wind, rain), the
-  pass is marked not separable.
+  and radar shadows are dark too. Where the darkest land is as dark as the water (wind, rain), or the
+  pass sees too little known water to tell how dark water is (MIN_WATER_PIXELS), the pass is marked
+  not separable and no water is drawn, as in the scenarios.
 
 - the relative wetness of the ground, by change detection, the principle of Copernicus's soil
   moisture from Sentinel-1: each pixel's backscatter now set between how dry (its 5th percentile)
@@ -59,6 +60,11 @@ PIXELS_PER_DEGREE = (1500, 3000)  # about 40 m each way at 59 N
 NEIGHBOURS = scenario_radar.NEIGHBOURS
 WATER_RGBA = scenario_radar.WATER_RGBA
 LAND_PERCENTILE = scenario_radar.LAND_PERCENTILE
+# Known water the pass must see to set its threshold: about 1.5 km² at about 40 m a pixel. Sala's pass
+# of 4 November 2026 saw 28 pixels of it, and its threshold drew two thirds of the land red.
+MIN_WATER_PIXELS = 1000
+# Made again once when the mask's rules change: 2 hides an inseparable pass (2026-11-05).
+MASK_VERSION = 2
 
 Fetch = Callable[[str], bytes]
 
@@ -97,12 +103,13 @@ def images(vv: np.ndarray, water: np.ndarray) -> tuple[bytes, bytes, dict[str, A
     rgba[..., 3] = np.where(valid, 255, 0)
     over_water, over_land = valid & water, valid & ~water
     threshold = float(np.nanmedian(decibels[over_water])) if over_water.any() else float(low)
-    separable = bool(over_land.any()) and float(np.nanpercentile(decibels[over_land], LAND_PERCENTILE)) >= threshold
+    enough_water = int(over_water.sum()) >= MIN_WATER_PIXELS
+    separable = enough_water and bool(over_land.any()) and float(np.nanpercentile(decibels[over_land], LAND_PERCENTILE)) >= threshold
     dark = (valid & (decibels < threshold)).astype("i4")
     height, width = vv.shape
     padded = np.pad(dark, 1)
     count = sum(padded[1 + dy:1 + dy + height, 1 + dx:1 + dx + width] for dy in (-1, 0, 1) for dx in (-1, 0, 1))
-    new_water = (count >= NEIGHBOURS) & (dark == 1) & ~water
+    new_water = (count >= NEIGHBOURS) & (dark == 1) & ~water & separable
     mask = np.zeros((*vv.shape, 4), dtype="u1")
     mask[new_water] = WATER_RGBA
     out_grey, out_water = io.BytesIO(), io.BytesIO()
@@ -111,8 +118,10 @@ def images(vv: np.ndarray, water: np.ndarray) -> tuple[bytes, bytes, dict[str, A
     land = valid & ~water
     return out_grey.getvalue(), out_water.getvalue(), {
         "threshold_db": round(threshold, 1), "separable": separable,
+        "not_separable_reason": None if separable else ("för lite känt vatten i passagen" if not enough_water
+                                                        else "den mörkaste marken är lika mörk som vattnet"),
         "coverage_pct": round(100.0 * float(valid.mean()), 1),
-        "new_water_pct": round(100.0 * float(new_water[land].mean()), 2) if land.any() else 0.0}
+        "new_water_pct": (round(100.0 * float(new_water[land].mean()), 2) if land.any() else 0.0) if separable else None}
 
 
 def coarse(vv: np.ndarray, scale: int = LOW) -> np.ndarray:
@@ -273,8 +282,8 @@ class Latest:
                 "sortby": [{"field": "datetime", "direction": "desc"}]}
         found = passes(json.loads(self.post(sentinel2.STAC_SEARCH, body)).get("features") or [])
         self.searched = now
-        # A pass made before the sea was known water (2026-11-05) is made again.
-        if not found or (self.meta and self.meta["items"] == found[0]["items"] and self.meta.get("sea_known")):
+        # A pass made under older rules for the mask (MASK_VERSION) is made again.
+        if not found or (self.meta and self.meta["items"] == found[0]["items"] and self.meta.get("mask_version") == MASK_VERSION):
             return self.meta
         latest = found[0]
         vv = None
@@ -292,7 +301,8 @@ class Latest:
             png, wet_stats = wetness(decibels(low), reference["dry"], reference["wet"], reference["count"], lakes)
             (self.dir / "wetness.png").write_bytes(png)
             stats = {**stats, **wet_stats, "wetness_passes": int(reference["passes"])}
-        self.meta = {**latest, **stats, "bbox": list(self.bbox), "sea_known": True,
+        self.meta = {**latest, **stats, "bbox": list(self.bbox), "mask_version": MASK_VERSION,
+                     "made_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
                      "attribution": f"Innehåller bearbetade Copernicus Sentinel-data {latest['time_utc'][:4]} (Microsoft Planetary Computer)"}
         (self.dir / "latest.json").write_text(json.dumps(self.meta), encoding="utf-8")
         return self.meta

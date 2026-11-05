@@ -33,7 +33,7 @@ let municipalCredits = [];
 // Mission control's map layers (service.LAYERS), each a group shown or hidden by showLayers.
 const named = {};
 for (const name of ["municipal", "flood", "flood_highest", "skyfall30", "skyfall100", "skyfall500", "radar", "satellite", "landsat", "s1radar",
-  "s1wetness", "s1water", "stations", "simulated", "facilities", "names", "firms"]) {
+  "s1wetness", "s1water", "stations", "facilities", "names", "firms"]) {
   named[name] = L.layerGroup();
 }
 // The hamlets' names, part of the names layer, shown only close in, where they do not crowd.
@@ -115,11 +115,14 @@ function addOverlays(config) {
 let s1Layers = null;
 let s1Shown = null;
 function drawRadarPass(meta) {
-  if (!s1Layers || !meta || meta.time_utc === s1Shown) return;
-  s1Shown = meta.time_utc;
-  s1Layers.radar.setUrl(`/api/s1radar.png?at=${encodeURIComponent(meta.time_utc)}`);
-  s1Layers.water.setUrl(`/api/s1water.png?at=${encodeURIComponent(meta.time_utc)}`);
-  s1Layers.wetness.setUrl(`/api/s1wetness.png?at=${encodeURIComponent(meta.time_utc)}`);
+  if (!s1Layers || !meta) return;
+  // A pass made again (made_utc) is fetched again, though its time is the same.
+  const key = `${meta.time_utc}|${meta.made_utc || ""}`;
+  if (key === s1Shown) return;
+  s1Shown = key;
+  s1Layers.radar.setUrl(`/api/s1radar.png?at=${encodeURIComponent(key)}`);
+  s1Layers.water.setUrl(`/api/s1water.png?at=${encodeURIComponent(key)}`);
+  s1Layers.wetness.setUrl(`/api/s1wetness.png?at=${encodeURIComponent(key)}`);
   map.attributionControl.addAttribution(meta.attribution);
 }
 
@@ -147,15 +150,6 @@ function drawImage(meta) {
 const STATION_MARKS = { normal: "#1565c0", alarm: "#c62828" };
 function alarming(state, key) {
   return state.alarms.some((alarm) => alarm.id === key && alarm.current && alarm.state !== "dismissed");
-}
-// The scenarios' simulated level sensors (levels.py): round with a magenta ring, the monitoring's mark
-// for what is simulated, blue, and red while the sensor alarms.
-const LEVEL_RING = "#e040fb";
-function levelText(sensor) {
-  const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
-    : sensor.unit === "cm" ? `havsvattenstånd vid ${sensor.station_name} ${String(sensor.value).replace(".", ",")} cm i RH2000 (larm vid ${sensor.alarm_cm} cm)`
-      : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
-  return `${sensor.name}: ${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare, följer SMHI)`;
 }
 // A station that gave no value lately (context.silent), grey: a hint it may be out of order.
 const SILENT_MARK = "#9e9e9e";
@@ -217,11 +211,6 @@ function drawMap(state) {
   layers.sites.clearLayers();
   named.stations.clearLayers();
   named.firms.clearLayers();
-  named.simulated.clearLayers();
-  for (const sensor of context.level_sensors || []) {
-    marker(named.simulated, sensor.latitude, sensor.longitude, { radius: 5, color: LEVEL_RING, weight: 2,
-      fillColor: sensor.alarm ? STATION_MARKS.alarm : STATION_MARKS.normal, fillOpacity: 1 }, levelText(sensor));
-  }
   for (const flow of context.flows || []) {
     if (flow.latitude == null) continue;
     const limits = flow.limits ? ` (högt över ${flow.limits.high}, rekord ${flow.limits.record})` : "";
@@ -257,8 +246,8 @@ function drawMap(state) {
       `FIRMS ${point.instrument} ${point.satellite} ${point.time_utc}`);
   }
   for (const event of state.events || []) {
-    marker(layers.sites, event.latitude, event.longitude, { radius: 5, color: event.simulated ? "#b8860b" : "#6a1b9a" },
-      `${event.kind_word} ${event.time_utc} – ${event.source}${event.simulated ? " (simulerad)" : ""}`);
+    marker(layers.sites, event.latitude, event.longitude, { radius: 5, color: "#6a1b9a" },
+      `${event.kind_word} ${event.time_utc} – ${event.source}`);
   }
   layers.alarms.clearLayers();
   for (const alarm of state.alarms) {

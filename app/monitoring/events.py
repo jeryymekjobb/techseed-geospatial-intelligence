@@ -5,12 +5,13 @@
 as TSV, CSV or JSON. The date and time are in UTC (YYYY-MM-DD, HH:MM or HH:MM:SS); the event is
 brand, översvämning, erosion or skred (or fire, flood, erosion, landslide); the coordinate system is
 EPSG:4326, where coordinate 1 is the latitude and coordinate 2 the longitude, or EPSG:3006, where
-coordinate 1 is northing and coordinate 2 easting in metres. The source is required. The optional
-eighth field says whether the data are simulated (ja/nej, true/false); an event that does not say
-counts as simulated, as the IoT readings do (app/backend/iot.py).
+coordinate 1 is northing and coordinate 2 easting in metres. The source is required. The eighth
+field says whether the data are simulated (ja/nej, true/false). The monitoring builds on real data
+only, as the user decided on 2026-11-05: an event is taken in only when it says it is not simulated
+(nej, false); one that is simulated or does not say is refused.
 
 A JSON file holds a list of objects with the keys date, time, event, coord1, coord2, crs, source
-and, optionally, simulated.
+and simulated.
 
 Every line that is refused is logged before it is refused, with the file, the line number, the
 line as written and the reason, and kept in the list of refused lines the operator page shows.
@@ -56,15 +57,12 @@ class Event:
     crs: str
     coordinates: tuple[float, float]
     source: str
-    simulated: bool
-    simulated_stated: bool
     origin: str
 
     def as_json(self) -> dict[str, Any]:
         return {"time_utc": self.time.strftime("%Y-%m-%dT%H:%M:%SZ"), "kind": self.kind, "kind_word": KIND_WORDS[self.kind],
                 "latitude": round(self.latitude, 6), "longitude": round(self.longitude, 6), "crs": self.crs,
-                "coordinates": list(self.coordinates), "source": self.source, "simulated": self.simulated,
-                "simulated_stated": self.simulated_stated, "origin": self.origin}
+                "coordinates": list(self.coordinates), "source": self.source, "origin": self.origin}
 
 
 @dataclass
@@ -132,16 +130,14 @@ def event_from_fields(fields: list[Any], origin: str) -> Event:
         if not (SWEREF_NORTHING[0] <= c1 <= SWEREF_NORTHING[1] and SWEREF_EASTING[0] <= c2 <= SWEREF_EASTING[1]):
             raise Refused(f"koordinaten ligger utanför SWEREF 99 TM i Sverige: N {c1}, E {c2}")
         latitude, longitude = sweref99tm_to_wgs84(c1, c2)
-    simulated, stated = True, False
-    if len(fields) == 8 and str(fields[7]).strip():
-        flag = str(fields[7]).strip().lower()
-        if flag in YES:
-            simulated, stated = True, True
-        elif flag in NO:
-            simulated, stated = False, True
-        else:
-            raise Refused(f"okänt värde för simulerad: {fields[7]}")
-    return Event(moment, kind, latitude, longitude, crs, (c1, c2), source, simulated, stated, origin)
+    flag = str(fields[7]).strip().lower() if len(fields) == 8 and fields[7] is not None else ""
+    if flag in YES:
+        raise Refused("simulerad händelse: övervakningen tar bara in verkliga data")
+    if not flag:
+        raise Refused("det är inte angivet att händelsen är verklig (simulerad: nej); övervakningen tar bara in verkliga data")
+    if flag not in NO:
+        raise Refused(f"okänt värde för simulerad: {fields[7]}")
+    return Event(moment, kind, latitude, longitude, crs, (c1, c2), source, origin)
 
 
 def _refuse(batch: Batch, origin: str, line: str, reason: str) -> None:

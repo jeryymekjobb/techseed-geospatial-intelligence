@@ -59,7 +59,6 @@ FLOOD_HAZARD_WMS = mcf_layer("12", "100-årsflöde, klimatanpassat (MCF)")
 FLOOD_HIGHEST_WMS = mcf_layer("9", "Beräknat högsta flöde (MCF)")
 FLOOD_ZONE_LABEL = "MCF:s klimatanpassade 100-årsflöde"
 FLOOD_ZONE_FILES = [_SCENARIO / "mcf" / "mcf-100ar.geojson"]
-LEVEL_SENSOR_FILE = _SCENARIO / "sensors" / "level-points.geojson"
 # The city's cloudburst mapping (Svartån 2023's MUNICIPAL_WMS, ArcGIS Server WMS): the greatest water
 # depth at a 100-year rain, internal use as the user allowed on 2026-10-28 and in the monitoring on
 # 2026-11-04. A model, not an observation.

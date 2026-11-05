@@ -38,7 +38,7 @@ from urllib.parse import unquote, urlsplit
 from app.backend import lantmateriet, offline_tiles
 from app.backend import iot
 from app.backend.scenarios import REPO_ROOT
-from app.monitoring import (areas, briefing, events, geo, gis, levels, meteosat, radar, rules, satellites, sentinel1, sentinel2,
+from app.monitoring import (areas, briefing, events, geo, gis, meteosat, radar, rules, satellites, sentinel1, sentinel2,
                             sources, weather)
 from app.monitoring.alarms import Store
 
@@ -62,9 +62,7 @@ BASEMAP_TILE = re.compile(r"/basemap/([a-z0-9]+)/(\d{1,2})/(\d+)/(\d+)\.png")
 # The map layers mission control switches on the main screen, and whether each starts on.
 LAYERS = {"municipal": True, "flood": True, "radar": True, "wind": True, "chart": False, "facilities": True, "names": True,
           "stations": True, "firms": True, "satellite": False, "s1radar": False, "s1water": True,
-          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall30": False, "skyfall100": False, "skyfall500": False,
-          # One switch for every simulated sensor: the level sensors (levels.py) and the IoT nodes not marked real.
-          "simulated": True}
+          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall30": False, "skyfall100": False, "skyfall500": False}
 # OpenStreetMap's standard map outside the municipality, the one-pager's fallback where there is no
 # GIS map: it has land cover at every zoom and no edge; the demos' offline map takes its place only
 # when it does not answer.
@@ -93,17 +91,18 @@ class Monitor:
         # Lantmäteriet's Topografisk webbkarta as the base map where the municipality has none of its own
         # (LANTMATERIET_BASEMAP), once the Geotorget settings are in ~/.lantmateriet or the environment.
         self.lantmateriet = lantmateriet.Settings.from_file_or_environment()
-        # The scenarios' simulated level sensors (levels.py) and Meteosat's cloud mask (meteosat.py).
-        # The sensors follow a monitored flow station, or a sea level station as "sea-<station>".
-        self.levels = levels.load(getattr(area, "LEVEL_SENSOR_FILE", None),
-                                  set(area.FLOW_STATIONS) | {f"sea-{key}" for key in getattr(area, "SEA_LEVEL_STATIONS", {})},
-                                  getattr(area, "LEVEL_SENSOR_STATIONS", {}))
+        # Meteosat's cloud mask (meteosat.py).
         self.clouds = meteosat.CloudMask(area.BBOX, self.data_dir) if getattr(area, "METEOSAT_CLM", False) else None
         # The sea is known water too where the area's offline map has OSM's coastline (build_offline_tiles.py --area).
-        self.radar_pass = sentinel1.Latest(area.BBOX, self.data_dir, getattr(area, "TERRAIN_FILE", None), fetch, post,
+        # The known lakes are the area's own over its whole map area (tools/fetch_osm_terrain.py --water-only into
+        # data/monitoring/<area>/known-water.geojson) once fetched, else its scenario's terrain layer.
+        own_water = area.DATA_DIR / "known-water.geojson"
+        self.radar_pass = sentinel1.Latest(area.BBOX, self.data_dir, own_water if own_water.is_file() else getattr(area, "TERRAIN_FILE", None),
+                                           fetch, post,
                                            REPO_ROOT / "data" / "osm" / f"{area.DATA_DIR.name}-coastline" / "water_polygons.shp")
-        # The IoT nodes, as the demos' (app/backend/iot.py): MQTT techseed/<node>/<kind>, simulated
-        # unless a node says otherwise; connected by main() when a broker is given.
+        # The IoT nodes, as the demos' (app/backend/iot.py): MQTT techseed/<node>/<kind>, connected by main()
+        # when a broker is given. The monitoring builds on real data only (the user's decision on 2026-11-05),
+        # so only the nodes that say they are real ("simulated": false) are shown (state()).
         self.sensors = iot.SensorStore()
         self.places = gis.places(area.OSM_TARGETS_FILE, area.PLACE_TYPES) if hasattr(area, "OSM_TARGETS_FILE") else []
         # Mission control's map layers: shown on the main screen or not; as in the scenarios, the
@@ -121,7 +120,7 @@ class Monitor:
             self.view, self.speech = saved["view"], saved["speech"]
 
     def settings(self) -> dict[str, Any]:
-        """The display settings in use: the map layers, the simulated sensors, 2D or 3D and UPPLÄSNING."""
+        """The display settings in use: the map layers, 2D or 3D and UPPLÄSNING."""
         return {"layers": dict(self.layers), "view": self.view, "speech": self.speech}
 
     def saved_settings(self) -> dict[str, Any] | None:
@@ -222,8 +221,7 @@ class Monitor:
                            "attribution": "Händelser in (inkorgen)"})
             raised = self.store.apply(candidates, status, filtered, self._context(poll, stats))
             if self.speech and raised:
-                self.say([f"{'Simulerat larm' if alarm['simulated'] else 'Nytt larm'} i {area.NAME}: {alarm['title']}."
-                          for alarm in raised])
+                self.say([f"Nytt larm i {area.NAME}: {alarm['title']}." for alarm in raised])
             for result in status:
                 if not result["ok"]:
                     log.warning("Källa %s: %s", result["source"], result["error"])
@@ -246,8 +244,6 @@ class Monitor:
                 "firms": poll["firms"], "radar": poll["radar"], "fire_risk": poll["fire_risk"], "forecast": poll["forecast"],
                 "weather": self.weather.summary(), "satellite_image": self.image.meta, "landsat_image": self.landsat.meta,
                 "radar_pass": self.radar_pass.meta, "cloud_mask": self.clouds.meta if self.clouds else None,
-                "level_sensors": levels.readings(self.levels, poll["flows"], limits, poll.get("sea_level", []),
-                                                 getattr(self.area, "SEA_LEVEL_HIGH_CM", None)),
                 "sea_level": [{**gauge, "limit_cm": getattr(self.area, "SEA_LEVEL_HIGH_CM", None)} for gauge in poll.get("sea_level", [])],
                 "water_levels": poll.get("water_levels", []),
                 # Every station that gave no value lately, shown grey and listed in mission control as a hint it may be out of order.
@@ -261,6 +257,11 @@ class Monitor:
                  "longitude": item.get("longitude"), "last_utc": item.get("last_utc")}
                 for key, kind in kinds for item in poll.get(key, []) if item.get("silent") and item.get("latitude") is not None]
 
+    def _real_iot(self) -> dict[str, Any]:
+        """The IoT nodes' readings that say they are real; the others are left out without a trace."""
+        iot_state = self.sensors.snapshot()
+        return {**iot_state, "sensors": [sensor for sensor in iot_state["sensors"] if sensor["real"]]}
+
     def state(self) -> dict[str, Any]:
         state = self.store.snapshot()
         # New alarms first, then current ones, the latest first within each.
@@ -269,7 +270,7 @@ class Monitor:
         return {"area": {"name": self.area.NAME, "bbox": self.area.BBOX, "centre": self.area.CENTRE,
                          "poll_seconds": self.area.POLL_SECONDS, "contacts_note": self.area.CONTACTS_NOTE},
                 "view": self.view, "layers": self.layers, "speech": self.speech, "settings": self.settings_status(),
-                "iot": self.sensors.snapshot(),
+                "iot": self._real_iot(),
                 "polled_utc": state.get("polled_utc"), "alarms": alarms, "sources": state["sources"],
                 "filtered": state["filtered"], "events": state["events"][-50:], "refused": state["refused"][-50:],
                 "context": state["context"]}

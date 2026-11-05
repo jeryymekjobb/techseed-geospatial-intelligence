@@ -53,7 +53,6 @@ function drawAlarms(state) {
     tags.append(element("span", STATE_WORDS[alarm.state]), element("span", c.kind_word));
     if (!alarm.current) tags.append(element("span", "inte längre aktuellt"));
     if (c.single_source) tags.append(element("span", "en källa"));
-    if (c.simulated) tags.append(element("span", "SIMULERAD", "sim"));
     card.append(tags);
     const facts = element("ul");
     for (const fact of c.facts.slice(0, 4)) {
@@ -131,9 +130,8 @@ function drawDetections(state) {
       text: `NASA FIRMS: värmedetektion ${fire.instrument} (${fire.satellite}) vid ${fire.latitude.toFixed(3)} N, ${fire.longitude.toFixed(3)} E` });
   }
   for (const alarm of state.alarms) {
-    lines.push({ atMs: Date.parse(alarm.created_utc), kind: alarm.candidate.simulated ? "simulated" : "synthetic",
-      text: `LARM: ${alarm.candidate.title}${alarm.candidate.facts[0] ? ` – ${alarm.candidate.facts[0].text}` : ""}`
-        + `${alarm.candidate.simulated ? " (simulerad)" : ""}` });
+    lines.push({ atMs: Date.parse(alarm.created_utc), kind: "synthetic",
+      text: `LARM: ${alarm.candidate.title}${alarm.candidate.facts[0] ? ` – ${alarm.candidate.facts[0].text}` : ""}` });
   }
   const shown = lines.filter((line) => line.atMs >= nowMs - DAY_MS && line.atMs <= nowMs).sort((a, b) => b.atMs - a.atMs);
   const list = document.getElementById("detections");
@@ -208,7 +206,7 @@ async function refresh() {
     drawAlarms(state);
     drawSituation(state);
     drawSources(state);
-    drawList("events", state.events, (e) => `${e.time_utc} ${e.kind_word} – ${e.source}${e.simulated ? " (simulerad)" : ""} [${e.origin}]`);
+    drawList("events", state.events, (e) => `${e.time_utc} ${e.kind_word} – ${e.source} [${e.origin}]`);
     drawList("refused", state.refused, (r) => `${r.logged_utc} ${r.origin}: ${r.reason} – ${r.line}`);
     drawList("filtered", state.filtered, (f) => `${f.what}: ${f.reason}`);
   } catch (error) {
@@ -268,7 +266,6 @@ function showLayers(layers) {
     input.closest("label").hidden = !own.has(name);
     input.nextElementSibling.textContent = label;
   }
-  document.getElementById("simulated-toggle").checked = Boolean(layersShown.simulated);
 }
 
 async function postLayers(changes) {
@@ -278,8 +275,6 @@ async function postLayers(changes) {
   else document.getElementById("command-status").textContent = "Växlingen gick inte – tjänsten svarar inte.";
   refresh();
 }
-// One switch for every simulated sensor (the service's layer "simulated").
-document.getElementById("simulated-toggle").addEventListener("change", (event) => postLayers({ simulated: event.target.checked }));
 
 // SPARA INSTÄLLNINGAR, as the scenarios' SPARA PROFIL: red while the settings differ from those the
 // monitoring starts with; the line under it says which apply.
@@ -422,8 +417,10 @@ function drawSatelliteImage(state) {
   document.getElementById("satellite-image").textContent = (!meta ? "Optiskt: ingen bild än." : `Optiskt: ${optical(meta)}`)
     + (landsat ? `; ${optical(landsat)}.` : ".")
     + (!radar ? " Radar: ingen passage än." : ` Radar: ${radar.platform} ${localTime.format(new Date(radar.time_utc))}, `
-      + `vatten utanför sjöarna ${String(radar.new_water_pct).replace(".", ",")} % av marken (tröskel ${String(radar.threshold_db).replace(".", ",")} dB`
-      + `${radar.separable ? "" : ", vatten och mark går inte att skilja åt – osäker"}). Beräknat, inte en kartlagd översvämning.`
+      + (radar.separable === false
+        ? `vatten och mark går inte att skilja åt (${radar.not_separable_reason || "den mörkaste marken är lika mörk som vattnet"}), så inget vatten visas.`
+        : `vatten utanför sjöarna ${String(radar.new_water_pct).replace(".", ",")} % av marken (tröskel ${String(radar.threshold_db).replace(".", ",")} dB).`)
+      + ` Beräknat, inte en kartlagd översvämning.`
       + (radar.wetness_median_pct != null ? ` Fukt i terrängen: i median ${radar.wetness_median_pct} % mellan torrast och blötast `
         + `de senaste ${radar.wetness_passes} passagerna från samma bana – beräknat, inte uppmätt.` : ""))
     + ` ${(meta || radar)?.attribution || ""}${landsat ? ` ${landsat.attribution}.` : ""}`
@@ -442,21 +439,10 @@ function drawIot(state) {
   document.getElementById("iot-connection").textContent = `${iot.detail || "IoT är inte startat."}`
     + `${iot.rejected ? ` ${iot.rejected} meddelanden avvisade.` : ""}`;
   const list = document.getElementById("iot-sensors");
-  // Without the simulated sensors, only the nodes that said they are real.
-  const simulated = Boolean(state.layers?.simulated);
-  const hidden = (iot.sensors || []).filter((sensor) => !sensor.real).length + (state.context?.level_sensors || []).length;
-  list.replaceChildren(...(iot.sensors || []).filter((sensor) => simulated || sensor.real).map((sensor) => element("li",
-    `${sensor.node} ${sensor.kind}: ${sensor.value}${sensor.unit ? ` ${sensor.unit}` : ""}`
-      + `${sensor.real ? "" : " (simulerad)"}${sensor.online ? "" : " – har tystnat"}`, sensor.online ? "info" : "alert")));
-  // The scenarios' simulated level sensors (levels.py), driven by SMHI's flows.
-  for (const sensor of simulated ? state.context?.level_sensors || [] : []) {
-    const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
-      : sensor.unit === "cm" ? `havsvattenstånd vid ${sensor.station_name} ${String(sensor.value).replace(".", ",")} cm i RH2000`
-        : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
-    list.append(element("li", `${sensor.name}: ${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare)`,
-      sensor.alarm ? "alert" : "info"));
-  }
-  if (!simulated && hidden) list.append(element("li", `${hidden} simulerade sensorer är dolda.`, "info"));
+  // Only the nodes that say they are real: the monitoring builds on real data only (service._real_iot).
+  list.replaceChildren(...(iot.sensors || []).map((sensor) => element("li",
+    `${sensor.node} ${sensor.kind}: ${sensor.value}${sensor.unit ? ` ${sensor.unit}` : ""}${sensor.online ? "" : " – har tystnat"}`,
+    sensor.online ? "info" : "alert")));
   if (!list.children.length) list.append(element("li", "Inga sensorer har hörts av.", "ok"));
 }
 

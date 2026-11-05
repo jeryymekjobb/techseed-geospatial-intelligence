@@ -72,5 +72,3 @@ FLOOD_HAZARD_WMS = mcf_layer("12", "100-årsflöde, klimatanpassat (MCF)")
 FLOOD_HIGHEST_WMS = mcf_layer("9", "Beräknat högsta flöde (MCF)")
 FLOOD_ZONE_LABEL = "MCF:s klimatanpassade 100-årsflöde"
 FLOOD_ZONE_FILES = [_SCENARIO / "mcf" / "mcf-100ar.geojson"]
-# The scenario's simulated level sensors; only those following Ellinge are kept (levels.py).
-LEVEL_SENSOR_FILE = _SCENARIO / "sensors" / "level-points.geojson"

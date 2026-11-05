@@ -56,10 +56,6 @@ FLOW_STATIONS = {"1879": "Svedala (Sege å)"}
 SEA_LEVEL_STATIONS = {"2095": "Klagshamn", "30488": "Skanör"}
 # A proposal, as Falsterbo's scenario at Skanör (SEA_LEVEL_STORM_CM): a high sea level from 100 cm in RH2000.
 SEA_LEVEL_HIGH_CM = 100.0
-# The scenario's three simulated sensors on the beaches (Falsterbo, Ljunghusen, Kämpinge), following
-# Skanör there, follow Klagshamn here (levels.py).
-LEVEL_SENSOR_FILE = scenario_data("falsterbo") / "sensors" / "level-points.geojson"
-LEVEL_SENSOR_STATIONS = {"sea-30488": "sea-2095"}
 RAIN_STATIONS = {"52240": "Falsterbo A", "52350": "Malmö A"}
 # SMHI's weather stations giving values on 2026-11-04, with the parameters each reports.
 WEATHER_STATIONS = {

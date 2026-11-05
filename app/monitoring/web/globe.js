@@ -144,14 +144,6 @@ function levelGaugeText(gauge) {
   return `Vattenstånd ${gauge.name}: ${(gauge.value_cm / 100).toFixed(2).replace(".", ",")} m ${gauge.time_utc}${record} – SMHI, höjdsystem ej angivet`;
 }
 
-// The simulated level sensors (levels.py), as on the 2D map: a magenta ring, blue, red while alarming.
-const LEVEL_RING = "#e040fb";
-function levelText(sensor) {
-  const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
-    : sensor.unit === "cm" ? `havsvattenstånd vid ${sensor.station_name} ${String(sensor.value).replace(".", ",")} cm i RH2000 (larm vid ${sensor.alarm_cm} cm)`
-      : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
-  return `${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare, följer SMHI)`;
-}
 
 // SMHI's forecast grid (/api/weather) as the scenarios' globe draws ERA5-Land's wind and MET Norway's
 // chart (map3d.js): barbs lying on the ground, and the isobars, highs and lows, rain and thunder over
@@ -304,7 +296,7 @@ async function start() {
   const s1Wetness = imageDrawer(viewer, "/api/s1wetness.png", config.layers.radar.bbox, 0.85);
   const drawRadar = (stats, polled) => radarImage.draw(stats?.latest_utc ? `${stats.latest_utc}|${polled}` : null, config.layers.radar.attribution);
   const sources = {};
-  for (const name of ["stations", "simulated", "facilities", "names", "firms"]) {
+  for (const name of ["stations", "facilities", "names", "firms"]) {
     sources[name] = new Cesium.CustomDataSource(name);
     viewer.dataSources.add(sources[name]);
   }
@@ -365,9 +357,11 @@ async function start() {
     if (landsat) landsatImage.draw(landsat.time_utc, landsat.attribution);
     const pass = context.radar_pass;
     if (pass) {
-      s1Radar.draw(pass.time_utc, pass.attribution);
-      s1Water.draw(pass.time_utc, pass.attribution);
-      s1Wetness.draw(pass.time_utc, pass.attribution);
+      // A pass made again (made_utc) is drawn again, though its time is the same.
+      const key = `${pass.time_utc}|${pass.made_utc || ""}`;
+      s1Radar.draw(key, pass.attribution);
+      s1Water.draw(key, pass.attribution);
+      s1Wetness.draw(key, pass.attribution);
     }
     weather.refresh(context.weather);
     if (context.border && !border) {
@@ -382,15 +376,6 @@ async function start() {
     });
     sources.stations.entities.removeAll();
     sources.firms.entities.removeAll();
-    sources.simulated.entities.removeAll();
-    for (const sensor of context.level_sensors || []) {
-      sources.simulated.entities.add({
-        name: escapeText(`${sensor.name} (simulerad)`), description: escapeText(levelText(sensor)),
-        position: Cesium.Cartesian3.fromDegrees(sensor.longitude, sensor.latitude),
-        point: { pixelSize: 10, color: color(sensor.alarm ? STATION_MARKS.alarm : STATION_MARKS.normal), outlineColor: color(LEVEL_RING),
-          outlineWidth: 2, heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY },
-      });
-    }
     for (const flow of context.flows || []) {
       const mark = alarming(state, `flow-${flow.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
       if (flow.latitude != null) point(flow.latitude, flow.longitude, mark, 12, `Vattenföring ${flow.name}`,
@@ -419,7 +404,7 @@ async function start() {
       point(fire.latitude, fire.longitude, "#ff6d00", 8, `FIRMS ${fire.satellite}`, `${fire.instrument} ${fire.time_utc} – NASA FIRMS`, sources.firms);
     }
     for (const event of state.events || []) {
-      point(event.latitude, event.longitude, event.simulated ? "#e040fb" : "#6a1b9a", 9, `${event.kind_word}${event.simulated ? " (simulerad)" : ""}`,
+      point(event.latitude, event.longitude, "#6a1b9a", 9, event.kind_word,
         `${event.time_utc} – ${event.source}`);
     }
     const current = state.alarms.filter((alarm) => alarm.current && alarm.state !== "dismissed");

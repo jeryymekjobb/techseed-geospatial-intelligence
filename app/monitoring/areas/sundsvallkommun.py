@@ -3,8 +3,7 @@ and Ljungan in August 2023 as its scenarios; Flens kommun's monitoring is the te
 
 SMHI's stations on Selångersån and Ljungan in the municipality (Skallböle, Torpshammar) give only
 their corrected archive, no live values (checked 2026-11-04), so the flow is read at Norrsjön, on
-Ljungan upstream in Ånge; the scenarios' level sensors follow archived or modelled stations and are
-left out. The base map is the municipality's Kartan, already fetched for the scenarios, which the
+Ljungan upstream in Ånge. The base map is the municipality's Kartan, already fetched for the scenarios, which the
 user allowed on 2026-10-14 to be shown and kept locally. Its state and inbox live in the unversioned
 data/monitoring/sundsvallkommun/.
 """

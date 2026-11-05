@@ -131,9 +131,6 @@ FLOOD_HIGHEST_WMS = mcf_layer("9", "Beräknat högsta flöde (MCF)")  # noqa: F4
 FLOOD_ZONE_LABEL = "MCF:s klimatanpassade 100-årsflöde"
 # The Flen scenarios' 3D terrain from Copernicus's DEM (tools/build_terrain.py), quantized mesh.
 TERRAIN_DIR = REPO_ROOT / "data" / "flenkommun2024" / "terrain"
-# The Flen scenarios' simulated level sensors where larger roads cross MCF's 100-year flow of
-# Nyköpingsån (levels.py), each following Sibro 2 or Hallbosjön.
-LEVEL_SENSOR_FILE = REPO_ROOT / "data" / "flenkommun2024" / "sensors" / "level-points.geojson"
 # Flens kommun's cloudburst mapping of Flen's town (Skyfallskartering, gis.flen.se): the greatest water
 # depth at a 100- and a 500-year rain, which the user allowed for internal use on 2026-11-04. It has no
 # WMS and is fetched as transparent tiles by ArcGIS REST export (tools/fetch_municipal_basemap.py).

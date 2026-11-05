@@ -2,8 +2,7 @@
 scenarios; Flens kommun's monitoring is the template (common.py).
 
 Of SMHI's flow stations near the municipality only Risnäs on Gådeån gives live values (Hjälta and
-Sollefteå give their archive only, checked 2026-11-04); the scenarios' level sensors are kept where
-they follow it. Without the municipality's map the base map is OpenStreetMap. Its state and inbox
+Sollefteå give their archive only, checked 2026-11-04). Without the municipality's map the base map is OpenStreetMap. Its state and inbox
 live in the unversioned data/monitoring/kramforskommun/.
 """
 
@@ -54,5 +53,3 @@ FLOOD_HAZARD_WMS = mcf_layer("13", "100-årsflöde (MCF)")
 FLOOD_HIGHEST_WMS = mcf_layer("9", "Beräknat högsta flöde (MCF)")
 FLOOD_ZONE_LABEL = "MCF:s 100-årsflöde"
 FLOOD_ZONE_FILES = [_SCENARIO / "mcf" / "mcf-100ar.geojson"]
-# Västernorrland 2025's simulated level sensors; only those following Risnäs are kept (levels.py).
-LEVEL_SENSOR_FILE = scenario_data("vasternorrland2025") / "sensors" / "level-points.geojson"
