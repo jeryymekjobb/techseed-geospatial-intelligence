@@ -101,7 +101,7 @@ class Monitor:
         self.clouds = meteosat.CloudMask(area.BBOX, self.data_dir) if getattr(area, "METEOSAT_CLM", False) else None
         # The sea is known water too where the area's offline map has OSM's coastline (build_offline_tiles.py --area).
         self.radar_pass = sentinel1.Latest(area.BBOX, self.data_dir, getattr(area, "TERRAIN_FILE", None), fetch, post,
-                                           REPO_ROOT / "data" / "osm" / f"{self.data_dir.name}-coastline" / "water_polygons.shp")
+                                           REPO_ROOT / "data" / "osm" / f"{area.DATA_DIR.name}-coastline" / "water_polygons.shp")
         # The IoT nodes, as the demos' (app/backend/iot.py): MQTT techseed/<node>/<kind>, simulated
         # unless a node says otherwise; connected by main() when a broker is given.
         self.sensors = iot.SensorStore()
