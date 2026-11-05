@@ -53,6 +53,7 @@ STATIC = {"/control.html": (WEB_DIR / "control.html", HTML), "/control.js": (WEB
           "/control.css": (WEB_DIR / "control.css", CSS), "/3d.html": (WEB_DIR / "globe.html", HTML),
           "/globe.js": (WEB_DIR / "globe.js", JS), "/globe.css": (WEB_DIR / "globe.css", CSS),
           "/2d.html": (WEB_DIR / "map2d.html", HTML), "/map2d.js": (WEB_DIR / "map2d.js", JS),
+          "/station_text.js": (WEB_DIR / "station_text.js", JS),
           "/monitor.html": (WEB_DIR / "satellites.html", HTML), "/satellites.js": (WEB_DIR / "satellites.js", JS),
           "/orbits.js": (FRONTEND_DIR / "orbits.js", JS), "/wind_barbs.js": (FRONTEND_DIR / "wind_barbs.js", JS), "/satmonitor.js": (FRONTEND_DIR / "satmonitor.js", JS),
           "/credits.js": (FRONTEND_DIR / "credits.js", JS),

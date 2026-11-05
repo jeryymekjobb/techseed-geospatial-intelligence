@@ -1203,7 +1203,7 @@ def test_a_municipal_map_shows_its_fallback_until_its_own_is_fetched(tmp_path: P
 
 def test_the_2d_map_draws_the_marks_over_the_wind_arrows_and_images() -> None:
     script = (Path(service.WEB_DIR) / "map2d.js").read_text(encoding="utf-8")
-    assert 'map.createPane("marks").style.zIndex = 650' in script
+    assert 'map.createPane("marks").style.zIndex = 640' in script  # over the wind arrows (600), under the tooltips (650)
     assert 'L.circleMarker([lat, lon], { pane: "marks", ...style })' in script and 'fillOpacity: 1, pane: "marks" }' in script
 
 
@@ -1232,8 +1232,8 @@ def test_a_municipal_rain_gauge_shows_when_dry_and_gives_its_day_and_latest_hour
     assert [item["name"] for item in found] == ["Heffners"]
     names = {settings["name"] for settings in sundsvallkommun.WEATHER_STATIONS.values() if settings.get("rain_gauge")}
     assert {"Heffners", "Fillan", "Bredsand", "Essvik"} <= names
-    for name in ("map2d.js", "globe.js"):
-        assert "inget regn uppmätt senaste dygnet" in (Path(service.WEB_DIR) / name).read_text(encoding="utf-8")
+    # Both maps take the text from station_text.js.
+    assert "Inget regn uppmätt senaste dygnet" in (Path(service.WEB_DIR) / "station_text.js").read_text(encoding="utf-8")
 
 
 def test_a_silent_station_is_placed_from_its_description_and_listed(tmp_path: Path) -> None:
@@ -1297,3 +1297,30 @@ def test_the_radar_s_known_water_is_the_area_s_own_once_fetched(tmp_path: Path) 
     (tmp_path / "known-water.geojson").write_text('{"type": "FeatureCollection", "features": []}')
     monitor = service.Monitor(area(DATA_DIR=tmp_path, TERRAIN_FILE=scenario), fake_fetch({}), tmp_path, NO_SCENES)
     assert monitor.radar_pass.terrain_file == tmp_path / "known-water.geojson"
+
+
+@pytest.mark.skipif(__import__("shutil").which("node") is None, reason="needs Node.js")
+def test_a_station_s_text_has_one_fact_a_line_on_both_maps() -> None:
+    import subprocess
+
+    script = (Path(service.WEB_DIR) / "station_text.js").read_text(encoding="utf-8") + """
+const lines = {
+  flow: flowLines({ name: "Sibro 2", value: 12.5, time_utc: "2026-11-05T10:15:00Z", limits: { high: 30, record: 51.5 } }),
+  station: stationLines({ name: "Floda A", values: { temp_c: 4.1, wind_ms: 5, wind_from_deg: 225, rain_1h_mm: 0 },
+    times: { temp: "2026-11-05T10:00:00Z" } }),
+  gauge: stationLines({ name: "Heffners", values: { rain_24h_mm: 0 }, times: {} }),
+  silent: silentLines({ name: "Ramnäs", kind: "flöde", last_utc: null }),
+};
+console.log(JSON.stringify(lines));
+"""
+    lines = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
+    assert lines["flow"] == ["Vattenföring Sibro 2", "Flöde: 12,5 m³/s", "Högt flöde över: 30 m³/s", "Rekord: 51,5 m³/s",
+                             "Mätt: 2026-11-05 10:15 UTC", "Källa: SMHI"]
+    assert lines["station"] == ["SMHI Floda A", "Temperatur: 4,1 °C", "Vind: 5 m/s från 225°", "Regn senaste timmen: 0 mm",
+                                "Mätt: 2026-11-05 10:00 UTC", "Källa: SMHI"]
+    assert lines["gauge"] == ["SMHI Heffners", "Inget regn uppmätt senaste dygnet", "Källa: SMHI"]
+    assert lines["silent"][1:3] == ["Har aldrig lämnat värden", "Kan vara ur funktion"]
+    for page in ("map2d.html", "globe.html"):
+        html = (Path(service.WEB_DIR) / page).read_text(encoding="utf-8")
+        assert html.index('src="/station_text.js"') < html.index('src="/map2d.js"' if page == "map2d.html" else 'src="/globe.js"')
+    assert "/station_text.js" in service.STATIC
