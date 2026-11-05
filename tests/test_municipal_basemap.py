@@ -113,6 +113,17 @@ def test_a_map_with_its_own_colour_outside_keeps_that_transparent_and_its_white_
     assert fetch.outside_colour({}) == (255, 255, 255)
 
 
+def test_a_map_may_name_further_colours_to_make_transparent() -> None:
+    # Vellinge's pale blue sea, so OSM's sea shows where the border runs out at sea.
+    image = Image.new("RGBA", (3, 1))
+    for x, pixel in enumerate([(253, 253, 253, 255), (189, 231, 254, 255), (254, 254, 235, 255)]):
+        image.putpixel((x, 0), pixel)
+    colours = fetch.clear_colours({"outside_colour": (253, 253, 253), "transparent_colours": [(189, 231, 254)]})
+    cleared = fetch.clear_white(image, colours)
+    assert [cleared.getpixel((x, 0))[3] for x in range(3)] == [0, 0, 255]
+    assert fetch.clear_colours({}) == [(255, 255, 255)]
+
+
 def test_a_map_white_outside_the_municipality_keeps_its_white_transparent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP", {**BASEMAP, "white_outside": True})
     monkeypatch.setattr(fetch.scenario, "MUNICIPAL_BASEMAP_BBOX", BBOX)
