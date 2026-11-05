@@ -141,10 +141,13 @@ def demos() -> list[dict[str, Any]]:
 
 
 def monitoring_areas() -> list[dict[str, Any]]:
-    """The start page's areas with continuous monitoring: each one's name, title and label."""
+    """The start page's areas with continuous monitoring: each one's name, title, county and label, grouped
+    by county in alphabetical order as the scenarios, and in alphabetical order within it."""
     from app.monitoring import areas
 
-    return [{"name": name, "title": areas.load(name).NAME, "label": MONITORING_LABEL} for name in areas.AVAILABLE]
+    found = [{"name": name, "title": areas.load(name).NAME, "region": areas.load(name).COUNTY, "label": MONITORING_LABEL}
+             for name in areas.AVAILABLE]
+    return sorted(found, key=lambda area: (swedish_order(area["region"]), swedish_order(area["title"])))
 
 
 class MenuHandler(BaseHTTPRequestHandler):

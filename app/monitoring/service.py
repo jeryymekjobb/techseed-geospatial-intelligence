@@ -35,9 +35,10 @@ from types import ModuleType
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-from app.backend import offline_tiles
+from app.backend import lantmateriet, offline_tiles
 from app.backend import iot
-from app.monitoring import (areas, briefing, events, geo, gis, levels, meteosat, radar, rules, satellites, sentinel1, sentinel2,
+from app.backend.scenarios import REPO_ROOT
+from app.monitoring import (areas, briefing, events, geo, gis, meteosat, radar, rules, satellites, sentinel1, sentinel2,
                             sources, weather)
 from app.monitoring.alarms import Store
 
@@ -61,9 +62,7 @@ BASEMAP_TILE = re.compile(r"/basemap/([a-z0-9]+)/(\d{1,2})/(\d+)/(\d+)\.png")
 # The map layers mission control switches on the main screen, and whether each starts on.
 LAYERS = {"municipal": True, "flood": True, "radar": True, "wind": True, "chart": False, "facilities": True, "names": True,
           "stations": True, "firms": True, "satellite": False, "s1radar": False, "s1water": True,
-          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall100": False, "skyfall500": False,
-          # One switch for every simulated sensor: the level sensors (levels.py) and the IoT nodes not marked real.
-          "simulated": True}
+          "s1wetness": False, "landsat": False, "flood_highest": False, "skyfall30": False, "skyfall100": False, "skyfall500": False}
 # OpenStreetMap's standard map outside the municipality, the one-pager's fallback where there is no
 # GIS map: it has land cover at every zoom and no edge; the demos' offline map takes its place only
 # when it does not answer.
@@ -89,12 +88,21 @@ class Monitor:
         self.image = sentinel2.Latest(area.BBOX, self.data_dir, fetch, post)
         self.landsat = sentinel2.Latest(area.BBOX, self.data_dir, fetch, post, kind=sentinel2.LANDSAT)
         self.terrain_dir: Path | None = getattr(area, "TERRAIN_DIR", None)
-        # The scenarios' simulated level sensors (levels.py) and Meteosat's cloud mask (meteosat.py).
-        self.levels = levels.load(getattr(area, "LEVEL_SENSOR_FILE", None))
+        # Lantmäteriet's Topografisk webbkarta as the base map where the municipality has none of its own
+        # (LANTMATERIET_BASEMAP), once the Geotorget settings are in ~/.lantmateriet or the environment.
+        self.lantmateriet = lantmateriet.Settings.from_file_or_environment()
+        # Meteosat's cloud mask (meteosat.py).
         self.clouds = meteosat.CloudMask(area.BBOX, self.data_dir) if getattr(area, "METEOSAT_CLM", False) else None
-        self.radar_pass = sentinel1.Latest(area.BBOX, self.data_dir, getattr(area, "TERRAIN_FILE", None), fetch, post)
-        # The IoT nodes, as the demos' (app/backend/iot.py): MQTT techseed/<node>/<kind>, simulated
-        # unless a node says otherwise; connected by main() when a broker is given.
+        # The sea is known water too where the area's offline map has OSM's coastline (build_offline_tiles.py --area).
+        # The known lakes are the area's own over its whole map area (tools/fetch_osm_terrain.py --water-only into
+        # data/monitoring/<area>/known-water.geojson) once fetched, else its scenario's terrain layer.
+        own_water = area.DATA_DIR / "known-water.geojson"
+        self.radar_pass = sentinel1.Latest(area.BBOX, self.data_dir, own_water if own_water.is_file() else getattr(area, "TERRAIN_FILE", None),
+                                           fetch, post,
+                                           REPO_ROOT / "data" / "osm" / f"{area.DATA_DIR.name}-coastline" / "water_polygons.shp")
+        # The IoT nodes, as the demos' (app/backend/iot.py): MQTT techseed/<node>/<kind>, connected by main()
+        # when a broker is given. The monitoring builds on real data only (the user's decision on 2026-11-05),
+        # so only the nodes that say they are real ("simulated": false) are shown (state()).
         self.sensors = iot.SensorStore()
         self.places = gis.places(area.OSM_TARGETS_FILE, area.PLACE_TYPES) if hasattr(area, "OSM_TARGETS_FILE") else []
         # Mission control's map layers: shown on the main screen or not; as in the scenarios, the
@@ -112,7 +120,7 @@ class Monitor:
             self.view, self.speech = saved["view"], saved["speech"]
 
     def settings(self) -> dict[str, Any]:
-        """The display settings in use: the map layers, the simulated sensors, 2D or 3D and UPPLÄSNING."""
+        """The display settings in use: the map layers, 2D or 3D and UPPLÄSNING."""
         return {"layers": dict(self.layers), "view": self.view, "speech": self.speech}
 
     def saved_settings(self) -> dict[str, Any] | None:
@@ -165,6 +173,12 @@ class Monitor:
             if silent:
                 results["smhi_flow"].note = "inga värden senaste dygnet: " + ", ".join(silent)
             results["smhi_rain"] = sources.guarded("smhi_rain", lambda: sources.read_rain(area.RAIN_STATIONS, fetch))
+            if getattr(area, "WATER_LEVEL_STATIONS", None):
+                results["smhi_water_level"] = sources.guarded("smhi_water_level", lambda: sources.read_water_levels(
+                    area.WATER_LEVEL_STATIONS, fetch, self.data_dir / "water-level-records.json"))
+            if getattr(area, "SEA_LEVEL_STATIONS", None):
+                results["smhi_sea_level"] = sources.guarded("smhi_sea_level",
+                                                            lambda: sources.read_sea_level(area.SEA_LEVEL_STATIONS, fetch))
             results["smhi_warnings"] = sources.guarded(
                 "smhi_warnings", lambda: sources.read_warnings(area.SMHI_COUNTY_ID, border, fetch))
             results["smhi_radar"] = sources.guarded("smhi_radar", lambda: [self.radar.update(border)])
@@ -192,8 +206,10 @@ class Monitor:
                     "fire_ban": results["mcf_fire_ban"].items, "firms": results["firms"].items,
                     "radar": results["smhi_radar"].items[0] if results["smhi_radar"].items else None,
                     "fire_risk": results["smhi_fire_risk"].items, "forecast": results["smhi_forecast"].items,
-                    "weather_stations": results["smhi_stations"].items}
-            assets = sources.guarded("flen_gis", lambda: [self.assets.load()] if self.assets else [])
+                    "weather_stations": results["smhi_stations"].items,
+                    "sea_level": results["smhi_sea_level"].items if "smhi_sea_level" in results else [],
+                    "water_levels": results["smhi_water_level"].items if "smhi_water_level" in results else []}
+            assets = sources.guarded("gis", lambda: [self.assets.load()] if self.assets else [])
             candidates, filtered = rules.detect(poll, recent, area)
             # What each alarm may threaten, from the municipality's GIS (gis.py).
             if assets.ok and self.assets:
@@ -205,8 +221,7 @@ class Monitor:
                            "attribution": "Händelser in (inkorgen)"})
             raised = self.store.apply(candidates, status, filtered, self._context(poll, stats))
             if self.speech and raised:
-                self.say([f"{'Simulerat larm' if alarm['simulated'] else 'Nytt larm'} i {area.NAME}: {alarm['title']}."
-                          for alarm in raised])
+                self.say([f"Nytt larm i {area.NAME}: {alarm['title']}." for alarm in raised])
             for result in status:
                 if not result["ok"]:
                     log.warning("Källa %s: %s", result["source"], result["error"])
@@ -220,7 +235,8 @@ class Monitor:
         # The flows with their latest day for mission control's charts.
         flows = [{"station": item["station"], "name": item["name"], "latitude": item["latitude"], "longitude": item["longitude"],
                   "value": item["readings"][-1]["value"], "time_utc": item["readings"][-1]["time_utc"],
-                  "quality": item["readings"][-1]["quality"], "limits": limits.get(item["station"]),
+                  "quality": item["readings"][-1]["quality"],
+                  "limits": None if (limits.get(item["station"]) or {}).get("missing") else limits.get(item["station"]),
                   "series": [{"time_utc": reading["time_utc"], "value": reading["value"]} for reading in item["readings"]]}
                  for item in poll["flows"] if item["readings"]]
         return {"border": poll["border"], "flows": flows, "rain": poll["rain"], "warnings": poll["warnings"],
@@ -228,8 +244,23 @@ class Monitor:
                 "firms": poll["firms"], "radar": poll["radar"], "fire_risk": poll["fire_risk"], "forecast": poll["forecast"],
                 "weather": self.weather.summary(), "satellite_image": self.image.meta, "landsat_image": self.landsat.meta,
                 "radar_pass": self.radar_pass.meta, "cloud_mask": self.clouds.meta if self.clouds else None,
-                "level_sensors": levels.readings(self.levels, poll["flows"], limits),
+                "sea_level": [{**gauge, "limit_cm": getattr(self.area, "SEA_LEVEL_HIGH_CM", None)} for gauge in poll.get("sea_level", [])],
+                "water_levels": poll.get("water_levels", []),
+                # Every station that gave no value lately, shown grey and listed in mission control as a hint it may be out of order.
+                "silent": self._silent(poll),
                 "weather_stations": poll.get("weather_stations", [])}
+
+    @staticmethod
+    def _silent(poll: dict[str, Any]) -> list[dict[str, Any]]:
+        kinds = (("flows", "flöde"), ("sea_level", "havsnivå"), ("water_levels", "vattenstånd"), ("weather_stations", "väder och regn"))
+        return [{"station": item["station"], "name": item["name"], "kind": kind, "latitude": item.get("latitude"),
+                 "longitude": item.get("longitude"), "last_utc": item.get("last_utc")}
+                for key, kind in kinds for item in poll.get(key, []) if item.get("silent") and item.get("latitude") is not None]
+
+    def _real_iot(self) -> dict[str, Any]:
+        """The IoT nodes' readings that say they are real; the others are left out without a trace."""
+        iot_state = self.sensors.snapshot()
+        return {**iot_state, "sensors": [sensor for sensor in iot_state["sensors"] if sensor["real"]]}
 
     def state(self) -> dict[str, Any]:
         state = self.store.snapshot()
@@ -239,7 +270,7 @@ class Monitor:
         return {"area": {"name": self.area.NAME, "bbox": self.area.BBOX, "centre": self.area.CENTRE,
                          "poll_seconds": self.area.POLL_SECONDS, "contacts_note": self.area.CONTACTS_NOTE},
                 "view": self.view, "layers": self.layers, "speech": self.speech, "settings": self.settings_status(),
-                "iot": self.sensors.snapshot(),
+                "iot": self._real_iot(),
                 "polled_utc": state.get("polled_utc"), "alarms": alarms, "sources": state["sources"],
                 "filtered": state["filtered"], "events": state["events"][-50:], "refused": state["refused"][-50:],
                 "context": state["context"]}
@@ -252,6 +283,12 @@ class Monitor:
             self.speaker = speech.Speaker()
         self.speaker.say([(text, "alma") for text in texts])
 
+    @staticmethod
+    def map_dir(item: dict[str, Any]) -> Path:
+        """A municipal map's folder: its own once fetched (SOURCE.json), else its fallback (a scenario's map)."""
+        own = item["dir"]
+        return own if (own / "SOURCE.json").is_file() or "fallback_dir" not in item else item["fallback_dir"]
+
     def municipal_maps(self, overlays: bool = False) -> list[dict[str, Any]]:
         """The area's municipal maps that are fetched (their SOURCE.json written), for the screens: the
         base maps, or with `overlays` the maps laid over them (the cloudburst mapping)."""
@@ -260,13 +297,25 @@ class Monitor:
             if bool(item.get("overlay")) != overlays:
                 continue
             try:
-                source = json.loads((item["dir"] / "SOURCE.json").read_text(encoding="utf-8"))
+                source = json.loads((self.map_dir(item) / "SOURCE.json").read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 continue
             found.append({"id": item["id"], "label": item["label"], "attribution": item["attribution"],
                           "url": f"/basemap/{item['id']}/{{z}}/{{x}}/{{y}}.png", "min_zoom": source["min_zoom"],
                           "max_zoom": source["max_zoom"], "bbox": source["bbox_west_south_east_north"]})
         return found
+
+    def lantmateriet_maps(self) -> list[dict[str, Any]]:
+        """Lantmäteriet's Topografisk webbkarta through /lm/topowebb/, for an area without its own map, once configured."""
+        if not getattr(self.area, "LANTMATERIET_BASEMAP", False) or not self.lantmateriet.topowebb_enabled:
+            return []
+        return [{"id": "lmtopowebb", "label": "Lantmäteriet (Topografisk webbkarta)", "attribution": "© Lantmäteriet",
+                 "url": "/lm/topowebb/{z}/{x}/{y}.png", "min_zoom": 5, "max_zoom": 17, "bbox": list(self.area.BBOX)}]
+
+    def wms_overlays(self) -> list[dict[str, Any]]:
+        """The area's maps laid over the others straight from the municipality's WMS (WMS_OVERLAYS)."""
+        return [{"id": item["id"], "label": item["label"], "attribution": item["attribution"], "bbox": list(self.area.BBOX),
+                 "wms": {"url": item["url"], "layers": item["layers"]}} for item in getattr(self.area, "WMS_OVERLAYS", [])]
 
     def config(self) -> dict[str, Any]:
         """What the screens need to start: the area and the base maps."""
@@ -275,7 +324,7 @@ class Monitor:
                          "poll_seconds": self.area.POLL_SECONDS,
                          # What the satellite monitor logs of Sentinel-1's water outside the lakes (sentinel1.py).
                          "s1_water_log_pct": getattr(self.area, "S1_WATER_LOG_PCT", 0.5)},
-                "maps": {"municipal": self.municipal_maps(),
+                "maps": {"municipal": self.municipal_maps() + self.lantmateriet_maps(),
                          "offline": {"url": "/tiles/{z}/{x}/{y}.png", "bbox": getattr(self.area, "MAP_BBOX", self.area.BBOX),
                                      "attribution": "© OpenStreetMap contributors"} if offline else None,
                          "overlay": {"url": offline_tiles.OVERLAY_URL, "label": offline_tiles.OVERLAY_LABEL,
@@ -285,7 +334,8 @@ class Monitor:
                                      "attribution": radar.ATTRIBUTION},
                            "flood": getattr(self.area, "FLOOD_HAZARD_WMS", None),
                            "flood_highest": getattr(self.area, "FLOOD_HIGHEST_WMS", None),
-                           "overlays": self.municipal_maps(overlays=True)},
+                           # The cloudburst mappings: fetched tiles (Flen's) and live WMS (Sundsvall's, Västerås's).
+                           "overlays": self.municipal_maps(overlays=True) + self.wms_overlays()},
                 # The scenarios' 3D terrain, when the area has it (/terrain/).
                 "terrain": "/terrain/" if self.terrain_dir and (self.terrain_dir / "layer.json").is_file() else None}
 
@@ -365,6 +415,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(png or radar.EMPTY_PNG, "image/png")
         elif path.startswith("/terrain/"):
             self.terrain(path)
+        elif path.startswith("/lm/topowebb/"):
+            self.topowebb(path)
         elif path in ("/api/s1radar.png", "/api/s1water.png", "/api/s1wetness.png"):
             png = self.monitor.radar_pass.png(path[len("/api/s1"):-len(".png")])
             self.send_body(png or radar.EMPTY_PNG, "image/png")
@@ -404,6 +456,25 @@ class Handler(BaseHTTPRequestHandler):
             content_type += "; charset=utf-8"
         self.send_body(target.read_bytes(), content_type)
 
+    def topowebb(self, path: str) -> None:
+        """Lantmäteriet's tiles through the service, so the Geotorget credentials stay on the server."""
+        parts = path.removeprefix("/lm/topowebb/").removesuffix(".png").split("/")
+        if not getattr(self.monitor.area, "LANTMATERIET_BASEMAP", False) or len(parts) != 3 or not all(part.isdigit() for part in parts):
+            self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        try:
+            body, content_type = lantmateriet.topowebb_tile(self.monitor.lantmateriet, *(int(part) for part in parts))
+        except lantmateriet.NotConfigured:
+            self.send_json({"error": "not_configured"}, HTTPStatus.NOT_FOUND)
+            return
+        except ValueError:
+            self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        except lantmateriet.UpstreamError as error:
+            self.send_json({"error": "upstream", "status": error.status}, HTTPStatus.BAD_GATEWAY)
+            return
+        self.send_body(body, content_type)
+
     def terrain(self, path: str) -> None:
         """The scenarios' 3D terrain, as the demo's backend serves it (app/backend/server.py)."""
         root = self.monitor.terrain_dir
@@ -439,7 +510,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def municipal_tile(self, map_id: str, z: int, x: int, y: int) -> None:
         item = next((item for item in getattr(self.monitor.area, "MUNICIPAL_BASEMAPS", []) if item["id"] == map_id), None)
-        target = item["dir"] / str(z) / str(x) / f"{y}.png" if item else None
+        target = Monitor.map_dir(item) / str(z) / str(x) / f"{y}.png" if item else None
         if target is None or not target.is_file():
             self.send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
         else:

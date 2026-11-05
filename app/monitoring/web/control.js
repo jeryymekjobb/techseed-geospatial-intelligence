@@ -12,14 +12,16 @@ const clockTime = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm
   hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const DAY_MS = 86400000;
 let waterLogPct = 0.5;
+// The area's own maps and layers (/api/config): a layer the area lacks has no box to tick.
+let areaConfig = null;
 fetch("/api/config", { cache: "no-store" }).then((response) => response.json())
-  .then((config) => { waterLogPct = config.area.s1_water_log_pct; }).catch(() => null);
+  .then((config) => { areaConfig = config; waterLogPct = config.area.s1_water_log_pct; showLayers(layersShown); }).catch(() => null);
 const STATE_WORDS = { new: "Nytt", confirmed: "Bekräftat", dismissed: "Avfärdat" };
 const SOURCE_WORDS = {
   mcf_border: "Kommungräns (MCF)", smhi_flow: "Vattenföring (SMHI)", smhi_flow_statistics: "Flödesstatistik (SMHI)",
-  smhi_rain: "Nederbörd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
+  smhi_rain: "Nederbörd (SMHI)", smhi_sea_level: "Havsvattenstånd (SMHI)", smhi_water_level: "Vattenstånd (SMHI)", smhi_warnings: "Varningar (SMHI)", krisinformation: "VMA och nyheter (Krisinformation)",
   smhi_radar: "Väderradar (SMHI)", smhi_grid: "Vind och väderkarta (SMHI)", smhi_stations: "Väderstationer (SMHI)",
-  sentinel2: "Satellitbild (Sentinel-2)", landsat: "Satellitbild (Landsat)", sentinel1: "Radarbild (Sentinel-1)", flen_gis: "Skyddsvärda objekt (kommunens GIS)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
+  sentinel2: "Satellitbild (Sentinel-2)", landsat: "Satellitbild (Landsat)", sentinel1: "Radarbild (Sentinel-1)", gis: "Skyddsvärda objekt (GIS, OSM)", smhi_fire_risk: "Brandrisk (SMHI)", smhi_forecast: "Väderprognos (SMHI)",
   meteosat_clm: "Moln (Meteosat)", mcf_fire_ban: "Eldningsförbud (MCF)", firms: "Brandpunkter (NASA FIRMS)", inbox: "Händelser in (inkorgen)",
 };
 
@@ -51,7 +53,6 @@ function drawAlarms(state) {
     tags.append(element("span", STATE_WORDS[alarm.state]), element("span", c.kind_word));
     if (!alarm.current) tags.append(element("span", "inte längre aktuellt"));
     if (c.single_source) tags.append(element("span", "en källa"));
-    if (c.simulated) tags.append(element("span", "SIMULERAD", "sim"));
     card.append(tags);
     const facts = element("ul");
     for (const fact of c.facts.slice(0, 4)) {
@@ -101,6 +102,14 @@ function drawSituation(state) {
     lines.push(`Vind ${localTime.format(new Date(context.weather.valid_utc))}: ${wind.speed_ms} m/s från ${wind.from_deg}° (prognos, SMHI)`);
   }
   for (const flow of context.flows || []) lines.push(`${flow.name}: ${flow.value} m³/s`);
+  for (const gauge of context.water_levels || []) {
+    if (gauge.value_cm == null) continue;
+    const below = gauge.record_cm != null ? `, ${String(((gauge.record_cm - gauge.value_cm) / 100).toFixed(2)).replace(".", ",")} m under arkivets högsta` : "";
+    lines.push(`Vattenstånd ${gauge.name}: ${String((gauge.value_cm / 100).toFixed(2)).replace(".", ",")} m (${localTime.format(new Date(gauge.time_utc))})${below}`);
+  }
+  for (const gauge of context.sea_level || []) {
+    if (gauge.value_cm != null) lines.push(`Havsvattenstånd ${gauge.name}: ${String(gauge.value_cm).replace(".", ",")} cm i RH2000`);
+  }
   const list = document.getElementById("situation");
   list.replaceChildren(...lines.map((text) => element("li", text, "info")));
 }
@@ -121,9 +130,8 @@ function drawDetections(state) {
       text: `NASA FIRMS: värmedetektion ${fire.instrument} (${fire.satellite}) vid ${fire.latitude.toFixed(3)} N, ${fire.longitude.toFixed(3)} E` });
   }
   for (const alarm of state.alarms) {
-    lines.push({ atMs: Date.parse(alarm.created_utc), kind: alarm.candidate.simulated ? "simulated" : "synthetic",
-      text: `LARM: ${alarm.candidate.title}${alarm.candidate.facts[0] ? ` – ${alarm.candidate.facts[0].text}` : ""}`
-        + `${alarm.candidate.simulated ? " (simulerad)" : ""}` });
+    lines.push({ atMs: Date.parse(alarm.created_utc), kind: "synthetic",
+      text: `LARM: ${alarm.candidate.title}${alarm.candidate.facts[0] ? ` – ${alarm.candidate.facts[0].text}` : ""}` });
   }
   const shown = lines.filter((line) => line.atMs >= nowMs - DAY_MS && line.atMs <= nowMs).sort((a, b) => b.atMs - a.atMs);
   const list = document.getElementById("detections");
@@ -148,7 +156,17 @@ function drawLog(state) {
   if (!list.children.length) list.append(element("li", "Inga larm än.", "ok"));
 }
 
+// The stations that gave no value lately: a list to report from, as the user asked.
+function drawSilent(state) {
+  const list = document.getElementById("silent-stations");
+  const items = state.context?.silent || [];
+  list.replaceChildren(...items.map((item) => element("li", `${item.name} (${item.kind}): `
+    + `${item.last_utc ? `inga värden sedan ${item.last_utc.slice(0, 10)}` : "har aldrig lämnat värden"}`, "alert")));
+  if (!items.length) list.append(element("li", "Alla stationer har lämnat värden.", "ok"));
+}
+
 function drawSources(state) {
+  drawSilent(state);
   const table = document.getElementById("sources");
   table.replaceChildren();
   for (const source of state.sources) {
@@ -188,7 +206,7 @@ async function refresh() {
     drawAlarms(state);
     drawSituation(state);
     drawSources(state);
-    drawList("events", state.events, (e) => `${e.time_utc} ${e.kind_word} – ${e.source}${e.simulated ? " (simulerad)" : ""} [${e.origin}]`);
+    drawList("events", state.events, (e) => `${e.time_utc} ${e.kind_word} – ${e.source} [${e.origin}]`);
     drawList("refused", state.refused, (r) => `${r.logged_utc} ${r.origin}: ${r.reason} – ${r.line}`);
     drawList("filtered", state.filtered, (f) => `${f.what}: ${f.reason}`);
   } catch (error) {
@@ -207,19 +225,33 @@ document.getElementById("switch-demo").addEventListener("click", async () => {
 
 // The map layers on the main screen, ticked here as in the scenarios' mission control (/api/layers).
 const LAYER_LABELS = {
-  municipal: "Kommunens karta (Flens kommun)", flood: "Översvämning, 100-årsflöde (MCF)", radar: "Väderradar (SMHI)",
+  municipal: "Kommunens karta", flood: "Översvämning, 100-årsflöde (MCF)", radar: "Väderradar (SMHI)",
   wind: "Vindpilar (SMHI, prognos)", chart: "Väderkarta (SMHI, prognos)", stations: "SMHI:s stationer",
   facilities: "Skyddsvärda objekt (kommunens GIS)", names: "Ortnamn (OSM)", firms: "Brandpunkter (NASA FIRMS)",
   satellite: "Satellitbild (Sentinel-2)", s1radar: "Radarbild (Sentinel-1)", s1water: "Vatten utanför sjöarna, radar (rött)",
   s1wetness: "Fukt i terrängen, radar (brun torr – blå blöt)", landsat: "Satellitbild (Landsat)",
   flood_highest: "Översvämning, beräknat högsta flöde (MCF)",
-  skyfall100: "Skyfall, vattendjup vid 100-årsregn (Flens kommun)", skyfall500: "Skyfall, vattendjup vid 500-årsregn (Flens kommun)",
+  skyfall30: "Skyfall, vattendjup vid 30-årsregn (kommunen)", skyfall100: "Skyfall, vattendjup vid 100-årsregn (kommunen)", skyfall500: "Skyfall, vattendjup vid 500-årsregn (kommunen)",
 };
 let layersShown = {};
+// The labels of the area's own layers, and whether the area has them (areaConfig; all until it comes).
+function areaLayers() {
+  if (!areaConfig) return { labels: {}, has: () => true };
+  const overlays = Object.fromEntries((areaConfig.layers.overlays || []).map((item) => [item.id, item]));
+  const labels = { municipal: `Kommunens karta (${areaConfig.area.name})` };
+  for (const name of ["flood", "flood_highest"]) if (areaConfig.layers[name]) labels[name] = `Översvämning, ${areaConfig.layers[name].label}`;
+  for (const [id, item] of Object.entries(overlays)) labels[id] = item.label;
+  const has = (name) => (name === "municipal" ? areaConfig.maps.municipal.length > 0
+    : name === "flood" || name === "flood_highest" ? Boolean(areaConfig.layers[name])
+      : name.startsWith("skyfall") ? Boolean(overlays[name]) : true);
+  return { labels, has };
+}
 function showLayers(layers) {
   layersShown = { ...(layers || {}) };
   const box = document.getElementById("map-layers");
-  for (const [name, label] of Object.entries(LAYER_LABELS)) {
+  const own = areaLayers();
+  for (const [name, fallback] of Object.entries(LAYER_LABELS)) {
+    const label = own.labels[name] || fallback;
     let input = box.querySelector(`input[value="${name}"]`);
     if (!input) {
       const row = element("label");
@@ -231,8 +263,9 @@ function showLayers(layers) {
       box.append(row);
     }
     input.checked = Boolean(layersShown[name]);
+    input.closest("label").hidden = !own.has(name);
+    input.nextElementSibling.textContent = label;
   }
-  document.getElementById("simulated-toggle").checked = Boolean(layersShown.simulated);
 }
 
 async function postLayers(changes) {
@@ -242,8 +275,6 @@ async function postLayers(changes) {
   else document.getElementById("command-status").textContent = "Växlingen gick inte – tjänsten svarar inte.";
   refresh();
 }
-// One switch for every simulated sensor (the service's layer "simulated").
-document.getElementById("simulated-toggle").addEventListener("change", (event) => postLayers({ simulated: event.target.checked }));
 
 // SPARA INSTÄLLNINGAR, as the scenarios' SPARA PROFIL: red while the settings differ from those the
 // monitoring starts with; the line under it says which apply.
@@ -365,6 +396,11 @@ function drawCharts(state) {
   drawChart(chartBox("radar", "Väderradar, högsta intensitet i kommunen (mm/h, senaste timmen) – SMHI, uppskattat"),
     (radar?.series || []).map((point) => ({ time: point.time_utc, value: point.max_mm_h })),
     { kind: "bars", unit: "mm/h", lines: [{ value: 20, label: "skyfall", colour: "#ef5350" }] });
+  for (const gauge of context.sea_level || []) {
+    drawChart(chartBox(`sea-${gauge.station}`, `Havsvattenstånd ${gauge.name} (cm i RH2000, senaste dygnet) – SMHI`),
+      (gauge.series || []).map((point) => ({ time: point.time_utc, value: point.value_cm })),
+      { unit: "cm", lines: gauge.limit_cm != null ? [{ value: gauge.limit_cm, label: "högt vattenstånd", colour: "#ef5350" }] : [] });
+  }
   const clouds = context.cloud_mask;
   if (clouds) {
     drawChart(chartBox("clouds", "Moln över kommunen (% av pixlarna, senaste dygnet) – Meteosat, några km per pixel"),
@@ -381,8 +417,10 @@ function drawSatelliteImage(state) {
   document.getElementById("satellite-image").textContent = (!meta ? "Optiskt: ingen bild än." : `Optiskt: ${optical(meta)}`)
     + (landsat ? `; ${optical(landsat)}.` : ".")
     + (!radar ? " Radar: ingen passage än." : ` Radar: ${radar.platform} ${localTime.format(new Date(radar.time_utc))}, `
-      + `vatten utanför sjöarna ${String(radar.new_water_pct).replace(".", ",")} % av marken (tröskel ${String(radar.threshold_db).replace(".", ",")} dB`
-      + `${radar.separable ? "" : ", vatten och mark går inte att skilja åt – osäker"}). Beräknat, inte en kartlagd översvämning.`
+      + (radar.separable === false
+        ? `vatten och mark går inte att skilja åt (${radar.not_separable_reason || "den mörkaste marken är lika mörk som vattnet"}), så inget vatten visas.`
+        : `vatten utanför sjöarna ${String(radar.new_water_pct).replace(".", ",")} % av marken (tröskel ${String(radar.threshold_db).replace(".", ",")} dB).`)
+      + ` Beräknat, inte en kartlagd översvämning.`
       + (radar.wetness_median_pct != null ? ` Fukt i terrängen: i median ${radar.wetness_median_pct} % mellan torrast och blötast `
         + `de senaste ${radar.wetness_passes} passagerna från samma bana – beräknat, inte uppmätt.` : ""))
     + ` ${(meta || radar)?.attribution || ""}${landsat ? ` ${landsat.attribution}.` : ""}`
@@ -401,20 +439,10 @@ function drawIot(state) {
   document.getElementById("iot-connection").textContent = `${iot.detail || "IoT är inte startat."}`
     + `${iot.rejected ? ` ${iot.rejected} meddelanden avvisade.` : ""}`;
   const list = document.getElementById("iot-sensors");
-  // Without the simulated sensors, only the nodes that said they are real.
-  const simulated = Boolean(state.layers?.simulated);
-  const hidden = (iot.sensors || []).filter((sensor) => !sensor.real).length + (state.context?.level_sensors || []).length;
-  list.replaceChildren(...(iot.sensors || []).filter((sensor) => simulated || sensor.real).map((sensor) => element("li",
-    `${sensor.node} ${sensor.kind}: ${sensor.value}${sensor.unit ? ` ${sensor.unit}` : ""}`
-      + `${sensor.real ? "" : " (simulerad)"}${sensor.online ? "" : " – har tystnat"}`, sensor.online ? "info" : "alert")));
-  // The scenarios' simulated level sensors (levels.py), driven by SMHI's flows.
-  for (const sensor of simulated ? state.context?.level_sensors || [] : []) {
-    const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
-      : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
-    list.append(element("li", `${sensor.name}: ${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare)`,
-      sensor.alarm ? "alert" : "info"));
-  }
-  if (!simulated && hidden) list.append(element("li", `${hidden} simulerade sensorer är dolda.`, "info"));
+  // Only the nodes that say they are real: the monitoring builds on real data only (service._real_iot).
+  list.replaceChildren(...(iot.sensors || []).map((sensor) => element("li",
+    `${sensor.node} ${sensor.kind}: ${sensor.value}${sensor.unit ? ` ${sensor.unit}` : ""}${sensor.online ? "" : " – har tystnat"}`,
+    sensor.online ? "info" : "alert")));
   if (!list.children.length) list.append(element("li", "Inga sensorer har hörts av.", "ok"));
 }
 

@@ -90,7 +90,15 @@ def test_the_menu_page_serves_the_demos_and_takes_one_valid_choice() -> None:
         assert b"choose-monitoring" in page and b"choose-scenarios" in page
         status, body = request(f"{base}/api/demos")
         assert status == 200 and json.loads(body)["title"] == "Techseed Geospatial Intelligence"
-        assert json.loads(body)["monitoring"] == [{"name": "flenkommun", "title": "Flens kommun", "label": start_demo.MONITORING_LABEL}]
+        # By county in alphabetical order, as the scenarios, and alphabetically within it.
+        assert [(area["region"], area["name"]) for area in json.loads(body)["monitoring"]] == [
+            ("Gävleborgs län", "ljusdalkommun"), ("Skåne län", "hoorkommun"), ("Skåne län", "vellingekommun"),
+            ("Södermanlands län", "flenkommun"), ("Västernorrlands län", "kramforskommun"),
+            ("Västernorrlands län", "sundsvallkommun"), ("Västmanlands län", "salakommun"), ("Västmanlands län", "vasterasstad")]
+        regions = {demo["region"] for demo in start_demo.demos()}
+        assert {area["region"] for area in json.loads(body)["monitoring"]} == regions
+        assert b'id="area-regions"' in page and b'showRegion(region, "areas"' in page
+        assert all(area["label"] == start_demo.MONITORING_LABEL for area in json.loads(body)["monitoring"])
         assert json.loads(body)["kiosk"] is False
         body = json.dumps({"scenario": "sundsvall2026", "kiosk": True}).encode()
         def raw(headers: dict) -> int:

@@ -119,6 +119,9 @@ function stationText(station) {
   if (v.wind_ms !== undefined) parts.push(`vind ${v.wind_ms} m/s${v.wind_from_deg !== undefined ? ` från ${v.wind_from_deg}°` : ""}`);
   if (v.rain_1h_mm !== undefined) parts.push(`regn ${v.rain_1h_mm} mm senaste timmen`);
   if (v.rain_day_mm !== undefined) parts.push(`regn ${v.rain_day_mm} mm senaste dygnet (06–06)`);
+  if (v.rain_24h_mm !== undefined) {  // a municipal rain gauge, which reports only hours with rain
+    parts.push(v.rain_24h_mm ? `regn ${v.rain_24h_mm} mm senaste dygnet` : "inget regn uppmätt senaste dygnet");
+  }
   const time = Object.values(station.times).sort().pop();
   return `${parts.join(", ")}${time ? ` – SMHI, ${time}` : ""}`;
 }
@@ -130,13 +133,17 @@ function alarming(state, key) {
   return state.alarms.some((alarm) => alarm.id === key && alarm.current && alarm.state !== "dismissed");
 }
 const OBJECT_MARK = "#ffd600";
-// The simulated level sensors (levels.py), as on the 2D map: a magenta ring, blue, red while alarming.
-const LEVEL_RING = "#e040fb";
-function levelText(sensor) {
-  const value = sensor.value == null ? `inga värden från ${sensor.station_name} ännu`
-    : `${sensor.station_name} ${sensor.percent ?? "–"} % av högsta dygnsflöde i arkivet`;
-  return `${sensor.alarm ? "LARMAR" : "inget larm"}, ${value} (simulerad nivågivare, följer SMHI)`;
+// A station that gave no value lately (context.silent), grey: a hint it may be out of order.
+const SILENT_MARK = "#9e9e9e";
+function silentText(item) {
+  return `SMHI ${item.name} (${item.kind}): ${item.last_utc ? `inga värden sedan ${item.last_utc.slice(0, 10)}` : "har aldrig lämnat värden"}`
+    + " – kan vara ur funktion";
 }
+function levelGaugeText(gauge) {
+  const record = gauge.record_cm != null ? `, högsta i arkivet ${(gauge.record_cm / 100).toFixed(2).replace(".", ",")} m (${gauge.record_day})` : "";
+  return `Vattenstånd ${gauge.name}: ${(gauge.value_cm / 100).toFixed(2).replace(".", ",")} m ${gauge.time_utc}${record} – SMHI, höjdsystem ej angivet`;
+}
+
 
 // SMHI's forecast grid (/api/weather) as the scenarios' globe draws ERA5-Land's wind and MET Norway's
 // chart (map3d.js): barbs lying on the ground, and the isobars, highs and lows, rain and thunder over
@@ -149,6 +156,14 @@ const WIND_SHOWN_M = 400_000;
 // As the scenarios' globe (map3d.js MUNICIPAL_MIN_LEVEL): the municipal map from this level, the
 // offline OpenStreetMap below it, so its names are not drawn huge and blurred from afar.
 const MUNICIPAL_MIN_LEVEL = 11;
+// The wind arrows thinned by the camera's height (weather.py's tiers), as on the 2D map: as many as
+// keep them WIND_SPACING_PX apart; with VÄDERKARTA the chart's sparser arrows cover Scandinavia.
+const WIND_SPACING_PX = 70;
+function windTier(viewer, spacingKm) {
+  const height = Math.max(viewer.camera.positionCartographic.height, 1);
+  const metresPerPixel = (2 * height * Math.tan((viewer.camera.frustum.fovy || 1) / 2)) / Math.max(viewer.canvas.clientHeight, 1);
+  return Math.max(0, Math.ceil(Math.log2((WIND_SPACING_PX * metresPerPixel) / (spacingKm * 1000))));
+}
 const barbImages = new Map();
 function barbImage(speed) {
   const svg = windBarbSvg(speed);
@@ -167,19 +182,39 @@ function weatherDrawer(viewer) {
   let rain = null;
   let shown = null;
   let layers = { wind: true, chart: false };
+  let spacing = { area: 10, chart: 75 };
+  const arrows = { area: [], chart: [] };
+  // Each arrow shows when its tier reaches the camera's; the chart's give way inside the area to its own when close.
+  const thin = () => {
+    const close = viewer.camera.positionCartographic.height < WIND_SHOWN_M;
+    const areaTier = windTier(viewer, spacing.area);
+    const chartTier = windTier(viewer, spacing.chart);
+    for (const { entity, tier } of arrows.area) entity.show = Boolean(layers.wind) && close && tier >= areaTier;
+    for (const { entity, tier, inArea } of arrows.chart) {
+      entity.show = Boolean(layers.chart) && tier >= chartTier && !(inArea && layers.wind && close);
+    }
+  };
+  viewer.camera.percentageChanged = 0.1;
+  viewer.camera.changed.addEventListener(thin);
   const apply = () => {
-    wind.show = Boolean(layers.wind);
+    wind.show = Boolean(layers.wind || layers.chart);
     chart.show = Boolean(layers.chart);
     if (rain) rain.show = Boolean(layers.chart);
+    thin();
   };
+  const barb = (point) => wind.entities.add({ position: Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude),
+    billboard: { image: barbImage(point.speed_ms), alignedAxis: Cesium.Cartesian3.UNIT_Z, width: 40, height: 40,
+      rotation: -Cesium.Math.toRadians((point.from_deg + 180) % 360), heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY } });
   const draw = (data) => {
     wind.entities.removeAll();
-    for (const point of data.wind || []) {
-      wind.entities.add({ position: Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude),
-        billboard: { image: barbImage(point.speed_ms), alignedAxis: Cesium.Cartesian3.UNIT_Z, width: 64, height: 64,
-          rotation: -Cesium.Math.toRadians((point.from_deg + 180) % 360), heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, WIND_SHOWN_M) } });
-    }
+    spacing = { area: data.wind_spacing_km || 10, chart: data.chart?.wind_spacing_km || 75 };
+    const lons = (data.wind || []).map((point) => point.longitude);
+    const lats = (data.wind || []).map((point) => point.latitude);
+    const inArea = (point) => lons.length && point.longitude >= Math.min(...lons) && point.longitude <= Math.max(...lons)
+      && point.latitude >= Math.min(...lats) && point.latitude <= Math.max(...lats);
+    arrows.area = (data.wind || []).map((point) => ({ entity: barb(point), tier: point.tier ?? 0 }));
+    arrows.chart = (data.chart?.wind || []).map((point) => ({ entity: barb(point), tier: point.tier ?? 0, inArea: inArea(point) }));
     chart.entities.removeAll();
     if (rain) viewer.imageryLayers.remove(rain);
     rain = null;
@@ -193,7 +228,7 @@ function weatherDrawer(viewer) {
     }
     for (const centre of data.chart.centres) {
       chart.entities.add({ position: Cesium.Cartesian3.fromDegrees(centre.longitude, centre.latitude),
-        label: { text: `${centre.kind} ${centre.hpa}`, font: "bold 22px system-ui, sans-serif",
+        label: { text: `${centre.kind}\n${centre.hpa}`, font: "800 30px system-ui, sans-serif",
           fillColor: color(centre.kind === "H" ? "#1565c0" : "#c62828"), outlineColor: color("#ffffff"), outlineWidth: 3,
           style: Cesium.LabelStyle.FILL_AND_OUTLINE, disableDepthTestDistance: Number.POSITIVE_INFINITY } });
     }
@@ -244,8 +279,11 @@ async function start() {
   const floodHighest = addFlood(viewer, config.layers.flood_highest);
   const overlays = {};
   for (const item of config.layers.overlays || []) {
-    const layer = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
-      url: item.url, minimumLevel: item.min_zoom, maximumLevel: item.max_zoom, rectangle: Cesium.Rectangle.fromDegrees(...item.bbox) }));
+    const rectangle = Cesium.Rectangle.fromDegrees(...item.bbox);
+    const layer = viewer.imageryLayers.addImageryProvider(item.wms
+      ? new Cesium.WebMapServiceImageryProvider({ url: item.wms.url, layers: item.wms.layers, rectangle,
+        parameters: { transparent: true, format: "image/png", styles: "" } })
+      : new Cesium.UrlTemplateImageryProvider({ url: item.url, minimumLevel: item.min_zoom, maximumLevel: item.max_zoom, rectangle }));
     layer.alpha = 0.8;
     overlays[item.id] = layer;
     credit(item.attribution);
@@ -258,7 +296,7 @@ async function start() {
   const s1Wetness = imageDrawer(viewer, "/api/s1wetness.png", config.layers.radar.bbox, 0.85);
   const drawRadar = (stats, polled) => radarImage.draw(stats?.latest_utc ? `${stats.latest_utc}|${polled}` : null, config.layers.radar.attribution);
   const sources = {};
-  for (const name of ["stations", "simulated", "facilities", "names", "firms"]) {
+  for (const name of ["stations", "facilities", "names", "firms"]) {
     sources[name] = new Cesium.CustomDataSource(name);
     viewer.dataSources.add(sources[name]);
   }
@@ -319,9 +357,11 @@ async function start() {
     if (landsat) landsatImage.draw(landsat.time_utc, landsat.attribution);
     const pass = context.radar_pass;
     if (pass) {
-      s1Radar.draw(pass.time_utc, pass.attribution);
-      s1Water.draw(pass.time_utc, pass.attribution);
-      s1Wetness.draw(pass.time_utc, pass.attribution);
+      // A pass made again (made_utc) is drawn again, though its time is the same.
+      const key = `${pass.time_utc}|${pass.made_utc || ""}`;
+      s1Radar.draw(key, pass.attribution);
+      s1Water.draw(key, pass.attribution);
+      s1Wetness.draw(key, pass.attribution);
     }
     weather.refresh(context.weather);
     if (context.border && !border) {
@@ -336,21 +376,27 @@ async function start() {
     });
     sources.stations.entities.removeAll();
     sources.firms.entities.removeAll();
-    sources.simulated.entities.removeAll();
-    for (const sensor of context.level_sensors || []) {
-      sources.simulated.entities.add({
-        name: escapeText(`${sensor.name} (simulerad)`), description: escapeText(levelText(sensor)),
-        position: Cesium.Cartesian3.fromDegrees(sensor.longitude, sensor.latitude),
-        point: { pixelSize: 10, color: color(sensor.alarm ? STATION_MARKS.alarm : STATION_MARKS.normal), outlineColor: color(LEVEL_RING),
-          outlineWidth: 2, heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY },
-      });
-    }
     for (const flow of context.flows || []) {
       const mark = alarming(state, `flow-${flow.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
       if (flow.latitude != null) point(flow.latitude, flow.longitude, mark, 12, `Vattenföring ${flow.name}`,
         `${flow.value} m³/s, ${flow.time_utc} – SMHI`, sources.stations);
     }
+    for (const item of context.silent || []) {
+      point(item.latitude, item.longitude, SILENT_MARK, 12, `SMHI ${item.name} (tyst)`, silentText(item), sources.stations);
+    }
+    for (const gauge of context.water_levels || []) {
+      if (gauge.silent || gauge.latitude == null) continue;
+      const mark = alarming(state, `level-${gauge.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
+      point(gauge.latitude, gauge.longitude, mark, 12, `Vattenstånd ${gauge.name}`, levelGaugeText(gauge), sources.stations);
+    }
+    for (const gauge of context.sea_level || []) {
+      if (gauge.silent) continue;
+      const mark = alarming(state, `sea-${gauge.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
+      if (gauge.latitude != null) point(gauge.latitude, gauge.longitude, mark, 12, `Havsvattenstånd ${gauge.name}`,
+        `${gauge.value_cm} cm i RH2000, ${gauge.time_utc} – SMHI`, sources.stations);
+    }
     for (const station of context.weather_stations || []) {
+      if (station.silent) continue;
       const mark = alarming(state, `rain-${station.station}`) ? STATION_MARKS.alarm : STATION_MARKS.normal;
       point(station.latitude, station.longitude, mark, 12, `SMHI ${station.name}`, stationText(station), sources.stations);
     }
@@ -358,7 +404,7 @@ async function start() {
       point(fire.latitude, fire.longitude, "#ff6d00", 8, `FIRMS ${fire.satellite}`, `${fire.instrument} ${fire.time_utc} – NASA FIRMS`, sources.firms);
     }
     for (const event of state.events || []) {
-      point(event.latitude, event.longitude, event.simulated ? "#e040fb" : "#6a1b9a", 9, `${event.kind_word}${event.simulated ? " (simulerad)" : ""}`,
+      point(event.latitude, event.longitude, "#6a1b9a", 9, event.kind_word,
         `${event.time_utc} – ${event.source}`);
     }
     const current = state.alarms.filter((alarm) => alarm.current && alarm.state !== "dismissed");

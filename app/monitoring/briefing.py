@@ -27,11 +27,11 @@ def build(alarm: dict[str, Any], context: dict[str, Any], area: ModuleType) -> d
         place += f" ({candidate['latitude']:.4f} N, {candidate['longitude']:.4f} E, WGS 84)"
     return {
         "title": candidate["title"], "kind": candidate["kind_word"], "state": STATE_WORDS[alarm["state"]],
-        "current": alarm["current"], "simulated": candidate["simulated"], "area": area.NAME, "place": place,
+        "current": alarm["current"], "area": area.NAME, "place": place,
         "extent": candidate["extent"], "facts": candidate["facts"], "confirmations": candidate["confirmations"],
         "exposure": candidate.get("exposure"),
         "uncertain": uncertain, "context": context, "contacts": area.CONTACTS.get(candidate["kind"], []),
-        "contacts_note": area.CONTACTS_NOTE, "history": alarm["history"], "created_utc": alarm["created_utc"],
+        "contacts_note": area.CONTACTS_NOTE, "gis_note": area.GIS_NOTE, "history": alarm["history"], "created_utc": alarm["created_utc"],
         "made_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
@@ -86,9 +86,6 @@ def render(briefing: dict[str, Any]) -> str:
         f"<td>{escape(fact['source'])}</td><td>{escape(fact['time_utc'] or '–')}</td></tr>" for fact in briefing["facts"])
     history = "".join(f"<tr><td>{escape(item['time_utc'])}</td><td>{escape(item['action'])}</td>"
                       f"<td>{escape(item['note'] or '')}</td></tr>" for item in briefing["history"])
-    banner = ""
-    if briefing["simulated"]:
-        banner = '<p class="sim">SIMULERAD HÄNDELSE – inte en verklig observation</p>'
     return f"""<!doctype html>
 <html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Briefing – {escape(briefing['title'])}</title>
@@ -96,21 +93,19 @@ def render(briefing: dict[str, Any]) -> str:
 body {{ font-family: system-ui, sans-serif; margin: 16px auto; max-width: 900px; padding: 0 16px; color: #111; background: #fff; }}
 h1 {{ font-size: 1.4rem; margin-bottom: 0.2rem; }} h2 {{ font-size: 1.05rem; margin-top: 1.4rem; border-bottom: 1px solid #ccc; }}
 table {{ border-collapse: collapse; width: 100%; font-size: 0.92rem; }} td, th {{ border: 1px solid #ccc; padding: 4px 6px; vertical-align: top; text-align: left; }}
-.meta {{ color: #444; font-size: 0.9rem; }} .sim {{ background: #ffe08a; padding: 6px; font-weight: bold; }}
+.meta {{ color: #444; font-size: 0.9rem; }}
 .live {{ display: inline-block; background: #c62828; color: #fff; padding: 1px 6px; font-size: 0.8rem; }}
 @media print {{ button {{ display: none; }} }}
 </style></head><body>
 <p class="meta"><span class="live">LIVE</span> Briefing gjord {escape(briefing['made_utc'])} (UTC) · Larm sedan {escape(briefing['created_utc'])}
 · {escape(briefing['state'])} <button onclick="window.print()">Skriv ut</button></p>
-{banner}
 <h1>{escape(briefing['title'])}</h1>
 <p><b>Typ:</b> {escape(briefing['kind'])} · <b>Område:</b> {escape(briefing['area'])} · <b>Plats:</b> {escape(briefing['place'])}</p>
 <p><b>Omfattning:</b> {escape(briefing['extent'] or 'Inte känd ur källorna')}</p>
 <h2>Fakta och källor</h2>
 <table><tr><th>Fakta</th><th>Källa</th><th>Tid (UTC)</th></tr>{facts}</table>
 <h2>Skyddsvärda objekt och bebyggelse{(' ' + escape(briefing['exposure']['where'])) if briefing.get('exposure') else ''}</h2>
-<p class="meta">Intern – bygger på Flens kommuns GIS. Äldreomsorgens enheter och boenden för personer med
-funktionsnedsättning ingår inte.</p>{_list(exposure_lines(briefing.get('exposure')))}
+<p class="meta">{escape(briefing['gis_note'])}</p>{_list(exposure_lines(briefing.get('exposure')))}
 <h2>Bekräftelser från andra källor</h2>{_list(briefing['confirmations'])}
 <h2>Osäkert</h2>{_list(briefing['uncertain'])}
 <h2>Läget i övrigt</h2>{_list(_context_lines(briefing['context']))}

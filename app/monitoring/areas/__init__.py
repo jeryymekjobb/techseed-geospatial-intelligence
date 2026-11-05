@@ -5,7 +5,8 @@ from __future__ import annotations
 import importlib
 from types import ModuleType
 
-AVAILABLE = ("flenkommun",)
+AVAILABLE = ("flenkommun", "sundsvallkommun", "kramforskommun", "ljusdalkommun", "salakommun", "vasterasstad",
+             "hoorkommun", "vellingekommun")
 
 
 def load(name: str) -> ModuleType:

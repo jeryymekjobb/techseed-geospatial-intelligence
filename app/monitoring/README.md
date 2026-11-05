@@ -1,17 +1,104 @@
 # Continuous monitoring (first version)
 
 A first implementation of the MVP one-pager's operational chain (`docs/mvp/onepager-mvp.md`) for
-**Flens kommun**: events in, live sources, detection, alarms the operator confirms or dismisses, a
+**Flens kommun** and, with it as the template, the municipalities of the other scenarios: events in, live sources, detection, alarms the operator confirms or dismisses, a
 sourced briefing and contact lists by role. It is a service of its own beside the demo and does
-not touch the scenario playback. Its data are **live**; events from the inbox are marked as
-simulated unless they say otherwise.
+not touch the scenario playback. Its data are **live** and only real: as the user decided on 2026-11-05, the
+monitoring builds on the data it can actually read in, never on simulated data, so the scenarios'
+simulated level sensors are not used, events from the inbox come in only when they say they are not
+simulated, and only the IoT nodes that say they are real are shown.
+
+## Areas
+
+One module per municipality in `app/monitoring/areas/`, all taking the template's shared satellites,
+limits, FIRMS, Meteosat and example contacts from `areas/common.py`, and their offline map, OSM
+targets, terrain and MCF flood zone from their scenarios' unversioned data:
+
+| Area (`--area`) | Scenarios | Flows (SMHI, live) | Base map |
+|---|---|---|---|
+| `flenkommun` | Flen 2019, 2021, 2024 | Hebylund, Sibro 2, Hallbosjön | Flens kommun's Bakgrundskarta |
+| `sundsvallkommun` | Sundsvall 2020, 2023, 2026, Ljungan 2023 | Norrsjön (Ljungan) | Sundsvalls kommun's Kartan |
+| `kramforskommun` | Kramfors 2026, Västernorrland 2025 | Risnäs (Gådeån) | OpenStreetMap |
+| `ljusdalkommun` | Kårböle 2018 | Saras fors, Oppli (Ljusnan) | OpenStreetMap |
+| `salakommun` | Västmanland 2014 | Tärnsjö, Gränvad | OpenStreetMap |
+| `vasterasstad` | Svartån 2023 | Åkesta kvarn, Berg, Gränvad | Västerås stad's karta |
+| `hoorkommun` | Skåne 2024 | Heåkra, Ellinge | Höörs kommun's Baskarta (Geoinfo Mittskåne) |
+| `vellingekommun` | Falsterbonäset | none; the sea level at Klagshamn | Vellinge kommun's Bakgrundskarta (full colour) |
+
+Besides SMHI's own stations, Sundsvall shows the municipality's rain gauges that SMHI publishes
+(Fillan, Heffners, Bredsand, Essvik, Bällsta, Stångom, Stöde, Indal, Söråker) and Höör the gauges
+near Ringsjöarna (Kungshult VV), as the scenarios show them
+(`"rain_gauge"` in `WEATHER_STATIONS`, `sources.rain_gauge`): they report only hours with rain, so a
+dry gauge stays on the map with "inget regn uppmätt"; SMHI's suspect values (quality Y) and hours
+above 100 mm are left out. On the 2D map the marks lie in a pane of their own over the wind arrows
+and images.
+
+Every station SMHI lists as active in the municipality or within 5 km of it is taken in, as the user
+asked on 2026-11-04, even one that gives no values: it is placed from SMHI's description of it, drawn
+grey on both maps and listed under "Tysta stationer" in mission control, as a hint it may be out of
+order (no value for two days, three for the rain by the day). Weather stations farther off are left
+out, as the user chose on 2026-11-05, except the rain stations that confirm the alarms
+(`RAIN_STATIONS`); the flow, water-level and sea-level stations are kept wherever they lie, since
+the alarms read them. Sibro 2 and Ringsjödammen also give the
+water level (one value a day, the height system not named), with the archive's highest as the limit
+for "Rekordhögt vattenstånd"; Sundsvall (Spikarna), Kramfors (Lunde) and Vellinge (Klagshamn, Skanör)
+the sea level.
+
+The stations were checked live on 2026-11-04: several of the scenarios' stations (Skallböle,
+Torpshammar, Ringsjödammen, Hjälta, Sollefteå) give only SMHI's corrected archive, so the nearest
+live ones are used.
+Only Flens kommun's own GIS (protected objects, buildings) is used, as the check of laws and rules
+covered it alone; the others take their protected objects and buildings from OpenStreetMap. The
+municipal maps of Sundsvall and Västerås are those fetched for their scenarios, for internal use as
+the user allowed (Västerås's is fetched again over the whole municipality into the monitoring's own
+folder, `fallback_dir` keeping the scenario's until then); Vellinge's (ArcGIS REST, no terms stated) is fetched with
+`tools.fetch_municipal_basemap --area vellingekommun`, for internal use as the user allowed on
+2026-11-04, and so is Höör's (`Baskarta_Hoor_OpenData` on Geoinfo Mittskåne's server, found by the
+report of 2026-11-04). Kramfors, Ljusdal and Sala publish no background map of their own (checked
+2026-11-04: Sokigo's Spatial Map with Lantmäteriet's maps, Lantmäteriet's Topowebb through a proxy),
+so OpenStreetMap stays their base map.
+
+Vellinge's sea level is read live at Klagshamn (SMHI's ocobs parameter 6, cm in RH2000), since
+Skanör's gauge, which Falsterbo's scenario follows, offers SMHI's archive only; from 100 cm, the
+scenario's limit and a proposal, it raises "Högt vattenstånd".
+
+Where a municipality has no public map of its own (Kramfors, Ljusdal, Sala:
+`LANTMATERIET_BASEMAP`), Lantmäteriet's Topografisk webbkarta becomes the base map through the
+service (`/lm/topowebb/`, so the credentials stay on the server) once a Geotorget order's settings
+are in a file outside the repository:
+
+```bash
+cat > ~/.lantmateriet <<'END'
+LM_USERNAME=<användarnamn från Geotorget>
+LM_PASSWORD=<lösenord från Geotorget>
+LM_TOPOWEBB_URL=https://<adressen från Geotorget>/{z}/{y}/{x}.png
+END
+chmod 600 ~/.lantmateriet
+```
+
+The environment's `LM_*` win over the file. Without them the base map stays OpenStreetMap.
+
+Sundsvall's cloudburst model (the greatest water depth at a 30-, 100- and 500-year rain) and
+Västerås stad's (100-year rain) are laid over the maps straight from the municipalities' WMS, as
+their scenarios show them, for internal use as the user allowed (layers `skyfall30`, `skyfall100`,
+`skyfall500`, off at the start); Flen's are fetched tiles.
+
+The scenarios' offline map and 3D terrain cover their map area only. An area's own, over its whole
+municipality (its `BBOX`), is built with the scenarios' tools and taken once there
+(`areas.common.built_terrain`, `built_tiles`):
+
+```bash
+.venv/bin/python -m tools.fetch_copernicus_dem --area sundsvallkommun   # data/monitoring/<area>/dem/
+.venv/bin/python -m tools.build_terrain --area sundsvallkommun          # data/monitoring/<area>/terrain/
+.venv/bin/python -m tools.build_offline_tiles --area sundsvallkommun    # data/tiles/<area>.mbtiles
+```
 
 ## Run
 
 From the start page, as the demos (`docs/operatorsguide.md`, section 7):
 
 ```bash
-.venv/bin/python -m tools.start_demo      # Övervakning → Flens kommun
+.venv/bin/python -m tools.start_demo      # Övervakning → a municipality
 ```
 
 `start_demo` starts the tiles service with the area's offline map (`TILES_FILE`), the monitoring on
@@ -71,20 +158,13 @@ in `data/monitoring/flenkommun/meteosat-clm/`; it says why an optical image is o
 EUMETSAT API key in `~/.eumdac/credentials` (one line `KEY,SECRET`, `chmod 600`) and eumdac and
 eccodes (`tools/requirements-meteosat.txt`); without them the source says the key is missing.
 
-The Flen scenarios' simulated level sensors (`levels.py`, the eight points of
-`data/flenkommun2024/sensors/level-points.geojson` where larger roads cross MCF's 100-year flow) each
-follow the live flow of Sibro 2 or Hallbosjön and alarm, as in the scenarios, above the highest daily
-flow in SMHI's archive; marked simulated on the maps (a magenta ring) and in mission control's IoT.
-Mission control's Simulerade sensorer has one switch for every simulated sensor: the level sensors
-on both maps and in IoT, and the MQTT nodes not marked real in IoT.
-
 Both maps keep the credits out of the map picture, as the scenarios (`app/frontend/credits.js`):
 OpenStreetMap's credit, and the municipal map's while it is shown, stay in the corner, as
 OpenStreetMap's licence asks; "(i) Källor" opens the whole list of every source the map shows.
 Errors and notes, such as missing orbital elements, have a line of their own under the globe.
 
-SPARA INSTÄLLNINGAR in mission control saves the display settings in use (the map layers, the
-simulated sensors, 2D or 3D and UPPLÄSNING) in `data/monitoring/<area>/settings.json`, which is not
+SPARA INSTÄLLNINGAR in mission control saves the display settings in use (the map layers,
+2D or 3D and UPPLÄSNING) in `data/monitoring/<area>/settings.json`, which is not
 in the repository, and the monitoring starts with them; as the scenarios' SPARA PROFIL, the button
 is red while the settings differ from those it starts with.
 
@@ -103,8 +183,9 @@ is never logged or shown.
 
 - **Events in** (`events.py`): files dropped in `data/monitoring/flenkommun/inbox/` (TSV, CSV or
   JSON) in the one-pager's format,
-  `<datum> <klockslag> <händelse> <koordinat 1> <koordinat 2> <koordinatsystem> <källa> [<simulerad>]`,
-  in UTC, with EPSG:4326 (lat, lon) or EPSG:3006 (N, E). A line without a source, or with another
+  `<datum> <klockslag> <händelse> <koordinat 1> <koordinat 2> <koordinatsystem> <källa> <simulerad>`,
+  in UTC, with EPSG:4326 (lat, lon) or EPSG:3006 (N, E). Only a line marked not simulated (`nej`,
+  `false`) comes in. A line without a source, a simulated or unmarked line, or one with another
   fault, is logged before it is refused, and shown on the operator page. Files read are moved to
   `inbox/processed/`.
 - **Live sources** (`sources.py`, `radar.py`): SMHI's flows (Hebylund Kvarnsjön, Sibro 2,
@@ -139,8 +220,11 @@ is never logged or shown.
 - **Briefing** (`briefing.py`): `/briefing/<id>`, a printable page with the facts, their sources
   and times, what is uncertain, the context and the contacts by role.
 - **Layers**, each switched in mission control: the municipal map, SMHI's radar image and MCF's climate-adapted 100-year flow of Nyköpingsån (WMS) on
-  the 2D map and the globe, as in the Flen scenarios; the wind arrows over the area and the weather
-  chart over Scandinavia (isobars every 2 hPa with highs and lows, the hour's rain, thunder), from
+  the 2D map and the globe, as in the Flen scenarios; the wind arrows over the area (about 10 km
+  apart) and the weather chart over Scandinavia (its own wind arrows about 75 km apart, isobars every
+  2 hPa with highs and lows sought in SMHI's whole grid within about 200 km, drawn as a large blue H
+  or red L with the pressure, the hour's rain, thunder); the arrows are thinned by zoom on both maps
+  so they stay about 70 px apart (each arrow's tier in `weather.py`), from
   SMHI's forecast grid snow1g for the next whole hour (`weather.py`, with the scenarios'
   `tools/isobars.py` and `wind_barbs.js`), fetched again for a new run or hour and marked as a
   forecast; the protected objects, the place names (OSM), SMHI's flow and weather stations (Floda A,
@@ -150,11 +234,17 @@ is never logged or shown.
   in true colour as the scenarios'), and the latest Landsat 8 or 9 image chosen the same way
   (Collection 2 Level-2, true colour as the scenarios' Landsat); the latest Sentinel-1 radar pass (`sentinel1.py`: Planetary
   Computer's terrain-corrected sentinel-1-rtc, VV), as the scenarios' radar images: the grey radar
-  image, which shows wet and rough ground bright, and the water outside OpenStreetMap's lakes in red
-  (darker than the median over the lakes, five of nine neighbours) – a computed mask, not a mapped
+  image, which shows wet and rough ground bright, and the water outside OpenStreetMap's lakes and sea
+  in red (darker than the median over them, five of nine neighbours; the lakes from OSM over the
+  area's whole map area, `tools.fetch_osm_terrain --water-only` into
+  `data/monitoring/<area>/known-water.geojson`, else the scenario's terrain layer; the sea from OSM's
+  coastline water polygons, `data/osm/<area>-coastline/`, where the area's offline map was built).
+  A pass that sees too little known water (`MIN_WATER_PIXELS`) or whose darkest land is as dark as
+  the water is marked not separable and draws no water, as in the scenarios; a pass made again is
+  fetched again by the maps (`made_utc`) – a computed mask, not a mapped
   flood; and the ground's relative wetness by change detection (each pixel now between its driest and
   wettest in the last 120 days' passes of the same relative orbit, about 100 m, brown dry to blue
-  wet; computed, not measured, left out in forest, built-up land and lakes); the weather chart, the
+  wet; computed, not measured, left out in forest, built-up land, lakes and the sea); the weather chart, the
   MCF's highest computed flow (layer 9 of the flood mapping) and the municipality's cloudburst
   mapping for 100- and 500-year rain (a model, not an observation); the weather chart, the optical
   images, the grey radar image, the wetness, the highest flow and the cloudburst layers start off;
@@ -170,7 +260,8 @@ is never logged or shown.
 - **UPPLÄSNING** in mission control reads new alarms aloud with the scenarios' voice alma
   (`app/backend/speech.py`); off at the start.
 - **IoT**: the demos' MQTT nodes (`techseed/<node>/<kind>` on 127.0.0.1:1883, `app/backend/iot.py`;
-  `--mqtt`), simulated unless they say otherwise, listed in mission control; `start_demo` starts
+  `--mqtt`); only the nodes that say they are real (`"simulated": false`) are listed in mission
+  control, the others are left out; `start_demo` starts
   Mosquitto with the tiles. mission control's Läget nu gives the radar, the
   fire risk, the forecast and the flows.
 - **Screens** (`web/`): mission control (`control.*`) with the map, the alarms, the sources, the

@@ -35,7 +35,6 @@ class Candidate:
     facts: list[dict[str, Any]] = field(default_factory=list)
     confirmations: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
-    simulated: bool = False
     extent: str | None = None
     exposure: dict[str, Any] | None = None
 
@@ -46,7 +45,7 @@ class Candidate:
         return {"key": self.key, "kind": self.kind, "kind_word": KIND_WORDS.get(self.kind, self.kind.upper()),
                 "severity": self.severity, "title": self.title, "place": self.place, "latitude": self.latitude,
                 "longitude": self.longitude, "facts": self.facts, "confirmations": self.confirmations,
-                "single_source": not self.confirmations, "notes": self.notes, "simulated": self.simulated,
+                "single_source": not self.confirmations, "notes": self.notes,
                 "extent": self.extent, "exposure": self.exposure}
 
 
@@ -68,6 +67,7 @@ def flow_candidates(flows: list[dict[str, Any]], stats: dict[str, dict[str, Any]
     found = []
     for station in flows:
         limits = stats.get(station["station"])
+        limits = None if limits and limits.get("missing") else limits
         readings = station["readings"]
         if not limits or len(readings) < 2:
             continue
@@ -107,6 +107,41 @@ def station_rain_candidates(stations: list[dict[str, Any]], area: ModuleType) ->
                   uncertain=True)
         item.fact(f"Gräns i övervakningen: {_number(area.CLOUDBURST_GAUGE_MM)} mm på en timme", "Förslag, inte överenskommet")
         item.notes.append("Senaste timmens värde är inte kvalitetsgranskat av SMHI.")
+        found.append(item)
+    return found
+
+
+def sea_level_candidates(stations: list[dict[str, Any]], area: ModuleType) -> list[Candidate]:
+    """A high sea level: the latest hour at or above the area's SEA_LEVEL_HIGH_CM (a proposal)."""
+    found = []
+    limit = getattr(area, "SEA_LEVEL_HIGH_CM", None)
+    for station in stations:
+        value = station.get("value_cm")
+        if limit is None or value is None or value < limit:
+            continue
+        item = Candidate(f"sea-{station['station']}", "flood", "high", f"Högt vattenstånd vid {station['name']}: {_number(value)} cm",
+                         station["name"], station["latitude"], station["longitude"])
+        item.fact(f"Havsvattenstånd {_number(value)} cm i RH2000", ATTRIBUTION["smhi_sea_level"], station["time_utc"],
+                  uncertain=station["unchecked"])
+        item.fact(f"Gräns i övervakningen: {_number(limit)} cm i RH2000", "Förslag, som Falsterbo-scenariot, inte överenskommet")
+        item.extent = f"{_number(value - limit)} cm över gränsen"
+        found.append(item)
+    return found
+
+
+def water_level_candidates(stations: list[dict[str, Any]]) -> list[Candidate]:
+    """A water level above the highest in SMHI's archive (one value a day; the height system not named)."""
+    found = []
+    for station in stations:
+        value, record = station.get("value_cm"), station.get("record_cm")
+        if station.get("silent") or value is None or record is None or value <= record:
+            continue
+        item = Candidate(f"level-{station['station']}", "flood", "record", f"Rekordhögt vattenstånd vid {station['name']}: {_number(value / 100)} m",
+                         station["name"], station["latitude"], station["longitude"])
+        item.fact(f"Vattenstånd {_number(value / 100)} m (ett värde per dygn)", ATTRIBUTION["smhi_water_level"], station["time_utc"],
+                  uncertain=station["unchecked"])
+        item.fact(f"Högsta i arkivet {_number(record / 100)} m ({station['record_day']}, sedan {station['archive_from']})", ATTRIBUTION["smhi_water_level"])
+        item.extent = f"{_number(value - record)} cm över arkivets högsta"
         found.append(item)
     return found
 
@@ -239,7 +274,7 @@ def fire_candidates(firms: list[dict[str, Any]], events: list[dict[str, Any]], b
             item.confirmations.append(f"Sett av {len(satellites)} satelliter")
         for event in events:
             if event["kind"] == "fire" and geo.distance_km(event["latitude"], event["longitude"], lat, lon) <= area.FIRE_CLUSTER_KM:
-                item.confirmations.append(f"Rapport: {event['source']}{' (simulerad)' if event['simulated'] else ''}")
+                item.confirmations.append(f"Rapport: {event['source']}")
         if item.confirmations:
             item.severity = "confirmed"
         item.extent = f"{len(group)} detektioner inom {_number(area.FIRE_CLUSTER_KM)} km"
@@ -279,13 +314,9 @@ def event_candidates(events: list[dict[str, Any]], border: dict[str, Any] | None
             continue
         word = KIND_WORDS[event["kind"]]
         item = Candidate(f"event-{event['origin']}", event["kind"], "event", f"Rapporterad {word}", area.NAME,
-                         event["latitude"], event["longitude"], simulated=event["simulated"])
+                         event["latitude"], event["longitude"])
         coordinates = ", ".join(str(value) for value in event["coordinates"])
-        item.fact(f"{word.capitalize()} rapporterad vid {coordinates} ({event['crs']})", event["source"], event["time_utc"],
-                  uncertain=event["simulated"])
-        if event["simulated"]:
-            item.notes.append("Simulerad händelse." if event["simulated_stated"] else
-                              "Det är inte angivet om händelsen är simulerad; den räknas som simulerad.")
+        item.fact(f"{word.capitalize()} rapporterad vid {coordinates} ({event['crs']})", event["source"], event["time_utc"])
         if event["kind"] == "fire":
             _fire_context(item, event["time_utc"], fire_ban, area, fire_risk)
             near = [point for point in firms
@@ -309,6 +340,8 @@ def detect(poll: dict[str, Any], events: list[dict[str, Any]], area: ModuleType,
     fire_risk = poll.get("fire_risk", [])
     bursts = cloudburst_candidates(poll.get("radar"), poll.get("rain", []), poll.get("warnings", []), area)
     bursts += station_rain_candidates(poll.get("weather_stations", []), area)
+    bursts += sea_level_candidates([item for item in poll.get("sea_level", []) if not item.get("silent")], area)
+    bursts += water_level_candidates(poll.get("water_levels", []))
     candidates = (flows + bursts + warning_candidates(poll.get("warnings", [])) + vma_candidates(poll.get("krisinfo", []), area)
                   + fire_risk_candidates(fire_risk, area, now)
                   + fire_candidates(poll.get("firms", []), events, border, poll.get("fire_ban", []), area, filtered, fire_risk)

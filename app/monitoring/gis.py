@@ -83,8 +83,10 @@ def fetch_area(area: ModuleType, fetch: Fetch) -> dict[str, Any]:
     facilities = [item for item in facilities
                   if (key := (item["name"], item["category"], round(item["latitude"], 3), round(item["longitude"], 3))) not in seen
                   and not seen.add(key)]
-    buildings = [p for p in (_point(f.get("geometry") or {}) for f in features(area.GIS_BUILDINGS["service"],
-                                                                               area.GIS_BUILDINGS["layer"], fetch)) if p]
+    # Without the municipality's GIS (areas.common), the buildings of the scenarios' OpenStreetMap targets.
+    buildings = ([p for p in (_point(f.get("geometry") or {}) for f in features(area.GIS_BUILDINGS["service"],
+                                                                                area.GIS_BUILDINGS["layer"], fetch)) if p]
+                 if area.GIS_BUILDINGS else osm_buildings(area.OSM_TARGETS_FILE))
     return {"fetched_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "facilities": facilities,
             "buildings": buildings, "lines": osm_lines(area.OSM_TARGETS_FILE, area.OSM_ROAD_TYPES), "stops": [],
             "attribution": area.GIS_ATTRIBUTION}
@@ -110,6 +112,25 @@ def osm_lines(path: Path, road_types: dict[str, str]) -> list[dict[str, Any]]:
             continue
         lines.append({"kind": kind, "label": label, "coords": [[round(lat, 5), round(lon, 5)] for lon, lat, *_ in geometry["coordinates"]]})
     return lines
+
+
+def osm_buildings(path: Path) -> list[tuple[float, float]]:
+    """The buildings of the scenarios' OpenStreetMap targets, as points, where the area has no GIS of its own."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    found = []
+    for feature in data.get("features") or []:
+        if (feature.get("properties") or {}).get("kind") != "building":
+            continue
+        geometry = feature.get("geometry") or {}
+        if geometry.get("type") == "Point":
+            found.append((round(geometry["coordinates"][1], 5), round(geometry["coordinates"][0], 5)))
+        elif geometry.get("type") in ("Polygon", "MultiPolygon"):
+            ring = geo.polygons(geometry)[0][0]
+            found.append((round(sum(p[1] for p in ring) / len(ring), 5), round(sum(p[0] for p in ring) / len(ring), 5)))
+    return found
 
 
 def osm_additions(path: Path, types: dict[str, str]) -> list[dict[str, Any]]:
@@ -263,11 +284,12 @@ class Assets:
                 "stops": [item for item in data.get("stops", []) if close(item["latitude"], item["longitude"])]}
 
     def exposure(self, candidate: dict[str, Any]) -> dict[str, Any] | None:
-        """What an alarm may threaten: a high flow, the 100-year flow's zone; else what lies near its place."""
+        """What an alarm may threaten: a high flow, the 100-year flow's zone (the area's FLOOD_ZONE_LABEL);
+        else what lies near its place."""
         if not self.data:
             return None
         if candidate["key"].startswith("flow-") and self.flood:
-            found = {"within_km": None, "zone": "MCF:s klimatanpassade 100-årsflöde", **self.in_flood}
+            found = {"within_km": None, "zone": getattr(self.area, "FLOOD_ZONE_LABEL", "MCF:s 100-årsflöde"), **self.in_flood}
         elif candidate.get("latitude") is not None:
             found = self.near(candidate["latitude"], candidate["longitude"])
         else:

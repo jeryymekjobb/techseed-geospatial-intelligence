@@ -8,17 +8,19 @@ numpy array in WGS 84. Two images are made, as in the scenarios:
   percentile: rough, wet ground and buildings bright, smooth ground and water dark. It shows the
   ground's wetness only in part, together with its roughness and vegetation; it is not a measure of
   soil moisture;
-- water outside the known water, in red: pixels darker than the median over OpenStreetMap's lakes,
+- water outside the known water, in red: pixels darker than the median over OpenStreetMap's lakes
+  and sea (the sea from OSM's coastline water polygons, data/osm/<area>-coastline/, where built),
   on at least five of the nine pixels round them. A simple computed mask, not a mapped flood: tarmac
-  and radar shadows are dark too. Where the darkest land is as dark as the water (wind, rain), the
-  pass is marked not separable.
+  and radar shadows are dark too. Where the darkest land is as dark as the water (wind, rain), or the
+  pass sees too little known water to tell how dark water is (MIN_WATER_PIXELS), the pass is marked
+  not separable and no water is drawn, as in the scenarios.
 
 - the relative wetness of the ground, by change detection, the principle of Copernicus's soil
   moisture from Sentinel-1: each pixel's backscatter now set between how dry (its 5th percentile)
   and how wet (its 95th) the same place has been in the passes of the same relative orbit in the last
   REFERENCE days, 0 to 100 %, brown dry to blue wet, at about 100 m, smoothed over 3 x 3 of them. It is computed, not measured,
   and uncertain in forest and built-up land, where the backscatter changes little; there, and on the
-  lakes, it is left out.
+  lakes and the sea, it is left out.
 
 Each poll asks again at most once every SEARCH_EVERY; a pass already made is not made again. The
 dry and wet references are kept and made again when older than REFERENCE_AGE.
@@ -29,6 +31,8 @@ from __future__ import annotations
 
 import io
 import json
+import struct
+import warnings
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -56,6 +60,11 @@ PIXELS_PER_DEGREE = (1500, 3000)  # about 40 m each way at 59 N
 NEIGHBOURS = scenario_radar.NEIGHBOURS
 WATER_RGBA = scenario_radar.WATER_RGBA
 LAND_PERCENTILE = scenario_radar.LAND_PERCENTILE
+# Known water the pass must see to set its threshold: about 1.5 km² at about 40 m a pixel. Sala's pass
+# of 4 November 2026 saw 28 pixels of it, and its threshold drew two thirds of the land red.
+MIN_WATER_PIXELS = 1000
+# Made again once when the mask's rules change: 2 hides an inseparable pass (2026-11-05).
+MASK_VERSION = 2
 
 Fetch = Callable[[str], bytes]
 
@@ -94,12 +103,13 @@ def images(vv: np.ndarray, water: np.ndarray) -> tuple[bytes, bytes, dict[str, A
     rgba[..., 3] = np.where(valid, 255, 0)
     over_water, over_land = valid & water, valid & ~water
     threshold = float(np.nanmedian(decibels[over_water])) if over_water.any() else float(low)
-    separable = bool(over_land.any()) and float(np.nanpercentile(decibels[over_land], LAND_PERCENTILE)) >= threshold
+    enough_water = int(over_water.sum()) >= MIN_WATER_PIXELS
+    separable = enough_water and bool(over_land.any()) and float(np.nanpercentile(decibels[over_land], LAND_PERCENTILE)) >= threshold
     dark = (valid & (decibels < threshold)).astype("i4")
     height, width = vv.shape
     padded = np.pad(dark, 1)
     count = sum(padded[1 + dy:1 + dy + height, 1 + dx:1 + dx + width] for dy in (-1, 0, 1) for dx in (-1, 0, 1))
-    new_water = (count >= NEIGHBOURS) & (dark == 1) & ~water
+    new_water = (count >= NEIGHBOURS) & (dark == 1) & ~water & separable
     mask = np.zeros((*vv.shape, 4), dtype="u1")
     mask[new_water] = WATER_RGBA
     out_grey, out_water = io.BytesIO(), io.BytesIO()
@@ -108,8 +118,10 @@ def images(vv: np.ndarray, water: np.ndarray) -> tuple[bytes, bytes, dict[str, A
     land = valid & ~water
     return out_grey.getvalue(), out_water.getvalue(), {
         "threshold_db": round(threshold, 1), "separable": separable,
+        "not_separable_reason": None if separable else ("för lite känt vatten i passagen" if not enough_water
+                                                        else "den mörkaste marken är lika mörk som vattnet"),
         "coverage_pct": round(100.0 * float(valid.mean()), 1),
-        "new_water_pct": round(100.0 * float(new_water[land].mean()), 2) if land.any() else 0.0}
+        "new_water_pct": (round(100.0 * float(new_water[land].mean()), 2) if land.any() else 0.0) if separable else None}
 
 
 def coarse(vv: np.ndarray, scale: int = LOW) -> np.ndarray:
@@ -146,12 +158,51 @@ def wetness(now_db: np.ndarray, dry: np.ndarray, wet: np.ndarray, count: np.ndar
                             "wetness_cover_pct": round(100.0 * float(usable.mean()), 0)}
 
 
+def sea_polygons(shapefile: Path) -> list[list[list[list[float]]]]:
+    """OpenStreetMap's sea from a clipped water_polygons.shp (tools/build_offline_tiles.py), each
+    polygon as its rings of [lon, lat]: the shapefile's polygons (type 5) read without GDAL. A ring
+    turning clockwise is the sea's edge, one turning anticlockwise an island in it."""
+    data = shapefile.read_bytes()
+    polygons, at = [], 100
+    while at + 8 <= len(data):
+        length = struct.unpack(">i", data[at + 4:at + 8])[0] * 2
+        record = data[at + 8:at + 8 + length]
+        at += 8 + length
+        if len(record) < 44 or struct.unpack("<i", record[:4])[0] != 5:
+            continue
+        parts, count = struct.unpack("<2i", record[36:44])
+        starts = list(struct.unpack(f"<{parts}i", record[44:44 + 4 * parts])) + [count]
+        points = np.frombuffer(record, "<f8", count * 2, 44 + 4 * parts).reshape(count, 2)
+        polygons.append([points[a:b].tolist() for a, b in zip(starts, starts[1:])])
+    return polygons
+
+
+def sea_mask(size: tuple[int, int], bbox: tuple[float, float, float, float], polygons: list[list[list[list[float]]]]) -> np.ndarray:
+    """The sea as a mask over the image (width, height), its islands left out."""
+    from PIL import ImageDraw
+
+    west, south, east, north = bbox
+    width, height = size
+    image = Image.new("1", size, 0)
+    draw = ImageDraw.Draw(image)
+    for rings in polygons:
+        for ring in sorted(rings, key=lambda ring: _clockwise(ring), reverse=True):  # the edges first, then the islands
+            draw.polygon([((lon - west) / (east - west) * width, (north - lat) / (north - south) * height) for lon, lat in ring],
+                         fill=1 if _clockwise(ring) else 0)
+    return np.array(image, dtype=bool)
+
+
+def _clockwise(ring: list[list[float]]) -> bool:
+    return sum((x2 - x1) * (y2 + y1) for (x1, y1), (x2, y2) in zip(ring, ring[1:])) > 0
+
+
 class Latest:
     """The latest radar pass, kept in data/monitoring/<area>/radar-s1/ between polls and restarts."""
 
     def __init__(self, bbox: tuple[float, float, float, float], data_dir: Path, terrain_file: Path | None, fetch: Fetch,
-                 post: sentinel2.Post = sentinel2.post_json) -> None:
+                 post: sentinel2.Post = sentinel2.post_json, sea_file: Path | None = None) -> None:
         self.bbox = bbox
+        self.sea_file = sea_file
         self.dir = data_dir / "radar-s1"
         self.terrain_file = terrain_file
         self.fetch = fetch
@@ -174,8 +225,15 @@ class Latest:
 
     def known_water(self, shape: tuple[int, int]) -> np.ndarray:
         if self.water is None or self.water.shape != shape:
-            self.water = scenario_radar.known_water((shape[1], shape[0]), self.bbox, self._rings())
+            self.water = self._water(shape)
         return self.water
+
+    def _water(self, shape: tuple[int, int]) -> np.ndarray:
+        """The lakes and, where the area has its coastline, the sea, over an image of the shape."""
+        water = scenario_radar.known_water((shape[1], shape[0]), self.bbox, self._rings())
+        if self.sea_file and self.sea_file.is_file():
+            water |= sea_mask((shape[1], shape[0]), self.bbox, sea_polygons(self.sea_file))
+        return water
 
     def reference(self, orbit: int | None, now: datetime) -> dict[str, Any] | None:
         """How dry and how wet each coarse pixel has been in the passes of the relative orbit in the
@@ -204,7 +262,11 @@ class Latest:
         if len(stack) < MIN_PASSES:
             return None
         cube = np.stack(stack)
-        reference = {"dry": np.nanpercentile(cube, 5, axis=0), "wet": np.nanpercentile(cube, 95, axis=0),
+        # Blocks no pass covered (the sea, outside the swaths) stay NaN, as the wetness expects, without a warning.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            dry, wet = np.nanpercentile(cube, 5, axis=0), np.nanpercentile(cube, 95, axis=0)
+        reference = {"dry": dry, "wet": wet,
                      "count": np.isfinite(cube).sum(axis=0), "passes": np.array(len(stack)),
                      "made_utc": np.array(now.isoformat())}
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -220,7 +282,8 @@ class Latest:
                 "sortby": [{"field": "datetime", "direction": "desc"}]}
         found = passes(json.loads(self.post(sentinel2.STAC_SEARCH, body)).get("features") or [])
         self.searched = now
-        if not found or (self.meta and self.meta["items"] == found[0]["items"]):
+        # A pass made under older rules for the mask (MASK_VERSION) is made again.
+        if not found or (self.meta and self.meta["items"] == found[0]["items"] and self.meta.get("mask_version") == MASK_VERSION):
             return self.meta
         latest = found[0]
         vv = None
@@ -234,11 +297,12 @@ class Latest:
         reference = self.reference(latest.get("relative_orbit"), now)
         if reference is not None:
             low = coarse(vv)
-            lakes = scenario_radar.known_water((low.shape[1], low.shape[0]), self.bbox, self._rings())
+            lakes = self._water(low.shape)
             png, wet_stats = wetness(decibels(low), reference["dry"], reference["wet"], reference["count"], lakes)
             (self.dir / "wetness.png").write_bytes(png)
             stats = {**stats, **wet_stats, "wetness_passes": int(reference["passes"])}
-        self.meta = {**latest, **stats, "bbox": list(self.bbox),
+        self.meta = {**latest, **stats, "bbox": list(self.bbox), "mask_version": MASK_VERSION,
+                     "made_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
                      "attribution": f"Innehåller bearbetade Copernicus Sentinel-data {latest['time_utc'][:4]} (Microsoft Planetary Computer)"}
         (self.dir / "latest.json").write_text(json.dumps(self.meta), encoding="utf-8")
         return self.meta
