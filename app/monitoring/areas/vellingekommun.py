@@ -34,6 +34,8 @@ MUNICIPAL_BASEMAPS = [{
     "label": "Vellinge kommun (Bakgrundskarta)",
     "attribution": "Karta © Vellinge kommun – intern användning",
     "white_outside": True, "outside_colour": (253, 253, 253),
+    # Its pale blue sea is transparent too, so OSM's sea shows where the border runs far out at sea (2026-11-05).
+    "transparent_colours": [(189, 231, 254)],
     "permission": "Internal use in the development department (D-2026-11-04b); the service states no terms.",
     "note": "Vellinge kommun's Bakgrundskarta_Infracontrol in full colour, white outside the municipality.",
     "dir": DATA_DIR / "municipal-basemap" / "vellinge-farg",

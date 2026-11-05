@@ -16,7 +16,9 @@ keep it locally, and on 2026-10-28 that Techseed may use Västerås stad's data 
 A map that is white outside the municipality ("white_outside" in MUNICIPAL_BASEMAP; Kartan) has its
 pure white, or the colour it has there ("outside_colour"; Flens kommun's 253, 253, 253), made transparent, so the screens' OSM map shows through there; inside the municipality
 Kartan has no pure white (checked on 2026-10-29 at zooms 12-16). `--clear-white` does the same to
-the tiles already fetched, without asking the service.
+the tiles already fetched, without asking the service. A map may name further colours to make
+transparent ("transparent_colours"; Vellinge's sea, so OSM's sea shows where the municipality's
+border runs far out at sea, instead of the map's pale blue).
 
     TECHSEED_SCENARIO=sundsvall2026 .venv/bin/python -m tools.fetch_municipal_basemap
     .venv/bin/python -m tools.fetch_municipal_basemap --area flenkommun   # the monitoring's map
@@ -143,20 +145,30 @@ def outside_colour(item: dict) -> tuple[int, int, int]:
     return tuple(item.get("outside_colour", WHITE))
 
 
-def clear_white(image: Image.Image, colour: tuple[int, int, int] = WHITE) -> Image.Image:
-    """The image with its pixels of the colour outside the municipality (pure white) transparent."""
+def clear_colours(item: dict) -> list[tuple[int, int, int]]:
+    """Every colour made transparent: the one outside the municipality and the map's "transparent_colours"."""
+    return [outside_colour(item), *(tuple(colour) for colour in item.get("transparent_colours", []))]
+
+
+def _matching(pixels: np.ndarray, colours: tuple[int, int, int] | list[tuple[int, int, int]]) -> np.ndarray:
+    colours = [colours] if isinstance(colours[0], int) else colours
+    return np.logical_or.reduce([(pixels[..., :3] == colour).all(axis=-1) for colour in colours])
+
+
+def clear_white(image: Image.Image, colour: tuple[int, int, int] | list[tuple[int, int, int]] = WHITE) -> Image.Image:
+    """The image with its pixels of the colour outside the municipality (pure white), or of each colour given, transparent."""
     pixels = np.array(image.convert("RGBA"))
-    pixels[(pixels[..., :3] == colour).all(axis=-1), 3] = 0
+    pixels[_matching(pixels, colour), 3] = 0
     return Image.fromarray(pixels, "RGBA")
 
 
-def clear_white_tiles(out: Path, colour: tuple[int, int, int] = WHITE) -> int:
-    """Makes the colour outside the municipality of the fetched tiles transparent; returns how many tiles changed."""
+def clear_white_tiles(out: Path, colour: tuple[int, int, int] | list[tuple[int, int, int]] = WHITE) -> int:
+    """Makes the colour outside the municipality (or each colour given) of the fetched tiles transparent; returns how many tiles changed."""
     changed = 0
     for path in sorted(out.glob("*/*/*.png")):
         with Image.open(path) as opened:
             pixels = np.array(opened.convert("RGBA"))
-        if not ((pixels[..., :3] == colour).all(axis=-1) & (pixels[..., 3] > 0)).any():
+        if not (_matching(pixels, colour) & (pixels[..., 3] > 0)).any():
             continue
         part = path.with_suffix(".part")
         clear_white(Image.fromarray(pixels, "RGBA"), colour).save(part, format="PNG", optimize=True)
@@ -209,7 +221,7 @@ def fetch_map(item: dict, bbox: tuple[float, float, float, float], min_zoom: int
                 path.parent.mkdir(parents=True, exist_ok=True)
                 # Through a part file: a tile that exists is never asked again, so it must be whole.
                 part = path.with_suffix(".part")
-                (clear_white(piece, outside_colour(item)) if white_outside else piece).save(part, format="PNG", optimize=True)
+                (clear_white(piece, clear_colours(item)) if white_outside else piece).save(part, format="PNG", optimize=True)
                 os.replace(part, path)
             fetched += 1
             time.sleep(pause)
@@ -257,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
         if not white:
             parser.exit(1, "fetch_municipal_basemap: no map of the scenario is white outside the municipality\n")
         for item in white:
-            changed = clear_white_tiles(item["dir"], outside_colour(item))
+            changed = clear_white_tiles(item["dir"], clear_colours(item))
             print(f"fetch_municipal_basemap: {item['id']}: {changed} tiles made transparent outside the municipality")
             record = item["dir"] / "SOURCE.json"
             if record.is_file():

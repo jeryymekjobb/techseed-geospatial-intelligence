@@ -53,7 +53,8 @@ municipal maps of Sundsvall and Västerås are those fetched for their scenarios
 the user allowed (Västerås's is fetched again over the whole municipality into the monitoring's own
 folder, `fallback_dir` keeping the scenario's until then); Vellinge's (ArcGIS REST, no terms stated) is fetched with
 `tools.fetch_municipal_basemap --area vellingekommun`, for internal use as the user allowed on
-2026-11-04, and so is Höör's (`Baskarta_Hoor_OpenData` on Geoinfo Mittskåne's server, found by the
+2026-11-04, its pale blue sea made transparent (`transparent_colours`) so OSM's sea shows where the
+border runs far out at sea, and so is Höör's (`Baskarta_Hoor_OpenData` on Geoinfo Mittskåne's server, found by the
 report of 2026-11-04). Kramfors, Ljusdal and Sala publish no background map of their own (checked
 2026-11-04: Sokigo's Spatial Map with Lantmäteriet's maps, Lantmäteriet's Topowebb through a proxy),
 so OpenStreetMap stays their base map.
